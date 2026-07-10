@@ -8,6 +8,8 @@ extends Resource
 ## Vector3 fields use pilot axes: x = roll (+right), y = pitch (+nose up),
 ## z = yaw (+right).
 
+enum ThrottleCurve { RAW, HOVER_CENTERED }
+
 @export_group("Airframe")
 @export var mass: float = 0.65
 @export var arm_length: float = 0.12
@@ -39,6 +41,16 @@ extends Resource
 @export_group("Input")
 ## Applied to every stick axis before expo (handoff §7).
 @export var stick_deadzone: float = 0.08
+## hover_centered: mid-stick = computed hover throttle — livable on a
+## springy, self-centering gamepad stick (handoff §7). raw: linear [0,1].
+@export var throttle_curve: ThrottleCurve = ThrottleCurve.HOVER_CENTERED
+
+@export_group("Angle Mode")
+## Max target attitude at full stick deflection (handoff §6.4).
+@export var max_angle_deg: float = 55.0
+## Attitude P: converts attitude error (rad) to a target rate (rad/s) that
+## feeds the same rate controller as acro.
+@export var angle_p: float = 6.0
 
 @export_group("Aerodynamics")
 ## Quadratic drag: F = -c * |v| * v

@@ -9,11 +9,14 @@ extends Node
 ## Buttons (arm/reset/…) are plain digital actions, polled where they are
 ## handled (flight_controller, main).
 
-## Throttle [0, 1] after deadzone and curve.
+## Throttle [0, 1] after deadzone and the selected curve.
 var throttle: float = 0.0
 ## Target body rates in rad/s, pilot axes (x=roll+right, y=pitch+nose-up,
 ## z=yaw+right).
 var rate_command: Vector3 = Vector3.ZERO
+## Shaped stick deflections [-1, 1] after deadzone+expo, same axes —
+## angle mode maps these to target attitudes instead of rates.
+var stick_shaped: Vector3 = Vector3.ZERO
 
 var _axis_throttle: int = JOY_AXIS_LEFT_Y
 var _axis_yaw: int = JOY_AXIS_LEFT_X
@@ -28,11 +31,12 @@ func _ready() -> void:
 	_axis_roll = _bound_axis(&"roll", _axis_roll)
 
 
-func poll(config: FlightConfig) -> void:
+func poll(config: FlightConfig, hover_throttle: float) -> void:
 	var pads: Array[int] = Input.get_connected_joypads()
 	if pads.is_empty():
 		throttle = 0.0
 		rate_command = Vector3.ZERO
+		stick_shaped = Vector3.ZERO
 		return
 	var device: int = pads[0]
 
@@ -45,11 +49,21 @@ func poll(config: FlightConfig) -> void:
 	var pitch_stick: float = Input.get_joy_axis(device, _axis_pitch)
 	var yaw_stick: float = Input.get_joy_axis(device, _axis_yaw)
 
-	throttle = _throttle_raw_curve(_apply_deadzone(throttle_stick, config.stick_deadzone))
+	var throttle_deadzoned: float = _apply_deadzone(throttle_stick, config.stick_deadzone)
+	match config.throttle_curve:
+		FlightConfig.ThrottleCurve.HOVER_CENTERED:
+			throttle = _throttle_hover_centered_curve(throttle_deadzoned, hover_throttle)
+		_:
+			throttle = _throttle_raw_curve(throttle_deadzoned)
+	stick_shaped = Vector3(
+		_shape(roll_stick, config.stick_deadzone, config.expo.x),
+		_shape(pitch_stick, config.stick_deadzone, config.expo.y),
+		_shape(yaw_stick, config.stick_deadzone, config.expo.z)
+	)
 	rate_command = Vector3(
-		_shape(roll_stick, config.stick_deadzone, config.expo.x) * deg_to_rad(config.max_rate_deg.x),
-		_shape(pitch_stick, config.stick_deadzone, config.expo.y) * deg_to_rad(config.max_rate_deg.y),
-		_shape(yaw_stick, config.stick_deadzone, config.expo.z) * deg_to_rad(config.max_rate_deg.z)
+		stick_shaped.x * deg_to_rad(config.max_rate_deg.x),
+		stick_shaped.y * deg_to_rad(config.max_rate_deg.y),
+		stick_shaped.z * deg_to_rad(config.max_rate_deg.z)
 	)
 
 
@@ -78,6 +92,21 @@ static func _shape(value: float, deadzone: float, expo: float) -> float:
 
 
 ## 'raw' throttle curve (§7): stick [-1, 1] → [0, 1] linearly.
-## 'hover_centered' (mid-stick = hover) arrives in Phase 3.
 static func _throttle_raw_curve(value: float) -> float:
 	return (value + 1.0) * 0.5
+
+
+## 'hover_centered' (§7): mid-stick = computed hover throttle, smoothstep
+## blend to 0 and 1 at the extremes. Monotonic and C1 at center; the flat
+## slope around mid-stick is deliberate — it makes hover holdable on a
+## springy self-centering stick.
+static func _throttle_hover_centered_curve(value: float, hover: float) -> float:
+	var stick_fraction: float = (value + 1.0) * 0.5
+	var center: float = clampf(hover, 0.05, 0.95)
+	if stick_fraction < 0.5:
+		return center * _smoothstep01(stick_fraction * 2.0)
+	return center + (1.0 - center) * _smoothstep01(stick_fraction * 2.0 - 1.0)
+
+
+static func _smoothstep01(u: float) -> float:
+	return u * u * (3.0 - 2.0 * u)

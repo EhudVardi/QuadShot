@@ -6,6 +6,8 @@ extends RigidBody3D
 ## Pilot-convention axes everywhere outside the Godot-space conversion in
 ## _measured_rates(): x = roll (+right), y = pitch (+nose up), z = yaw (+right).
 
+enum FlightMode { ACRO, ANGLE }
+
 @export var config: FlightConfig
 
 @onready var _motors: MotorModel = $MotorModel
@@ -13,6 +15,7 @@ extends RigidBody3D
 @onready var _fpv_camera: Camera3D = $FpvCamera
 
 var armed: bool = false
+var flight_mode: FlightMode = FlightMode.ACRO
 ## Effective throttle [0, 1] this tick (gamepad, or the test override below).
 var collective: float = 0.0
 ## Test hook (scripts/tests/hover_check.gd): >= 0 replaces gamepad throttle.
@@ -35,7 +38,7 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_input.poll(config)
+	_input.poll(config, hover_throttle())
 	collective = throttle_override if throttle_override >= 0.0 else _input.throttle
 	_handle_buttons()
 	if armed:
@@ -95,11 +98,17 @@ func _handle_buttons() -> void:
 			arm()
 	if Input.is_action_just_pressed(&"reset_drone"):
 		reset_to_spawn()
+	if Input.is_action_just_pressed(&"flight_mode_toggle"):
+		if flight_mode == FlightMode.ACRO:
+			flight_mode = FlightMode.ANGLE
+		else:
+			flight_mode = FlightMode.ACRO
+		print("[drone] flight mode: %s" % FlightMode.keys()[flight_mode])
 
 
 func _run_rate_control(delta: float) -> void:
 	var command: Vector3 = _rate_controller.update(
-			_input.rate_command, _measured_rates(), delta, config)
+			_target_rates(), _measured_rates(), delta, config)
 	# Quad-X mixing: positive pilot roll lowers the right side, positive pitch
 	# raises the nose, positive yaw spins the nose right (signs verified
 	# against X_SIGNS/Z_SIGNS/SPIN_DIRECTIONS in motor_model.gd).
@@ -110,6 +119,29 @@ func _run_rate_control(delta: float) -> void:
 		motor -= command.z * float(MotorModel.SPIN_DIRECTIONS[i])
 		# Air-mode floor: attitude authority is retained at zero throttle.
 		_motors.set_command(i, clampf(motor, config.motor_idle, 1.0))
+
+
+func _target_rates() -> Vector3:
+	if flight_mode == FlightMode.ACRO:
+		return _input.rate_command
+	# Angle mode (handoff §6.4): stick deflection → target attitude, and an
+	# attitude P loop converts the error to a target rate for the SAME rate
+	# controller. Yaw stays rate-based. The asin-based angles are only valid
+	# within ±90°, fine for a ±55° self-level envelope.
+	var max_angle: float = deg_to_rad(config.max_angle_deg)
+	var forward: Vector3 = -global_basis.z
+	var right: Vector3 = global_basis.x
+	var current_pitch: float = asin(clampf(forward.y, -1.0, 1.0))
+	var current_roll: float = asin(clampf(-right.y, -1.0, 1.0))
+	var roll_rate: float = config.angle_p * (_input.stick_shaped.x * max_angle - current_roll)
+	var pitch_rate: float = config.angle_p * (_input.stick_shaped.y * max_angle - current_pitch)
+	# Never command faster than acro's rate limits.
+	var max_roll: float = deg_to_rad(config.max_rate_deg.x)
+	var max_pitch: float = deg_to_rad(config.max_rate_deg.y)
+	return Vector3(
+		clampf(roll_rate, -max_roll, max_roll),
+		clampf(pitch_rate, -max_pitch, max_pitch),
+		_input.rate_command.z)
 
 
 ## Body angular velocity mapped to pilot axes. Godot body space: +X right,
