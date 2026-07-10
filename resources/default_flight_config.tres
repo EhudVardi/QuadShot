@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FlightConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/flight_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+mass = 0.65
+arm_length = 0.12
+thrust_to_weight_ratio = 4.5
+motor_lag_tau = 0.05
+drag_coefficient = 0.03
+angular_damping = 0.02
+arm_throttle_threshold = 0.05
