@@ -1,0 +1,52 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_gate"]
+albedo_color = Color(0.9, 0.45, 0.1, 1)
+
+[sub_resource type="BoxMesh" id="mesh_bar_h"]
+material = SubResource("mat_gate")
+size = Vector3(3.6, 0.3, 0.3)
+
+[sub_resource type="BoxMesh" id="mesh_bar_v"]
+material = SubResource("mat_gate")
+size = Vector3(0.3, 3, 0.3)
+
+[sub_resource type="BoxShape3D" id="shape_bar_h"]
+size = Vector3(3.6, 0.3, 0.3)
+
+[sub_resource type="BoxShape3D" id="shape_bar_v"]
+size = Vector3(0.3, 3, 0.3)
+
+[node name="Gate" type="StaticBody3D"]
+
+[node name="TopBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+mesh = SubResource("mesh_bar_h")
+
+[node name="BottomBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.65, 0)
+mesh = SubResource("mesh_bar_h")
+
+[node name="LeftBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.65, 0, 0)
+mesh = SubResource("mesh_bar_v")
+
+[node name="RightBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 0, 0)
+mesh = SubResource("mesh_bar_v")
+
+[node name="TopCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+shape = SubResource("shape_bar_h")
+
+[node name="BottomCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.65, 0)
+shape = SubResource("shape_bar_h")
+
+[node name="LeftCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.65, 0, 0)
+shape = SubResource("shape_bar_v")
+
+[node name="RightCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 0, 0)
+shape = SubResource("shape_bar_v")

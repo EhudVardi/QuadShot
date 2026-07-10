@@ -1,0 +1,205 @@
+[gd_scene load_steps=23 format=3]
+
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
+[ext_resource type="PackedScene" path="res://scenes/environment/gate.tscn" id="2_gate"]
+
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("1_checker")
+
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(200, 200)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.2, 0.7, 0.35, 1)
+
+[sub_resource type="BoxMesh" id="mesh_pad"]
+material = SubResource("mat_pad")
+size = Vector3(3, 0.12, 3)
+
+[sub_resource type="BoxShape3D" id="shape_pad"]
+size = Vector3(3, 0.12, 3)
+
+[sub_resource type="StandardMaterial3D" id="mat_box"]
+albedo_color = Color(0.6, 0.6, 0.62, 1)
+
+[sub_resource type="BoxMesh" id="mesh_box_s"]
+material = SubResource("mat_box")
+size = Vector3(1.5, 1.5, 1.5)
+
+[sub_resource type="BoxShape3D" id="shape_box_s"]
+size = Vector3(1.5, 1.5, 1.5)
+
+[sub_resource type="BoxMesh" id="mesh_box_m"]
+material = SubResource("mat_box")
+size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxShape3D" id="shape_box_m"]
+size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxMesh" id="mesh_box_l"]
+material = SubResource("mat_box")
+size = Vector3(3, 3, 3)
+
+[sub_resource type="BoxShape3D" id="shape_box_l"]
+size = Vector3(3, 3, 3)
+
+[sub_resource type="BoxMesh" id="mesh_box_xl"]
+material = SubResource("mat_box")
+size = Vector3(4, 4, 4)
+
+[sub_resource type="BoxShape3D" id="shape_box_xl"]
+size = Vector3(4, 4, 4)
+
+[sub_resource type="BoxMesh" id="mesh_box_tower"]
+material = SubResource("mat_box")
+size = Vector3(3, 5, 3)
+
+[sub_resource type="BoxShape3D" id="shape_box_tower"]
+size = Vector3(3, 5, 3)
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+
+[node name="Greybox" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+[node name="SpawnPad" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="SpawnPad"]
+mesh = SubResource("mesh_pad")
+
+[node name="Collision" type="CollisionShape3D" parent="SpawnPad"]
+shape = SubResource("shape_pad")
+
+[node name="SpawnPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="Obstacles" type="Node3D" parent="."]
+
+[node name="Box01" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1, -12)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box01"]
+mesh = SubResource("mesh_box_m")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box01"]
+shape = SubResource("shape_box_m")
+
+[node name="Box02" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 2.5, -30)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box02"]
+mesh = SubResource("mesh_box_tower")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box02"]
+shape = SubResource("shape_box_tower")
+
+[node name="Box03" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 1, -40)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box03"]
+mesh = SubResource("mesh_box_m")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box03"]
+shape = SubResource("shape_box_m")
+
+[node name="Box04" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 1.5, -30)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box04"]
+mesh = SubResource("mesh_box_l")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box04"]
+shape = SubResource("shape_box_l")
+
+[node name="Box05" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0.75, -5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box05"]
+mesh = SubResource("mesh_box_s")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box05"]
+shape = SubResource("shape_box_s")
+
+[node name="Box06" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 1.5, 5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box06"]
+mesh = SubResource("mesh_box_l")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box06"]
+shape = SubResource("shape_box_l")
+
+[node name="Box07" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 2.5, -35)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box07"]
+mesh = SubResource("mesh_box_tower")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box07"]
+shape = SubResource("shape_box_tower")
+
+[node name="Box08" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 1, -25)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box08"]
+mesh = SubResource("mesh_box_m")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box08"]
+shape = SubResource("shape_box_m")
+
+[node name="Box09" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.75, -25)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box09"]
+mesh = SubResource("mesh_box_s")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box09"]
+shape = SubResource("shape_box_s")
+
+[node name="Box10" type="StaticBody3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 2, -20)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacles/Box10"]
+mesh = SubResource("mesh_box_xl")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacles/Box10"]
+shape = SubResource("shape_box_xl")
+
+[node name="Gates" type="Node3D" parent="."]
+
+[node name="Gate1" parent="Gates" instance=ExtResource("2_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -20)
+
+[node name="Gate2" parent="Gates" instance=ExtResource("2_gate")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -25, 5, -45)
+
+[node name="Gate3" parent="Gates" instance=ExtResource("2_gate")]
+transform = Transform3D(0.766044, 0, -0.642788, 0, 1, 0, 0.642788, 0, 0.766044, -50, 2.5, -15)
+
+[node name="Gate4" parent="Gates" instance=ExtResource("2_gate")]
+transform = Transform3D(0.819152, 0, 0.573576, 0, 1, 0, -0.573576, 0, 0.819152, -30, 6, 15)
