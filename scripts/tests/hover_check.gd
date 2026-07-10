@@ -34,7 +34,7 @@ func _on_physics_frame() -> void:
 		_drone.global_position = Vector3(0.0, START_ALTITUDE, 0.0)
 		_drone.arm()
 		var hover: float = _drone.hover_throttle()
-		_drone.collective = hover
+		_drone.throttle_override = hover
 		# Prime past the spool-up: we are testing hover equilibrium, and the
 		# ~0.5 m/s sink picked up while motors lag from zero would never decay
 		# (at exact hover thrust the net force on any residual velocity is zero).

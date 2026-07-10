@@ -8,8 +8,9 @@ extends Node
 
 const MOTOR_COUNT: int = 4
 const SPIN_DIRECTIONS: Array[int] = [1, -1, -1, 1]
-const _X_SIGNS: Array[float] = [-1.0, 1.0, -1.0, 1.0]
-const _Z_SIGNS: Array[float] = [-1.0, -1.0, 1.0, 1.0]
+## Public: the quad-X mixer in flight_controller.gd keys off these.
+const X_SIGNS: Array[float] = [-1.0, 1.0, -1.0, 1.0]
+const Z_SIGNS: Array[float] = [-1.0, -1.0, 1.0, 1.0]
 
 var _commands: PackedFloat32Array
 var _outputs: PackedFloat32Array
@@ -62,14 +63,19 @@ func max_total_thrust(config: FlightConfig, gravity: float) -> float:
 
 
 func motor_position(index: int, config: FlightConfig) -> Vector3:
-	return Vector3(_X_SIGNS[index] * config.arm_length, 0.0, _Z_SIGNS[index] * config.arm_length)
+	return Vector3(X_SIGNS[index] * config.arm_length, 0.0, Z_SIGNS[index] * config.arm_length)
 
 
 ## Per-motor thrust along body +Y at the motor's mounting point, so
 ## differential outputs naturally produce roll/pitch torque (handoff §6.2).
+## Yaw comes from simplified prop reaction torque: about body Y, proportional
+## to the summed signed motor outputs — zero when the pairs are balanced.
 func apply_thrust(body: RigidBody3D, config: FlightConfig, gravity: float) -> void:
 	var per_motor_max: float = max_total_thrust(config, gravity) / float(MOTOR_COUNT)
+	var yaw_sum: float = 0.0
 	for i: int in MOTOR_COUNT:
 		var force: Vector3 = body.global_basis.y * (_outputs[i] * per_motor_max)
 		var position_offset: Vector3 = body.global_basis * motor_position(i, config)
 		body.apply_force(force, position_offset)
+		yaw_sum += float(SPIN_DIRECTIONS[i]) * _outputs[i]
+	body.apply_torque(body.global_basis.y * (config.yaw_authority * yaw_sum))

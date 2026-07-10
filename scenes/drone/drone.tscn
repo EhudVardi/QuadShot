@@ -1,8 +1,9 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/drone/flight_controller.gd" id="1_fc"]
 [ext_resource type="Script" path="res://scripts/drone/motor_model.gd" id="2_mm"]
 [ext_resource type="Resource" path="res://resources/default_flight_config.tres" id="3_cfg"]
+[ext_resource type="Script" path="res://scripts/drone/input_handler.gd" id="4_ih"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
 size = Vector3(0.28, 0.08, 0.28)
@@ -30,6 +31,13 @@ config = ExtResource("3_cfg")
 
 [node name="MotorModel" type="Node" parent="."]
 script = ExtResource("2_mm")
+
+[node name="InputHandler" type="Node" parent="."]
+script = ExtResource("4_ih")
+
+[node name="FpvCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.08)
+current = true
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 shape = SubResource("shape_frame")
