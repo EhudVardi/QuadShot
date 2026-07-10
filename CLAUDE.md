@@ -17,6 +17,7 @@
 - `scripts/` — `drone/` (flight_controller, motor_model, input_handler), `ui/`
 - `resources/` — `flight_config.gd` (`class_name FlightConfig`), `default_flight_config.tres`, shared shaders/materials
 - Physics tick is **240 Hz** (rate-controller stability); all flight code runs on the fixed tick.
+- **Pilot axis convention** for all Vector3 rate/gain fields: x = roll (+right), y = pitch (+nose up), z = yaw (+right). Drone front is body **-Z**. Conversion from Godot space happens only in `FlightController._measured_rates()`.
 
 ## Conventions
 
