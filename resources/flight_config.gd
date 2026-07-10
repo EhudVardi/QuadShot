@@ -62,6 +62,10 @@ enum ThrottleCurve { RAW, HOVER_CENTERED }
 @export_group("Camera")
 @export var fpv_uptilt_deg: float = 25.0
 @export var fpv_fov_deg: float = 115.0
+@export var chase_distance: float = 3.5
+@export var chase_height: float = 1.2
+## Exponential smoothing rate (1/s) for the chase camera follow.
+@export var chase_smoothing: float = 8.0
 
 @export_group("Arming")
 ## Arming is refused above this throttle fraction (safety, handoff §6.6).

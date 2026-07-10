@@ -24,4 +24,7 @@ drag_coefficient = 0.03
 angular_damping = 0.02
 fpv_uptilt_deg = 25.0
 fpv_fov_deg = 115.0
+chase_distance = 3.5
+chase_height = 1.2
+chase_smoothing = 8.0
 arm_throttle_threshold = 0.05

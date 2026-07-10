@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
 [ext_resource type="Script" path="res://scripts/ui/temp_hud.gd" id="3_hud"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="4_main"]
+[ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -13,8 +14,10 @@ script = ExtResource("4_main")
 [node name="Drone" parent="." instance=ExtResource("2_drone")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 
-[node name="DebugCamera" type="Camera3D" parent="."]
-transform = Transform3D(0.8682, -0.0611, 0.4924, 0, 0.9924, 0.1231, -0.4961, -0.1069, 0.8617, 10, 8, 15)
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
+script = ExtResource("5_chase")
+target = NodePath("../Drone")
 
 [node name="TempHud" type="CanvasLayer" parent="." node_paths=PackedStringArray("drone")]
 script = ExtResource("3_hud")
