@@ -70,3 +70,42 @@ enum ThrottleCurve { RAW, HOVER_CENTERED }
 @export_group("Arming")
 ## Arming is refused above this throttle fraction (safety, handoff §6.6).
 @export var arm_throttle_threshold: float = 0.05
+
+
+# --- Persistence (handoff §8) -----------------------------------------------
+# Loading copies values ONTO this instance instead of swapping resources, so
+# every node holding a reference to the config keeps seeing live values.
+
+const SAVE_PATH: String = "user://flight_config.tres"
+const DEFAULTS_PATH: String = "res://resources/default_flight_config.tres"
+
+
+func copy_from(source: FlightConfig) -> void:
+	for prop: Dictionary in get_property_list():
+		var usage: int = prop["usage"]
+		if (usage & PROPERTY_USAGE_SCRIPT_VARIABLE) and (usage & PROPERTY_USAGE_STORAGE):
+			set(prop["name"], source.get(prop["name"]))
+
+
+func save_to_user() -> Error:
+	return ResourceSaver.save(self, SAVE_PATH)
+
+
+func load_from_user() -> bool:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return false
+	var loaded: FlightConfig = ResourceLoader.load(
+			SAVE_PATH, "", ResourceLoader.CACHE_MODE_IGNORE) as FlightConfig
+	if loaded == null:
+		return false
+	copy_from(loaded)
+	return true
+
+
+func reset_to_defaults() -> void:
+	# CACHE_MODE_IGNORE: the cached default resource may be this very
+	# instance, already mutated by live tuning - a fresh read is required.
+	var defaults: FlightConfig = ResourceLoader.load(
+			DEFAULTS_PATH, "", ResourceLoader.CACHE_MODE_IGNORE) as FlightConfig
+	if defaults != null:
+		copy_from(defaults)

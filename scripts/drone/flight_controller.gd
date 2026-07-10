@@ -21,12 +21,18 @@ var collective: float = 0.0
 ## Test hook (scripts/tests/hover_check.gd): >= 0 replaces gamepad throttle.
 var throttle_override: float = -1.0
 
+## For the overlay's target-vs-actual readout; zeroed while disarmed.
+var telemetry_target_rates: Vector3 = Vector3.ZERO
+var telemetry_measured_rates: Vector3 = Vector3.ZERO
+
 var _rate_controller: RateController = RateController.new()
 var _spawn_transform: Transform3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
 func _ready() -> void:
+	if config.load_from_user():
+		print("[config] loaded %s" % FlightConfig.SAVE_PATH)
 	mass = config.mass
 	_spawn_transform = global_transform
 
@@ -46,6 +52,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		_rate_controller.reset()
 		_motors.force_stop()
+		telemetry_target_rates = Vector3.ZERO
+		telemetry_measured_rates = Vector3.ZERO
 	_motors.step(delta, config)
 	_motors.apply_thrust(self, config, _gravity)
 	_apply_aerodynamics()
@@ -106,9 +114,15 @@ func _handle_buttons() -> void:
 		print("[drone] flight mode: %s" % FlightMode.keys()[flight_mode])
 
 
+func motor_output(index: int) -> float:
+	return _motors.output(index)
+
+
 func _run_rate_control(delta: float) -> void:
+	telemetry_target_rates = _target_rates()
+	telemetry_measured_rates = _measured_rates()
 	var command: Vector3 = _rate_controller.update(
-			_target_rates(), _measured_rates(), delta, config)
+			telemetry_target_rates, telemetry_measured_rates, delta, config)
 	# Quad-X mixing: positive pilot roll lowers the right side, positive pitch
 	# raises the nose, positive yaw spins the nose right (signs verified
 	# against X_SIGNS/Z_SIGNS/SPIN_DIRECTIONS in motor_model.gd).

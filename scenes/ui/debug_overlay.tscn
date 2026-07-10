@@ -1,0 +1,42 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/debug_overlay.gd" id="1_overlay"]
+
+[node name="DebugOverlay" type="CanvasLayer"]
+visible = false
+script = ExtResource("1_overlay")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -460.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+
+[node name="TelemetryText" type="Label" parent="Panel/VBox"]
+
+[node name="Motors" type="VBoxContainer" parent="Panel/VBox"]
+
+[node name="Buttons" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="SaveButton" type="Button" parent="Panel/VBox/Buttons"]
+focus_mode = 0
+text = "Save"
+
+[node name="LoadButton" type="Button" parent="Panel/VBox/Buttons"]
+focus_mode = 0
+text = "Load"
+
+[node name="DefaultsButton" type="Button" parent="Panel/VBox/Buttons"]
+focus_mode = 0
+text = "Defaults"
+
+[node name="Scroll" type="ScrollContainer" parent="Panel/VBox"]
+size_flags_vertical = 3
+
+[node name="Tuning" type="VBoxContainer" parent="Panel/VBox/Scroll"]
+size_flags_horizontal = 3

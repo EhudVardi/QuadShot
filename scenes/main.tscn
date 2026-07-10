@@ -2,9 +2,9 @@
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
-[ext_resource type="Script" path="res://scripts/ui/temp_hud.gd" id="3_hud"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="4_main"]
 [ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -19,13 +19,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
 script = ExtResource("5_chase")
 target = NodePath("../Drone")
 
-[node name="TempHud" type="CanvasLayer" parent="." node_paths=PackedStringArray("drone")]
-script = ExtResource("3_hud")
+[node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
 drone = NodePath("../Drone")
-
-[node name="StatusLabel" type="Label" parent="TempHud"]
-offset_left = 16.0
-offset_top = 16.0
-offset_right = 500.0
-offset_bottom = 200.0
-theme_override_font_sizes/font_size = 22

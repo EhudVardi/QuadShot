@@ -27,6 +27,11 @@
 - Never touch `.godot/`. No third-party addons or external assets without asking — greybox primitives and flat/procedural materials only.
 - Explain non-obvious reasoning briefly; flag uncertainty instead of guessing silently.
 
+## Controls & tuning
+
+- Gamepad (Mode 2): left stick throttle/yaw, right stick pitch/roll. **A** arm (throttle stick low), **B** reset, **Y** acro/angle mode, **X** FPV/chase camera, **Start** debug overlay.
+- Overlay: mouse tunes every `FlightConfig` field live while the gamepad flies. Save/Load persists to `user://flight_config.tres` (auto-loaded on startup); Defaults re-reads `default_flight_config.tres`. New defaults get baked into that `.tres` only when the human says the feel is right (handoff §14).
+
 ## Checkpoint protocol
 
 Work is phased (handoff §11). **At each phase checkpoint: stop, summarize what changed and why, and wait for the human to run/fly it.** Flight feel cannot be evaluated by the agent — the human's hands are the test suite. Map feel feedback to config changes per handoff §14.
