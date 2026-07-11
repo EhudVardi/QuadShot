@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
 [ext_resource type="PackedScene" path="res://scenes/environment/gate.tscn" id="2_gate"]
@@ -59,6 +59,27 @@ size = Vector3(3, 5, 3)
 
 [sub_resource type="BoxShape3D" id="shape_box_tower"]
 size = Vector3(3, 5, 3)
+
+[sub_resource type="BoxMesh" id="mesh_tower_s"]
+material = SubResource("mat_box")
+size = Vector3(5, 10, 5)
+
+[sub_resource type="BoxShape3D" id="shape_tower_s"]
+size = Vector3(5, 10, 5)
+
+[sub_resource type="BoxMesh" id="mesh_tower_m"]
+material = SubResource("mat_box")
+size = Vector3(7, 16, 7)
+
+[sub_resource type="BoxShape3D" id="shape_tower_m"]
+size = Vector3(7, 16, 7)
+
+[sub_resource type="BoxMesh" id="mesh_tower_l"]
+material = SubResource("mat_box")
+size = Vector3(9, 24, 9)
+
+[sub_resource type="BoxShape3D" id="shape_tower_l"]
+size = Vector3(9, 24, 9)
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -189,6 +210,71 @@ mesh = SubResource("mesh_box_xl")
 
 [node name="Collision" type="CollisionShape3D" parent="Obstacles/Box10"]
 shape = SubResource("shape_box_xl")
+
+[node name="OuterTowers" type="Node3D" parent="."]
+
+[node name="Tower01" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 8, -40)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower01"]
+mesh = SubResource("mesh_tower_m")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower01"]
+shape = SubResource("shape_tower_m")
+
+[node name="Tower02" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 12, -55)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower02"]
+mesh = SubResource("mesh_tower_l")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower02"]
+shape = SubResource("shape_tower_l")
+
+[node name="Tower03" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 5, 15)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower03"]
+mesh = SubResource("mesh_tower_s")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower03"]
+shape = SubResource("shape_tower_s")
+
+[node name="Tower04" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 8, 5)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower04"]
+mesh = SubResource("mesh_tower_m")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower04"]
+shape = SubResource("shape_tower_m")
+
+[node name="Tower05" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 12, -70)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower05"]
+mesh = SubResource("mesh_tower_l")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower05"]
+shape = SubResource("shape_tower_l")
+
+[node name="Tower06" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 5, 30)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower06"]
+mesh = SubResource("mesh_tower_s")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower06"]
+shape = SubResource("shape_tower_s")
+
+[node name="Tower07" type="StaticBody3D" parent="OuterTowers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 8, 35)
+
+[node name="Mesh" type="MeshInstance3D" parent="OuterTowers/Tower07"]
+mesh = SubResource("mesh_tower_m")
+
+[node name="Collision" type="CollisionShape3D" parent="OuterTowers/Tower07"]
+shape = SubResource("shape_tower_m")
 
 [node name="Gates" type="Node3D" parent="."]
 
