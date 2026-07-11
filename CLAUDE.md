@@ -24,6 +24,7 @@
 - **No magic numbers in physics/input code** — every tunable is an `@export` in `FlightConfig`; scripts read it, the debug overlay writes it live.
 - Static typing everywhere; `snake_case`; short focused functions; comments explain *why*, not *what*.
 - Composition over inheritance; scenes minimal; `.tscn`/`.tres`/`project.godot` are hand-edited text — keep them small and diff-readable.
+- Hand-written `.tscn` gotcha: exported Node properties need `node_paths=PackedStringArray("prop")` on the `[node]` line **and** `prop = NodePath("...")` in its body, or the reference silently loads as Nil.
 - Never touch `.godot/`. No third-party addons or external assets without asking — greybox primitives and flat/procedural materials only.
 - Explain non-obvious reasoning briefly; flag uncertainty instead of guessing silently.
 
