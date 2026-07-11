@@ -62,7 +62,8 @@ func _physics_process(delta: float) -> void:
 func arm() -> bool:
 	if armed:
 		return true
-	if collective >= config.arm_throttle_threshold:
+	# absf: in 3D mode zero thrust is center stick, and reverse counts as hot.
+	if absf(collective) >= config.arm_throttle_threshold:
 		print("[drone] arm refused: throttle %.0f%% is above the %.0f%% threshold - hold the throttle stick down"
 				% [collective * 100.0, config.arm_throttle_threshold * 100.0])
 		return false
@@ -126,13 +127,18 @@ func _run_rate_control(delta: float) -> void:
 	# Quad-X mixing: positive pilot roll lowers the right side, positive pitch
 	# raises the nose, positive yaw spins the nose right (signs verified
 	# against X_SIGNS/Z_SIGNS/SPIN_DIRECTIONS in motor_model.gd).
+	# Air-mode floor keeps attitude authority at zero throttle. In 3D mode
+	# there is no floor — thrust runs the full [-1, 1] range and PID
+	# corrections around zero provide the authority.
+	var motor_floor: float = config.motor_idle
+	if config.throttle_curve == FlightConfig.ThrottleCurve.THREE_D:
+		motor_floor = -1.0
 	for i: int in MotorModel.MOTOR_COUNT:
 		var motor: float = collective
 		motor -= command.x * MotorModel.X_SIGNS[i]
 		motor -= command.y * MotorModel.Z_SIGNS[i]
 		motor -= command.z * float(MotorModel.SPIN_DIRECTIONS[i])
-		# Air-mode floor: attitude authority is retained at zero throttle.
-		_motors.set_command(i, clampf(motor, config.motor_idle, 1.0))
+		_motors.set_command(i, clampf(motor, motor_floor, 1.0))
 
 
 func _target_rates() -> Vector3:

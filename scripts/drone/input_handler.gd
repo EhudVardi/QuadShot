@@ -9,7 +9,8 @@ extends Node
 ## Buttons (arm/reset/…) are plain digital actions, polled where they are
 ## handled (flight_controller, main).
 
-## Throttle [0, 1] after deadzone and the selected curve.
+## Throttle after deadzone and the selected curve: [0, 1] normally,
+## [-1, 1] in 3D mode (negative = reverse thrust).
 var throttle: float = 0.0
 ## Target body rates in rad/s, pilot axes (x=roll+right, y=pitch+nose-up,
 ## z=yaw+right).
@@ -53,6 +54,10 @@ func poll(config: FlightConfig, hover_throttle: float) -> void:
 	match config.throttle_curve:
 		FlightConfig.ThrottleCurve.HOVER_CENTERED:
 			throttle = _throttle_hover_centered_curve(throttle_deadzoned, hover_throttle)
+		FlightConfig.ThrottleCurve.THREE_D:
+			# 3D (§Betaflight-style): center = zero thrust, below = reverse.
+			# The stick deadzone doubles as the center deadband.
+			throttle = throttle_deadzoned
 		_:
 			throttle = _throttle_raw_curve(throttle_deadzoned)
 	stick_shaped = Vector3(

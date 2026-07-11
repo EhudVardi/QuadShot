@@ -31,6 +31,7 @@ const _FLOAT_ROWS: Array[Array] = [
 	["motor_lag_tau", 0.0, 0.2, 0.005],
 	["motor_idle", 0.0, 0.2, 0.005],
 	["yaw_authority", 0.0, 5.0, 0.05],
+	["reverse_thrust_scale", 0.0, 1.0, 0.01],
 	["integral_limit", 0.0, 0.5, 0.01],
 	["stick_deadzone", 0.0, 0.3, 0.005],
 	["max_angle_deg", 10.0, 80.0, 1.0],

@@ -21,8 +21,10 @@ func _init() -> void:
 	_outputs.resize(MOTOR_COUNT)
 
 
+## Range [-1, 1]: negative only occurs in 3D throttle mode (reverse thrust);
+## the mixer's clamp enforces the mode's actual floor.
 func set_command(index: int, value: float) -> void:
-	_commands[index] = clampf(value, 0.0, 1.0)
+	_commands[index] = clampf(value, -1.0, 1.0)
 
 
 func set_all_commands(value: float) -> void:
@@ -74,7 +76,11 @@ func apply_thrust(body: RigidBody3D, config: FlightConfig, gravity: float) -> vo
 	var per_motor_max: float = max_total_thrust(config, gravity) / float(MOTOR_COUNT)
 	var yaw_sum: float = 0.0
 	for i: int in MOTOR_COUNT:
-		var force: Vector3 = body.global_basis.y * (_outputs[i] * per_motor_max)
+		var thrust: float = _outputs[i] * per_motor_max
+		if _outputs[i] < 0.0:
+			# 3D mode reverse: props are less efficient pushing down.
+			thrust *= config.reverse_thrust_scale
+		var force: Vector3 = body.global_basis.y * thrust
 		var position_offset: Vector3 = body.global_basis * motor_position(i, config)
 		body.apply_force(force, position_offset)
 		yaw_sum += float(SPIN_DIRECTIONS[i]) * _outputs[i]

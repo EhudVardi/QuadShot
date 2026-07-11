@@ -8,7 +8,7 @@ extends Resource
 ## Vector3 fields use pilot axes: x = roll (+right), y = pitch (+nose up),
 ## z = yaw (+right).
 
-enum ThrottleCurve { RAW, HOVER_CENTERED }
+enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 
 @export_group("Airframe")
 @export var mass: float = 0.65
@@ -41,9 +41,14 @@ enum ThrottleCurve { RAW, HOVER_CENTERED }
 @export_group("Input")
 ## Applied to every stick axis before expo (handoff §7).
 @export var stick_deadzone: float = 0.08
-## hover_centered: mid-stick = computed hover throttle — livable on a
-## springy, self-centering gamepad stick (handoff §7). raw: linear [0,1].
-@export var throttle_curve: ThrottleCurve = ThrottleCurve.HOVER_CENTERED
+## raw: stick maps linearly to [0,1] (rest = 50%). hover_centered: mid-stick
+## = computed hover throttle. three_d: Betaflight-style 3D — center stick =
+## zero thrust, below center = reverse thrust; the natural fit for a
+## self-centering gamepad stick, and it allows inverted flight.
+@export var throttle_curve: ThrottleCurve = ThrottleCurve.THREE_D
+## Thrust multiplier when a motor pushes in reverse (3D mode): props are
+## less efficient inverted. Feel over purity — tune it.
+@export var reverse_thrust_scale: float = 0.8
 
 @export_group("Angle Mode")
 ## Max target attitude at full stick deflection (handoff §6.4).
