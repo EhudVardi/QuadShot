@@ -14,6 +14,7 @@ extends Node3D
 @onready var _hud: GameHud = $Hud
 @onready var _wave_director: WaveDirector = $WaveDirector
 @onready var _missiles: MissileSystem = $Drone/FpvCamera/MissileSystem
+@onready var _exit_gate: ExitGate = $ExitGate
 
 var score: int = 0
 
@@ -29,7 +30,9 @@ func _ready() -> void:
 		scorer.connect(&"destroyed", _on_scorer_destroyed)
 	_wave_director.enemy_destroyed.connect(_on_scorer_destroyed)
 	_wave_director.wave_changed.connect(_hud.set_wave)
+	_wave_director.sortie_cleared.connect(_on_sortie_cleared)
 	_wave_director.run_ended.connect(_on_run_ended)
+	_exit_gate.entered.connect(_on_gate_entered)
 	_drone_health.max_health = combat_config.player_max_health
 	_drone_health.revive()
 	_drone_health.damaged.connect(_on_player_damaged)
@@ -68,7 +71,21 @@ func _start_run() -> void:
 	_hud.set_score(0)
 	_hud.set_combo(1)
 	_hud.hide_run_summary()
+	_exit_gate.deactivate()
 	_wave_director.start_run()
+
+
+func _on_sortie_cleared(sortie: int) -> void:
+	_exit_gate.activate()
+	_hud.announce_gate(sortie)
+
+
+func _on_gate_entered() -> void:
+	# Gate transit heals to full — sorties are self-contained challenges.
+	# The upgrade draft slots in here next (roadmap M4).
+	_drone_health.revive()
+	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_wave_director.advance_sortie()
 
 
 func _on_scorer_destroyed(points: float) -> void:
@@ -88,8 +105,8 @@ func _on_scorer_destroyed(points: float) -> void:
 	_hud.add_kill_feed(feed)
 
 
-func _on_run_ended(waves_cleared: int, kills: int) -> void:
-	_hud.show_run_summary(waves_cleared, kills, score)
+func _on_run_ended(sorties_cleared: int, waves_cleared: int, kills: int) -> void:
+	_hud.show_run_summary(sorties_cleared, waves_cleared, kills, score)
 
 
 func _on_player_crashed(impact_speed: float) -> void:

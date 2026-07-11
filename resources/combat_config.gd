@@ -71,6 +71,10 @@ extends TunableConfig
 ## Extra enemies added per wave.
 @export var wave_growth: float = 1.0
 @export var wave_intermission: float = 8.0
+## Waves per sortie; clearing them lights the exit gate (roadmap M4).
+@export var sortie_waves: float = 3.0
+## Extra enemies per wave for each sortie beyond the first.
+@export var sortie_enemy_bonus: float = 1.0
 ## Kills within this window raise the score multiplier.
 @export var combo_window: float = 4.0
 @export var combo_max: float = 5.0

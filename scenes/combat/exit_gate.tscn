@@ -1,0 +1,44 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/exit_gate.gd" id="1_xgate"]
+
+[sub_resource type="StandardMaterial3D" id="mat_exit"]
+albedo_color = Color(0.2, 0.6, 1, 1)
+emission_enabled = true
+emission = Color(0.15, 0.55, 1, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="BoxMesh" id="mesh_bar_h"]
+material = SubResource("mat_exit")
+size = Vector3(4.4, 0.35, 0.35)
+
+[sub_resource type="BoxMesh" id="mesh_bar_v"]
+material = SubResource("mat_exit")
+size = Vector3(0.35, 3.7, 0.35)
+
+[sub_resource type="BoxShape3D" id="shape_opening"]
+size = Vector3(3.7, 3.7, 1.4)
+
+[node name="ExitGate" type="Node3D"]
+script = ExtResource("1_xgate")
+
+[node name="TopBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.02, 0)
+mesh = SubResource("mesh_bar_h")
+
+[node name="BottomBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.02, 0)
+mesh = SubResource("mesh_bar_h")
+
+[node name="LeftBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.02, 0, 0)
+mesh = SubResource("mesh_bar_v")
+
+[node name="RightBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.02, 0, 0)
+mesh = SubResource("mesh_bar_v")
+
+[node name="Area" type="Area3D" parent="."]
+
+[node name="Opening" type="CollisionShape3D" parent="Area"]
+shape = SubResource("shape_opening")

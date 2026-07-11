@@ -103,6 +103,8 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["wave_base_enemies", 1.0, 10.0, 1.0],
 	["wave_growth", 0.0, 5.0, 0.5],
 	["wave_intermission", 0.0, 30.0, 1.0],
+	["sortie_waves", 1.0, 10.0, 1.0],
+	["sortie_enemy_bonus", 0.0, 5.0, 0.5],
 	["combo_window", 0.5, 15.0, 0.5],
 	["combo_max", 1.0, 10.0, 1.0],
 ]

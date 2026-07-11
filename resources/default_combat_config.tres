@@ -46,5 +46,7 @@ missile_lifetime = 7.0
 wave_base_enemies = 2.0
 wave_growth = 1.0
 wave_intermission = 8.0
+sortie_waves = 3.0
+sortie_enemy_bonus = 1.0
 combo_window = 4.0
 combo_max = 5.0

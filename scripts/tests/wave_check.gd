@@ -76,17 +76,19 @@ func _setup() -> void:
 	_drone.arm()
 	_drone.throttle_override = _drone.hover_throttle()
 	_drone.prime_motors(_drone.hover_throttle())
-	_director.run_ended.connect(func(waves: int, kills: int) -> void:
-		_run_end_report = [waves, kills])
+	_director.run_ended.connect(func(sorties: int, waves: int, kills: int) -> void:
+		_run_end_report = [sorties, waves, kills])
 
 
 func _report() -> void:
 	var score: int = _main.get("score")
 	print("[wave_check] run ended: report %s, score %d, kills %d"
 			% [str(_run_end_report), score, _director.kills])
-	var ok: bool = _run_end_report.size() == 2 \
-			and _run_end_report[0] == 1 \
-			and _run_end_report[1] == 2 \
+	# Died mid-wave 2 of sortie 1: no sortie cleared, one wave cleared, 2 kills.
+	var ok: bool = _run_end_report.size() == 3 \
+			and _run_end_report[0] == 0 \
+			and _run_end_report[1] == 1 \
+			and _run_end_report[2] == 2 \
 			and score > 0
 	print("[wave_check] %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)

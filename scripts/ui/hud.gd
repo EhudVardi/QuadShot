@@ -84,12 +84,16 @@ func set_combo(multiplier: int) -> void:
 	_combo_label.text = "x%d" % multiplier
 
 
-func set_wave(wave: int, remaining: int) -> void:
+func set_wave(sortie: int, wave: int, remaining: int) -> void:
 	if remaining > 0:
-		_wave_label.text = "WAVE %d — %d hostile%s" % [wave, remaining,
-				"" if remaining == 1 else "s"]
+		_wave_label.text = "SORTIE %d · WAVE %d — %d hostile%s" % [sortie, wave,
+				remaining, "" if remaining == 1 else "s"]
 	else:
-		_wave_label.text = "WAVE %d CLEARED" % wave
+		_wave_label.text = "SORTIE %d · WAVE %d CLEARED" % [sortie, wave]
+
+
+func announce_gate(sortie: int) -> void:
+	_wave_label.text = "SORTIE %d CLEAR — EXIT GATE OPEN" % sortie
 
 
 func set_health(current: float, maximum: float) -> void:
@@ -131,9 +135,10 @@ func show_death(dead: bool) -> void:
 	_death_label.visible = dead
 
 
-func show_run_summary(waves_cleared: int, kills: int, score: int) -> void:
-	_summary_label.text = "RUN OVER\n\nwaves cleared  %d\nkills  %d\nscore  %d\n\narm to fly again" \
-			% [waves_cleared, kills, score]
+func show_run_summary(sorties_cleared: int, waves_cleared: int, kills: int,
+		score: int) -> void:
+	_summary_label.text = "RUN OVER\n\nsorties cleared  %d\nwaves cleared  %d\nkills  %d\nscore  %d\n\narm to fly again" \
+			% [sorties_cleared, waves_cleared, kills, score]
 	_summary.visible = true
 
 

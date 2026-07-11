@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://scenes/combat/turret.tscn" id="12_turret"]
 [ext_resource type="Script" path="res://scripts/combat/wave_director.gd" id="13_waves"]
 [ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="14_acfg"]
+[ext_resource type="PackedScene" path="res://scenes/combat/exit_gate.tscn" id="15_gate"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -33,6 +34,9 @@ audio_config = ExtResource("14_acfg")
 [node name="WaveDirector" type="Node" parent="."]
 script = ExtResource("13_waves")
 combat_config = ExtResource("7_ccfg")
+
+[node name="ExitGate" parent="." instance=ExtResource("15_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 10, -15)
 
 [node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
