@@ -1,21 +1,22 @@
 extends CanvasLayer
 
 ## Debug & tuning overlay (handoff §8). Function over beauty: telemetry up
-## top, sliders bound live to every FlightConfig field below, save/load to
-## user://flight_config.tres. Rows are generated from the spec tables so a
-## new config field only needs a table entry.
+## top, sliders bound live to every tunable config field below, save/load to
+## user:// per config. Rows are generated from the spec tables so a new
+## config field only needs a table entry.
 ##
 ## Every control uses FOCUS_NONE: without focus, Godot's built-in ui_*
 ## joypad navigation can never grab the flight sticks — the mouse tunes
 ## while the gamepad keeps flying.
 
 @export var drone: FlightController
+@export var combat_config: CombatConfig
 
 @onready var _telemetry: Label = $Panel/VBox/TelemetryText
 @onready var _motors_box: VBoxContainer = $Panel/VBox/Motors
 @onready var _tuning: VBoxContainer = $Panel/VBox/Scroll/Tuning
 
-var _config: FlightConfig
+var _configs: Array[TunableConfig] = []
 var _motor_bars: Array[ProgressBar] = []
 ## One callable per generated control; re-reads the config after load/reset.
 var _refreshers: Array[Callable] = []
@@ -23,8 +24,8 @@ var _refreshers: Array[Callable] = []
 const _MOTOR_NAMES: Array[String] = ["FL", "FR", "BL", "BR"]
 const _AXIS_NAMES: Array[String] = ["roll", "pitch", "yaw"]
 
-# Scalar config fields: property, slider min/max/step.
-const _FLOAT_ROWS: Array[Array] = [
+# Scalar FlightConfig fields: property, slider min/max/step.
+const _FLIGHT_FLOAT_ROWS: Array[Array] = [
 	["mass", 0.2, 2.0, 0.01],
 	["arm_length", 0.05, 0.3, 0.005],
 	["thrust_to_weight_ratio", 1.5, 8.0, 0.05],
@@ -46,8 +47,8 @@ const _FLOAT_ROWS: Array[Array] = [
 	["arm_throttle_threshold", 0.0, 0.2, 0.01],
 ]
 
-# Vector3 (per-axis) config fields: property, slider min/max/step.
-const _VECTOR_ROWS: Array[Array] = [
+# Vector3 (per-axis) FlightConfig fields: property, slider min/max/step.
+const _FLIGHT_VECTOR_ROWS: Array[Array] = [
 	["max_rate_deg", 100.0, 1200.0, 10.0],
 	["expo", 0.0, 1.0, 0.01],
 	["rate_p", 0.0, 0.02, 0.0001],
@@ -55,11 +56,37 @@ const _VECTOR_ROWS: Array[Array] = [
 	["rate_d", 0.0, 0.0003, 0.000005],
 ]
 
+const _COMBAT_FLOAT_ROWS: Array[Array] = [
+	["fire_rate", 1.0, 30.0, 0.5],
+	["muzzle_speed", 20.0, 200.0, 5.0],
+	["projectile_damage", 1.0, 100.0, 1.0],
+	["projectile_lifetime", 0.5, 8.0, 0.1],
+	["projectile_gravity_scale", 0.0, 1.0, 0.05],
+	["inherit_velocity", 0.0, 1.0, 0.05],
+	["player_max_health", 10.0, 500.0, 10.0],
+	["crash_damage_speed", 2.0, 40.0, 1.0],
+	["crash_damage_scale", 0.0, 20.0, 0.5],
+	["respawn_delay", 0.0, 10.0, 0.5],
+	["turret_health", 10.0, 300.0, 10.0],
+	["turret_range", 10.0, 120.0, 5.0],
+	["turret_fire_rate", 0.2, 10.0, 0.2],
+	["turret_muzzle_speed", 10.0, 120.0, 5.0],
+	["turret_damage", 1.0, 50.0, 1.0],
+	["turret_turn_speed_deg", 10.0, 360.0, 10.0],
+	["turret_respawn_delay", 0.0, 60.0, 5.0],
+	["target_points", 0.0, 500.0, 10.0],
+	["target_respawn_delay", 0.0, 30.0, 1.0],
+]
+
 
 func _ready() -> void:
-	_config = drone.config
+	_configs = [drone.config, combat_config]
 	_build_motor_bars()
-	_build_tuning_rows()
+	_add_section_header("FLIGHT")
+	_add_throttle_curve_row(drone.config)
+	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS)
+	_add_section_header("COMBAT")
+	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
 	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
 	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
 	$Panel/VBox/Buttons/DefaultsButton.pressed.connect(_on_defaults)
@@ -92,7 +119,7 @@ func _update_telemetry() -> void:
 		+ " yaw         %9.1f %9.1f" % [rad_to_deg(target.z), rad_to_deg(actual.z)]
 	)
 	for i: int in _motor_bars.size():
-		_motor_bars[i].value = drone.motor_output(i)
+		_motor_bars[i].value = absf(drone.motor_output(i))
 
 
 func _build_motor_bars() -> void:
@@ -114,28 +141,36 @@ func _build_motor_bars() -> void:
 		_motors_box.add_child(row)
 
 
-func _build_tuning_rows() -> void:
-	_add_throttle_curve_row()
-	for spec: Array in _FLOAT_ROWS:
+func _add_section_header(title: String) -> void:
+	_tuning.add_child(HSeparator.new())
+	var header := Label.new()
+	header.text = "— %s —" % title
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tuning.add_child(header)
+
+
+func _add_config_rows(config: TunableConfig, float_rows: Array[Array],
+		vector_rows: Array[Array]) -> void:
+	for spec: Array in float_rows:
 		_add_slider(_tuning, str(spec[0]), spec[1], spec[2], spec[3],
-				func() -> float: return _config.get(str(spec[0])),
-				func(v: float) -> void: _config.set(str(spec[0]), v))
-	for spec: Array in _VECTOR_ROWS:
+				func() -> float: return config.get(str(spec[0])),
+				func(v: float) -> void: config.set(str(spec[0]), v))
+	for spec: Array in vector_rows:
 		var header := Label.new()
 		header.text = str(spec[0])
 		_tuning.add_child(header)
 		for axis: int in 3:
 			_add_slider(_tuning, "  " + _AXIS_NAMES[axis], spec[1], spec[2], spec[3],
 					func() -> float:
-						var vec: Vector3 = _config.get(str(spec[0]))
+						var vec: Vector3 = config.get(str(spec[0]))
 						return vec[axis],
 					func(v: float) -> void:
-						var vec: Vector3 = _config.get(str(spec[0]))
+						var vec: Vector3 = config.get(str(spec[0]))
 						vec[axis] = v
-						_config.set(str(spec[0]), vec))
+						config.set(str(spec[0]), vec))
 
 
-func _add_throttle_curve_row() -> void:
+func _add_throttle_curve_row(config: FlightConfig) -> void:
 	var row := HBoxContainer.new()
 	var label := Label.new()
 	label.text = "throttle_curve"
@@ -144,10 +179,10 @@ func _add_throttle_curve_row() -> void:
 	option.focus_mode = Control.FOCUS_NONE
 	for curve_name: String in FlightConfig.ThrottleCurve.keys():
 		option.add_item(curve_name.to_lower())
-	option.selected = _config.throttle_curve
+	option.selected = config.throttle_curve
 	option.item_selected.connect(func(index: int) -> void:
-		_config.throttle_curve = index as FlightConfig.ThrottleCurve)
-	_refreshers.append(func() -> void: option.selected = _config.throttle_curve)
+		config.throttle_curve = index as FlightConfig.ThrottleCurve)
+	_refreshers.append(func() -> void: option.selected = config.throttle_curve)
 	row.add_child(label)
 	row.add_child(option)
 	_tuning.add_child(row)
@@ -196,20 +231,23 @@ func _refresh_all() -> void:
 
 
 func _on_save() -> void:
-	var err: Error = _config.save_to_user()
-	print("[config] save to %s: %s" % [FlightConfig.SAVE_PATH,
-			"OK" if err == OK else error_string(err)])
+	for config: TunableConfig in _configs:
+		var err: Error = config.save_to_user()
+		print("[config] save to %s: %s" % [config.save_path(),
+				"OK" if err == OK else error_string(err)])
 
 
 func _on_load() -> void:
-	if _config.load_from_user():
-		_refresh_all()
-		print("[config] loaded %s" % FlightConfig.SAVE_PATH)
-	else:
-		print("[config] no saved config at %s" % FlightConfig.SAVE_PATH)
+	for config: TunableConfig in _configs:
+		if config.load_from_user():
+			print("[config] loaded %s" % config.save_path())
+		else:
+			print("[config] no saved config at %s" % config.save_path())
+	_refresh_all()
 
 
 func _on_defaults() -> void:
-	_config.reset_to_defaults()
+	for config: TunableConfig in _configs:
+		config.reset_to_defaults()
 	_refresh_all()
 	print("[config] reset to defaults")

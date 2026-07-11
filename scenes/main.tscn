@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="4_main"]
 [ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -21,3 +22,4 @@ target = NodePath("../Drone")
 
 [node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
 drone = NodePath("../Drone")
+combat_config = ExtResource("7_ccfg")
