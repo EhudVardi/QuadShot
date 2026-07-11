@@ -17,4 +17,6 @@ func detonate(size: float = 1.0) -> void:
 	_flash.omni_range = 10.0 * size
 	var tween: Tween = create_tween()
 	tween.tween_property(_flash, "light_energy", 0.0, 0.35)
+	SoundBank.play_at(&"explosion", global_position,
+			lerpf(-20.0, 0.0, clampf(size, 0.0, 1.0)), 0.15)
 	get_tree().create_timer(2.0).timeout.connect(queue_free)

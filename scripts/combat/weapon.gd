@@ -40,3 +40,4 @@ func _fire() -> void:
 	_pool.fire(origin, velocity, combat_config.projectile_damage, _drone.team,
 			[_drone.get_rid()], combat_config.projectile_gravity_scale,
 			combat_config.projectile_lifetime)
+	SoundBank.play_at(&"shot", origin, -6.0, 0.12)
