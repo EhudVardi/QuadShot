@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/ui/debug_overlay.gd" id="1_overlay"]
 
 [node name="DebugOverlay" type="CanvasLayer"]
-visible = false
+visible = true
 script = ExtResource("1_overlay")
 
 [node name="Panel" type="PanelContainer" parent="."]
