@@ -38,6 +38,29 @@ extends TunableConfig
 @export var target_points: float = 100.0
 @export var target_respawn_delay: float = 8.0
 
+@export_group("Enemies")
+@export var enemy_health: float = 40.0
+@export var enemy_points: float = 150.0
+@export var enemy_speed: float = 14.0
+@export var enemy_accel: float = 18.0
+@export var enemy_sight_range: float = 60.0
+## Enemies orbit the player at roughly this distance while attacking.
+@export var enemy_preferred_range: float = 18.0
+@export var enemy_fire_rate: float = 1.5
+@export var enemy_muzzle_speed: float = 45.0
+@export var enemy_damage: float = 8.0
+## Random cone added to enemy aim — the dodgeability knob.
+@export var enemy_aim_jitter_deg: float = 3.0
+
+@export_group("Waves")
+@export var wave_base_enemies: float = 2.0
+## Extra enemies added per wave.
+@export var wave_growth: float = 1.0
+@export var wave_intermission: float = 8.0
+## Kills within this window raise the score multiplier.
+@export var combo_window: float = 4.0
+@export var combo_max: float = 5.0
+
 
 const SAVE_PATH: String = "user://combat_config.tres"
 const DEFAULTS_PATH: String = "res://resources/default_combat_config.tres"

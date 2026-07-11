@@ -77,6 +77,21 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["turret_points", 0.0, 1000.0, 10.0],
 	["target_points", 0.0, 500.0, 10.0],
 	["target_respawn_delay", 0.0, 30.0, 1.0],
+	["enemy_health", 5.0, 300.0, 5.0],
+	["enemy_points", 0.0, 1000.0, 10.0],
+	["enemy_speed", 2.0, 40.0, 1.0],
+	["enemy_accel", 2.0, 60.0, 1.0],
+	["enemy_sight_range", 10.0, 150.0, 5.0],
+	["enemy_preferred_range", 5.0, 60.0, 1.0],
+	["enemy_fire_rate", 0.2, 8.0, 0.1],
+	["enemy_muzzle_speed", 10.0, 120.0, 5.0],
+	["enemy_damage", 1.0, 50.0, 1.0],
+	["enemy_aim_jitter_deg", 0.0, 15.0, 0.5],
+	["wave_base_enemies", 1.0, 10.0, 1.0],
+	["wave_growth", 0.0, 5.0, 0.5],
+	["wave_intermission", 0.0, 30.0, 1.0],
+	["combo_window", 0.5, 15.0, 0.5],
+	["combo_max", 1.0, 10.0, 1.0],
 ]
 
 
