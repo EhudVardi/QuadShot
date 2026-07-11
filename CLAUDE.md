@@ -1,6 +1,6 @@
 # QuadShoot — FPV Flight Sandbox
 
-3D FPV drone flight sandbox in Godot. **The flight model is the product** — everything serves the human-in-the-loop tuning cycle. Full spec: [FPV-SANDBOX-HANDOFF.md](FPV-SANDBOX-HANDOFF.md) (source of truth, read it before big changes).
+3D FPV drone flight sandbox in Godot, growing into an action flight game. **The flight model is the product** — everything serves the human-in-the-loop tuning cycle. Milestone 0 spec: [FPV-SANDBOX-HANDOFF.md](FPV-SANDBOX-HANDOFF.md); everything after: [ROADMAP.md](ROADMAP.md) (read the relevant one before big changes).
 
 ## Running & verifying
 
