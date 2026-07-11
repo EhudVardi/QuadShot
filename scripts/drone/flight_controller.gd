@@ -8,6 +8,9 @@ extends RigidBody3D
 
 enum FlightMode { ACRO, ANGLE }
 
+## Hard contact; main converts delta-v to crash damage (roadmap M2).
+signal crashed(impact_speed: float)
+
 @export var config: FlightConfig
 
 @onready var _motors: MotorModel = $MotorModel
@@ -29,6 +32,7 @@ var telemetry_measured_rates: Vector3 = Vector3.ZERO
 
 var _rate_controller: RateController = RateController.new()
 var _spawn_transform: Transform3D
+var _previous_velocity: Vector3 = Vector3.ZERO
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -37,6 +41,7 @@ func _ready() -> void:
 		print("[config] loaded %s" % FlightConfig.SAVE_PATH)
 	mass = config.mass
 	_spawn_transform = global_transform
+	body_entered.connect(_on_body_entered)
 
 
 func _process(_delta: float) -> void:
@@ -59,6 +64,7 @@ func _physics_process(delta: float) -> void:
 	_motors.step(delta, config)
 	_motors.apply_thrust(self, config, _gravity)
 	_apply_aerodynamics()
+	_previous_velocity = linear_velocity
 
 
 func arm() -> bool:
@@ -119,6 +125,18 @@ func _handle_buttons() -> void:
 
 func motor_output(index: int) -> float:
 	return _motors.output(index)
+
+
+## Projectile hits land here; the Health component and its wiring (main.gd)
+## decide the consequences — the flight controller stays combat-thin.
+func take_hit(damage: float) -> void:
+	($Health as Health).take(damage)
+
+
+func _on_body_entered(_body: Node) -> void:
+	# Delta-v across the collision approximates impact severity; gentle
+	# landings fall under main's damage threshold.
+	crashed.emit((_previous_velocity - linear_velocity).length())
 
 
 func _run_rate_control(delta: float) -> void:
