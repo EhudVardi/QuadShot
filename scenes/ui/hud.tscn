@@ -80,6 +80,34 @@ mouse_filter = 2
 value = 100.0
 show_percentage = false
 
+[node name="Title" type="VBoxContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.32
+anchor_right = 0.5
+anchor_bottom = 0.32
+offset_left = -300.0
+offset_top = -70.0
+offset_right = 300.0
+offset_bottom = 90.0
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="TitleName" type="Label" parent="Title"]
+theme_override_font_sizes/font_size = 56
+text = "QUADSHOT"
+horizontal_alignment = 1
+
+[node name="TitleHint" type="Label" parent="Title"]
+theme_override_font_sizes/font_size = 20
+text = "throttle to zero, then A to arm and launch"
+horizontal_alignment = 1
+
+[node name="TitleBests" type="Label" parent="Title"]
+theme_override_colors/font_color = Color(0.7, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = ""
+horizontal_alignment = 1
+
 [node name="DeathLabel" type="Label" parent="."]
 visible = false
 anchor_left = 0.5

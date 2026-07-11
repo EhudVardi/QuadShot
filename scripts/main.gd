@@ -19,6 +19,7 @@ extends Node3D
 
 var score: int = 0
 
+var _profile: PlayerProfile
 var _combo: float = 1.0
 var _last_kill_time: float = -1000.0
 
@@ -26,6 +27,8 @@ var _last_kill_time: float = -1000.0
 func _ready() -> void:
 	if combat_config.load_from_user():
 		print("[config] loaded %s" % combat_config.save_path())
+	_profile = PlayerProfile.load_or_new()
+	_hud.show_title(_bests_line())
 	for scorer: Node in get_tree().get_nodes_in_group(&"targets") \
 			+ get_tree().get_nodes_in_group(&"turrets"):
 		scorer.connect(&"destroyed", _on_scorer_destroyed)
@@ -88,6 +91,7 @@ func _start_run() -> void:
 	_hud.set_score(0)
 	_hud.set_combo(1)
 	_hud.hide_run_summary()
+	_hud.hide_title()
 	_exit_gate.deactivate()
 	RunMods.reset()
 	_drone_health.max_health = combat_config.player_max_health
@@ -138,7 +142,18 @@ func _on_scorer_destroyed(points: float) -> void:
 
 
 func _on_run_ended(sorties_cleared: int, waves_cleared: int, kills: int) -> void:
-	_hud.show_run_summary(sorties_cleared, waves_cleared, kills, score)
+	_profile.record_run(sorties_cleared, kills, score)
+	_profile.save()
+	_hud.show_run_summary(sorties_cleared, waves_cleared, kills, score,
+			_bests_line())
+
+
+func _bests_line() -> String:
+	if _profile.runs == 0:
+		return "first flight — good luck"
+	return "runs %d  ·  kills %d  ·  best score %d  ·  best sorties %d" \
+			% [_profile.runs, _profile.kills_total, _profile.best_score,
+			_profile.best_sorties]
 
 
 func _on_player_crashed(impact_speed: float) -> void:

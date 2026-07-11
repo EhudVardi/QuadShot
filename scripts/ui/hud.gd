@@ -18,6 +18,8 @@ const KILL_FEED_SECONDS: float = 3.0
 @onready var _kill_feed: VBoxContainer = $KillFeed
 @onready var _summary: PanelContainer = $Summary
 @onready var _summary_label: Label = $Summary/SummaryLabel
+@onready var _title: VBoxContainer = $Title
+@onready var _title_bests: Label = $Title/TitleBests
 
 ## Thin edge bars for directional damage, built in code (side -> ColorRect).
 var _edges: Dictionary = {}
@@ -166,10 +168,19 @@ func show_death(dead: bool) -> void:
 	_death_label.visible = dead
 
 
+func show_title(bests_line: String) -> void:
+	_title_bests.text = bests_line
+	_title.visible = true
+
+
+func hide_title() -> void:
+	_title.visible = false
+
+
 func show_run_summary(sorties_cleared: int, waves_cleared: int, kills: int,
-		score: int) -> void:
-	_summary_label.text = "RUN OVER\n\nsorties cleared  %d\nwaves cleared  %d\nkills  %d\nscore  %d\n\narm to fly again" \
-			% [sorties_cleared, waves_cleared, kills, score]
+		score: int, bests_line: String = "") -> void:
+	_summary_label.text = "RUN OVER\n\nsorties cleared  %d\nwaves cleared  %d\nkills  %d\nscore  %d\n\n%s\n\narm to fly again" \
+			% [sorties_cleared, waves_cleared, kills, score, bests_line]
 	_summary.visible = true
 
 
