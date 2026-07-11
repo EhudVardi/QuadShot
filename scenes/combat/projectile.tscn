@@ -1,0 +1,28 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/projectile.gd" id="1_proj"]
+
+[sub_resource type="StandardMaterial3D" id="mat_player"]
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.3, 1)
+emission_enabled = true
+emission = Color(1, 0.8, 0.2, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="StandardMaterial3D" id="mat_enemy"]
+shading_mode = 0
+albedo_color = Color(1, 0.25, 0.15, 1)
+emission_enabled = true
+emission = Color(1, 0.15, 0.05, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="BoxMesh" id="mesh_tracer"]
+size = Vector3(0.06, 0.06, 0.5)
+
+[node name="Projectile" type="Node3D"]
+script = ExtResource("1_proj")
+player_material = SubResource("mat_player")
+enemy_material = SubResource("mat_enemy")
+
+[node name="Tracer" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_tracer")

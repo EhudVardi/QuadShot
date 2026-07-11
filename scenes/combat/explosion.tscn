@@ -1,0 +1,63 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/explosion.gd" id="1_expl"]
+
+[sub_resource type="Gradient" id="grad_fire"]
+offsets = PackedFloat32Array(0, 0.3, 1)
+colors = PackedColorArray(1, 0.95, 0.6, 1, 1, 0.45, 0.1, 0.9, 0.25, 0.1, 0.05, 0)
+
+[sub_resource type="Gradient" id="grad_smoke"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.35, 0.35, 0.35, 0.6, 0.2, 0.2, 0.2, 0)
+
+[sub_resource type="StandardMaterial3D" id="mat_particle"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+
+[sub_resource type="BoxMesh" id="mesh_fire"]
+material = SubResource("mat_particle")
+size = Vector3(0.14, 0.14, 0.14)
+
+[sub_resource type="BoxMesh" id="mesh_smoke"]
+material = SubResource("mat_particle")
+size = Vector3(0.3, 0.3, 0.3)
+
+[node name="Explosion" type="Node3D"]
+script = ExtResource("1_expl")
+
+[node name="Fire" type="CPUParticles3D" parent="."]
+emitting = false
+amount = 24
+lifetime = 0.55
+one_shot = true
+explosiveness = 1.0
+mesh = SubResource("mesh_fire")
+direction = Vector3(0, 1, 0)
+spread = 180.0
+gravity = Vector3(0, -4, 0)
+initial_velocity_min = 6.0
+initial_velocity_max = 14.0
+scale_amount_min = 0.6
+scale_amount_max = 1.4
+color_ramp = SubResource("grad_fire")
+
+[node name="Smoke" type="CPUParticles3D" parent="."]
+emitting = false
+amount = 12
+lifetime = 1.3
+one_shot = true
+explosiveness = 0.9
+mesh = SubResource("mesh_smoke")
+direction = Vector3(0, 1, 0)
+spread = 180.0
+gravity = Vector3(0, 1.5, 0)
+initial_velocity_min = 1.5
+initial_velocity_max = 4.0
+scale_amount_min = 0.8
+scale_amount_max = 2.0
+color_ramp = SubResource("grad_smoke")
+
+[node name="Flash" type="OmniLight3D" parent="."]
+light_color = Color(1, 0.7, 0.35, 1)
+light_energy = 6.0
+omni_range = 10.0

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
 [ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -14,6 +15,9 @@ script = ExtResource("4_main")
 
 [node name="Drone" parent="." instance=ExtResource("2_drone")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("8_pool")
 
 [node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)

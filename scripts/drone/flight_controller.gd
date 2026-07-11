@@ -16,6 +16,8 @@ enum FlightMode { ACRO, ANGLE }
 
 var armed: bool = false
 var flight_mode: FlightMode = FlightMode.ACRO
+## Combat identity read by projectiles (same-team hits don't damage).
+var team: StringName = &"player"
 ## Effective throttle [0, 1] this tick (gamepad, or the test override below).
 var collective: float = 0.0
 ## Test hook (scripts/tests/hover_check.gd): >= 0 replaces gamepad throttle.
