@@ -1,4 +1,4 @@
-# QuadShoot — Roadmap
+# QuadShot — Roadmap
 
 Successor to the Milestone 0 phase plan in [FPV-SANDBOX-HANDOFF.md](FPV-SANDBOX-HANDOFF.md) §11. The handoff remains the spec for the flight sandbox; this document owns everything after it. The dream: **an action flight game — dogfights, shooting, explosions — built on a flight model that feels real,** with graphics that eventually earn the gameplay.
 
