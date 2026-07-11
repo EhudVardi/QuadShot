@@ -3,6 +3,8 @@ extends AudioStreamPlayer
 ## Wind rush: non-positional looping noise, volume/pitch driven by airspeed.
 ## Placeholder aesthetics constants, exempt from the config rule.
 
+@export var audio_config: AudioConfig
+
 var _drone: FlightController
 
 
@@ -19,5 +21,6 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	var intensity: float = clampf(_drone.linear_velocity.length() / 35.0, 0.0, 1.0)
-	volume_db = lerpf(-50.0, -12.0, intensity)
+	volume_db = lerpf(-50.0, -12.0, intensity) \
+			+ AudioConfig.gain_to_db(audio_config.wind_volume)
 	pitch_scale = 0.8 + 0.7 * intensity

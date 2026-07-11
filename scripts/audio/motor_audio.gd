@@ -4,6 +4,8 @@ extends AudioStreamPlayer3D
 ## |motor output| every frame. Silent while disarmed. Placeholder aesthetics
 ## constants, exempt from the config rule (see sound_bank.gd).
 
+@export var audio_config: AudioConfig
+
 var _drone: FlightController
 
 
@@ -28,4 +30,5 @@ func _process(_delta: float) -> void:
 		volume_db = -60.0
 		return
 	pitch_scale = 0.75 + 1.6 * average
-	volume_db = lerpf(-36.0, -10.0, clampf(average, 0.0, 1.0))
+	volume_db = lerpf(-36.0, -10.0, clampf(average, 0.0, 1.0)) \
+			+ AudioConfig.gain_to_db(audio_config.motor_volume)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/drone/flight_controller.gd" id="1_fc"]
 [ext_resource type="Script" path="res://scripts/drone/motor_model.gd" id="2_mm"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/audio/motor_audio.gd" id="7_maud"]
 [ext_resource type="Script" path="res://scripts/audio/wind_audio.gd" id="8_waud"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="9_hp"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="10_acfg"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
 size = Vector3(0.28, 0.08, 0.28)
@@ -55,9 +56,11 @@ script = ExtResource("9_hp")
 
 [node name="MotorAudio" type="AudioStreamPlayer3D" parent="."]
 script = ExtResource("7_maud")
+audio_config = ExtResource("10_acfg")
 
 [node name="WindAudio" type="AudioStreamPlayer" parent="."]
 script = ExtResource("8_waud")
+audio_config = ExtResource("10_acfg")
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 shape = SubResource("shape_frame")

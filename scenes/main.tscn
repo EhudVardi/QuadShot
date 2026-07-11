@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="11_sfx"]
 [ext_resource type="PackedScene" path="res://scenes/combat/turret.tscn" id="12_turret"]
 [ext_resource type="Script" path="res://scripts/combat/wave_director.gd" id="13_waves"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="14_acfg"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -27,6 +28,7 @@ script = ExtResource("8_pool")
 
 [node name="SoundBank" type="Node" parent="."]
 script = ExtResource("11_sfx")
+audio_config = ExtResource("14_acfg")
 
 [node name="WaveDirector" type="Node" parent="."]
 script = ExtResource("13_waves")
@@ -40,6 +42,7 @@ target = NodePath("../Drone")
 [node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
 drone = NodePath("../Drone")
 combat_config = ExtResource("7_ccfg")
+audio_config = ExtResource("14_acfg")
 
 [node name="Hud" parent="." instance=ExtResource("9_hud")]
 

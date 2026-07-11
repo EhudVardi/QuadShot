@@ -16,6 +16,8 @@ const PLAYER_COUNT: int = 16
 
 static var _instance: SoundBank
 
+@export var audio_config: AudioConfig
+
 var _streams: Dictionary = {}
 var _players: Array[AudioStreamPlayer3D] = []
 var _next_player: int = 0
@@ -31,6 +33,8 @@ func _exit_tree() -> void:
 
 
 func _ready() -> void:
+	if audio_config.load_from_user():
+		print("[config] loaded %s" % audio_config.save_path())
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 0xC0FFEE
 	_streams[&"shot"] = _make_shot()
@@ -40,6 +44,11 @@ func _ready() -> void:
 		player.max_distance = 250.0
 		add_child(player)
 		_players.append(player)
+
+
+func _process(_delta: float) -> void:
+	# Master gain on the Master bus, re-read every frame so overlay tuning is live.
+	AudioServer.set_bus_volume_db(0, AudioConfig.gain_to_db(audio_config.master_volume))
 
 
 static func play_at(sound: StringName, position: Vector3, volume_db: float = 0.0,
@@ -61,7 +70,7 @@ func _play_at(sound: StringName, position: Vector3, volume_db: float,
 	player.stop()
 	player.stream = stream
 	player.global_position = position
-	player.volume_db = volume_db
+	player.volume_db = volume_db + AudioConfig.gain_to_db(audio_config.sfx_volume)
 	player.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
 	player.play()
 

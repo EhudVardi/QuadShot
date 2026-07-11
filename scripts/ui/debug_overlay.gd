@@ -11,6 +11,7 @@ extends CanvasLayer
 
 @export var drone: FlightController
 @export var combat_config: CombatConfig
+@export var audio_config: AudioConfig
 
 @onready var _telemetry: Label = $Panel/VBox/TelemetryText
 @onready var _motors_box: VBoxContainer = $Panel/VBox/Motors
@@ -94,15 +95,24 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["combo_max", 1.0, 10.0, 1.0],
 ]
 
+const _AUDIO_FLOAT_ROWS: Array[Array] = [
+	["master_volume", 0.0, 1.0, 0.01],
+	["sfx_volume", 0.0, 1.0, 0.01],
+	["motor_volume", 0.0, 1.0, 0.01],
+	["wind_volume", 0.0, 1.0, 0.01],
+]
+
 
 func _ready() -> void:
-	_configs = [drone.config, combat_config]
+	_configs = [drone.config, combat_config, audio_config]
 	_build_motor_bars()
 	_add_section_header("FLIGHT")
 	_add_throttle_curve_row(drone.config)
 	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS)
 	_add_section_header("COMBAT")
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
+	_add_section_header("AUDIO")
+	_add_config_rows(audio_config, _AUDIO_FLOAT_ROWS, [])
 	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
 	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
 	$Panel/VBox/Buttons/DefaultsButton.pressed.connect(_on_defaults)
