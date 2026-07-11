@@ -32,6 +32,7 @@ Fly the greybox loop popping targets; it should feel like an action-game trailer
 - Enemy drones with simple aerial state machines (patrol → chase → strafe/orbit); open-air, no navmesh.
 - Encounter director: waves, spawn zones, escalation; a bigger arena beyond the greybox.
 - Score/combo, kill feed, end-of-run summary. (Damage-direction indicator from M2 landed here.)
+- Post-checkpoint additions: Betaflight-style rate-loop filtering (feel), missile lock-on vs enemy drones, volume controls.
 
 ## M4 — The Run: roguelike structure ← NEXT
 
