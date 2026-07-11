@@ -63,6 +63,9 @@ func _physics_process(delta: float) -> void:
 
 func _resolve_hit(hit: Dictionary) -> void:
 	var collider: Object = hit["collider"]
+	# Feed the HUD's damage-direction indicator before the hit lands.
+	if collider is FlightController:
+		(collider as FlightController).last_hit_direction = -_velocity.normalized()
 	# Same team: no damage, just fizzle (spawn offset + shooter exclusion
 	# already prevent self-hits; this covers e.g. turret-on-turret fire).
 	if collider.get("team") != _team and collider.has_method("take_hit"):

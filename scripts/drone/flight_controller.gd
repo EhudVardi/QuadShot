@@ -21,6 +21,9 @@ var armed: bool = false
 var flight_mode: FlightMode = FlightMode.ACRO
 ## Combat identity read by projectiles (same-team hits don't damage).
 var team: StringName = &"player"
+## World direction the last projectile hit came FROM (set by projectile.gd,
+## consumed by main.gd for the HUD damage-direction indicator).
+var last_hit_direction: Vector3 = Vector3.ZERO
 ## Effective throttle [0, 1] this tick (gamepad, or the test override below).
 var collective: float = 0.0
 ## Test hook (scripts/tests/hover_check.gd): >= 0 replaces gamepad throttle.

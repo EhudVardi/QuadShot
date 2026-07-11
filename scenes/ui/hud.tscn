@@ -24,6 +24,49 @@ offset_top = 16.0
 theme_override_font_sizes/font_size = 26
 text = "SCORE 0"
 
+[node name="ComboLabel" type="Label" parent="."]
+visible = false
+offset_left = 16.0
+offset_top = 52.0
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+theme_override_font_sizes/font_size = 22
+text = "x2"
+
+[node name="WaveLabel" type="Label" parent="."]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 16.0
+offset_right = 200.0
+theme_override_font_sizes/font_size = 22
+text = ""
+horizontal_alignment = 1
+
+[node name="KillFeed" type="VBoxContainer" parent="."]
+anchor_left = 0.0
+offset_left = 16.0
+offset_top = 96.0
+offset_right = 220.0
+offset_bottom = 300.0
+
+[node name="Summary" type="PanelContainer" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = 20.0
+offset_right = 180.0
+offset_bottom = 200.0
+mouse_filter = 2
+
+[node name="SummaryLabel" type="Label" parent="Summary"]
+theme_override_font_sizes/font_size = 22
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="HealthBar" type="ProgressBar" parent="."]
 anchor_left = 0.5
 anchor_top = 1.0
