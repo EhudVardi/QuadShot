@@ -13,6 +13,7 @@ extends Node3D
 @onready var _chase_camera: Camera3D = $ChaseCamera
 @onready var _hud: GameHud = $Hud
 @onready var _wave_director: WaveDirector = $WaveDirector
+@onready var _missiles: MissileSystem = $Drone/FpvCamera/MissileSystem
 
 var score: int = 0
 
@@ -46,6 +47,18 @@ func _process(_delta: float) -> void:
 	# Arming starts (or restarts) a run — the summary stays readable until then.
 	if not _wave_director.running and _drone.armed and _drone_health.alive:
 		_start_run()
+	_update_lock_indicator()
+
+
+func _update_lock_indicator() -> void:
+	var target: Node3D = _missiles.target
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if target == null or not is_instance_valid(target) or camera == null \
+			or camera.is_position_behind(target.global_position):
+		_hud.update_lock(false)
+		return
+	_hud.update_lock(true, camera.unproject_position(target.global_position),
+			_missiles.lock_progress, _missiles.is_locked())
 
 
 func _start_run() -> void:

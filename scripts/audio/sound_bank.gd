@@ -39,6 +39,8 @@ func _ready() -> void:
 	rng.seed = 0xC0FFEE
 	_streams[&"shot"] = _make_shot()
 	_streams[&"explosion"] = _make_explosion(rng)
+	_streams[&"lock"] = _make_lock()
+	_streams[&"launch"] = _make_launch(rng)
 	for i: int in PLAYER_COUNT:
 		var player := AudioStreamPlayer3D.new()
 		player.max_distance = 250.0
@@ -132,6 +134,33 @@ static func _make_explosion(rng: RandomNumberGenerator) -> AudioStreamWAV:
 		low += 0.08 * (rng.randf_range(-1.0, 1.0) - low)
 		var thump: float = sin(TAU * 55.0 * t) * exp(-t * 7.0)
 		samples[i] = clampf(low * 2.2 * exp(-t * 3.5) + thump * 0.8, -1.0, 1.0)
+	return _make_wav(samples)
+
+
+## Lock-acquired: two rising sine pips.
+static func _make_lock() -> AudioStreamWAV:
+	var count: int = int(0.22 * MIX_RATE)
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	for i: int in count:
+		var t: float = float(i) / MIX_RATE
+		var freq: float = 880.0 if t < 0.1 else 1320.0
+		var gate: float = 1.0 if fmod(t, 0.11) < 0.08 else 0.0
+		samples[i] = sin(TAU * freq * t) * 0.4 * gate
+	return _make_wav(samples)
+
+
+## Missile launch: noise whoosh swelling then fading, pitched down.
+static func _make_launch(rng: RandomNumberGenerator) -> AudioStreamWAV:
+	var count: int = int(0.6 * MIX_RATE)
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	var low: float = 0.0
+	for i: int in count:
+		var t: float = float(i) / MIX_RATE
+		low += 0.15 * (rng.randf_range(-1.0, 1.0) - low)
+		var envelope: float = minf(t / 0.06, 1.0) * exp(-t * 5.0)
+		samples[i] = low * 2.5 * envelope
 	return _make_wav(samples)
 
 

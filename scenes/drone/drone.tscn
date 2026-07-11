@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/drone/flight_controller.gd" id="1_fc"]
 [ext_resource type="Script" path="res://scripts/drone/motor_model.gd" id="2_mm"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/audio/wind_audio.gd" id="8_waud"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="9_hp"]
 [ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="10_acfg"]
+[ext_resource type="Script" path="res://scripts/combat/missile_system.gd" id="11_msys"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
 size = Vector3(0.28, 0.08, 0.28)
@@ -49,6 +50,10 @@ current = true
 
 [node name="Weapon" type="Node3D" parent="FpvCamera"]
 script = ExtResource("5_wpn")
+combat_config = ExtResource("6_ccfg")
+
+[node name="MissileSystem" type="Node3D" parent="FpvCamera"]
+script = ExtResource("11_msys")
 combat_config = ExtResource("6_ccfg")
 
 [node name="Health" type="Node" parent="."]

@@ -52,6 +52,20 @@ extends TunableConfig
 ## Random cone added to enemy aim — the dodgeability knob.
 @export var enemy_aim_jitter_deg: float = 3.0
 
+@export_group("Missiles")
+@export var missile_lock_range: float = 60.0
+## Half-angle of the lock cone around the camera axis.
+@export var missile_lock_cone_deg: float = 12.0
+## Seconds the target must stay in the cone to lock.
+@export var missile_lock_time: float = 0.9
+@export var missile_speed: float = 50.0
+@export var missile_turn_rate_deg: float = 180.0
+@export var missile_damage: float = 60.0
+@export var missile_cooldown: float = 3.0
+## Detonation distance to the locked target.
+@export var missile_prox_radius: float = 2.5
+@export var missile_lifetime: float = 7.0
+
 @export_group("Waves")
 @export var wave_base_enemies: float = 2.0
 ## Extra enemies added per wave.

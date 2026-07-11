@@ -21,9 +21,39 @@ const KILL_FEED_SECONDS: float = 3.0
 
 ## Thin edge bars for directional damage, built in code (side -> ColorRect).
 var _edges: Dictionary = {}
+var _lock_indicator: LockIndicator
+
+
+## Missile-lock diamond, drawn at the target's screen position: yellow and
+## wide while acquiring, tight and red when locked.
+class LockIndicator:
+	extends Control
+
+	var target_visible: bool = false
+	var target_position: Vector2 = Vector2.ZERO
+	var progress: float = 0.0
+	var locked: bool = false
+
+	func _draw() -> void:
+		if not target_visible:
+			return
+		var radius: float = lerpf(30.0, 14.0, progress)
+		var color := Color(1, 0.2, 0.15, 0.95) if locked else Color(1, 0.85, 0.2, 0.8)
+		var points := PackedVector2Array([
+			target_position + Vector2(0, -radius),
+			target_position + Vector2(radius, 0),
+			target_position + Vector2(0, radius),
+			target_position + Vector2(-radius, 0),
+			target_position + Vector2(0, -radius),
+		])
+		draw_polyline(points, color, 2.0)
 
 
 func _ready() -> void:
+	_lock_indicator = LockIndicator.new()
+	_lock_indicator.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_lock_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_lock_indicator)
 	for side: StringName in [&"front", &"back", &"left", &"right"]:
 		var edge := ColorRect.new()
 		edge.color = Color(1, 0, 0, 0)
@@ -86,6 +116,15 @@ func add_kill_feed(text: String) -> void:
 	tween.tween_interval(KILL_FEED_SECONDS)
 	tween.tween_property(entry, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(entry.queue_free)
+
+
+func update_lock(target_visible: bool, screen_position: Vector2 = Vector2.ZERO,
+		progress: float = 0.0, locked: bool = false) -> void:
+	_lock_indicator.target_visible = target_visible
+	_lock_indicator.target_position = screen_position
+	_lock_indicator.progress = progress
+	_lock_indicator.locked = locked
+	_lock_indicator.queue_redraw()
 
 
 func show_death(dead: bool) -> void:
