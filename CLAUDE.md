@@ -32,9 +32,9 @@
 ## Controls & tuning
 
 - Gamepad (Mode 2): left stick throttle/yaw, right stick pitch/roll. **A** arm (throttle at zero-thrust position), **B** reset, **Y** acro/angle mode, **X** FPV/chase camera, **RT** fire blaster, **LT** fire missile (requires lock: hold an enemy near the reticle until the diamond turns red), **Start** debug overlay.
-- Headless test suite under `scripts/tests/`: `hover_check.gd`, `combat_check.gd`, `wave_check.gd`, `missile_check.gd` — run all after flight/combat changes.
+- Headless test suite under `scripts/tests/`: `hover_check.gd`, `combat_check.gd`, `wave_check.gd`, `missile_check.gd`, `run_check.gd` — run all after flight/combat changes.
 - Rate-loop wobble is fought with the FlightConfig **Filtering** group (gyro LPF, D-term LPF, RC smoothing — Betaflight-style), never by changing the physics.
-- Run flow (M3): arming starts a run (WaveDirector spawns escalating enemy waves); death ends it, shows the summary, and the next arm starts fresh. Score is run-scoped with a combo multiplier.
+- Run flow (M4): arming starts a run of sorties (`sortie_waves` waves each); clearing a sortie opens the exit gate, and flying it triggers a paused upgrade draft applied to the run-scoped `RunMods` static layer (never to the configs). Death ends the run, records `user://profile.json`, shows the summary; the next arm starts fresh (`RunMods.reset()`). Score is run-scoped with a combo multiplier.
 - Overlay: mouse tunes every `FlightConfig` field live while the gamepad flies. Save/Load persists to `user://flight_config.tres` (auto-loaded on startup); Defaults re-reads `default_flight_config.tres`. New defaults get baked into that `.tres` only when the human says the feel is right (handoff §14).
 
 ## Checkpoint protocol

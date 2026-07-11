@@ -34,13 +34,13 @@ Fly the greybox loop popping targets; it should feel like an action-game trailer
 - Score/combo, kill feed, end-of-run summary. (Damage-direction indicator from M2 landed here.)
 - Post-checkpoint additions: Betaflight-style rate-loop filtering (feel), missile lock-on vs enemy drones, volume controls.
 
-## M4 — The Run: roguelike structure ← NEXT
+## M4 — The Run: roguelike structure ✅ (2026-07-11)
 
-- Sortie/sector structure with exit gates; escalating encounters; death ends the run.
-- Between-sortie upgrade drafts — weapons/utility first; flight-model mods only with great care (never break the tuned feel).
-- Meta progression + profile persistence; minimal menus (title / run / death).
+- Sortie structure: `sortie_waves` waves each, extra hostiles per sortie; clearing the last wave opens a fly-through exit gate; death ends the run.
+- Between-sortie upgrade drafts (paused three-pick): weapons/utility only, applied to a run-scoped `RunMods` layer so no upgrade ever mutates the human-tuned configs.
+- Meta progression: `user://profile.json` (runs, kills, best score/sorties); title overlay + bests in the death summary stand in for menus.
 
-## M5 — The Look: art direction, then the graphics pass
+## M5 — The Look: art direction, then the graphics pass ← NEXT
 
 - **Art-direction spike first**: 2–3 cheap visual prototypes of the same arena corner (e.g. stylized neon sci-fi vs low-poly military); the human picks. Deliberately deferred until combat is proven fun.
 - Then: environment set, lighting + post (bloom, tonemapping, fog), drone/enemy models, VFX polish, cohesive palette, audio polish to match.
