@@ -43,7 +43,8 @@ func _physics_process(delta: float) -> void:
 		lock_progress = 0.0
 		_lock_announced = false
 	elif target != null:
-		lock_progress = minf(lock_progress + delta / combat_config.missile_lock_time, 1.0)
+		var lock_time: float = combat_config.missile_lock_time * RunMods.current.lock_time_mult
+		lock_progress = minf(lock_progress + delta / maxf(lock_time, 0.05), 1.0)
 		if is_locked() and not _lock_announced:
 			_lock_announced = true
 			SoundBank.play_at(&"lock", global_position, -6.0, 0.02)
@@ -55,7 +56,8 @@ func _physics_process(delta: float) -> void:
 ## Nearest-to-reticle enemy inside the lock cone, range, and line of sight.
 func _best_candidate() -> Node3D:
 	var best: Node3D = null
-	var best_angle: float = deg_to_rad(combat_config.missile_lock_cone_deg)
+	var best_angle: float = deg_to_rad(
+			combat_config.missile_lock_cone_deg * RunMods.current.lock_cone_mult)
 	var forward: Vector3 = -global_basis.z
 	for enemy: Node in get_tree().get_nodes_in_group(&"enemies"):
 		var enemy_3d: Node3D = enemy as Node3D
@@ -88,6 +90,6 @@ func _launch() -> void:
 	missile.global_position = global_position + direction * 0.5
 	missile.setup(target, combat_config, _drone.team, [_drone.get_rid()], direction)
 	SoundBank.play_at(&"launch", global_position, -4.0, 0.1)
-	_cooldown = combat_config.missile_cooldown
+	_cooldown = combat_config.missile_cooldown * RunMods.current.missile_cooldown_mult
 	lock_progress = 0.0
 	_lock_announced = false

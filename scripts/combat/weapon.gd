@@ -28,7 +28,7 @@ func _physics_process(delta: float) -> void:
 	var trigger_down: bool = fire_override or Input.is_action_pressed(&"fire")
 	if trigger_down and _drone.armed and _cooldown <= 0.0:
 		_fire()
-		_cooldown = 1.0 / combat_config.fire_rate
+		_cooldown = 1.0 / (combat_config.fire_rate * RunMods.current.fire_rate_mult)
 
 
 func _fire() -> void:
@@ -37,7 +37,8 @@ func _fire() -> void:
 			+ _drone.linear_velocity * combat_config.inherit_velocity
 	# Spawn clear of the drone's own collider (also excluded by RID).
 	var origin: Vector3 = global_position + direction * 0.4
-	_pool.fire(origin, velocity, combat_config.projectile_damage, _drone.team,
+	_pool.fire(origin, velocity,
+			combat_config.projectile_damage * RunMods.current.damage_mult, _drone.team,
 			[_drone.get_rid()], combat_config.projectile_gravity_scale,
 			combat_config.projectile_lifetime)
 	SoundBank.play_at(&"shot", origin, -6.0, 0.12)
