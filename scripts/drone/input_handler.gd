@@ -32,7 +32,7 @@ func _ready() -> void:
 	_axis_roll = _bound_axis(&"roll", _axis_roll)
 
 
-func poll(config: FlightConfig, hover_throttle: float) -> void:
+func poll(config: FlightConfig, hover_throttle: float, delta: float) -> void:
 	var pads: Array[int] = Input.get_connected_joypads()
 	if pads.is_empty():
 		throttle = 0.0
@@ -51,20 +51,29 @@ func poll(config: FlightConfig, hover_throttle: float) -> void:
 	var yaw_stick: float = Input.get_joy_axis(device, _axis_yaw)
 
 	var throttle_deadzoned: float = _apply_deadzone(throttle_stick, config.stick_deadzone)
+	var raw_throttle: float
 	match config.throttle_curve:
 		FlightConfig.ThrottleCurve.HOVER_CENTERED:
-			throttle = _throttle_hover_centered_curve(throttle_deadzoned, hover_throttle)
+			raw_throttle = _throttle_hover_centered_curve(throttle_deadzoned, hover_throttle)
 		FlightConfig.ThrottleCurve.THREE_D:
 			# 3D (§Betaflight-style): center = zero thrust, below = reverse.
 			# The stick deadzone doubles as the center deadband.
-			throttle = throttle_deadzoned
+			raw_throttle = throttle_deadzoned
 		_:
-			throttle = _throttle_raw_curve(throttle_deadzoned)
-	stick_shaped = Vector3(
+			raw_throttle = _throttle_raw_curve(throttle_deadzoned)
+	var raw_shaped := Vector3(
 		_shape(roll_stick, config.stick_deadzone, config.expo.x),
 		_shape(pitch_stick, config.stick_deadzone, config.expo.y),
 		_shape(yaw_stick, config.stick_deadzone, config.expo.z)
 	)
+	# Optional RC smoothing (part of the epi-filtering set; 0 = raw sticks).
+	if config.rc_smoothing_hz > 0.0:
+		var alpha: float = 1.0 - exp(-TAU * config.rc_smoothing_hz * delta)
+		throttle += (raw_throttle - throttle) * alpha
+		stick_shaped += (raw_shaped - stick_shaped) * alpha
+	else:
+		throttle = raw_throttle
+		stick_shaped = raw_shaped
 	rate_command = Vector3(
 		stick_shaped.x * deg_to_rad(config.max_rate_deg.x),
 		stick_shaped.y * deg_to_rad(config.max_rate_deg.y),

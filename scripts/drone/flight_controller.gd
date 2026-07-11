@@ -54,7 +54,7 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_input.poll(config, hover_throttle())
+	_input.poll(config, hover_throttle(), delta)
 	collective = throttle_override if throttle_override >= 0.0 else _input.throttle
 	_handle_buttons()
 	if armed:

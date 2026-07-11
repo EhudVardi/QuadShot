@@ -31,6 +31,17 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 ## Expo per axis: out = (1-e)·x + e·x³. Softens center stick.
 @export var expo: Vector3 = Vector3(0.3, 0.3, 0.3)
 
+@export_group("Filtering")
+## Betaflight-style epi-filtering: shape the signals, never the physics.
+## All cutoffs in Hz; 0 disables a filter. Nyquist at the 240 Hz tick is
+## 120 Hz — keep cutoffs below that.
+## First-order low-pass on the measured body rates before the PID.
+@export var gyro_lpf_hz: float = 90.0
+## Additional low-pass on the D-term (the classic anti-wobble knob).
+@export var dterm_lpf_hz: float = 70.0
+## Smoothing on stick commands; 0 = raw sticks.
+@export var rc_smoothing_hz: float = 0.0
+
 @export_group("Rate PID")
 @export var rate_p: Vector3 = Vector3(0.004, 0.004, 0.004)
 @export var rate_i: Vector3 = Vector3(0.002, 0.002, 0.002)
