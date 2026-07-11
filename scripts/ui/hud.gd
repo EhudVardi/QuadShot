@@ -22,6 +22,7 @@ const KILL_FEED_SECONDS: float = 3.0
 ## Thin edge bars for directional damage, built in code (side -> ColorRect).
 var _edges: Dictionary = {}
 var _lock_indicator: LockIndicator
+var _gate_marker: GateMarker
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -49,11 +50,34 @@ class LockIndicator:
 		draw_polyline(points, color, 2.0)
 
 
+## Blue box drawn at the open exit gate's screen position (roadmap M4).
+class GateMarker:
+	extends Control
+
+	var marker_visible: bool = false
+	var marker_position: Vector2 = Vector2.ZERO
+
+	func _draw() -> void:
+		if not marker_visible:
+			return
+		var half: float = 18.0
+		var color := Color(0.3, 0.7, 1.0, 0.9)
+		draw_rect(Rect2(marker_position - Vector2(half, half),
+				Vector2(half, half) * 2.0), color, false, 2.0)
+		draw_string(get_theme_default_font(),
+				marker_position + Vector2(-18.0, half + 18.0), "EXIT",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
+
+
 func _ready() -> void:
 	_lock_indicator = LockIndicator.new()
 	_lock_indicator.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_lock_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_lock_indicator)
+	_gate_marker = GateMarker.new()
+	_gate_marker.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_gate_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gate_marker)
 	for side: StringName in [&"front", &"back", &"left", &"right"]:
 		var edge := ColorRect.new()
 		edge.color = Color(1, 0, 0, 0)
@@ -129,6 +153,13 @@ func update_lock(target_visible: bool, screen_position: Vector2 = Vector2.ZERO,
 	_lock_indicator.progress = progress
 	_lock_indicator.locked = locked
 	_lock_indicator.queue_redraw()
+
+
+func update_gate_marker(marker_visible: bool,
+		screen_position: Vector2 = Vector2.ZERO) -> void:
+	_gate_marker.marker_visible = marker_visible
+	_gate_marker.marker_position = screen_position
+	_gate_marker.queue_redraw()
 
 
 func show_death(dead: bool) -> void:

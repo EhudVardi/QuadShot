@@ -15,6 +15,7 @@ extends Node3D
 @onready var _wave_director: WaveDirector = $WaveDirector
 @onready var _missiles: MissileSystem = $Drone/FpvCamera/MissileSystem
 @onready var _exit_gate: ExitGate = $ExitGate
+@onready var _draft: DraftScreen = $DraftScreen
 
 var score: int = 0
 
@@ -33,6 +34,7 @@ func _ready() -> void:
 	_wave_director.sortie_cleared.connect(_on_sortie_cleared)
 	_wave_director.run_ended.connect(_on_run_ended)
 	_exit_gate.entered.connect(_on_gate_entered)
+	_draft.picked.connect(_on_upgrade_picked)
 	_drone_health.max_health = combat_config.player_max_health
 	_drone_health.revive()
 	_drone_health.damaged.connect(_on_player_damaged)
@@ -41,7 +43,11 @@ func _ready() -> void:
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if RunMods.current.regen_rate > 0.0 and _wave_director.running \
+			and _drone_health.alive:
+		_drone_health.heal(RunMods.current.regen_rate * delta)
+		_hud.set_health(_drone_health.current, _drone_health.max_health)
 	if Input.is_action_just_pressed(&"camera_toggle"):
 		if _fpv_camera.current:
 			_chase_camera.make_current()
@@ -51,6 +57,17 @@ func _process(_delta: float) -> void:
 	if not _wave_director.running and _drone.armed and _drone_health.alive:
 		_start_run()
 	_update_lock_indicator()
+	_update_gate_marker()
+
+
+func _update_gate_marker() -> void:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if not _exit_gate.active or camera == null \
+			or camera.is_position_behind(_exit_gate.global_position):
+		_hud.update_gate_marker(false)
+		return
+	_hud.update_gate_marker(true,
+			camera.unproject_position(_exit_gate.global_position))
 
 
 func _update_lock_indicator() -> void:
@@ -72,6 +89,10 @@ func _start_run() -> void:
 	_hud.set_combo(1)
 	_hud.hide_run_summary()
 	_exit_gate.deactivate()
+	RunMods.reset()
+	_drone_health.max_health = combat_config.player_max_health
+	_drone_health.revive()
+	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_wave_director.start_run()
 
 
@@ -82,9 +103,20 @@ func _on_sortie_cleared(sortie: int) -> void:
 
 func _on_gate_entered() -> void:
 	# Gate transit heals to full — sorties are self-contained challenges.
-	# The upgrade draft slots in here next (roadmap M4).
-	_drone_health.revive()
+	_drone_health.heal(_drone_health.max_health)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	# The gate fires from a physics callback; pausing for the draft waits
+	# until the physics flush is done.
+	_draft.call_deferred(&"open", Upgrades.draft())
+
+
+func _on_upgrade_picked(id: StringName) -> void:
+	Upgrades.apply(id, RunMods.current)
+	_drone_health.max_health = combat_config.player_max_health \
+			+ RunMods.current.max_health_bonus
+	_drone_health.heal(_drone_health.max_health)
+	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_hud.add_kill_feed("+ %s" % Upgrades.title_of(id))
 	_wave_director.advance_sortie()
 
 
@@ -95,7 +127,7 @@ func _on_scorer_destroyed(points: float) -> void:
 	else:
 		_combo = 1.0
 	_last_kill_time = now
-	var awarded: int = int(points * _combo)
+	var awarded: int = int(points * _combo * RunMods.current.score_mult)
 	score += awarded
 	_hud.set_score(score)
 	_hud.set_combo(int(_combo))

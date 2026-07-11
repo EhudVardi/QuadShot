@@ -35,6 +35,13 @@ static func apply(id: StringName, mods: RunMods) -> void:
 			mods.score_mult *= 1.5
 
 
+static func title_of(id: StringName) -> String:
+	for option: Dictionary in POOL:
+		if option["id"] == id:
+			return option["title"]
+	return String(id)
+
+
 ## A draft of `count` distinct random options.
 static func draft(count: int = 3) -> Array[Dictionary]:
 	var pool: Array[Dictionary] = POOL.duplicate()

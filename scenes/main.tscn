@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://scripts/combat/wave_director.gd" id="13_waves"]
 [ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="14_acfg"]
 [ext_resource type="PackedScene" path="res://scenes/combat/exit_gate.tscn" id="15_gate"]
+[ext_resource type="PackedScene" path="res://scenes/ui/draft_screen.tscn" id="16_draft"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -49,6 +50,8 @@ combat_config = ExtResource("7_ccfg")
 audio_config = ExtResource("14_acfg")
 
 [node name="Hud" parent="." instance=ExtResource("9_hud")]
+
+[node name="DraftScreen" parent="." instance=ExtResource("16_draft")]
 
 [node name="Targets" type="Node3D" parent="."]
 

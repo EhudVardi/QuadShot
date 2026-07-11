@@ -1,0 +1,30 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/draft_screen.gd" id="1_draft"]
+
+[node name="DraftScreen" type="CanvasLayer"]
+process_mode = 2
+layer = 5
+visible = false
+script = ExtResource("1_draft")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+
+[node name="Box" type="VBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Center/Panel/Box"]
+text = "GATE CLEARED — CHOOSE AN UPGRADE"
+horizontal_alignment = 1
+
+[node name="Options" type="HBoxContainer" parent="Center/Panel/Box"]
+theme_override_constants/separation = 12

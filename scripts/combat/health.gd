@@ -28,6 +28,12 @@ func take(amount: float) -> void:
 		died.emit()
 
 
+func heal(amount: float) -> void:
+	if not alive:
+		return
+	current = minf(current + amount, max_health)
+
+
 func revive() -> void:
 	current = max_health
 	alive = true
