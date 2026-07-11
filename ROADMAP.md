@@ -27,13 +27,13 @@ Fly the greybox loop popping targets; it should feel like an action-game trailer
 - Threat feedback: hit flash, damage direction hint, health readout.
 - Balance knobs in a `CombatConfig` resource, live-tunable via the overlay machinery.
 
-## M3 — The Hunt: mobile enemies & a combat loop ← NEXT
+## M3 — The Hunt: mobile enemies & a combat loop ✅ (2026-07-11)
 
 - Enemy drones with simple aerial state machines (patrol → chase → strafe/orbit); open-air, no navmesh.
 - Encounter director: waves, spawn zones, escalation; a bigger arena beyond the greybox.
-- Score/combo, kill feed, end-of-run summary.
+- Score/combo, kill feed, end-of-run summary. (Damage-direction indicator from M2 landed here.)
 
-## M4 — The Run: roguelike structure
+## M4 — The Run: roguelike structure ← NEXT
 
 - Sortie/sector structure with exit gates; escalating encounters; death ends the run.
 - Between-sortie upgrade drafts — weapons/utility first; flight-model mods only with great care (never break the tuned feel).
