@@ -9,7 +9,7 @@ Successor to the Milestone 0 phase plan in [FPV-SANDBOX-HANDOFF.md](FPV-SANDBOX-
 - Checkpoint protocol continues: every milestone ends with the human playing and judging.
 - **Asset policy** (decide before M1 audio/models): procedural/synth placeholders, CC0 packs (e.g. Kenney), or commissioned art later. Third-party assets need explicit human sign-off.
 
-## M1 — First Blood: shooting & explosions ← NEXT
+## M1 — First Blood: shooting & explosions ✅ (2026-07-11)
 
 Fly the greybox loop popping targets; it should feel like an action-game trailer moment.
 
@@ -20,14 +20,14 @@ Fly the greybox loop popping targets; it should feel like an action-game trailer
 - **Audio enters the project**: shots, explosions, motor whine pitched by motor output, wind rush by airspeed. Source per asset policy.
 - Perf guard: pooling for projectiles/particles; headless stress scene proving tick stability.
 
-## M2 — Return Fire: they fight back
+## M2 — Return Fire: they fight back ✅ (2026-07-11; threat direction indicator deferred to M3 polish)
 
 - Player health; damage from hits and hard crashes; death → explosion → respawn at pad.
 - Enemy turrets: acquire, lead the shot, volley; destructible with M1's explosion kit.
 - Threat feedback: hit flash, damage direction hint, health readout.
 - Balance knobs in a `CombatConfig` resource, live-tunable via the overlay machinery.
 
-## M3 — The Hunt: mobile enemies & a combat loop
+## M3 — The Hunt: mobile enemies & a combat loop ← NEXT
 
 - Enemy drones with simple aerial state machines (patrol → chase → strafe/orbit); open-air, no navmesh.
 - Encounter director: waves, spawn zones, escalation; a bigger arena beyond the greybox.
