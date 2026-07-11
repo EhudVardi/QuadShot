@@ -1,0 +1,27 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/target.gd" id="1_tgt"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
+
+[sub_resource type="StandardMaterial3D" id="mat_target"]
+albedo_color = Color(1, 0.55, 0.1, 1)
+emission_enabled = true
+emission = Color(1, 0.5, 0.1, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="BoxMesh" id="mesh_target"]
+material = SubResource("mat_target")
+size = Vector3(1.2, 1.2, 0.15)
+
+[sub_resource type="BoxShape3D" id="shape_target"]
+size = Vector3(1.2, 1.2, 0.15)
+
+[node name="Target" type="StaticBody3D" groups=["targets"]]
+script = ExtResource("1_tgt")
+combat_config = ExtResource("2_ccfg")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_target")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_target")

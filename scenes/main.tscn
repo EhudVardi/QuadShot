@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -7,9 +7,12 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
 [ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
 [ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="9_hud"]
+[ext_resource type="PackedScene" path="res://scenes/combat/target.tscn" id="10_target"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
+combat_config = ExtResource("7_ccfg")
 
 [node name="Greybox" parent="." instance=ExtResource("1_greybox")]
 
@@ -27,3 +30,37 @@ target = NodePath("../Drone")
 [node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
 drone = NodePath("../Drone")
 combat_config = ExtResource("7_ccfg")
+
+[node name="Hud" parent="." instance=ExtResource("9_hud")]
+
+[node name="Targets" type="Node3D" parent="."]
+
+[node name="Target01" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 3, -18)
+
+[node name="Target02" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -8, 5, -28)
+
+[node name="Target03" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, 0.866025, 15, 4, -33)
+
+[node name="Target04" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 6, -42)
+
+[node name="Target05" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, -35, 3, -35)
+
+[node name="Target06" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866025, -48, 4, -20)
+
+[node name="Target07" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 2, -8)
+
+[node name="Target08" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -28, 5, 12)
+
+[node name="Target09" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, 0.866025, -12, 2.5, 2)
+
+[node name="Target10" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 6, -35)
