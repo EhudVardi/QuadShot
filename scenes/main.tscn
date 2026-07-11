@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="9_hud"]
 [ext_resource type="PackedScene" path="res://scenes/combat/target.tscn" id="10_target"]
 [ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="11_sfx"]
+[ext_resource type="PackedScene" path="res://scenes/combat/turret.tscn" id="12_turret"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -68,3 +69,20 @@ transform = Transform3D(0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, 0.866025, -12, 2.5, 
 
 [node name="Target10" parent="Targets" instance=ExtResource("10_target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 6, -35)
+
+[node name="Turrets" type="Node3D" parent="."]
+
+[node name="Turret1" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -28)
+
+[node name="Turret2" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0, -38)
+
+[node name="Turret3" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48, 0, -22)
+
+[node name="Turret4" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, 2)
+
+[node name="Turret5" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 5, -35)

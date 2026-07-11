@@ -1,0 +1,56 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/turret.gd" id="1_tur"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
+[ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
+
+[sub_resource type="StandardMaterial3D" id="mat_base"]
+albedo_color = Color(0.35, 0.12, 0.12, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_head"]
+albedo_color = Color(0.75, 0.15, 0.1, 1)
+emission_enabled = true
+emission = Color(0.6, 0.05, 0.02, 1)
+
+[sub_resource type="BoxMesh" id="mesh_base"]
+material = SubResource("mat_base")
+size = Vector3(1, 1.2, 1)
+
+[sub_resource type="BoxMesh" id="mesh_head"]
+material = SubResource("mat_head")
+size = Vector3(0.6, 0.4, 0.6)
+
+[sub_resource type="BoxMesh" id="mesh_barrel"]
+material = SubResource("mat_head")
+size = Vector3(0.12, 0.12, 0.8)
+
+[sub_resource type="BoxShape3D" id="shape_body"]
+size = Vector3(1, 2.2, 1)
+
+[node name="Turret" type="StaticBody3D" groups=["turrets"]]
+script = ExtResource("1_tur")
+combat_config = ExtResource("2_ccfg")
+
+[node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+mesh = SubResource("mesh_base")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+
+[node name="HeadMesh" type="MeshInstance3D" parent="Head"]
+mesh = SubResource("mesh_head")
+
+[node name="Barrel" type="MeshInstance3D" parent="Head"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+mesh = SubResource("mesh_barrel")
+
+[node name="Muzzle" type="Marker3D" parent="Head"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.95)
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("shape_body")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("3_hp")

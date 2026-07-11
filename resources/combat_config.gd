@@ -32,6 +32,7 @@ extends TunableConfig
 @export var turret_damage: float = 10.0
 @export var turret_turn_speed_deg: float = 120.0
 @export var turret_respawn_delay: float = 20.0
+@export var turret_points: float = 250.0
 
 @export_group("Targets")
 @export var target_points: float = 100.0

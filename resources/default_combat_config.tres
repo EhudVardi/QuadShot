@@ -21,5 +21,6 @@ turret_muzzle_speed = 55.0
 turret_damage = 10.0
 turret_turn_speed_deg = 120.0
 turret_respawn_delay = 20.0
+turret_points = 250.0
 target_points = 100.0
 target_respawn_delay = 8.0

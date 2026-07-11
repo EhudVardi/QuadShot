@@ -74,6 +74,7 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["turret_damage", 1.0, 50.0, 1.0],
 	["turret_turn_speed_deg", 10.0, 360.0, 10.0],
 	["turret_respawn_delay", 0.0, 60.0, 5.0],
+	["turret_points", 0.0, 1000.0, 10.0],
 	["target_points", 0.0, 500.0, 10.0],
 	["target_respawn_delay", 0.0, 30.0, 1.0],
 ]
