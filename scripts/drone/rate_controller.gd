@@ -40,12 +40,18 @@ func update(target: Vector3, measured: Vector3, delta: float, config: FlightConf
 	return config.rate_p * error + _i_term - config.rate_d * _d_filtered
 
 
-## Crash recovery: a hard contact spins the drone far beyond any commanded
-## rate while the motors are powerless to track, winding the integrator to
-## its clamp within a few ticks. Discarding (a fraction of) it on impact
-## prevents the seconds-long pull-away after recovering.
+## Crash recovery: contact spins the drone far beyond any commanded rate
+## while the motors are powerless to track, winding the integrator to its
+## clamp within a few ticks. The flight controller calls this every tick of
+## the contact, discarding a fraction each time, so the seconds-long
+## pull-away after recovery never builds up.
 func decay_integrator(fraction: float) -> void:
 	_i_term *= 1.0 - clampf(fraction, 0.0, 1.0)
+
+
+## Telemetry view of the integrator's output contribution (overlay/blackbox).
+func integrator() -> Vector3:
+	return _i_term
 
 
 ## Called on disarm (handoff §6.3): integrators and filter state must not

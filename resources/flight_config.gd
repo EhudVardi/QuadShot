@@ -48,10 +48,11 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 @export var rate_d: Vector3 = Vector3(0.00003, 0.00003, 0.00003)
 ## Clamp on the I term's output contribution (anti-windup), motor units.
 @export var integral_limit: float = 0.2
-## Fraction of the I term discarded on hard contact (Betaflight-style crash
-## recovery). Collisions wind the integrator to its clamp within ticks and
-## it bleeds off over seconds as a pull-away; 1 fully resets it on impact,
-## 0 keeps the old behaviour (for A/B feel comparison).
+## Per-tick fraction of the I term discarded while the frame touches
+## anything (Betaflight-style crash recovery). Contact pins the motors, so
+## integration is garbage for its whole duration — it would otherwise wind
+## to the clamp and bleed off over seconds as a pull-away. 1 hard-zeroes it,
+## 0 keeps the old behaviour (A/B); at 240 Hz even 0.1 drains it in ~30 ms.
 @export var crash_iterm_decay: float = 1.0
 
 @export_group("Input")

@@ -58,6 +58,11 @@ func _physics_process(delta: float) -> void:
 	collective = throttle_override if throttle_override >= 0.0 else _input.throttle
 	_handle_buttons()
 	if armed:
+		# While anything touches the frame the motors can't track commands,
+		# so the integrator only winds up garbage. Decay must run for the
+		# WHOLE contact — a scrape re-winds a one-shot reset within ticks.
+		if get_contact_count() > 0:
+			_rate_controller.decay_integrator(config.crash_iterm_decay)
 		_run_rate_control(delta)
 	else:
 		_rate_controller.reset()
@@ -130,6 +135,11 @@ func motor_output(index: int) -> float:
 	return _motors.output(index)
 
 
+## Blackbox/overlay telemetry: the rate PID integrator state.
+func telemetry_integrator() -> Vector3:
+	return _rate_controller.integrator()
+
+
 ## Projectile hits land here; the Health component and its wiring (main.gd)
 ## decide the consequences — the flight controller stays combat-thin.
 func take_hit(damage: float) -> void:
@@ -140,7 +150,6 @@ func _on_body_entered(_body: Node) -> void:
 	# Delta-v across the collision approximates impact severity; gentle
 	# landings fall under main's damage threshold.
 	crashed.emit((_previous_velocity - linear_velocity).length())
-	_rate_controller.decay_integrator(config.crash_iterm_decay)
 
 
 func _run_rate_control(delta: float) -> void:
