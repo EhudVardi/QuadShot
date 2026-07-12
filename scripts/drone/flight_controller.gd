@@ -140,6 +140,7 @@ func _on_body_entered(_body: Node) -> void:
 	# Delta-v across the collision approximates impact severity; gentle
 	# landings fall under main's damage threshold.
 	crashed.emit((_previous_velocity - linear_velocity).length())
+	_rate_controller.decay_integrator(config.crash_iterm_decay)
 
 
 func _run_rate_control(delta: float) -> void:

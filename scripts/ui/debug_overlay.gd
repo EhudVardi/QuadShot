@@ -35,6 +35,7 @@ const _FLIGHT_FLOAT_ROWS: Array[Array] = [
 	["yaw_authority", 0.0, 5.0, 0.05],
 	["reverse_thrust_scale", 0.0, 1.0, 0.01],
 	["integral_limit", 0.0, 0.5, 0.01],
+	["crash_iterm_decay", 0.0, 1.0, 0.05],
 	["gyro_lpf_hz", 0.0, 120.0, 1.0],
 	["dterm_lpf_hz", 0.0, 120.0, 1.0],
 	["rc_smoothing_hz", 0.0, 120.0, 1.0],
