@@ -1,0 +1,97 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/environment/dev_room.tscn" id="1_devroom"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="4_main"]
+[ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="9_hud"]
+[ext_resource type="PackedScene" path="res://scenes/combat/target.tscn" id="10_target"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="11_sfx"]
+[ext_resource type="PackedScene" path="res://scenes/combat/turret.tscn" id="12_turret"]
+[ext_resource type="Script" path="res://scripts/combat/wave_director.gd" id="13_waves"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="14_acfg"]
+[ext_resource type="PackedScene" path="res://scenes/combat/exit_gate.tscn" id="15_gate"]
+[ext_resource type="PackedScene" path="res://scenes/ui/draft_screen.tscn" id="16_draft"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("4_main")
+combat_config = ExtResource("7_ccfg")
+
+[node name="DevRoom" parent="." instance=ExtResource("1_devroom")]
+
+[node name="Drone" parent="." instance=ExtResource("2_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("8_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("11_sfx")
+audio_config = ExtResource("14_acfg")
+
+[node name="WaveDirector" type="Node" parent="."]
+script = ExtResource("13_waves")
+combat_config = ExtResource("7_ccfg")
+
+[node name="ExitGate" parent="." instance=ExtResource("15_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 10, -15)
+
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
+script = ExtResource("5_chase")
+target = NodePath("../Drone")
+
+[node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
+drone = NodePath("../Drone")
+combat_config = ExtResource("7_ccfg")
+audio_config = ExtResource("14_acfg")
+
+[node name="Hud" parent="." instance=ExtResource("9_hud")]
+
+[node name="DraftScreen" parent="." instance=ExtResource("16_draft")]
+
+[node name="Targets" type="Node3D" parent="."]
+
+[node name="Range01" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 3, 18)
+
+[node name="Range02" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866025, 25, 4, 14)
+
+[node name="Range03" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 5, 20)
+
+[node name="Range04" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 39, 3, 25)
+
+[node name="Range05" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46, 6, 17)
+
+[node name="City06" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 22, -55)
+
+[node name="City07" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 70, 12, -70)
+
+[node name="Tunnel08" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 3, 50)
+
+[node name="Platform09" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 17, 80)
+
+[node name="Platform10" parent="Targets" instance=ExtResource("10_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 42, 70)
+
+[node name="Turrets" type="Node3D" parent="."]
+
+[node name="Turret1" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0, -25)
+
+[node name="Turret2" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 0, -45)
+
+[node name="Turret3" parent="Turrets" instance=ExtResource("12_turret")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 0, 30)

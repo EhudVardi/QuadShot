@@ -6,6 +6,7 @@
 
 - Godot 4.7 stable (standard/GDScript build, portable): `C:\Tools\Godot\Godot_v4.7-stable_win64_console.exe` (use the `_console` exe from CLI so output is visible).
 - Run the game: `<exe> --path .`
+- Run the **dev room** testbed: `<exe> --path . scenes/dev_map.tscn` — a big sandbox map that mirrors main's wiring and gets a specimen of every game element as they're added (shooting range, city block, slalom, tunnel, platforms, crash wall).
 - Headless verify after edits (treat warnings as errors):
   - Re-import: `<exe> --headless --import --path .`
   - Boot check: `<exe> --headless --quit-after 10 --path .`
@@ -13,7 +14,7 @@
 
 ## Architecture
 
-- `scenes/` — `main.tscn` (entry: environment + drone + combat + UI), `environment/greybox.tscn`, `drone/drone.tscn`, `combat/` (projectile, explosion, target, turret), `ui/` (debug_overlay, hud)
+- `scenes/` — `main.tscn` (entry: environment + drone + combat + UI), `dev_map.tscn` (dev-room testbed, same wiring), `environment/` (greybox, dev_room), `drone/drone.tscn`, `combat/` (projectile, explosion, target, turret), `ui/` (debug_overlay, hud, draft_screen)
 - `scripts/` — `drone/` (flight_controller, motor_model, input_handler, rate_controller), `combat/` (weapon, projectile+pool, health, turret, target, enemy_drone, wave_director, effects), `audio/` (sound_bank — synthesized, no external assets; motor/wind emitters), `ui/`, `tests/` (headless checks: hover, combat, wave)
 - `resources/` — `tunable_config.gd` base + `flight_config.gd`/`combat_config.gd` and their `default_*.tres` (shared instances: every exporter of the same `.tres` sees live edits), shared shaders/materials
 - Combat wiring: projectiles call `take_hit(damage)` on whatever they hit unless it shares the shooter's `team`; entities award score via a `destroyed(points)` signal that `main.gd` tallies; `SoundBank` is a scene node with a null-safe **static** API (not an autoload — autoloads don't exist under `--script` test runs).

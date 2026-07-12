@@ -1,0 +1,365 @@
+[gd_scene load_steps=32 format=3]
+
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
+[ext_resource type="PackedScene" path="res://scenes/environment/gate.tscn" id="2_gate"]
+
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("1_checker")
+
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(500, 500)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.2, 0.7, 0.35, 1)
+
+[sub_resource type="BoxMesh" id="mesh_pad"]
+material = SubResource("mat_pad")
+size = Vector3(3, 0.12, 3)
+
+[sub_resource type="BoxShape3D" id="shape_pad"]
+size = Vector3(3, 0.12, 3)
+
+[sub_resource type="StandardMaterial3D" id="mat_box"]
+albedo_color = Color(0.6, 0.6, 0.62, 1)
+
+[sub_resource type="BoxMesh" id="mesh_tower_s"]
+material = SubResource("mat_box")
+size = Vector3(5, 10, 5)
+
+[sub_resource type="BoxShape3D" id="shape_tower_s"]
+size = Vector3(5, 10, 5)
+
+[sub_resource type="BoxMesh" id="mesh_tower_m"]
+material = SubResource("mat_box")
+size = Vector3(7, 16, 7)
+
+[sub_resource type="BoxShape3D" id="shape_tower_m"]
+size = Vector3(7, 16, 7)
+
+[sub_resource type="BoxMesh" id="mesh_tower_l"]
+material = SubResource("mat_box")
+size = Vector3(9, 24, 9)
+
+[sub_resource type="BoxShape3D" id="shape_tower_l"]
+size = Vector3(9, 24, 9)
+
+[sub_resource type="BoxMesh" id="mesh_tower_xl"]
+material = SubResource("mat_box")
+size = Vector3(12, 40, 12)
+
+[sub_resource type="BoxShape3D" id="shape_tower_xl"]
+size = Vector3(12, 40, 12)
+
+[sub_resource type="BoxMesh" id="mesh_wall"]
+material = SubResource("mat_box")
+size = Vector3(40, 10, 1.5)
+
+[sub_resource type="BoxShape3D" id="shape_wall"]
+size = Vector3(40, 10, 1.5)
+
+[sub_resource type="StandardMaterial3D" id="mat_pylon"]
+albedo_color = Color(0.9, 0.5, 0.15, 1)
+
+[sub_resource type="CylinderMesh" id="mesh_pylon"]
+material = SubResource("mat_pylon")
+top_radius = 0.8
+bottom_radius = 0.8
+height = 12.0
+
+[sub_resource type="CylinderShape3D" id="shape_pylon"]
+radius = 0.8
+height = 12.0
+
+[sub_resource type="BoxMesh" id="mesh_platform"]
+material = SubResource("mat_pad")
+size = Vector3(8, 0.5, 8)
+
+[sub_resource type="BoxShape3D" id="shape_platform"]
+size = Vector3(8, 0.5, 8)
+
+[sub_resource type="BoxMesh" id="mesh_tunnel_wall"]
+material = SubResource("mat_box")
+size = Vector3(1.5, 6, 30)
+
+[sub_resource type="BoxShape3D" id="shape_tunnel_wall"]
+size = Vector3(1.5, 6, 30)
+
+[sub_resource type="BoxMesh" id="mesh_tunnel_roof"]
+material = SubResource("mat_box")
+size = Vector3(8, 1.5, 30)
+
+[sub_resource type="BoxShape3D" id="shape_tunnel_roof"]
+size = Vector3(8, 1.5, 30)
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+
+[node name="DevRoom" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+[node name="SpawnPad" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="SpawnPad"]
+mesh = SubResource("mesh_pad")
+
+[node name="Collision" type="CollisionShape3D" parent="SpawnPad"]
+shape = SubResource("shape_pad")
+
+[node name="SpawnPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="CityBlock" type="Node3D" parent="."]
+
+[node name="TowerXL1" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 20, -60)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerXL1"]
+mesh = SubResource("mesh_tower_xl")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerXL1"]
+shape = SubResource("shape_tower_xl")
+
+[node name="TowerL1" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 12, -45)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerL1"]
+mesh = SubResource("mesh_tower_l")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerL1"]
+shape = SubResource("shape_tower_l")
+
+[node name="TowerM1" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 8, -40)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerM1"]
+mesh = SubResource("mesh_tower_m")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerM1"]
+shape = SubResource("shape_tower_m")
+
+[node name="TowerS1" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 5, -75)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerS1"]
+mesh = SubResource("mesh_tower_s")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerS1"]
+shape = SubResource("shape_tower_s")
+
+[node name="TowerL2" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85, 12, -80)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerL2"]
+mesh = SubResource("mesh_tower_l")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerL2"]
+shape = SubResource("shape_tower_l")
+
+[node name="TowerM2" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 8, -85)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerM2"]
+mesh = SubResource("mesh_tower_m")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerM2"]
+shape = SubResource("shape_tower_m")
+
+[node name="TowerS2" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95, 5, -55)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerS2"]
+mesh = SubResource("mesh_tower_s")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerS2"]
+shape = SubResource("shape_tower_s")
+
+[node name="TowerM3" type="StaticBody3D" parent="CityBlock"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, 8, -95)
+
+[node name="Mesh" type="MeshInstance3D" parent="CityBlock/TowerM3"]
+mesh = SubResource("mesh_tower_m")
+
+[node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerM3"]
+shape = SubResource("shape_tower_m")
+
+[node name="CrashWall" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -120)
+
+[node name="Mesh" type="MeshInstance3D" parent="CrashWall"]
+mesh = SubResource("mesh_wall")
+
+[node name="Collision" type="CollisionShape3D" parent="CrashWall"]
+shape = SubResource("shape_wall")
+
+[node name="Slalom" type="Node3D" parent="."]
+
+[node name="Pylon1" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 6, 47)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon1"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon1"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon2" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 6, 53)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon2"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon2"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon3" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44, 6, 47)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon3"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon3"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon4" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 6, 53)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon4"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon4"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon5" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68, 6, 47)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon5"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon5"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon6" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 6, 53)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon6"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon6"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon7" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 92, 6, 47)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon7"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon7"]
+shape = SubResource("shape_pylon")
+
+[node name="Pylon8" type="StaticBody3D" parent="Slalom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 104, 6, 53)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slalom/Pylon8"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Collision" type="CollisionShape3D" parent="Slalom/Pylon8"]
+shape = SubResource("shape_pylon")
+
+[node name="Tunnel" type="Node3D" parent="."]
+
+[node name="LeftWall" type="StaticBody3D" parent="Tunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -73.25, 3, 30)
+
+[node name="Mesh" type="MeshInstance3D" parent="Tunnel/LeftWall"]
+mesh = SubResource("mesh_tunnel_wall")
+
+[node name="Collision" type="CollisionShape3D" parent="Tunnel/LeftWall"]
+shape = SubResource("shape_tunnel_wall")
+
+[node name="RightWall" type="StaticBody3D" parent="Tunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -66.75, 3, 30)
+
+[node name="Mesh" type="MeshInstance3D" parent="Tunnel/RightWall"]
+mesh = SubResource("mesh_tunnel_wall")
+
+[node name="Collision" type="CollisionShape3D" parent="Tunnel/RightWall"]
+shape = SubResource("shape_tunnel_wall")
+
+[node name="Roof" type="StaticBody3D" parent="Tunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 6.75, 30)
+
+[node name="Mesh" type="MeshInstance3D" parent="Tunnel/Roof"]
+mesh = SubResource("mesh_tunnel_roof")
+
+[node name="Collision" type="CollisionShape3D" parent="Tunnel/Roof"]
+shape = SubResource("shape_tunnel_roof")
+
+[node name="Platforms" type="Node3D" parent="."]
+
+[node name="Platform1" type="StaticBody3D" parent="Platforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 15, 80)
+
+[node name="Mesh" type="MeshInstance3D" parent="Platforms/Platform1"]
+mesh = SubResource("mesh_platform")
+
+[node name="Collision" type="CollisionShape3D" parent="Platforms/Platform1"]
+shape = SubResource("shape_platform")
+
+[node name="Platform2" type="StaticBody3D" parent="Platforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 25, 90)
+
+[node name="Mesh" type="MeshInstance3D" parent="Platforms/Platform2"]
+mesh = SubResource("mesh_platform")
+
+[node name="Collision" type="CollisionShape3D" parent="Platforms/Platform2"]
+shape = SubResource("shape_platform")
+
+[node name="Platform3" type="StaticBody3D" parent="Platforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 40, 70)
+
+[node name="Mesh" type="MeshInstance3D" parent="Platforms/Platform3"]
+mesh = SubResource("mesh_platform")
+
+[node name="Collision" type="CollisionShape3D" parent="Platforms/Platform3"]
+shape = SubResource("shape_platform")
+
+[node name="FreestyleGates" type="Node3D" parent="."]
+
+[node name="Gate1" parent="FreestyleGates" instance=ExtResource("2_gate")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -30, 4, -30)
+
+[node name="Gate2" parent="FreestyleGates" instance=ExtResource("2_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 6, -60)
+
+[node name="Gate3" parent="FreestyleGates" instance=ExtResource("2_gate")]
+transform = Transform3D(0.766044, 0, -0.642788, 0, 1, 0, 0.642788, 0, 0.766044, -90, 3, -20)
+
+[node name="Gate4" parent="FreestyleGates" instance=ExtResource("2_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 8, 60)
+
+[node name="Gate5" parent="FreestyleGates" instance=ExtResource("2_gate")]
+transform = Transform3D(0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866025, -15, 3, 80)
