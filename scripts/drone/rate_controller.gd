@@ -14,7 +14,9 @@ var _i_term: Vector3 = Vector3.ZERO
 var _gyro_filtered: Vector3 = Vector3.ZERO
 var _d_filtered: Vector3 = Vector3.ZERO
 var _setpoint_filtered: Vector3 = Vector3.ZERO
+var _ff_filtered: Vector3 = Vector3.ZERO
 var _last_measured: Vector3 = Vector3.ZERO
+var _last_target: Vector3 = Vector3.ZERO
 var _has_last_measured: bool = false
 
 
@@ -58,16 +60,24 @@ func update(target: Vector3, measured: Vector3, delta: float, config: FlightConf
 					-config.integral_limit, config.integral_limit)
 
 	var d_raw: Vector3 = Vector3.ZERO
+	var ff_raw: Vector3 = Vector3.ZERO
 	if _has_last_measured and delta > 0.0:
 		d_raw = (_gyro_filtered - _last_measured) / delta
+		ff_raw = (target - _last_target) / delta
 	_last_measured = _gyro_filtered
+	_last_target = target
 	_has_last_measured = true
 	if config.dterm_lpf_hz > 0.0:
 		_d_filtered += (d_raw - _d_filtered) * _lpf_alpha(config.dterm_lpf_hz, delta)
 	else:
 		_d_filtered = d_raw
+	if config.ff_lpf_hz > 0.0:
+		_ff_filtered += (ff_raw - _ff_filtered) * _lpf_alpha(config.ff_lpf_hz, delta)
+	else:
+		_ff_filtered = ff_raw
 
-	return config.rate_p * error + _i_term - config.rate_d * _d_filtered
+	return config.rate_p * error + _i_term - config.rate_d * _d_filtered \
+			+ config.rate_ff * _ff_filtered
 
 
 ## Telemetry view of the integrator's output contribution (overlay/blackbox).
@@ -82,6 +92,8 @@ func reset() -> void:
 	_gyro_filtered = Vector3.ZERO
 	_d_filtered = Vector3.ZERO
 	_setpoint_filtered = Vector3.ZERO
+	_ff_filtered = Vector3.ZERO
+	_last_target = Vector3.ZERO
 	_has_last_measured = false
 
 

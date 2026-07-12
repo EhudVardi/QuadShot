@@ -46,6 +46,13 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 @export var rate_p: Vector3 = Vector3(0.004, 0.004, 0.004)
 @export var rate_i: Vector3 = Vector3(0.002, 0.002, 0.002)
 @export var rate_d: Vector3 = Vector3(0.00003, 0.00003, 0.00003)
+## Feedforward on the setpoint derivative (Betaflight FF): pushes rotation
+## the instant the stick moves instead of waiting for error to build, so P
+## can stay modest without mushy stick response. 0 = off (baked feel).
+@export var rate_ff: Vector3 = Vector3.ZERO
+## Low-pass on the FF term — gamepad ADC steps make the raw setpoint
+## derivative spiky. 0 = unfiltered.
+@export var ff_lpf_hz: float = 20.0
 ## Clamp on the I term's output contribution (anti-windup), motor units.
 @export var integral_limit: float = 0.2
 ## Per-tick fraction of the I term discarded while in a crash condition:

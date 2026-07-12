@@ -39,6 +39,7 @@ const _FLIGHT_FLOAT_ROWS: Array[Array] = [
 	["iterm_error_gate_deg", 0.0, 1000.0, 10.0],
 	["iterm_relax_hz", 0.0, 50.0, 1.0],
 	["iterm_relax_threshold_deg", 5.0, 200.0, 5.0],
+	["ff_lpf_hz", 0.0, 120.0, 1.0],
 	["gyro_lpf_hz", 0.0, 120.0, 1.0],
 	["dterm_lpf_hz", 0.0, 120.0, 1.0],
 	["rc_smoothing_hz", 0.0, 120.0, 1.0],
@@ -62,6 +63,7 @@ const _FLIGHT_VECTOR_ROWS: Array[Array] = [
 	["rate_p", 0.0, 0.02, 0.0001],
 	["rate_i", 0.0, 0.01, 0.0001],
 	["rate_d", 0.0, 0.0003, 0.000005],
+	["rate_ff", 0.0, 0.003, 0.00005],
 ]
 
 const _COMBAT_FLOAT_ROWS: Array[Array] = [
