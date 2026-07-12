@@ -58,11 +58,6 @@ func _physics_process(delta: float) -> void:
 	collective = throttle_override if throttle_override >= 0.0 else _input.throttle
 	_handle_buttons()
 	if armed:
-		# While anything touches the frame the motors can't track commands,
-		# so the integrator only winds up garbage. Decay must run for the
-		# WHOLE contact — a scrape re-winds a one-shot reset within ticks.
-		if get_contact_count() > 0:
-			_rate_controller.decay_integrator(config.crash_iterm_decay)
 		_run_rate_control(delta)
 	else:
 		_rate_controller.reset()
@@ -156,7 +151,8 @@ func _run_rate_control(delta: float) -> void:
 	telemetry_target_rates = _target_rates()
 	telemetry_measured_rates = _measured_rates()
 	var command: Vector3 = _rate_controller.update(
-			telemetry_target_rates, telemetry_measured_rates, delta, config)
+			telemetry_target_rates, telemetry_measured_rates, delta, config,
+			get_contact_count() > 0)
 	# Quad-X mixing: positive pilot roll lowers the right side, positive pitch
 	# raises the nose, positive yaw spins the nose right (signs verified
 	# against X_SIGNS/Z_SIGNS/SPIN_DIRECTIONS in motor_model.gd).

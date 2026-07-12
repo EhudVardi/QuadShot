@@ -17,15 +17,28 @@ var _last_measured: Vector3 = Vector3.ZERO
 var _has_last_measured: bool = false
 
 
-func update(target: Vector3, measured: Vector3, delta: float, config: FlightConfig) -> Vector3:
+func update(target: Vector3, measured: Vector3, delta: float, config: FlightConfig,
+		in_contact: bool = false) -> Vector3:
 	if config.gyro_lpf_hz > 0.0:
 		_gyro_filtered += (measured - _gyro_filtered) * _lpf_alpha(config.gyro_lpf_hz, delta)
 	else:
 		_gyro_filtered = measured
 
 	var error: Vector3 = target - _gyro_filtered
-	var limit: Vector3 = Vector3.ONE * config.integral_limit
-	_i_term = (_i_term + config.rate_i * error * delta).clamp(-limit, limit)
+	# Crash-condition gating (per axis): during contact, or while the rate
+	# error is far beyond anything flight produces (a crash tumble), the
+	# motors can't meaningfully track — integrating only banks a bias that
+	# later forces an uncommanded drift of i/P rad/s while it unwinds over
+	# ~P/I seconds. Blackbox-verified: windup happens in the ~0.5 s tumble
+	# AFTER contact, at 3-8x the gate; honest tracking error stays under it.
+	var gate: float = deg_to_rad(config.iterm_error_gate_deg)
+	var keep: float = 1.0 - clampf(config.crash_iterm_decay, 0.0, 1.0)
+	for axis: int in 3:
+		if in_contact or (gate > 0.0 and absf(error[axis]) > gate):
+			_i_term[axis] *= keep
+		else:
+			_i_term[axis] = clampf(_i_term[axis] + config.rate_i[axis] * error[axis] * delta,
+					-config.integral_limit, config.integral_limit)
 
 	var d_raw: Vector3 = Vector3.ZERO
 	if _has_last_measured and delta > 0.0:
@@ -38,15 +51,6 @@ func update(target: Vector3, measured: Vector3, delta: float, config: FlightConf
 		_d_filtered = d_raw
 
 	return config.rate_p * error + _i_term - config.rate_d * _d_filtered
-
-
-## Crash recovery: contact spins the drone far beyond any commanded rate
-## while the motors are powerless to track, winding the integrator to its
-## clamp within a few ticks. The flight controller calls this every tick of
-## the contact, discarding a fraction each time, so the seconds-long
-## pull-away after recovery never builds up.
-func decay_integrator(fraction: float) -> void:
-	_i_term *= 1.0 - clampf(fraction, 0.0, 1.0)
 
 
 ## Telemetry view of the integrator's output contribution (overlay/blackbox).

@@ -48,12 +48,16 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 @export var rate_d: Vector3 = Vector3(0.00003, 0.00003, 0.00003)
 ## Clamp on the I term's output contribution (anti-windup), motor units.
 @export var integral_limit: float = 0.2
-## Per-tick fraction of the I term discarded while the frame touches
-## anything (Betaflight-style crash recovery). Contact pins the motors, so
-## integration is garbage for its whole duration — it would otherwise wind
-## to the clamp and bleed off over seconds as a pull-away. 1 hard-zeroes it,
-## 0 keeps the old behaviour (A/B); at 240 Hz even 0.1 drains it in ~30 ms.
+## Per-tick fraction of the I term discarded while in a crash condition:
+## frame contact, or a per-axis rate error beyond iterm_error_gate_deg
+## (Betaflight-style crash recovery). Windup during a crash tumble later
+## forces an uncommanded drift while it unwinds over seconds. 1 hard-zeroes
+## it, 0 keeps the old behaviour (A/B); at 240 Hz even 0.1 drains in ~30 ms.
 @export var crash_iterm_decay: float = 1.0
+## Rate error (deg/s, per axis) beyond which integration is a crash
+## condition, not flying: honest tracking error stays under ~120 deg/s
+## while crash tumbles run 500-2500 deg/s (blackbox-measured). 0 disables.
+@export var iterm_error_gate_deg: float = 300.0
 
 @export_group("Input")
 ## Applied to every stick axis before expo (handoff §7).
