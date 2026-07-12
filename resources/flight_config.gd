@@ -58,6 +58,14 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 ## condition, not flying: honest tracking error stays under ~120 deg/s
 ## while crash tumbles run 500-2500 deg/s (blackbox-measured). 0 disables.
 @export var iterm_error_gate_deg: float = 300.0
+## I-term relax (Betaflight): during fast setpoint moves the airframe lags
+## the sticks by design, and integrating that transient error causes
+## bounce-back wobble at the end of flicks and flips. The setpoint is
+## low-passed at this cutoff and I accumulation fades out as the live
+## setpoint diverges from it. 0 disables.
+@export var iterm_relax_hz: float = 15.0
+## Setpoint divergence (deg/s) at which I accumulation is fully suppressed.
+@export var iterm_relax_threshold_deg: float = 40.0
 
 @export_group("Input")
 ## Applied to every stick axis before expo (handoff §7).

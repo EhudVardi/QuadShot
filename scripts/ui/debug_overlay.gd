@@ -37,6 +37,8 @@ const _FLIGHT_FLOAT_ROWS: Array[Array] = [
 	["integral_limit", 0.0, 0.5, 0.01],
 	["crash_iterm_decay", 0.0, 1.0, 0.05],
 	["iterm_error_gate_deg", 0.0, 1000.0, 10.0],
+	["iterm_relax_hz", 0.0, 50.0, 1.0],
+	["iterm_relax_threshold_deg", 5.0, 200.0, 5.0],
 	["gyro_lpf_hz", 0.0, 120.0, 1.0],
 	["dterm_lpf_hz", 0.0, 120.0, 1.0],
 	["rc_smoothing_hz", 0.0, 120.0, 1.0],

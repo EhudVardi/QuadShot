@@ -13,6 +13,7 @@ extends RefCounted
 var _i_term: Vector3 = Vector3.ZERO
 var _gyro_filtered: Vector3 = Vector3.ZERO
 var _d_filtered: Vector3 = Vector3.ZERO
+var _setpoint_filtered: Vector3 = Vector3.ZERO
 var _last_measured: Vector3 = Vector3.ZERO
 var _has_last_measured: bool = false
 
@@ -31,13 +32,29 @@ func update(target: Vector3, measured: Vector3, delta: float, config: FlightConf
 	# later forces an uncommanded drift of i/P rad/s while it unwinds over
 	# ~P/I seconds. Blackbox-verified: windup happens in the ~0.5 s tumble
 	# AFTER contact, at 3-8x the gate; honest tracking error stays under it.
+	# I-term relax (Betaflight): while the live setpoint runs ahead of its
+	# own low-passed shadow — i.e. during a stick flick — fade I accumulation
+	# out, because the airframe's lag there is by design, not a trim error.
+	var relax: Vector3 = Vector3.ONE
+	if config.iterm_relax_hz > 0.0:
+		_setpoint_filtered += (target - _setpoint_filtered) \
+				* _lpf_alpha(config.iterm_relax_hz, delta)
+		var threshold: float = deg_to_rad(config.iterm_relax_threshold_deg)
+		for axis: int in 3:
+			relax[axis] = clampf(
+					1.0 - absf(target[axis] - _setpoint_filtered[axis]) / threshold,
+					0.0, 1.0)
+	else:
+		_setpoint_filtered = target
+
 	var gate: float = deg_to_rad(config.iterm_error_gate_deg)
 	var keep: float = 1.0 - clampf(config.crash_iterm_decay, 0.0, 1.0)
 	for axis: int in 3:
 		if in_contact or (gate > 0.0 and absf(error[axis]) > gate):
 			_i_term[axis] *= keep
 		else:
-			_i_term[axis] = clampf(_i_term[axis] + config.rate_i[axis] * error[axis] * delta,
+			_i_term[axis] = clampf(
+					_i_term[axis] + config.rate_i[axis] * error[axis] * delta * relax[axis],
 					-config.integral_limit, config.integral_limit)
 
 	var d_raw: Vector3 = Vector3.ZERO
@@ -64,6 +81,7 @@ func reset() -> void:
 	_i_term = Vector3.ZERO
 	_gyro_filtered = Vector3.ZERO
 	_d_filtered = Vector3.ZERO
+	_setpoint_filtered = Vector3.ZERO
 	_has_last_measured = false
 
 
