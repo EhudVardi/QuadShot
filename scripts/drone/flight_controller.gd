@@ -28,6 +28,9 @@ var last_hit_direction: Vector3 = Vector3.ZERO
 var collective: float = 0.0
 ## Test hook (scripts/tests/hover_check.gd): >= 0 replaces gamepad throttle.
 var throttle_override: float = -1.0
+## Test hook (scripts/tests/step_response.gd): replaces stick target rates.
+var rate_override_enabled: bool = false
+var rate_override: Vector3 = Vector3.ZERO
 
 ## For the overlay's target-vs-actual readout; zeroed while disarmed.
 var telemetry_target_rates: Vector3 = Vector3.ZERO
@@ -176,6 +179,8 @@ func _run_rate_control(delta: float) -> void:
 
 
 func _target_rates() -> Vector3:
+	if rate_override_enabled:
+		return rate_override
 	if flight_mode == FlightMode.ACRO:
 		return _input.rate_command
 	# Angle mode (handoff §6.4): stick deflection → target attitude, and an
