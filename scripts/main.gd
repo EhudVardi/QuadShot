@@ -7,6 +7,10 @@ extends Node3D
 
 @export var combat_config: CombatConfig
 
+## Sample times (s) along the blaster's ballistic path for the HUD gun
+## funnel — near rings aid close dogfights, far ones show the drop.
+const FUNNEL_TIMES: Array[float] = [0.08, 0.16, 0.28, 0.45, 0.7]
+
 @onready var _drone: FlightController = $Drone
 @onready var _drone_health: Health = $Drone/Health
 @onready var _fpv_camera: Camera3D = $Drone/FpvCamera
@@ -16,9 +20,11 @@ extends Node3D
 @onready var _missiles: MissileSystem = $Drone/FpvCamera/MissileSystem
 @onready var _exit_gate: ExitGate = $ExitGate
 @onready var _draft: DraftScreen = $DraftScreen
+@onready var _weapon: Weapon = $Drone/FpvCamera/Weapon
 
 var score: int = 0
 
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _profile: PlayerProfile
 var _combo: float = 1.0
 var _last_kill_time: float = -1000.0
@@ -61,6 +67,28 @@ func _process(delta: float) -> void:
 		_start_run()
 	_update_lock_indicator()
 	_update_gate_marker()
+	_update_gun_funnel()
+
+
+func _update_gun_funnel() -> void:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if not _drone.armed or camera == null:
+		_hud.update_gun_funnel(PackedVector2Array())
+		return
+	# Mirror weapon.gd's launch state exactly so the funnel never lies.
+	var direction: Vector3 = -_weapon.global_basis.z
+	var velocity: Vector3 = direction * combat_config.muzzle_speed \
+			+ _drone.linear_velocity * combat_config.inherit_velocity
+	var origin: Vector3 = _weapon.global_position + direction * 0.4
+	var drop: float = _gravity * combat_config.projectile_gravity_scale
+	var points := PackedVector2Array()
+	for t: float in FUNNEL_TIMES:
+		var sample: Vector3 = origin + velocity * t \
+				+ Vector3.DOWN * (0.5 * drop * t * t)
+		if camera.is_position_behind(sample):
+			continue
+		points.append(camera.unproject_position(sample))
+	_hud.update_gun_funnel(points)
 
 
 func _update_gate_marker() -> void:

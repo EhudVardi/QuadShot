@@ -25,6 +25,7 @@ const KILL_FEED_SECONDS: float = 3.0
 var _edges: Dictionary = {}
 var _lock_indicator: LockIndicator
 var _gate_marker: GateMarker
+var _gun_funnel: GunFunnel
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -50,6 +51,24 @@ class LockIndicator:
 			target_position + Vector2(0, -radius),
 		])
 		draw_polyline(points, color, 2.0)
+
+
+## Gun funnel: shrinking rings along the blaster's predicted flight path
+## (muzzle velocity + inherited drone velocity + drop), so the pilot sees
+## where the bolts will actually go instead of where the nose points.
+class GunFunnel:
+	extends Control
+
+	var points: PackedVector2Array = PackedVector2Array()
+
+	func _draw() -> void:
+		if points.size() < 2:
+			return
+		var color := Color(0.55, 1.0, 0.7, 0.45)
+		draw_polyline(points, Color(0.55, 1.0, 0.7, 0.15), 1.0)
+		for i: int in points.size():
+			var radius: float = lerpf(13.0, 4.0, float(i) / float(points.size() - 1))
+			draw_arc(points[i], radius, 0.0, TAU, 24, color, 1.5)
 
 
 ## Blue box drawn at the open exit gate's screen position (roadmap M4).
@@ -80,6 +99,10 @@ func _ready() -> void:
 	_gate_marker.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_gate_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gate_marker)
+	_gun_funnel = GunFunnel.new()
+	_gun_funnel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_gun_funnel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gun_funnel)
 	for side: StringName in [&"front", &"back", &"left", &"right"]:
 		var edge := ColorRect.new()
 		edge.color = Color(1, 0, 0, 0)
@@ -155,6 +178,12 @@ func update_lock(target_visible: bool, screen_position: Vector2 = Vector2.ZERO,
 	_lock_indicator.progress = progress
 	_lock_indicator.locked = locked
 	_lock_indicator.queue_redraw()
+
+
+## Empty array hides the funnel.
+func update_gun_funnel(points: PackedVector2Array) -> void:
+	_gun_funnel.points = points
+	_gun_funnel.queue_redraw()
 
 
 func update_gate_marker(marker_visible: bool,
