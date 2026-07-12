@@ -18,6 +18,10 @@ var rate_command: Vector3 = Vector3.ZERO
 ## Shaped stick deflections [-1, 1] after deadzone+expo, same axes —
 ## angle mode maps these to target attitudes instead of rates.
 var stick_shaped: Vector3 = Vector3.ZERO
+## Physical stick positions for the HUD display, raw (no deadzone/expo/curve):
+## x = +right, y = +up, [-1, 1]. Left stick = yaw/throttle, right = roll/pitch.
+var stick_left: Vector2 = Vector2.ZERO
+var stick_right: Vector2 = Vector2.ZERO
 
 var _axis_throttle: int = JOY_AXIS_LEFT_Y
 var _axis_yaw: int = JOY_AXIS_LEFT_X
@@ -38,6 +42,8 @@ func poll(config: FlightConfig, hover_throttle: float, delta: float) -> void:
 		throttle = 0.0
 		rate_command = Vector3.ZERO
 		stick_shaped = Vector3.ZERO
+		stick_left = Vector2.ZERO
+		stick_right = Vector2.ZERO
 		return
 	var device: int = pads[0]
 
@@ -49,6 +55,8 @@ func poll(config: FlightConfig, hover_throttle: float, delta: float) -> void:
 	var roll_stick: float = Input.get_joy_axis(device, _axis_roll)
 	var pitch_stick: float = Input.get_joy_axis(device, _axis_pitch)
 	var yaw_stick: float = Input.get_joy_axis(device, _axis_yaw)
+	stick_left = Vector2(yaw_stick, throttle_stick)
+	stick_right = Vector2(roll_stick, -pitch_stick)
 
 	var throttle_deadzoned: float = _apply_deadzone(throttle_stick, config.stick_deadzone)
 	var raw_throttle: float

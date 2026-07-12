@@ -26,6 +26,7 @@ var _edges: Dictionary = {}
 var _lock_indicator: LockIndicator
 var _gate_marker: GateMarker
 var _gun_funnel: GunFunnel
+var _stick_display: StickDisplay
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -71,6 +72,34 @@ class GunFunnel:
 			draw_arc(points[i], radius, 0.0, TAU, 24, color, 1.5)
 
 
+## Raw gamepad stick positions: two boxes flanking the health bar, a dot per
+## stick (left = yaw/throttle, right = roll/pitch), x right / y up. Raw on
+## purpose — no deadzone, expo or curve — so the pilot sees the hardware.
+class StickDisplay:
+	extends Control
+
+	const HALF: float = 38.0
+	const MARGIN: Vector2 = Vector2(230.0, 62.0)
+
+	var left_stick: Vector2 = Vector2.ZERO
+	var right_stick: Vector2 = Vector2.ZERO
+
+	func _draw() -> void:
+		var bottom_center := Vector2(size.x * 0.5, size.y)
+		_draw_stick(bottom_center + Vector2(-MARGIN.x, -MARGIN.y), left_stick)
+		_draw_stick(bottom_center + Vector2(MARGIN.x, -MARGIN.y), right_stick)
+
+	func _draw_stick(center: Vector2, stick: Vector2) -> void:
+		var frame := Color(1, 1, 1, 0.35)
+		draw_rect(Rect2(center - Vector2(HALF, HALF), Vector2(HALF, HALF) * 2.0),
+				frame, false, 1.5)
+		draw_line(center - Vector2(HALF, 0), center + Vector2(HALF, 0), frame, 1.0)
+		draw_line(center - Vector2(0, HALF), center + Vector2(0, HALF), frame, 1.0)
+		# Screen y grows downward; stick y is +up.
+		var dot: Vector2 = center + Vector2(stick.x, -stick.y) * HALF
+		draw_rect(Rect2(dot - Vector2(4, 4), Vector2(8, 8)), Color(1, 1, 1, 0.9))
+
+
 ## Blue box drawn at the open exit gate's screen position (roadmap M4).
 class GateMarker:
 	extends Control
@@ -103,6 +132,10 @@ func _ready() -> void:
 	_gun_funnel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_gun_funnel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gun_funnel)
+	_stick_display = StickDisplay.new()
+	_stick_display.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_stick_display)
 	for side: StringName in [&"front", &"back", &"left", &"right"]:
 		var edge := ColorRect.new()
 		edge.color = Color(1, 0, 0, 0)
@@ -178,6 +211,12 @@ func update_lock(target_visible: bool, screen_position: Vector2 = Vector2.ZERO,
 	_lock_indicator.progress = progress
 	_lock_indicator.locked = locked
 	_lock_indicator.queue_redraw()
+
+
+func update_sticks(left_stick: Vector2, right_stick: Vector2) -> void:
+	_stick_display.left_stick = left_stick
+	_stick_display.right_stick = right_stick
+	_stick_display.queue_redraw()
 
 
 ## Empty array hides the funnel.

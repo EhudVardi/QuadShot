@@ -135,6 +135,11 @@ func telemetry_integrator() -> Vector3:
 	return _rate_controller.integrator()
 
 
+## HUD stick display: raw physical stick positions (x=+right, y=+up, [-1,1]).
+func stick_positions() -> Array[Vector2]:
+	return [_input.stick_left, _input.stick_right]
+
+
 ## Projectile hits land here; the Health component and its wiring (main.gd)
 ## decide the consequences — the flight controller stays combat-thin.
 func take_hit(damage: float) -> void:

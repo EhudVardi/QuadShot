@@ -68,6 +68,8 @@ func _process(delta: float) -> void:
 	_update_lock_indicator()
 	_update_gate_marker()
 	_update_gun_funnel()
+	var sticks: Array[Vector2] = _drone.stick_positions()
+	_hud.update_sticks(sticks[0], sticks[1])
 
 
 func _update_gun_funnel() -> void:
