@@ -127,8 +127,9 @@ func _ready() -> void:
 	_configs = [drone.config, combat_config, audio_config]
 	_build_motor_bars()
 	_add_section_header("FLIGHT")
+	var preset_updater: Callable = _add_preset_row(drone.config)
 	_add_throttle_curve_row(drone.config)
-	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS)
+	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS, preset_updater)
 	_add_section_header("COMBAT")
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
 	_add_section_header("AUDIO")
@@ -196,11 +197,14 @@ func _add_section_header(title: String) -> void:
 
 
 func _add_config_rows(config: TunableConfig, float_rows: Array[Array],
-		vector_rows: Array[Array]) -> void:
+		vector_rows: Array[Array], on_change: Callable = Callable()) -> void:
 	for spec: Array in float_rows:
 		_add_slider(_tuning, str(spec[0]), spec[1], spec[2], spec[3],
 				func() -> float: return config.get(str(spec[0])),
-				func(v: float) -> void: config.set(str(spec[0]), v))
+				func(v: float) -> void:
+					config.set(str(spec[0]), v)
+					if on_change.is_valid():
+						on_change.call())
 	for spec: Array in vector_rows:
 		var header := Label.new()
 		header.text = str(spec[0])
@@ -213,7 +217,48 @@ func _add_config_rows(config: TunableConfig, float_rows: Array[Array],
 					func(v: float) -> void:
 						var vec: Vector3 = config.get(str(spec[0]))
 						vec[axis] = v
-						config.set(str(spec[0]), vec))
+						config.set(str(spec[0]), vec)
+						if on_change.is_valid():
+							on_change.call())
+
+
+## Rate-preset selector: applying one is an atomic swap of the five rate-
+## loop fields; hand-tuning any of them afterward falls through to "Custom"
+## (detected live, not tracked — see FlightPresets.active_name). Returns
+## the refresh callable so the caller can also fire it after any flight
+## slider changes, keeping the dropdown honest without extra wiring.
+func _add_preset_row(config: FlightConfig) -> Callable:
+	var row := HBoxContainer.new()
+	var label := Label.new()
+	label.text = "rate_preset"
+	label.custom_minimum_size.x = 180.0
+	var option := OptionButton.new()
+	option.focus_mode = Control.FOCUS_NONE
+	for preset: Dictionary in FlightPresets.POOL:
+		option.add_item(preset["name"])
+	var custom_index: int = option.item_count
+	option.add_item("Custom")
+	var updater := func() -> void:
+		var active: String = FlightPresets.active_name(config)
+		for i: int in FlightPresets.POOL.size():
+			if FlightPresets.POOL[i]["name"] == active:
+				option.select(i)
+				return
+		option.select(custom_index)
+	option.item_selected.connect(func(index: int) -> void:
+		if index < FlightPresets.POOL.size():
+			FlightPresets.apply(FlightPresets.POOL[index], config)
+			_refresh_all()
+		else:
+			# "Custom" has no values of its own — picking it by hand is a
+			# no-op; just restore whichever state is actually live.
+			updater.call())
+	_refreshers.append(updater)
+	updater.call()
+	row.add_child(label)
+	row.add_child(option)
+	_tuning.add_child(row)
+	return updater
 
 
 func _add_throttle_curve_row(config: FlightConfig) -> void:
