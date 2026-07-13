@@ -12,6 +12,9 @@ extends CanvasLayer
 @export var drone: FlightController
 @export var combat_config: CombatConfig
 @export var audio_config: AudioConfig
+## Optional: only the dev-room testbed wires this (its LookController applies
+## it). Null in main.tscn, where the LOOK section is simply skipped.
+@export var look_config: LookConfig
 
 @onready var _telemetry: Label = $Panel/VBox/TelemetryText
 @onready var _motors_box: VBoxContainer = $Panel/VBox/Motors
@@ -122,9 +125,31 @@ const _AUDIO_FLOAT_ROWS: Array[Array] = [
 	["wind_volume", 0.0, 1.0, 0.01],
 ]
 
+const _LOOK_FLOAT_ROWS: Array[Array] = [
+	["exposure", 0.2, 3.0, 0.05],
+	["glow_intensity", 0.0, 2.0, 0.05],
+	["glow_strength", 0.0, 2.0, 0.05],
+	["glow_bloom", 0.0, 1.0, 0.01],
+	["glow_hdr_threshold", 0.0, 4.0, 0.05],
+	["ssao_intensity", 0.0, 8.0, 0.1],
+	["ssao_radius", 0.1, 4.0, 0.1],
+	["fog_density", 0.0, 0.1, 0.001],
+	["fog_aerial_perspective", 0.0, 1.0, 0.05],
+	["fog_sky_affect", 0.0, 1.0, 0.05],
+	["brightness", 0.5, 2.0, 0.01],
+	["contrast", 0.5, 2.0, 0.01],
+	["saturation", 0.0, 2.0, 0.01],
+	["ambient_energy", 0.0, 4.0, 0.05],
+	["sun_energy", 0.0, 4.0, 0.05],
+	["sun_pitch_deg", 5.0, 85.0, 1.0],
+	["sun_yaw_deg", -180.0, 180.0, 5.0],
+]
+
 
 func _ready() -> void:
 	_configs = [drone.config, combat_config, audio_config]
+	if look_config != null:
+		_configs.append(look_config)
 	_build_motor_bars()
 	_add_section_header("FLIGHT")
 	var preset_updater: Callable = _add_preset_row(drone.config)
@@ -134,6 +159,9 @@ func _ready() -> void:
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
 	_add_section_header("AUDIO")
 	_add_config_rows(audio_config, _AUDIO_FLOAT_ROWS, [])
+	if look_config != null:
+		_add_section_header("LOOK")
+		_add_config_rows(look_config, _LOOK_FLOAT_ROWS, [])
 	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
 	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
 	$Panel/VBox/Buttons/DefaultsButton.pressed.connect(_on_defaults)

@@ -6,7 +6,7 @@
 
 - Godot 4.7 stable (standard/GDScript build, portable): `C:\Tools\Godot\Godot_v4.7-stable_win64_console.exe` (use the `_console` exe from CLI so output is visible).
 - Run the game: `<exe> --path .`
-- Run the **dev room** testbed: `<exe> --path . scenes/dev_map.tscn` — a big sandbox map that mirrors main's wiring and gets a specimen of every game element as they're added (shooting range, city block, slalom, tunnel, platforms, crash wall).
+- Run the **dev room** testbed: `<exe> --path . scenes/dev_map.tscn` — a big sandbox map that mirrors main's wiring and gets a specimen of every game element as they're added (shooting range, city block, slalom, tunnel, platforms, crash wall). It also carries the **look pass** (post/atmosphere): a `LookController` (`scripts/environment/look_controller.gd`) applies `LookConfig` (`resources/look_config.gd`, AgX tonemap + glow/SSAO/fog/color-grade/sun) onto its Environment every frame, live-tuned via the overlay's LOOK section. Main/greybox stays vanilla (its overlay leaves `look_config` null, so the LOOK section is skipped) until the look is proven and rolled in.
 - Headless verify after edits (treat warnings as errors):
   - Re-import: `<exe> --headless --import --path .`
   - Boot check: `<exe> --headless --quit-after 10 --path .`

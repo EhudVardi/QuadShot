@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="LookConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/look_config.gd" id="1_look"]
+
+[resource]
+script = ExtResource("1_look")
+exposure = 1.0
+glow_intensity = 0.9
+glow_strength = 1.0
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+ssao_intensity = 2.5
+ssao_radius = 1.2
+fog_density = 0.006
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.4
+brightness = 1.0
+contrast = 1.08
+saturation = 1.12
+ambient_energy = 1.0
+sun_energy = 1.4
+sun_pitch_deg = 40.0
+sun_yaw_deg = 30.0
