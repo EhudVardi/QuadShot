@@ -21,6 +21,9 @@ albedo_color = Color(0.15, 0.15, 0.17, 1)
 
 [sub_resource type="StandardMaterial3D" id="mat_front"]
 albedo_color = Color(0.85, 0.1, 0.1, 1)
+emission_enabled = true
+emission = Color(1, 0.15, 0.12, 1)
+emission_energy_multiplier = 2.0
 
 [sub_resource type="BoxMesh" id="mesh_frame"]
 material = SubResource("mat_frame")
