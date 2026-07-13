@@ -8,13 +8,24 @@ extends Object
 ## compares the live config against every preset each time a relevant
 ## slider moves, so it can never drift out of sync.
 ##
+## Ordered softest → sharpest so the dropdown reads as a feel spectrum.
 ## Default reproduces the original baked feel (bench-verified: it never
 ## reaches the commanded rate before angular_damping eats it — see
-## rate_tune_sweep.gd's t63/sustained columns). Freestyle and Race are the
-## two bench-clean candidates from that sweep; Cinematic trades snap for a
-## softer, more forgiving hold.
+## rate_tune_sweep.gd's t63/sustained columns). Cinematic is a softer point
+## still; Freestyle and Race are the two bench-clean fast candidates; Cruise
+## and Sport bridge the wide Default→Freestyle gap (bench @100ms/sustained
+## step monotonically between them) — responsive without the twitch, planted
+## without the float.
 
 const POOL: Array[Dictionary] = [
+	{
+		"name": "Cinematic",
+		"rate_p": Vector3(0.003, 0.003, 0.003),
+		"rate_i": Vector3(0.002, 0.002, 0.002),
+		"rate_d": Vector3(0.00003, 0.00003, 0.00003),
+		"rate_ff": Vector3.ZERO,
+		"angular_damping": 0.03,
+	},
 	{
 		"name": "Default",
 		"rate_p": Vector3(0.004, 0.004, 0.004),
@@ -24,12 +35,20 @@ const POOL: Array[Dictionary] = [
 		"angular_damping": 0.02,
 	},
 	{
-		"name": "Cinematic",
-		"rate_p": Vector3(0.003, 0.003, 0.003),
+		"name": "Cruise",
+		"rate_p": Vector3(0.007, 0.007, 0.007),
 		"rate_i": Vector3(0.002, 0.002, 0.002),
 		"rate_d": Vector3(0.00003, 0.00003, 0.00003),
-		"rate_ff": Vector3.ZERO,
-		"angular_damping": 0.03,
+		"rate_ff": Vector3(0.0008, 0.0008, 0.0008),
+		"angular_damping": 0.013,
+	},
+	{
+		"name": "Sport",
+		"rate_p": Vector3(0.009, 0.009, 0.009),
+		"rate_i": Vector3(0.002, 0.002, 0.002),
+		"rate_d": Vector3(0.00003, 0.00003, 0.00003),
+		"rate_ff": Vector3(0.001, 0.001, 0.001),
+		"angular_damping": 0.010,
 	},
 	{
 		"name": "Freestyle",
