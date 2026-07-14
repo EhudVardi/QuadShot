@@ -1,9 +1,10 @@
-[gd_scene load_steps=34 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
 [ext_resource type="PackedScene" path="res://scenes/environment/gate.tscn" id="2_gate"]
 [ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="3_look"]
 [ext_resource type="Resource" path="res://resources/default_look_config.tres" id="4_lookcfg"]
+[ext_resource type="Shader" path="res://resources/neon_structure.gdshader" id="5_struct"]
 
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("1_checker")
@@ -16,6 +17,9 @@ size = Vector2(500, 500)
 
 [sub_resource type="StandardMaterial3D" id="mat_pad"]
 albedo_color = Color(0.2, 0.7, 0.35, 1)
+emission_enabled = true
+emission = Color(0.15, 0.85, 0.4, 1)
+emission_energy_multiplier = 1.6
 
 [sub_resource type="BoxMesh" id="mesh_pad"]
 material = SubResource("mat_pad")
@@ -24,8 +28,8 @@ size = Vector3(3, 0.12, 3)
 [sub_resource type="BoxShape3D" id="shape_pad"]
 size = Vector3(3, 0.12, 3)
 
-[sub_resource type="StandardMaterial3D" id="mat_box"]
-albedo_color = Color(0.6, 0.6, 0.62, 1)
+[sub_resource type="ShaderMaterial" id="mat_box"]
+shader = ExtResource("5_struct")
 
 [sub_resource type="BoxMesh" id="mesh_tower_s"]
 material = SubResource("mat_box")
@@ -64,6 +68,9 @@ size = Vector3(40, 10, 1.5)
 
 [sub_resource type="StandardMaterial3D" id="mat_pylon"]
 albedo_color = Color(0.9, 0.5, 0.15, 1)
+emission_enabled = true
+emission = Color(1, 0.55, 0.1, 1)
+emission_energy_multiplier = 2.0
 
 [sub_resource type="CylinderMesh" id="mesh_pylon"]
 material = SubResource("mat_pylon")
