@@ -27,6 +27,9 @@ var _configs: Array[TunableConfig] = []
 var _motor_bars: Array[ProgressBar] = []
 ## One callable per generated control; re-reads the config after load/reset.
 var _refreshers: Array[Callable] = []
+## Row target for the section being built: each collapsible section header
+## swaps this to its own body container.
+var _section: VBoxContainer
 ## Non-empty while the BINDINGS section is listening for the next input.
 var _capture_action: StringName = &""
 ## device -> axis values at capture start (rest positions for switch capture).
@@ -160,15 +163,19 @@ func _ready() -> void:
 	_configs = [drone.config, combat_config, audio_config]
 	if look_config != null:
 		_configs.append(look_config)
+	_section = _tuning
 	_build_motor_bars()
-	_add_section_header("FLIGHT")
+	_add_section_header("FLIGHT", true)
+	_add_preset_bar("flight", drone.config)
 	var preset_updater: Callable = _add_preset_row(drone.config)
 	_add_input_profile_row(drone.config)
 	_add_throttle_curve_row(drone.config)
 	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS, preset_updater)
 	_add_section_header("COMBAT")
+	_add_preset_bar("combat", combat_config)
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
 	_add_section_header("AUDIO")
+	_add_preset_bar("audio", audio_config)
 	_add_config_rows(audio_config, _AUDIO_FLOAT_ROWS, [])
 	if input_bindings != null:
 		_configs.append(input_bindings)
@@ -176,9 +183,11 @@ func _ready() -> void:
 			print("[config] loaded %s" % input_bindings.save_path())
 		input_bindings.apply()
 		_add_section_header("BINDINGS")
+		_add_preset_bar("bindings", input_bindings)
 		_build_bindings_section()
 	if look_config != null:
 		_add_section_header("LOOK")
+		_add_preset_bar("look", look_config)
 		_add_config_rows(look_config, _LOOK_FLOAT_ROWS, [])
 	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
 	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
@@ -234,18 +243,96 @@ func _build_motor_bars() -> void:
 		_motors_box.add_child(row)
 
 
-func _add_section_header(title: String) -> void:
+## Collapsible section: the header is a toggle button, the body is a VBox
+## that subsequent rows land in (via _section). FLIGHT starts expanded, the
+## rest collapsed — the menu reads as a compact list of groups.
+func _add_section_header(title: String, start_expanded: bool = false) -> void:
 	_tuning.add_child(HSeparator.new())
-	var header := Label.new()
-	header.text = "— %s —" % title
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var header := Button.new()
+	header.focus_mode = Control.FOCUS_NONE
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var body := VBoxContainer.new()
+	body.visible = start_expanded
+	header.text = ("▼  %s" if start_expanded else "▶  %s") % title
+	header.pressed.connect(func() -> void:
+		body.visible = not body.visible
+		header.text = ("▼  %s" if body.visible else "▶  %s") % title)
 	_tuning.add_child(header)
+	_tuning.add_child(body)
+	_section = body
+
+
+## Named per-group presets under user://presets/<kind>/ — save this group's
+## current values under a name, recall or delete them any time. Loading
+## touches only this group's config; the bottom Save/Load/Defaults buttons
+## keep their global everything-at-once role.
+func _add_preset_bar(kind: String, config: TunableConfig) -> void:
+	var dir_path: String = "user://presets/%s" % kind
+	var row := HBoxContainer.new()
+	var option := OptionButton.new()
+	option.focus_mode = Control.FOCUS_NONE
+	option.custom_minimum_size.x = 120.0
+	var refresh_list := func() -> void:
+		option.clear()
+		option.add_item("(preset)")
+		var dir: DirAccess = DirAccess.open(dir_path)
+		if dir != null:
+			for file: String in dir.get_files():
+				if file.ends_with(".tres"):
+					option.add_item(file.get_basename())
+	var load_button := Button.new()
+	load_button.text = "load"
+	load_button.focus_mode = Control.FOCUS_NONE
+	load_button.pressed.connect(func() -> void:
+		if option.selected <= 0:
+			return
+		var path: String = "%s/%s.tres" % [dir_path, option.get_item_text(option.selected)]
+		var loaded: TunableConfig = ResourceLoader.load(path, "",
+				ResourceLoader.CACHE_MODE_IGNORE) as TunableConfig
+		if loaded != null:
+			config.copy_from(loaded)
+			_refresh_all()
+			print("[preset] %s <- %s" % [kind, path]))
+	var name_edit := LineEdit.new()
+	name_edit.placeholder_text = "name"
+	name_edit.custom_minimum_size.x = 84.0
+	var save_button := Button.new()
+	save_button.text = "save"
+	save_button.focus_mode = Control.FOCUS_NONE
+	save_button.pressed.connect(func() -> void:
+		var preset_name: String = name_edit.text.validate_filename().strip_edges()
+		if preset_name.is_empty():
+			return
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_path))
+		var path: String = "%s/%s.tres" % [dir_path, preset_name]
+		var err: Error = ResourceSaver.save(config, path)
+		print("[preset] %s -> %s: %s" % [kind, path,
+				"OK" if err == OK else error_string(err)])
+		name_edit.text = ""
+		name_edit.release_focus()
+		refresh_list.call())
+	var delete_button := Button.new()
+	delete_button.text = "del"
+	delete_button.focus_mode = Control.FOCUS_NONE
+	delete_button.pressed.connect(func() -> void:
+		if option.selected <= 0:
+			return
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(
+				"%s/%s.tres" % [dir_path, option.get_item_text(option.selected)]))
+		refresh_list.call())
+	refresh_list.call()
+	row.add_child(option)
+	row.add_child(load_button)
+	row.add_child(name_edit)
+	row.add_child(save_button)
+	row.add_child(delete_button)
+	_section.add_child(row)
 
 
 func _add_config_rows(config: TunableConfig, float_rows: Array[Array],
 		vector_rows: Array[Array], on_change: Callable = Callable()) -> void:
 	for spec: Array in float_rows:
-		_add_slider(_tuning, str(spec[0]), spec[1], spec[2], spec[3],
+		_add_slider(_section, str(spec[0]), spec[1], spec[2], spec[3],
 				func() -> float: return config.get(str(spec[0])),
 				func(v: float) -> void:
 					config.set(str(spec[0]), v)
@@ -254,9 +341,9 @@ func _add_config_rows(config: TunableConfig, float_rows: Array[Array],
 	for spec: Array in vector_rows:
 		var header := Label.new()
 		header.text = str(spec[0])
-		_tuning.add_child(header)
+		_section.add_child(header)
 		for axis: int in 3:
-			_add_slider(_tuning, "  " + _AXIS_NAMES[axis], spec[1], spec[2], spec[3],
+			_add_slider(_section, "  " + _AXIS_NAMES[axis], spec[1], spec[2], spec[3],
 					func() -> float:
 						var vec: Vector3 = config.get(str(spec[0]))
 						return vec[axis],
@@ -303,7 +390,7 @@ func _add_preset_row(config: FlightConfig) -> Callable:
 	updater.call()
 	row.add_child(label)
 	row.add_child(option)
-	_tuning.add_child(row)
+	_section.add_child(row)
 	return updater
 
 
@@ -340,7 +427,7 @@ func _build_bindings_section() -> void:
 		row.add_child(value_label)
 		row.add_child(bind_button)
 		row.add_child(clear_button)
-		_tuning.add_child(row)
+		_section.add_child(row)
 
 
 func _start_capture(action: StringName) -> void:
@@ -401,7 +488,7 @@ func _add_input_profile_row(config: FlightConfig) -> void:
 	_refreshers.append(func() -> void: option.selected = config.input_profile)
 	row.add_child(label)
 	row.add_child(option)
-	_tuning.add_child(row)
+	_section.add_child(row)
 
 
 func _add_throttle_curve_row(config: FlightConfig) -> void:
@@ -419,7 +506,7 @@ func _add_throttle_curve_row(config: FlightConfig) -> void:
 	_refreshers.append(func() -> void: option.selected = config.throttle_curve)
 	row.add_child(label)
 	row.add_child(option)
-	_tuning.add_child(row)
+	_section.add_child(row)
 
 
 func _add_slider(parent: Container, label_text: String, min_value: float,
