@@ -1,6 +1,6 @@
 # QuadShot — FPV Flight Sandbox
 
-3D FPV drone flight sandbox in Godot, growing into an action flight game. (Game title: **QuadShot** — one o; the repo folder keeps its historical `QuadShoot` spelling.) **The flight model is the product** — everything serves the human-in-the-loop tuning cycle. Milestone 0 spec: [FPV-SANDBOX-HANDOFF.md](FPV-SANDBOX-HANDOFF.md); everything after: [ROADMAP.md](ROADMAP.md) (read the relevant one before big changes).
+3D FPV drone flight sandbox in Godot, growing into an action flight game. (Game title: **QuadShot** — one o; the repo folder keeps its historical `QuadShoot` spelling.) **The flight model is the product** — everything serves the human-in-the-loop tuning cycle. Milestone 0 spec: [FPV-SANDBOX-HANDOFF.md](FPV-SANDBOX-HANDOFF.md); everything after: [ROADMAP.md](ROADMAP.md); the M6 gameplay model (living-theater campaign) is designed in [GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) — a living doc + decision log, **append-only** (history is never pruned). Read the relevant one before big changes.
 
 ## Running & verifying
 
