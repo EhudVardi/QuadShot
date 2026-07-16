@@ -20,6 +20,8 @@ var lock_progress: float = 0.0
 var _drone: FlightController
 var _cooldown: float = 0.0
 var _lock_announced: bool = false
+## Seconds the current full lock has stayed stable (missile-director timer).
+var _lock_stable: float = 0.0
 
 
 func _ready() -> void:
@@ -36,6 +38,7 @@ func _physics_process(delta: float) -> void:
 		target = null
 		lock_progress = 0.0
 		_lock_announced = false
+		_lock_stable = 0.0
 		return
 	var candidate: Node3D = _best_candidate()
 	if candidate != target:
@@ -48,9 +51,32 @@ func _physics_process(delta: float) -> void:
 		if is_locked() and not _lock_announced:
 			_lock_announced = true
 			SoundBank.play_at(&"lock", global_position, -6.0, 0.02)
+	_lock_stable = _lock_stable + delta if is_locked() else 0.0
+	# Missile director (FCS): with the missile_auto switch held, a lock that
+	# stays stable through the hold window launches by itself — the pilot's
+	# job is keeping the target in the cone, not finding the button.
+	var auto_ready: bool = _auto_enabled() \
+			and _lock_stable >= combat_config.missile_auto_hold_s
 	var trigger: bool = fire_override or Input.is_action_just_pressed(&"fire_missile")
-	if trigger and is_locked() and _cooldown <= 0.0:
+	if (trigger or auto_ready) and is_locked() and _cooldown <= 0.0:
 		_launch()
+
+
+## True while the missile-director switch is held (BINDINGS: missile_auto —
+## stateful, like arm_switch; unbound by default).
+func _auto_enabled() -> bool:
+	return InputMap.has_action(&"missile_auto") \
+			and not InputMap.action_get_events(&"missile_auto").is_empty() \
+			and Input.is_action_pressed(&"missile_auto")
+
+
+## HUD: progress [0, 1] of the auto-launch hold once locked; 0 when the
+## director is off or there is no lock.
+func auto_hold_progress() -> float:
+	if not _auto_enabled() or not is_locked():
+		return 0.0
+	return clampf(_lock_stable / maxf(combat_config.missile_auto_hold_s, 0.001),
+			0.0, 1.0)
 
 
 ## Nearest-to-reticle enemy inside the lock cone, range, and line of sight.
@@ -93,3 +119,4 @@ func _launch() -> void:
 	_cooldown = combat_config.missile_cooldown * RunMods.current.missile_cooldown_mult
 	lock_progress = 0.0
 	_lock_announced = false
+	_lock_stable = 0.0

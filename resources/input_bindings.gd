@@ -14,7 +14,8 @@ extends TunableConfig
 ## momentary arm_toggle; it ships unbound.
 const ACTIONS: Array[StringName] = [
 	&"arm_toggle", &"arm_switch", &"reset_drone", &"flight_mode_toggle",
-	&"camera_toggle", &"fire", &"fire_missile", &"overlay_toggle",
+	&"camera_toggle", &"fire", &"fire_missile", &"missile_auto",
+	&"overlay_toggle",
 ]
 
 enum Kind { KEY, JOY_BUTTON, JOY_AXIS }
@@ -39,6 +40,7 @@ static func factory_defaults() -> Dictionary:
 		"camera_toggle": [make_key(KEY_C), make_button(JOY_BUTTON_X)],
 		"fire": [make_key(KEY_SPACE), make_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"fire_missile": [make_key(KEY_F), make_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)],
+		"missile_auto": [],
 		"overlay_toggle": [make_key(KEY_TAB), make_button(JOY_BUTTON_START)],
 	}
 

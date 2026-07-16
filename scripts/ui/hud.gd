@@ -30,7 +30,9 @@ var _stick_display: StickDisplay
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
-## wide while acquiring, tight and red when locked.
+## wide while acquiring; when locked it becomes an unmistakable pulsing red
+## double diamond with a LOCK tag, and the missile director (auto-launch)
+## winds an orange arc around it while its hold timer runs.
 class LockIndicator:
 	extends Control
 
@@ -38,12 +40,28 @@ class LockIndicator:
 	var target_position: Vector2 = Vector2.ZERO
 	var progress: float = 0.0
 	var locked: bool = false
+	var auto_progress: float = 0.0
 
 	func _draw() -> void:
 		if not target_visible:
 			return
-		var radius: float = lerpf(30.0, 14.0, progress)
-		var color := Color(1, 0.2, 0.15, 0.95) if locked else Color(1, 0.85, 0.2, 0.8)
+		if not locked:
+			_diamond(lerpf(30.0, 14.0, progress), Color(1, 0.85, 0.2, 0.8), 2.0)
+			return
+		var pulse: float = 1.0 + 0.12 * sin(Time.get_ticks_msec() * 0.001 * TAU * 3.0)
+		var radius: float = 14.0 * pulse
+		var color := Color(1, 0.2, 0.15, 0.95)
+		_diamond(radius, color, 2.5)
+		_diamond(radius + 6.0, Color(1, 0.2, 0.15, 0.5), 1.5)
+		draw_string(get_theme_default_font(),
+				target_position + Vector2(-16.0, radius + 22.0), "LOCK",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
+		if auto_progress > 0.0:
+			draw_arc(target_position, radius + 12.0, -PI / 2.0,
+					-PI / 2.0 + TAU * auto_progress, 32,
+					Color(1, 0.55, 0.1, 0.9), 3.0)
+
+	func _diamond(radius: float, color: Color, width: float) -> void:
 		var points := PackedVector2Array([
 			target_position + Vector2(0, -radius),
 			target_position + Vector2(radius, 0),
@@ -51,7 +69,7 @@ class LockIndicator:
 			target_position + Vector2(-radius, 0),
 			target_position + Vector2(0, -radius),
 		])
-		draw_polyline(points, color, 2.0)
+		draw_polyline(points, color, width)
 
 
 ## Gun funnel: shrinking rings along the blaster's predicted flight path
@@ -205,11 +223,13 @@ func add_kill_feed(text: String) -> void:
 
 
 func update_lock(target_visible: bool, screen_position: Vector2 = Vector2.ZERO,
-		progress: float = 0.0, locked: bool = false) -> void:
+		progress: float = 0.0, locked: bool = false,
+		auto_progress: float = 0.0) -> void:
 	_lock_indicator.target_visible = target_visible
 	_lock_indicator.target_position = screen_position
 	_lock_indicator.progress = progress
 	_lock_indicator.locked = locked
+	_lock_indicator.auto_progress = auto_progress
 	_lock_indicator.queue_redraw()
 
 

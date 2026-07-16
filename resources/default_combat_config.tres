@@ -45,6 +45,7 @@ missile_damage = 60.0
 missile_cooldown = 3.0
 missile_prox_radius = 2.5
 missile_lifetime = 7.0
+missile_auto_hold_s = 0.4
 wave_base_enemies = 2.0
 wave_growth = 1.0
 wave_intermission = 8.0

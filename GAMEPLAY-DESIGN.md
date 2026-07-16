@@ -182,6 +182,18 @@ the predicted miss distance closes under the threshold, with line-of-sight
 checked. No aim-bending, no homing bullets: the flight model stays the
 product.
 
+*Added v1.3 — the missile director (second FCS member, same session):* the
+radio ergonomics finding repeated for missiles ("hard to mix flight with
+realtime fight control" — the FCS thesis validated twice in one day), so
+missiles gain their own director: a **stateful `missile_auto` switch** — with
+it on, a full lock held stable for `missile_auto_hold_s` auto-launches. The
+HUD lock was made unmistakable (pulsing red double diamond + LOCK tag) and the
+director winds an orange arc around it while the hold timer runs, so the pilot
+always knows what the computer is about to do. Confirmed for the counter-web:
+**EW/jammers should jam FCS members** (both gun director and missile
+director), degrading or breaking their solutions — positioning gear vs.
+denial gear becomes a real loadout axis.
+
 **P4 — The Bestiary** (enemy ecosystem). *Endorsed v1.*
 Enemy types built as a counter-web so composition matters and no loadout
 dominates:
@@ -570,3 +582,12 @@ The between-sorties screen — the "battle commanding room" (F2):
     (`fire_assist_miss_m`, `fire_assist_range`; 0 = off).
   - Input-bindings system + `arm_switch` shipped the same session (see
     ROADMAP M7 Input) — the "flexible binding layer" from the M6 triage.
+- **2026-07-16 — v1.3.** Radio combat ergonomics, round two:
+  - **P3/FCS extended — missile director**: stateful `missile_auto` switch;
+    stable full lock for `missile_auto_hold_s` auto-launches. Lock HUD made
+    unmistakable (pulsing double diamond + LOCK + director arc).
+  - **Counter-web note confirmed**: EW/jammers jam FCS (gun + missile
+    directors alike) — user-endorsed.
+  - Standing finding: mixing manual fire control with acro flight on a real
+    radio is hard — FCS is the deliberate gameplay answer, per the "assets,
+    not modes" rule.

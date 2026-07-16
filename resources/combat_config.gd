@@ -72,6 +72,10 @@ extends TunableConfig
 ## Detonation distance to the locked target.
 @export var missile_prox_radius: float = 2.5
 @export var missile_lifetime: float = 7.0
+## Missile director (FCS): with the missile_auto switch on, a full lock held
+## stable for this long auto-launches. The HUD winds an arc around the lock
+## diamond while it counts.
+@export var missile_auto_hold_s: float = 0.4
 
 @export_group("Waves")
 @export var wave_base_enemies: float = 2.0

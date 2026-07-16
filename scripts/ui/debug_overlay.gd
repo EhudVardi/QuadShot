@@ -114,6 +114,7 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["missile_lock_time", 0.1, 4.0, 0.1],
 	["missile_speed", 10.0, 120.0, 5.0],
 	["missile_turn_rate_deg", 30.0, 720.0, 10.0],
+	["missile_auto_hold_s", 0.0, 3.0, 0.05],
 	["missile_damage", 5.0, 200.0, 5.0],
 	["missile_cooldown", 0.0, 10.0, 0.5],
 	["missile_prox_radius", 0.5, 8.0, 0.5],

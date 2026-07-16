@@ -111,7 +111,8 @@ func _update_lock_indicator() -> void:
 		_hud.update_lock(false)
 		return
 	_hud.update_lock(true, camera.unproject_position(target.global_position),
-			_missiles.lock_progress, _missiles.is_locked())
+			_missiles.lock_progress, _missiles.is_locked(),
+			_missiles.auto_hold_progress())
 
 
 func _start_run() -> void:
