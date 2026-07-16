@@ -107,11 +107,16 @@ func _setup() -> void:
 	if FileAccess.file_exists(PROFILE_PATH):
 		_profile_backup = FileAccess.get_file_as_string(PROFILE_PATH)
 	var config: CombatConfig = _main.get("combat_config")
-	# One wave per sortie and a defanged opposition for determinism.
+	# One wave per sortie and a defanged opposition for determinism. Every
+	# field the assertions depend on is pinned explicitly — main auto-loads
+	# the pilot's saved combat config, which can carry any difficulty tuning.
 	config.sortie_waves = 1.0
 	config.wave_intermission = 0.25
 	config.enemy_damage = 0.0
 	config.turret_range = 0.0
+	config.wave_base_enemies = 2.0
+	config.wave_growth = 1.0
+	config.sortie_enemy_bonus = 1.0
 	_drone.arm()
 	_drone.throttle_override = _drone.hover_throttle()
 	_drone.prime_motors(_drone.hover_throttle())

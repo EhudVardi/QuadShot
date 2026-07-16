@@ -68,11 +68,17 @@ func _setup() -> void:
 	_drone = _main.get_node("Drone") as FlightController
 	_director = _main.get_node("WaveDirector") as WaveDirector
 	var config: CombatConfig = _main.get("combat_config")
-	# Deterministic test conditions on the shared config instance:
-	# fast intermission, harmless enemies, turrets out of the fight.
+	# Deterministic test conditions on the shared config instance: fast
+	# intermission, harmless enemies, turrets out of the fight. Every field
+	# the assertions depend on is pinned explicitly — main auto-loads the
+	# pilot's saved combat config, which can carry any difficulty tuning.
 	config.wave_intermission = 0.25
 	config.enemy_damage = 0.0
 	config.turret_range = 0.0
+	config.wave_base_enemies = 2.0
+	config.wave_growth = 1.0
+	config.sortie_waves = 3.0
+	config.sortie_enemy_bonus = 1.0
 	_drone.arm()
 	_drone.throttle_override = _drone.hover_throttle()
 	_drone.prime_motors(_drone.hover_throttle())
