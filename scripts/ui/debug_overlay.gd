@@ -153,6 +153,7 @@ func _ready() -> void:
 	_build_motor_bars()
 	_add_section_header("FLIGHT")
 	var preset_updater: Callable = _add_preset_row(drone.config)
+	_add_input_profile_row(drone.config)
 	_add_throttle_curve_row(drone.config)
 	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS, preset_updater)
 	_add_section_header("COMBAT")
@@ -287,6 +288,24 @@ func _add_preset_row(config: FlightConfig) -> Callable:
 	row.add_child(option)
 	_tuning.add_child(row)
 	return updater
+
+
+func _add_input_profile_row(config: FlightConfig) -> void:
+	var row := HBoxContainer.new()
+	var label := Label.new()
+	label.text = "input_profile"
+	label.custom_minimum_size.x = 180.0
+	var option := OptionButton.new()
+	option.focus_mode = Control.FOCUS_NONE
+	for profile_name: String in FlightConfig.InputProfile.keys():
+		option.add_item(profile_name.to_lower())
+	option.selected = config.input_profile
+	option.item_selected.connect(func(index: int) -> void:
+		config.input_profile = index as FlightConfig.InputProfile)
+	_refreshers.append(func() -> void: option.selected = config.input_profile)
+	row.add_child(label)
+	row.add_child(option)
+	_tuning.add_child(row)
 
 
 func _add_throttle_curve_row(config: FlightConfig) -> void:

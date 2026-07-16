@@ -28,12 +28,22 @@ var _axis_yaw: int = JOY_AXIS_LEFT_X
 var _axis_pitch: int = JOY_AXIS_RIGHT_Y
 var _axis_roll: int = JOY_AXIS_RIGHT_X
 
+## Joypad name fragments that identify a USB radio handset (EdgeTX/OpenTX
+## joystick mode). Matching is case-insensitive on Input.get_joy_name().
+const _RADIO_NAME_HINTS: Array[String] = [
+	"radiomaster", "tx16", "tx12", "boxer", "zorro", "pocket",
+	"edgetx", "opentx", "taranis", "jumper", "frsky", "betafpv",
+]
+
 
 func _ready() -> void:
 	_axis_throttle = _bound_axis(&"throttle", _axis_throttle)
 	_axis_yaw = _bound_axis(&"yaw", _axis_yaw)
 	_axis_pitch = _bound_axis(&"pitch", _axis_pitch)
 	_axis_roll = _bound_axis(&"roll", _axis_roll)
+	# Debug aid for radio setup: see what the OS actually calls each device.
+	for device: int in Input.get_connected_joypads():
+		print("[input] joypad %d: %s" % [device, Input.get_joy_name(device)])
 
 
 func poll(config: FlightConfig, hover_throttle: float, delta: float) -> void:
@@ -45,16 +55,44 @@ func poll(config: FlightConfig, hover_throttle: float, delta: float) -> void:
 		stick_left = Vector2.ZERO
 		stick_right = Vector2.ZERO
 		return
-	var device: int = pads[0]
+	var throttle_stick: float
+	var roll_stick: float
+	var pitch_stick: float
+	var yaw_stick: float
 
-	# Sign conventions (Mode 2, RC-style). Stick up reads negative on
-	# Godot/SDL Y axes, hence the throttle negation. Pitch is NOT negated:
-	# stick forward = nose down (negative pilot pitch), pulled back = nose up,
-	# which is exactly the raw axis sign.
-	var throttle_stick: float = -Input.get_joy_axis(device, _axis_throttle)
-	var roll_stick: float = Input.get_joy_axis(device, _axis_roll)
-	var pitch_stick: float = Input.get_joy_axis(device, _axis_pitch)
-	var yaw_stick: float = Input.get_joy_axis(device, _axis_yaw)
+	var radio: int = -1
+	if config.input_profile != FlightConfig.InputProfile.GAMEPAD:
+		radio = _radio_device()
+	if radio >= 0:
+		# EdgeTX/OpenTX joystick mode maps channels straight onto axes 0-3 in
+		# the radio's channel order. Assumed signs: stick up/right = axis
+		# positive, and pilot pitch = pulled back is positive (hence the one
+		# negation). Any axis that runs backwards gets flipped on the radio
+		# itself (Outputs page) — the radio is the remapping UI.
+		var throttle_axis: int = 2
+		var roll_axis: int = 0
+		var pitch_axis: int = 1
+		var yaw_axis: int = 3
+		if config.input_profile == FlightConfig.InputProfile.RADIO_TAER:
+			throttle_axis = 0
+			roll_axis = 1
+			pitch_axis = 2
+			yaw_axis = 3
+		throttle_stick = Input.get_joy_axis(radio, throttle_axis as JoyAxis)
+		roll_stick = Input.get_joy_axis(radio, roll_axis as JoyAxis)
+		pitch_stick = -Input.get_joy_axis(radio, pitch_axis as JoyAxis)
+		yaw_stick = Input.get_joy_axis(radio, yaw_axis as JoyAxis)
+	else:
+		# Gamepad path (also the fallback when a radio profile is selected but
+		# no radio is connected). Sign conventions (Mode 2, RC-style): stick up
+		# reads negative on Godot/SDL Y axes, hence the throttle negation.
+		# Pitch is NOT negated: stick forward = nose down (negative pilot
+		# pitch), pulled back = nose up, exactly the raw axis sign.
+		var device: int = pads[0]
+		throttle_stick = -Input.get_joy_axis(device, _axis_throttle)
+		roll_stick = Input.get_joy_axis(device, _axis_roll)
+		pitch_stick = Input.get_joy_axis(device, _axis_pitch)
+		yaw_stick = Input.get_joy_axis(device, _axis_yaw)
 	stick_left = Vector2(yaw_stick, throttle_stick)
 	stick_right = Vector2(roll_stick, -pitch_stick)
 
@@ -95,6 +133,16 @@ func _bound_axis(action: StringName, fallback: int) -> int:
 		if motion != null:
 			return motion.axis
 	return fallback
+
+
+## First connected joypad whose name looks like a radio handset, or -1.
+func _radio_device() -> int:
+	for device: int in Input.get_connected_joypads():
+		var joy_name: String = Input.get_joy_name(device).to_lower()
+		for hint: String in _RADIO_NAME_HINTS:
+			if joy_name.contains(hint):
+				return device
+	return -1
 
 
 ## Deadzone with rescale, so output is continuous at the deadzone edge.

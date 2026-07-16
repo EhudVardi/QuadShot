@@ -9,6 +9,7 @@ extends TunableConfig
 ## z = yaw (+right).
 
 enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
+enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 
 @export_group("Airframe")
 @export var mass: float = 0.65
@@ -75,6 +76,16 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 @export var iterm_relax_threshold_deg: float = 40.0
 
 @export_group("Input")
+## Input source. GAMEPAD reads the InputMap-bound gamepad axes (Mode 2
+## sticks). RADIO_* reads a USB radio in EdgeTX/OpenTX joystick mode (e.g.
+## RadioMaster TX16S) directly by channel order on axes 0-3: AETR =
+## roll,pitch,throttle,yaw; TAER = throttle,roll,pitch,yaw. Assumed axis
+## signs: stick up/right = positive — if an axis runs backwards, flip that
+## channel's direction on the radio (Outputs page); the radio is the
+## remapping UI. With a radio, run stick_deadzone near 0 and expo 0 — rates,
+## expo and trims live on the radio. Falls back to GAMEPAD when no radio is
+## detected.
+@export var input_profile: InputProfile = InputProfile.GAMEPAD
 ## Applied to every stick axis before expo (handoff §7).
 @export var stick_deadzone: float = 0.08
 ## raw: stick maps linearly to [0,1] (rest = 50%). hover_centered: mid-stick
