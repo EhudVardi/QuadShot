@@ -52,9 +52,9 @@ func _physics_process(delta: float) -> void:
 			_lock_announced = true
 			SoundBank.play_at(&"lock", global_position, -6.0, 0.02)
 	_lock_stable = _lock_stable + delta if is_locked() else 0.0
-	# Missile director (FCS): with the missile_auto switch held, a lock that
-	# stays stable through the hold window launches by itself — the pilot's
-	# job is keeping the target in the cone, not finding the button.
+	# Missile director (FCS): with missile_auto_switch on, a lock that stays
+	# stable through the hold window launches by itself — the pilot's job is
+	# keeping the target in the cone, not finding the button.
 	var auto_ready: bool = _auto_enabled() \
 			and _lock_stable >= combat_config.missile_auto_hold_s
 	var trigger: bool = fire_override or Input.is_action_just_pressed(&"fire_missile")
@@ -62,12 +62,13 @@ func _physics_process(delta: float) -> void:
 		_launch()
 
 
-## True while the missile-director switch is held (BINDINGS: missile_auto —
-## stateful, like arm_switch; unbound by default).
+## True while the missile-director switch is on (BINDINGS:
+## missile_auto_switch — a two-position stateful switch, like arm_switch;
+## unbound by default).
 func _auto_enabled() -> bool:
-	return InputMap.has_action(&"missile_auto") \
-			and not InputMap.action_get_events(&"missile_auto").is_empty() \
-			and Input.is_action_pressed(&"missile_auto")
+	return InputMap.has_action(&"missile_auto_switch") \
+			and not InputMap.action_get_events(&"missile_auto_switch").is_empty() \
+			and Input.is_action_pressed(&"missile_auto_switch")
 
 
 ## HUD: progress [0, 1] of the auto-launch hold once locked; 0 when the

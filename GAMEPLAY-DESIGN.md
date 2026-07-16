@@ -185,8 +185,9 @@ product.
 *Added v1.3 — the missile director (second FCS member, same session):* the
 radio ergonomics finding repeated for missiles ("hard to mix flight with
 realtime fight control" — the FCS thesis validated twice in one day), so
-missiles gain their own director: a **stateful `missile_auto` switch** — with
-it on, a full lock held stable for `missile_auto_hold_s` auto-launches. The
+missiles gain their own director: **`missile_auto_switch`** (a two-position
+stateful switch, like `arm_switch`; renamed from `missile_auto` in v1.3.1) —
+with it on, a full lock held stable for `missile_auto_hold_s` auto-launches. The
 HUD lock was made unmistakable (pulsing red double diamond + LOCK tag) and the
 director winds an orange arc around it while the hold timer runs, so the pilot
 always knows what the computer is about to do. Confirmed for the counter-web:
@@ -591,3 +592,7 @@ The between-sorties screen — the "battle commanding room" (F2):
   - Standing finding: mixing manual fire control with acro flight on a real
     radio is hard — FCS is the deliberate gameplay answer, per the "assets,
     not modes" rule.
+- **2026-07-16 — v1.3.1.** Terminology (user): the missile-director binding is
+  `missile_auto_switch` — it's a two-position stateful switch exactly like
+  `arm_switch`, and the name should say so. Saved binding configs carrying the
+  old `missile_auto` key migrate automatically on load.

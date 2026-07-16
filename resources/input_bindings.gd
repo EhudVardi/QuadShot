@@ -14,7 +14,7 @@ extends TunableConfig
 ## momentary arm_toggle; it ships unbound.
 const ACTIONS: Array[StringName] = [
 	&"arm_toggle", &"arm_switch", &"reset_drone", &"flight_mode_toggle",
-	&"camera_toggle", &"fire", &"fire_missile", &"missile_auto",
+	&"camera_toggle", &"fire", &"fire_missile", &"missile_auto_switch",
 	&"overlay_toggle",
 ]
 
@@ -40,7 +40,7 @@ static func factory_defaults() -> Dictionary:
 		"camera_toggle": [make_key(KEY_C), make_button(JOY_BUTTON_X)],
 		"fire": [make_key(KEY_SPACE), make_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"fire_missile": [make_key(KEY_F), make_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)],
-		"missile_auto": [],
+		"missile_auto_switch": [],
 		"overlay_toggle": [make_key(KEY_TAB), make_button(JOY_BUTTON_START)],
 	}
 
@@ -60,6 +60,12 @@ static func make_axis(code: int, sign: float) -> Dictionary:
 ## Rewrites the live InputMap from the stored bindings. Actions missing from
 ## the project (e.g. arm_switch) are created on the fly.
 func apply() -> void:
+	# 2026-07-16 rename: saved configs may still carry the old action name.
+	if bindings.has("missile_auto"):
+		var old: Array = bindings["missile_auto"]
+		if not old.is_empty() and (bindings.get("missile_auto_switch", []) as Array).is_empty():
+			bindings["missile_auto_switch"] = old
+		bindings.erase("missile_auto")
 	for action: StringName in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action, 0.5)
