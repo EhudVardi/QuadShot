@@ -37,6 +37,7 @@ var telemetry_target_rates: Vector3 = Vector3.ZERO
 var telemetry_measured_rates: Vector3 = Vector3.ZERO
 
 var _rate_controller: RateController = RateController.new()
+var _arm_switch_was: bool = false
 var _spawn_transform: Transform3D
 var _previous_velocity: Vector3 = Vector3.ZERO
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -119,6 +120,18 @@ func _handle_buttons() -> void:
 			disarm()
 		else:
 			arm()
+	# FPV-style stateful arming (bindable in the overlay's BINDINGS section,
+	# unbound by default): switch position IS the armed state — up arms, down
+	# disarms — matching how a real radio's arm switch behaves.
+	if InputMap.has_action(&"arm_switch") \
+			and not InputMap.action_get_events(&"arm_switch").is_empty():
+		var switch_on: bool = Input.is_action_pressed(&"arm_switch")
+		if switch_on != _arm_switch_was:
+			_arm_switch_was = switch_on
+			if switch_on:
+				arm()
+			else:
+				disarm()
 	if Input.is_action_just_pressed(&"reset_drone"):
 		reset_to_spawn()
 	if Input.is_action_just_pressed(&"flight_mode_toggle"):

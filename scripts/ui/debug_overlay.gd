@@ -15,6 +15,9 @@ extends CanvasLayer
 ## Optional: only the dev-room testbed wires this (its LookController applies
 ## it). Null in main.tscn, where the LOOK section is simply skipped.
 @export var look_config: LookConfig
+## Action bindings (keys / joypad buttons / axis-switches). Applied onto the
+## InputMap at ready and after every change/load/defaults.
+@export var input_bindings: InputBindings
 
 @onready var _telemetry: Label = $Panel/VBox/TelemetryText
 @onready var _motors_box: VBoxContainer = $Panel/VBox/Motors
@@ -24,6 +27,10 @@ var _configs: Array[TunableConfig] = []
 var _motor_bars: Array[ProgressBar] = []
 ## One callable per generated control; re-reads the config after load/reset.
 var _refreshers: Array[Callable] = []
+## Non-empty while the BINDINGS section is listening for the next input.
+var _capture_action: StringName = &""
+## device -> axis values at capture start (rest positions for switch capture).
+var _capture_rest: Dictionary = {}
 
 const _MOTOR_NAMES: Array[String] = ["FL", "FR", "BL", "BR"]
 const _AXIS_NAMES: Array[String] = ["roll", "pitch", "yaw"]
@@ -160,6 +167,13 @@ func _ready() -> void:
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
 	_add_section_header("AUDIO")
 	_add_config_rows(audio_config, _AUDIO_FLOAT_ROWS, [])
+	if input_bindings != null:
+		_configs.append(input_bindings)
+		if input_bindings.load_from_user():
+			print("[config] loaded %s" % input_bindings.save_path())
+		input_bindings.apply()
+		_add_section_header("BINDINGS")
+		_build_bindings_section()
 	if look_config != null:
 		_add_section_header("LOOK")
 		_add_config_rows(look_config, _LOOK_FLOAT_ROWS, [])
@@ -288,6 +302,85 @@ func _add_preset_row(config: FlightConfig) -> Callable:
 	row.add_child(option)
 	_tuning.add_child(row)
 	return updater
+
+
+## One row per bindable action: name, current bindings, capture ("bind" adds
+## the next key/button/switch-flip) and clear. Axis capture compares against
+## a rest snapshot so switches parked at an extreme still register cleanly.
+func _build_bindings_section() -> void:
+	# Re-apply bindings whenever configs are reloaded/reset from the buttons.
+	_refreshers.append(func() -> void: input_bindings.apply())
+	for action: StringName in InputBindings.ACTIONS:
+		var row := HBoxContainer.new()
+		var name_label := Label.new()
+		name_label.text = String(action)
+		name_label.custom_minimum_size.x = 180.0
+		var value_label := Label.new()
+		value_label.custom_minimum_size.x = 150.0
+		var bind_button := Button.new()
+		bind_button.text = "bind"
+		bind_button.focus_mode = Control.FOCUS_NONE
+		var clear_button := Button.new()
+		clear_button.text = "x"
+		clear_button.focus_mode = Control.FOCUS_NONE
+		var refresh := func() -> void:
+			value_label.text = input_bindings.describe(action)
+		bind_button.pressed.connect(func() -> void:
+			_start_capture(action)
+			value_label.text = "press key / flip switch… (Esc)")
+		clear_button.pressed.connect(func() -> void:
+			input_bindings.clear_action(action)
+			refresh.call())
+		_refreshers.append(refresh)
+		refresh.call()
+		row.add_child(name_label)
+		row.add_child(value_label)
+		row.add_child(bind_button)
+		row.add_child(clear_button)
+		_tuning.add_child(row)
+
+
+func _start_capture(action: StringName) -> void:
+	_capture_action = action
+	_capture_rest.clear()
+	for device: int in Input.get_connected_joypads():
+		var axes := PackedFloat32Array()
+		for axis: int in JOY_AXIS_MAX:
+			axes.append(Input.get_joy_axis(device, axis as JoyAxis))
+		_capture_rest[device] = axes
+
+
+func _input(event: InputEvent) -> void:
+	if _capture_action == &"":
+		return
+	if not visible:
+		_capture_action = &""
+		return
+	var binding: Dictionary = {}
+	if event is InputEventKey and event.pressed:
+		if event.physical_keycode == KEY_ESCAPE:
+			_capture_action = &""
+			_refresh_all()
+			get_viewport().set_input_as_handled()
+			return
+		binding = InputBindings.make_key(event.physical_keycode)
+	elif event is InputEventJoypadButton and event.pressed:
+		binding = InputBindings.make_button(event.button_index)
+	elif event is InputEventJoypadMotion:
+		# A real actuation is a big move away from where the axis rested when
+		# capture began — jitter and parked-at-extreme axes don't trigger.
+		var rest: float = 0.0
+		var rest_axes: PackedFloat32Array = _capture_rest.get(event.device,
+				PackedFloat32Array())
+		if event.axis < rest_axes.size():
+			rest = rest_axes[event.axis]
+		if absf(event.axis_value - rest) > 0.75:
+			binding = InputBindings.make_axis(event.axis, signf(event.axis_value))
+	if not binding.is_empty():
+		input_bindings.add_binding(_capture_action, binding)
+		_capture_action = &""
+		_refresh_all()
+	get_viewport().set_input_as_handled()
 
 
 func _add_input_profile_row(config: FlightConfig) -> void:
