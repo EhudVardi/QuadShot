@@ -83,6 +83,8 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["projectile_lifetime", 0.5, 8.0, 0.1],
 	["projectile_gravity_scale", 0.0, 1.0, 0.05],
 	["inherit_velocity", 0.0, 1.0, 0.05],
+	["fire_assist_miss_m", 0.0, 5.0, 0.1],
+	["fire_assist_range", 10.0, 150.0, 5.0],
 	["player_max_health", 10.0, 500.0, 10.0],
 	["crash_damage_speed", 2.0, 40.0, 1.0],
 	["crash_damage_scale", 0.0, 20.0, 0.5],

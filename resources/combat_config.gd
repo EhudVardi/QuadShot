@@ -15,6 +15,13 @@ extends TunableConfig
 @export var projectile_gravity_scale: float = 0.3
 ## Fraction of the shooter's velocity added to the projectile.
 @export var inherit_velocity: float = 1.0
+## Fire-control assist: the blaster auto-fires when a hostile's predicted
+## ballistic miss distance falls under this (meters). 0 = off (manual trigger
+## only). Prototype of the FCS equipment family (GAMEPLAY-DESIGN.md, P3) —
+## a dev knob today, an acquirable asset later.
+@export var fire_assist_miss_m: float = 0.0
+## Hostiles beyond this range are ignored by the fire assist.
+@export var fire_assist_range: float = 55.0
 
 @export_group("Player")
 @export var player_max_health: float = 100.0
