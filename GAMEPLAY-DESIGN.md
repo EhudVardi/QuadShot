@@ -1,6 +1,7 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1 — first steering pass folded in (2026-07-15). All four forks decided.
+> **Status:** v1.1 (2026-07-16) — two steering passes folded in, all four forks
+> decided, **Iteration 1 (P1 — Living Theater) proposed and awaiting steering.**
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -63,7 +64,7 @@ nothing is dropped, everything can be reconsidered later.
 
 | Item | Decision | Notes |
 |---|---|---|
-| **Real radio / HID** | **DO NOW** — the only backlog item pulled forward | Target hardware: **RadioMaster TX16S**. Full utilization from the start so the flight model is adjusted to perfection on real gear as the game grows. Brings a flexible, extensible input-binding layer with it (which is most of "remapping" anyway). |
+| **Real radio / HID** | **DO NOW** — the only backlog item pulled forward | Target hardware: **RadioMaster TX16S**. *Scope refined v1.1:* **basic capabilities first** — enough to experience the physics on a real radio. The gamepad may well remain the more fun way to play (user's hunch); the radio track exists to validate/tune the flight model on real gear, not to replace the pad. Extend later if it earns it. |
 | **Wind** | Expanded into a **Weather** group, folded into gameplay (P1) | The dream: dynamic wind, rain, hail, fog, heat wave, sandstorm — battlefield modifiers that serve the gameplay model. See P1. |
 | **Propwash / ground effect / turtle mode** | Roadmap **Physics** group, later | Turtle mode explicitly not needed now — 3D mode already recovers from upside-down. |
 | **Settings / overlay UX** | Partial pull-forward | Collapsible overlay groups + hideability (QoL, cheap). Control remapping rides along with the radio work's binding layer, designed to extend easily as features grow. Graphics quality options (shadow res, glow toggle, resolution scale — scaling for weaker GPUs) stay deferred to pre-release. |
@@ -178,9 +179,9 @@ enabler rather than a separate minigame. Design after the core air/ground web
 is balanced; tracked here so the theater generator and node taxonomy reserve
 space for it.
 
-**P5 — The Reward Economy & Influence** (meta + agency). *⚠ Awaiting feedback —
-the v1 review pass skipped this pillar (feedback section was empty). Standing
-content below; react when ready.*
+**P5 — The Reward Economy & Influence** (meta + agency). *Endorsed v1.1 — the
+empty section in the v1 review pass turned out to be full agreement ("yes to
+everything").*
 
 Multiple reward axes so progress feels rich:
 
@@ -238,16 +239,31 @@ back-and-forth while continuously steering toward the desired feel.)*
 **F1 — Stakes / permadeath → DECIDED: reinforcement-pilot lives economy.**
 A playthrough grants **X pilot lives** (the old-school 1-up model). Death
 consumes a reinforcement pilot; rewards can grant extra pilots; **running out
-of pilots loses the playthrough** — alongside the strategic loss condition
-(your forward base falls). This is the middle point: forgiving enough not to
-frustrate, but death never loses its meaning (the anti-goal: games where
-endless deaths make dying meaningless).
+of pilots ends the player's road in the war** — alongside the strategic loss
+condition (your forward base falls). This is the middle point: forgiving
+enough not to frustrate, but death never loses its meaning (the anti-goal:
+games where endless deaths make dying meaningless).
 *Rationale:* merges "the war is what's at stake" with "my life still matters."
+
+*Refined v1.1 (user):* running out of pilots is a **player** defeat, not the
+war's end — "technically yes, spiritually it's the end of the player in the
+road of the war." **The war model keeps existing and running.** Defeat should
+feel like the war moving on without you, which is more immersive than a
+game-over curtain — and it composes beautifully with **F4.a spectator mode**:
+the natural defeat screen is *watching the theater conclude itself from its
+seed*. (Adopted; design detail in Iteration 1, P1.5.)
+
 Open sub-questions for the P5/P1 iterations:
-- **F1.a** — difficulty: fixed (game escalates organically) vs. selectable
-  (X pilots scales with difficulty)?
+- **F1.a** — difficulty. *v1.1 direction (user, still contemplating):* a
+  **global knob** that scales things easier/harder may exist, but the *real*
+  difficulty should be an **inherited quality of the war** — organic, with the
+  war able to escalate when the player dominates. Hard constraint recorded:
+  the acro-drone + firefight combination is niche, so the game **must offer
+  newbies a feasible learning curve.** (Both threads picked up in Iteration 1,
+  P1.7.)
 - **F1.b** — should a death *also* cost tempo (the war ticks while you
-  re-deploy), making each loss strategically felt beyond the pilot count?
+  re-deploy)? *v1.1 (user):* interesting, likely a **cheap knob** — keep it as
+  a tunable (default off) and decide when P1/P5 numbers exist.
 
 **F2 — Time model → DECIDED: turn-based war ticks.**
 A sortie is a well-defined, digestible chunk; finishing it returns you to the
@@ -316,6 +332,165 @@ portable save trivial — and it enables two pinned ideas for free:
 
 ---
 
+## Iteration 1 — P1: The Living Theater (PROPOSED, 2026-07-16 — awaiting steering)
+
+> The spine of the game. Everything below is a concrete opening proposal —
+> creative, opinionated, and meant to be torn apart. Sections are **P1.1–P1.8**;
+> react by ID.
+
+### P1.1 — Theater generation & geography
+
+A theater is generated from a **seed** (per F4, the seed + decisions = the
+whole war, replayable and shareable):
+
+- **20–40 nodes** laid out organically on a coastal landmass — land dominates,
+  but the map always gets a **coastline** (reserving geography for the P4
+  naval expansion: ports and sea lanes slot in without regenerating the world).
+- Nodes connect by **edges** (roads/corridors); edges carry supply and define
+  adjacency for the war-sim. The player's side starts in one corner with a
+  **Home Airbase + a small secure pocket**; the enemy holds the far region with
+  a deliberate **difficulty gradient**: garrisons near your pocket are light,
+  deep territory is hard (this is half of the newbie-curve answer — see P1.7).
+- A **front line** emerges from node ownership — not drawn by the generator,
+  but by the war.
+- **Sortie range**: you can only strike nodes within range of a friendly
+  airbase. Capturing airbases extends your reach — geography as progression.
+
+### P1.2 — Node taxonomy (the character of sectors)
+
+Each node type = a strategic function + a sortie flavor + a capture payoff:
+
+| Node | Strategic function (war-sim) | Sortie flavor (you fly it) |
+|---|---|---|
+| **Airbase** | Launch range for its owner; enemy airbases generate interceptor patrols on nearby nodes | Runway strike under CAP — kill patrols and ground assets |
+| **Factory** | Produces garrison reinforcements each tick, shipped along supply edges | Strike: smash production before the escorts arrive |
+| **Radar site** | Extends enemy **detection**: covered nodes show you degraded intel and spawn ambush waves against you | SEAD: kill the dish while it's calling interceptors onto you |
+| **SAM battery** | Area denial: sorties into covered nodes take SAM fire; supply edges under cover are protected | SEAD: terrain-mask, break lock, kill launchers |
+| **Supply depot** | Buffers supply; garrisons cut off from supply **decay** each tick | Strike/siege enabler: cut the artery, starve the sector |
+| **Command post** | Buffs its sector's garrisons (aggression, coordination); part of the **command network** | Decapitation: kill the commander unit (P4) guarded by elites |
+| **Theater HQ** | The war's brain; **win condition** (see P1.5); heavily defended, unlocked by degrading the command network | The final raid |
+| **Contested airspace** | No owner; holding it shifts patrol pressure on neighbors | Pure dogfight — the M3 wave loop's natural home |
+| *(reserved)* **Port / sea lane** | P4 naval expansion: sea control → amphibious invasions | Anti-ship / convoy strike |
+
+### P1.3 — Node state & intel (the fog of war)
+
+Every node carries: **owner · garrison composition** (an actual unit list drawn
+from the P4 bestiary — not an abstract "strength 7") **· fortification ·
+supply status · weather · intel freshness**.
+
+The player doesn't see truth — they see **intel**: fresh after you overfly or
+buy it, decaying each tick, degraded further under radar coverage. The
+briefing shows *what intel believes* you'll face; the sortie shows the truth.
+Stale intel = surprises. This makes recon flights, intel purchases (P5), and
+radar kills *strategically* valuable, and it feeds P3's "loadout as a response
+to intel" directly.
+
+### P1.4 — The war tick (deterministic, seeded)
+
+After each sortie (F2), the war advances in a fixed order — deterministic so
+saves stay portable and replays honest (F4):
+
+1. **Production** — factories generate units.
+2. **Supply flow** — units and supply move along edges; cut nodes decay.
+3. **Enemy operations** — the enemy AI acts by a priority system with
+   seed-chosen **personality weights** (aggressive / defensive / opportunist),
+   so different theaters *feel* like different opponents: reinforce threatened
+   nodes, assault weakly-held player nodes, rebuild key infrastructure.
+4. **Resolution** — off-screen battles (enemy assaulting your garrisons)
+   resolve by war-sim odds. Your sorties are the thumb on this scale.
+5. **Weather evolution** (P1.6) and **intel decay** (P1.3).
+
+Allied garrisons **hold**; they don't launch offensives on their own (F3:
+kinetic-first — *you* are the offense; commander mode later changes exactly
+this). The **command room** replays the tick as visible map movement (P1.8) —
+you watch the consequences of your sortie ripple.
+
+### P1.5 — Win / loss / the war outliving you
+
+- **Win**: destroy the **Theater HQ** — but it's shielded by the command
+  network: only after enough command posts are dead is the HQ raid unlocked.
+  "Break the enemy's command structure" is the arc of every campaign.
+- **Strategic loss**: your Home Airbase falls.
+- **Pilot loss** (F1, refined v1.1): your last pilot dies — *the player's road
+  ends, the war does not.* The defeat screen is **F4.a spectator mode**: the
+  theater keeps ticking from its seed and you watch the war conclude without
+  you — your captured nodes slowly turning, or your side holding the line you
+  built. Defeat as epilogue, not curtain. (Also the same machinery lets us
+  soak-test the war-sim in development: generate 1,000 theaters, let them run
+  headless, assert no degenerate stalemates.)
+
+### P1.6 — Weather (the M6 wind item, grown up)
+
+Weather is a **per-sector state** evolving each tick (seeded Markov chain —
+deterministic like everything else): *clear · wind · rain · fog · heat wave ·
+sandstorm* (hail as a rain intensifier). Each is a **modifier pack**:
+
+- **Wind/gusts** — honest external forces on the airframe (never bending the
+  flight model — the rate loop earns its keep), with the strength as the knob.
+- **Rain** — visibility down, maybe camera-lens effects; mild sensor penalty.
+- **Fog** — visual + lock range compression; radar nodes matter more; missile
+  play weakens, gun play rises.
+- **Heat wave** — motor thermal pressure: sustained full throttle sags (a
+  MotorModel-level effect, physics-honest).
+- **Sandstorm** — severe visibility + abrasion (slow chip damage at speed?).
+
+The command room shows a **1-tick forecast** (intel-flavored): *when* to hit a
+node becomes a decision — "the SAM site is blind in tomorrow's fog."
+
+### P1.7 — Difficulty (answering F1.a's constraints)
+
+Three layers, honoring "difficulty is an inherited quality of the war" + the
+newbie-curve constraint:
+
+1. **Organic base** — the generation gradient (P1.1: easy pocket, hard depth)
+   plus economy pressure: the *enemy's production* is the escalating clock,
+   not per-level stat tuning.
+2. **Adaptive escalation** — if the player dominates (front line moving fast),
+   the enemy AI escalates *through the fiction*: personality shifts toward
+   desperate/elite, better unit mixes, counter-offensives — **never silent
+   stat inflation**. Struggle, and the pressure relaxes the same honest way.
+3. **A global knob** (the F1.a lean): one slider scaling starting pilots,
+   enemy production rate, and intel generosity. Feasible-for-newbies lives
+   here *plus* in the flight system we already built: the **rate-preset
+   ladder** (Cinematic→Race) and **angle mode** are the real onboarding ramp —
+   a new player flies angle-mode Cinematic into light garrisons and the same
+   war stays playable.
+
+### P1.8 — The command room (where the theater lives)
+
+The between-sorties screen — the "battle commanding room" (F2):
+
+- The **theater map**: nodes, ownership, front line, supply edges, weather
+  icons, your airbase range rings.
+- **Node inspection**: intel card (freshness-stamped), garrison estimate,
+  forecast.
+- **Pilot roster** (F1) and **hangar** (P3: frames + loadouts).
+- **Sortie select → briefing** (what intel claims) **→ fly → debrief** (what
+  actually happened, what you changed) **→ the war tick plays out as animated
+  map movement** — the moment the player *feels* the theater being alive.
+- Save/exit anywhere; the whole thing is one portable file (F4).
+
+### P1 open questions (react by ID)
+
+- **P1.q1** — Theater size: is 20–40 nodes the right *campaign length* for the
+  "long persistent war" (F4)? Bigger maps = longer wars = more content per
+  theater.
+- **P1.q2** — Capture mechanics: does winning an assault sortie flip a node
+  outright, or does it need a supply-connected friendly neighbor (geography
+  discipline — no island-hopping deep strikes that flip nodes behind lines)?
+  My lean: the supply-connection rule; deep strikes *degrade*, adjacency
+  *captures*.
+- **P1.q3** — Should *your* side have off-screen forces retaking/defending
+  nodes by odds too (you're the spearhead of a real army), or is all territory
+  gain yours alone (purer roguelike agency)? My lean: allied defense yes,
+  allied offense no (F3).
+- **P1.q4** — Sortie failure/abort: if you retreat or die mid-sortie, does the
+  node's garrison recover, stay damaged, or counter-attack next tick?
+- **P1.q5** — How many sorties should a typical won campaign take? (My
+  strawman: 25–40 sorties ≈ 8–15 hours across sessions — calibrate.)
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -344,3 +519,18 @@ portable save trivial — and it enables two pinned ideas for free:
   - **P5 flagged** — awaiting user feedback (empty section in the review pass).
   - **Process** — doc adopted as permanent history/changelog; iteration order
     proposed (P1 first).
+- **2026-07-16 — v1.1.** Second steering pass folded in + Iteration 1 opened:
+  - **F1 refined** — out-of-pilots is the *player's* defeat, not the war's end:
+    the war-sim keeps running; defeat becomes an epilogue via F4.a spectator
+    mode (see P1.5).
+  - **F1.a direction** — global scaling knob acceptable, but *real* difficulty
+    is an inherited quality of the war (organic + adaptive escalation, never
+    silent stat inflation); hard constraint: feasible newbie learning curve
+    (niche genre combo). Addressed in P1.7; final call still open.
+  - **F1.b** — recorded as a cheap tunable knob (default off); decide with
+    P1/P5 numbers.
+  - **P5 endorsed in full** (the empty v1 feedback section was agreement).
+  - **Radio scope** — basic capabilities only, to experience the physics on the
+    TX16S; gamepad expected to remain the primary fun controller.
+  - **Iteration 1 opened** — P1 Living Theater proposal written (P1.1–P1.8 +
+    open questions P1.q1–q5), status PROPOSED, awaiting steering.
