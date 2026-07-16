@@ -155,6 +155,33 @@ within a playthrough, choices can reward the player with exactly the
 measures/vehicles needed to keep winning — making intel and target selection
 part of the build.
 
+*Added v1.2 — Fire-Control Systems (FCS), born from the first real-radio
+combat session:* flying real gimbals, the pilot's attention budget has no room
+left for the trigger — which is exactly why real combat aircraft grew
+fire-control computers. **Semi-auto fire moves the trigger to a lesser
+concern: positioning becomes the skill.** Get the drone to the right point in
+space — on the enemy's six, holding them on-reticle, sustaining a missile
+lock — and the system converts that positional advantage into hits. This
+subtly re-aims the whole gameplay ("feels like a different game" — in a good
+way: most shooters make *aim* the skill; QuadShot makes *flying* the skill).
+
+Crucially (user decision): aiming systems are **assets/tools/abilities/perks —
+not an abstract gameplay mode.** FCS becomes an equipment family in the
+arsenal, e.g. iron trigger (manual, baseline) → gun director (auto-fire on
+ballistic solution — prototyped) → lead computer (wider solution, faster
+convergence) → turret pods (fire off-boresight) — each competing for
+hardpoints/mass against raw weaponry, each with counter-web implications
+(EW/jammers should degrade FCS, making the manual trigger a *skill fallback*,
+not dead content).
+
+*Prototype shipped 2026-07-16:* `fire_assist_miss_m` / `fire_assist_range` in
+CombatConfig (0 = off; a dev knob until the equipment system exists). Honest
+ballistics — the assist sweeps the true projectile arc (muzzle + inherited
+velocity + drop) against the hostile's predicted motion and fires only when
+the predicted miss distance closes under the threshold, with line-of-sight
+checked. No aim-bending, no homing bullets: the flight model stays the
+product.
+
 **P4 — The Bestiary** (enemy ecosystem). *Endorsed v1.*
 Enemy types built as a counter-web so composition matters and no loadout
 dominates:
@@ -534,3 +561,12 @@ The between-sorties screen — the "battle commanding room" (F2):
     TX16S; gamepad expected to remain the primary fun controller.
   - **Iteration 1 opened** — P1 Living Theater proposal written (P1.1–P1.8 +
     open questions P1.q1–q5), status PROPOSED, awaiting steering.
+- **2026-07-16 — v1.2.** First real-radio combat session (TX16S validated:
+  "so responsive and super smooth — so much different than a controller"):
+  - **P3 extended — Fire-Control Systems (FCS)**: semi-auto fire as an
+    equipment family; positioning becomes the skill, aim assist becomes
+    acquirable gear (never an abstract mode), EW counters it in the web.
+    Ballistic fire-assist prototype shipped behind CombatConfig knobs
+    (`fire_assist_miss_m`, `fire_assist_range`; 0 = off).
+  - Input-bindings system + `arm_switch` shipped the same session (see
+    ROADMAP M7 Input) — the "flexible binding layer" from the M6 triage.
