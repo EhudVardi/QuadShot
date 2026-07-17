@@ -1,17 +1,28 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.17 (2026-07-18) — **THE PAPER PHASE IS COMPLETE.** Six
-> iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
-> economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
-> curve, H1–H9) all proposed *and* steered; all four forks (F1–F4) decided; the
+> **Status:** v1.18 (2026-07-18) — the pillar+harness paper phase is closed; **a
+> completeness review surfaced one real gap, now PROPOSED as Iteration 7 (the
+> damage model), awaiting steering.** Six iterations closed: five pillars (P1
+> theater, P4 bestiary, P3 arsenal, P5 economy, P2 composition) + Iteration 6 (the
+> balance harness + stated difficulty curve, H1–H9) all proposed *and* steered;
+> all four forks (F1–F4) decided; the
 > war-sim skeleton lives and runs green (v1.7). The model composes end to end and
 > now *proves itself*: the war generates nodes, the manifest dresses them in the
 > bestiary, the arsenal answers the matrix, the economy prices it, the composer
 > projects it into sorties, and a four-layer harness (unit/sortie/economy/
 > strategic) measures whether it all lands on the difficulty curve — SDI measured,
-> not authored; a scripted reference pilot the hands calibrate. **Next is not
-> paper: it's the vertical-slice build** (P4.10/P3.10/P5.11/P2.13), the H9 harness
-> cut making it measurable from its first commit.
+> not authored; a scripted reference pilot the hands calibrate.
+>
+> **One gap surfaced by the completeness review and got its own iteration:
+> Iteration 7 — The Damage Model (PROPOSED, D1–D9).** The six iterations specced
+> *enemy* durability richly but left the *player's* damage an abstract hit-point
+> pool — a number, in a game whose north star is *the flight model is the
+> product*. Iteration 7 makes damage a **flight-model event** (flying a wounded
+> quad: asymmetric motor-out, prop vibration feeding the Filtering group, video
+> breakup), ramped arcade↔sim for readability, and gives pads/repair (P2.6/P5.6)
+> their missing referent. It must close before build. **Next: steer Iteration 7
+> (react D1–D9, Dq1–q6), then the vertical-slice build** (P4.10/P3.10/P5.11/
+> P2.13), the H9 harness cut making it measurable from its first commit.
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -2590,6 +2601,207 @@ from its first commit. Paper's edge crossed.
 
 ---
 
+## Iteration 7 — The Damage Model: Flying the Wounded Quad (PROPOSED, 2026-07-18 — awaiting steering)
+
+> A gap, surfaced by the completeness review the moment the paper phase was
+> declared done — and true to this doc's charter (*"it should BE the journey, not
+> a polished snapshot"*), it gets its iteration rather than a quiet patch. Six
+> iterations specced *enemy* durability in loving detail (P4.1's four models) and
+> left the *player's* damage an **abstract hit-point pool**: hull ticks down, hits
+> zero, you die. That is a hit-point model inside a game whose north star is *the
+> flight model is the product* — the one system where the USP should bite hardest,
+> left as a number. This closes it. It **must** close before build: the slice has
+> combat, pads, and a repair bill (P2.6/P5.6) that currently repair *nothing in
+> particular*. Concrete, opinionated, meant to be torn apart. Sections **D1–D9**;
+> react by ID.
+
+### D1 — The thesis: damage is a flight-model event
+
+**Doctrine (proposed as locked): a hit is a flight-model event, not only a
+health-bar event.** The deepest expression of *the flight model is the product*
+is **flying a wounded quad** — damage that changes *how the aircraft flies*, felt
+through the sticks before it's read off any HUD. A raider's bolts don't just
+subtract a number; they can degrade a motor until the rate loop is fighting a
+persistent yaw bias you have to trim out or ride. Limping a hit-and-canting quad
+through the exit gate is the single most on-brand moment this game can produce,
+and nothing above lets it happen. This is the north star's *"serious systems,
+readable presentation"* aimed at the airframe itself: serious because it's
+physics-honest, readable because you *feel* it first and see it plainly second.
+
+The old hull pool isn't discarded — it's **reframed as structural integrity**
+(D2) and joined by subsystem degradation. The abstract number becomes the
+*coarsest* layer of a model that has texture underneath.
+
+### D2 — The damage surfaces (what a real quad can lose)
+
+The airframe maps to damageable subsystems, each a **physics-honest**
+degradation, not a debuff icon — everything routes through systems that already
+exist (MotorModel, the Filtering group, FlightController, SoundBank):
+
+| Surface | Hit effect | Routes through | Feel |
+|---|---|---|---|
+| **Motor (×4)** | thrust% loss → **asymmetric thrust**; full kill = a corner dead | MotorModel per-rotor output | the crown jewel — the rate loop fights a bias you must trim or ride |
+| **Prop** | chipped → vibration + thrust loss on that rotor | the gyro-noise the **Filtering group** already fights | damage makes the LPF/notch *earn its keep* — a designed synergy, not a coincidence |
+| **Frame integrity** | the old hull pool; low integrity → softer handling, next hit likelier catastrophic | FlightController stiffness / the health pool | the coarse layer; the "how close to death" read |
+| **FPV camera / video** | feed breakup — static, rolling lines, brief blackout | a post/overlay effect on the pilot view | the *diegetic* cost of damage; real FPV video breakup, readable-not-blinding (D4) |
+| **Equipment bay / FCS** | a hit degrades the gun/missile director, lock confidence | the P3.6 FCS solution quality | **unifies with the screamer**: EW *and* battle damage both degrade FCS — one mechanism |
+| **Battery / power** | available power sags → TWR droop; hard hit risks cutoff | MotorModel headroom / the P3 heat economy | the quiet wound — you notice it in the climb, not the crash |
+
+Hit **location matters** (ties to honest mass & frame geometry, P3.2): where the
+bolt lands picks the surface. A frame is a layout of these parts, per-frame
+(D8) — the Atlas's innate armor (P3.3) becomes *integrity depth + a chance to
+shrug a subsystem hit*, the Dart's fragility becomes *thin everything*.
+
+### D3 — Severity as a tunable ramp (the readable-presentation guardrail)
+
+The model is a **config-driven severity dial**, because *"serious systems,
+readable presentation"* and P1.7's newbie-feasibility constraint both live here:
+
+- **Arcade end** — damage is mostly the integrity pool; subsystem effects
+  cosmetic (video flicker, sound) but flight stays clean. Today's model, kept
+  whole as the floor.
+- **Sim end** — full asymmetric subsystem degradation: the wounded-quad fantasy,
+  motor-out and all.
+- One **`DamageConfig`** scalar family, live-tunable in the overlay (the standard
+  workflow), riding the **P1.7 global difficulty knob**. The rate-preset ladder
+  (Cinematic→Race) already ramps *control* difficulty; **the damage ramp is its
+  combat twin** — a newbie flies angle-mode Cinematic with arcade damage and the
+  same war stays playable; a sim pilot turns both up and flies a knife-edge.
+
+This is the mechanism that lets the game be a hardcore sim *and* approachable
+without lying about the physics — the severity is honest at every setting, only
+the *dose* changes.
+
+### D4 — Readability (telegraph your own wound)
+
+Every degradation is **legible on three channels, felt before read** (the P4
+readability doctrine turned inward — *reading your own damage is a skill*):
+
+- **Sticks first** — the quad cants, pulls, sags; the pilot's hands know before
+  the eyes. This is the flight model doing the telegraphing, which is the point.
+- **Sight** — a compact airframe indicator (four motor pips, integrity, cam), the
+  drone visibly damaged, video breakup scaled to camera health.
+- **Sound** — the SoundBank motor synthesis reflects the wounded motor (tone
+  drop / roughness on the dead corner); low-health audio was already queued
+  (v1.5) — this gives it a source.
+
+**Guardrail (locked): damage informs, never blinds.** Video breakup is brief and
+recoverable, never a blackout you can't fly out of; the wound is always a
+*handicap you fly through*, never a removed control. Peak flight model is a
+pilot *overcoming* the wound, so the wound must stay overcome-able.
+
+### D5 — Repair & pads, given a referent (P2.6 / P5.6 discharged)
+
+"Repair" finally has an object:
+
+- **Pads** (P2.6, in-sortie) restore integrity + re-arm and do a **field patch**
+  of subsystems (motors/props back toward nominal) — the free tactical reset,
+  now physical. Precision-landing a wounded quad onto a pad *under fire* is peak
+  flight model advertising itself (P2.6's promise, deepened).
+- **Between-sortie** (P5.6): the repair bill prices **subsystem restoration** —
+  deep repair (a killed motor, a shattered cam) costs more than topping integrity.
+  *Flying well is literally cheaper* (P5.q4) gains a second meaning: take fewer
+  hits → pay less **and** fly a healthier quad next sortie. Pad-poor hard nodes
+  (P2.6) mean flying wounded *longer* — the risk-sink (P5.q4) made physical.
+- **Damage is sortie-scoped; repair is campaign-scoped** (Dq3 lean): you never
+  keep a permanently crippled airframe (that double-punishes, cf. P5.4's "don't
+  strip gear on death") — the persistence is the *bill*, not a scarred frame.
+
+### D6 — The counter-web interaction (P4 damage styles → player subsystems)
+
+Enemy damage styles (P4.1 chip/burst/area) stop being pool-drain and gain
+**differentiated effects on how you now fly** — the threat-vector grammar (P4.1)
+reflected onto the player's own airframe:
+
+- **Chip** (raider) — attrition across integrity; the slow bleed.
+- **Burst** (an aegis-cracker's inverse — a heavy enemy hit) — can knock out a
+  *subsystem outright*: the motor kill, the cam blackout. Burst threats become
+  "one hit changes your flight," raising the stakes of a single mistake.
+- **Area** (gnat sting, flak) — spread nicks: props and camera, many small.
+  The gnat cloud isn't just economy-tax (P4.2) — it *frays your quad*.
+
+So **which enemy hit you** now shapes **how you're flying afterward** — a raider
+duel and a gnat swarm leave you differently wounded, and that texture is free
+depth the abstract pool threw away.
+
+### D7 — Enemy symmetry (do they fly wounded too?)
+
+Lean: **yes, at the archetype level, for the flyers** — raider/falx take handling
+degradation from a solid hit (palette-consistent with the P4.6 escalation model
+and the P4.q6 "same archetype seat" grammar), so a half-killed falx flies
+*visibly* hurt and a good pilot can read it and finish it. Gnats (the cloud is
+the unit, P4.q5) and statics (they don't fly) are exempt. Cheap — the same
+`DamageConfig` model, applied symmetrically — and it keeps the sim honest both
+ways. **Deferred past the slice** (Dq5): player-side first, the world's-flight
+symmetry when the roster's flyers are real.
+
+### D8 — Configs, geometry & the harness
+
+- **`DamageConfig`** (`TunableConfig`): severity scalars per surface, subsystem
+  thresholds, repair-cost multipliers, the arcade↔sim dial, the P1.7 hook. Live-
+  tunable; overlay grows a **DAMAGE** section with the standard preset bar.
+- **Per-frame subsystem layout** lives in `FrameConfig` (P3.9): where the motors,
+  cam, and bay sit, so hit-location → surface is geometry, not a die roll — the
+  same honest-geometry doctrine as honest mass (P3.2).
+- **The harness (H) gains a damage dimension:** the reference pilot (H5) must
+  **fly wounded**, and the H4 metrics grow a *degradation state* term — TTK and
+  damage-taken now read as "how hurt, how flying," not just hull%. Damaged flight
+  is measurable too; the difficulty curve (H6) must account for a wounded pilot's
+  reduced capability (a hard node that also *cripples* you is harder than its
+  garrison alone says — the harness should catch it).
+
+### D9 — The vertical-slice cut (2.5)
+
+The smallest wounded-quad that delivers the feeling, against the P4.10/P3.10
+slice (Kestrel+Atlas · raider+turret+gnat+aegis · cyberpunk city):
+
+- **Ship: integrity pool + one flagship subsystem — motor degradation** on the
+  sim tier; arcade tier = today's clean HP model (the ramp, D3, proven with one
+  real surface). Motor-out is *the* wounded-quad feel; one surface earns the
+  whole thesis.
+- **Ship: video breakup** as the readable telegraph (D4) — cheap, high-impact,
+  and it sells the diegetic FPV fantasy from day one.
+- **Ship: pad field-patch + the between-sortie subsystem bill** (D5) — gives the
+  slice's economy its missing referent.
+- **Defer:** prop/cam/bay/battery granularity, enemy wounded-flight (D7), full
+  per-frame subsystem geometry — grow them in as the roster and biomes do.
+
+The slice thus earns its USP-defining moment — *limp a canting, static-flecked
+quad onto a pad under fire, patch it, and finish the strike* — without the full
+subsystem matrix. One surface, done honestly, is the wedge.
+
+### D open questions (react by ID)
+
+- **Dq1 — default severity at 1.0: sim-leaning or arcade-leaning?** The game *is*
+  the sim depth (north star), argues sim-default; the newbie constraint (P1.7)
+  and *readable presentation* argue a generous arcade floor. My lean: **sim-
+  leaning default with a generous arcade floor, ramped by the P1.7 knob** — never
+  a hard wall, the depth is the draw but the door stays open.
+- **Dq2 — motor-out recoverability.** A full motor kill: flyable-but-punishing
+  (scaled — a controllable yaw-spin limp, a *story*) vs. effectively lethal
+  (brutally realistic)? My lean: **flyable-but-punishing on sim tier, config-able
+  toward lethal** — the skilled limp-home is exactly the moment we're building
+  for; realism is a dial, not a mandate.
+- **Dq3 — damage persistence.** Sortie-scoped degradation + campaign-scoped
+  *repair bill* (my lean, D5) vs. a frame that stays mechanically scarred into
+  the next sortie until repaired? My lean: **bill, not scar** — persistence is
+  economic; a permanently crippled airframe double-punishes (cf. P5.4).
+- **Dq4 — video/camera damage ceiling.** How far to push feed breakup before it's
+  frustration, not immersion? My lean: **brief, recoverable, telegraph-not-
+  blindfold** (D4 guardrail) — the wound you fly through, never the wound that
+  removes the picture.
+- **Dq5 — enemy wounded-flight timing.** Symmetric now (world honesty) or player-
+  side first, symmetry post-slice? My lean: **player-side first** — the slice
+  proves the model on the frame the human flies; the world flies wounded when its
+  flyers are real (D7).
+- **Dq6 — where the pool ends and the model begins at 1.0.** Is *integrity + one
+  subsystem (motors)* the right slice surface (my D9 cut), or does the wounded-
+  quad feel need a second surface (props, for the Filtering-synergy) on day one?
+  My lean: **motors only at slice** — one surface done honestly beats two done
+  thin; props follow fast because the Filtering synergy is nearly free.
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -3112,3 +3324,44 @@ from its first commit. Paper's edge crossed.
     *and proves itself* end to end. **Next is not more paper — it's the
     vertical-slice build** (P4.10/P3.10/P5.11/P2.13), with the H9 harness cut
     making it measurable from its first commit.
+- **2026-07-18 — v1.18.** Completeness review (user-invited gap pass, leaning to
+  simulator depth, true to the north star) surfaced **one real gap** and opened
+  **Iteration 7 — The Damage Model: Flying the Wounded Quad** (PROPOSED, D1–D9 +
+  six open questions Dq1–q6). The hole: six iterations specced *enemy* durability
+  (P4.1's four models) in detail and left the *player's* damage an **abstract
+  hit-point pool** — a number, in a game whose north star is *the flight model is
+  the product*. It must close before build (the slice's combat, pads, and repair
+  bill currently repair *nothing in particular*). The proposal:
+  - **Doctrine (proposed locked, D1):** *a hit is a flight-model event, not only a
+    health-bar event* — the deepest expression of the USP is **flying a wounded
+    quad**, damage felt through the sticks before it's read.
+  - **Damage surfaces (D2):** motors (asymmetric thrust / motor-out — the crown
+    jewel), props (vibration that feeds the **Filtering group** — a designed
+    synergy), frame integrity (the old pool, reframed), FPV camera (diegetic video
+    breakup), equipment/FCS (**unifies battle damage with the screamer's EW jam**),
+    battery (TWR sag). Hit *location* matters (frame geometry, P3.2).
+  - **Severity ramp (D3):** a `DamageConfig` arcade↔sim dial riding the P1.7 knob —
+    *the combat twin of the rate-preset ladder*; hardcore sim depth without lying
+    about physics, newbie floor preserved (*serious systems, readable presentation*).
+  - **Readability (D4):** felt on sticks → sight → sound; **guardrail: damage
+    informs, never blinds** (the wound is flown through, never a removed control).
+  - **Repair referent (D5):** pads field-patch subsystems in-sortie; the P5.6
+    between-sortie bill prices subsystem restoration — *flying well is literally
+    cheaper* gains a second meaning; damage is sortie-scoped, repair campaign-scoped
+    (bill, not scar).
+  - **Counter-web (D6):** enemy chip/burst/area now differentiate *how you fly
+    afterward* (chip bleeds integrity, burst knocks out a subsystem, area frays
+    props/cam) — the P4.1 threat grammar reflected onto the player's airframe.
+  - **Symmetry (D7):** flyers (raider/falx) fly wounded too, palette-consistent;
+    deferred past slice.
+  - **Configs & harness (D8):** `DamageConfig` + overlay DAMAGE section; per-frame
+    subsystem layout in FrameConfig; the H harness gains a *degradation-state*
+    dimension — the reference pilot flies wounded, the difficulty curve accounts
+    for it.
+  - **Slice cut (D9):** ship integrity + **motor degradation** (one flagship
+    surface) + video breakup + pad-patch/repair-bill on the sim tier, arcade =
+    today's model; defer the rest. The slice earns its USP moment — *limp a
+    canting, static-flecked quad onto a pad under fire, patch it, finish the
+    strike* — on one surface done honestly.
+  - **Next**: steer Iteration 7 (react D1–D9 + Dq1–q6 by ID), then the
+    vertical-slice build begins.
