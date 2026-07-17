@@ -1,9 +1,10 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.8 (2026-07-17) — all four forks decided; Iteration 1 (P1)
+> **Status:** v1.9 (2026-07-17) — all four forks decided; Iteration 1 (P1)
 > steered; the war-sim skeleton lives (v1.7). **Iteration 2 (P4 — Bestiary +
-> counter-matrix) PROPOSED** (sections P4.1–P4.10 + open questions P4.q1–q6,
-> awaiting steering).
+> counter-matrix) STEERED** (all P4.q answered; **water domain added** — see
+> P4 steering). Proposed next: Iteration 3 (P3 — frames, hardpoint profiles,
+> the weapon roster vs. the matrix).
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -1088,6 +1089,83 @@ without a thing to counter is noise.
   cheap, readable) or a distinct allied identity later? My lean:
   palette-swap now, identity when commander mode (F3) arrives.
 
+### P4 steering — ANSWERED (v1.9, 2026-07-17)
+
+Iteration 2 is steered. The proposal above stands as accepted, with:
+
+- **The domain axis gains WATER (user).** Not the full naval expansion —
+  that stays post-core as reserved (v1) — but the *grounds* for it, laid
+  now: the P4.1 domain axis becomes **air / ground-mobile / static /
+  surface (water)**, and the roster gains the two minimum sea seats so the
+  taxonomy, the matrix, and the theater generator's coastline (P1.1) all
+  have something real to hold the door open with. This also partially
+  answers P4.q1 — the roster is now twelve.
+
+  A design insight falls out immediately: **open water is the no-cover
+  domain.** The terrain column goes *negative* at sea — sea fights are open
+  fights, the exact inversion of the city biome's cover economics, and the
+  coastal-cliffs biome (P1.9) is the seam where both economies meet. Water
+  doesn't just add units; it adds a place where the counter-web prices
+  differently.
+
+  The two sea-annex stat blocks (same format as P4.2):
+
+  **Gunboat — patrol boat.**
+  - *Durability:* light-armored surface combatant.
+  - *Threat:* position + hull — an AA autocannon bubble over the water;
+    patrols sea lanes, screens ports, escorts barges. Tracer arcs telegraph
+    the bubble's edge.
+  - *Web role:* punishes slow, low, over-water ingress and loitering gun
+    runs; answered by missiles and standoff — there is nothing to mask
+    behind out there.
+  - *Terrain:* its power IS the open water; hug the cliffs and it loses you.
+  - *Strategic:* sea-lane control; port production (the reserved P1.2 row's
+    first tenant).
+
+  **Barge — sea supply crawler.**
+  - *Durability:* armored, near-defenseless; gunboat-escorted.
+  - *Threat:* the war — moves garrison strength along sea lanes; later the
+    carrier of the naval expansion's amphibious-invasion mechanic (v1 note),
+    which is exactly why it exists now.
+  - *Web role:* interdiction prey, the convoy's sea twin; answered by
+    lob/missile standoff; punishes nothing but wasted time.
+  - *Strategic:* killing barges is sea-lane warfare — starve coastal
+    sectors without touching their garrisons.
+
+  Their matrix rows (same columns and invariants as P4.3):
+
+  | Enemy | Chip gun | Burst | Lob | Missile | Flak | Terrain |
+  |---|---|---|---|---|---|---|
+  | **Gunboat** | 0 | + | + | ++ | − | − |
+  | **Barge** | − | + | ++ | ++ | 0 | − |
+
+- **P4.q1 → DECIDED: right-sized at the archetype level.** Twelve types
+  (ten + the two water seats) + veterancy tiers is the 1.0 surface; variety
+  comes from tiers × biomes × combos, and every new base type is a matrix
+  row balanced forever.
+- **P4.q2 → LOCKED: reaction-dodgeability is a rule at every tier.** Elites
+  position smarter; they never shoot faster or straighter than the stated
+  ceiling. The combat twin of "never silent stat inflation" (P1.7).
+- **P4.q3 → DECIDED: terrain-only counterplay first.** SAM (and any future
+  homing threat) is answered by masking and geometry at launch;
+  flares/chaff arrive later as P3 equipment. Early SEAD is purely a flying
+  problem — on brand.
+- **P4.q4 → DECIDED: behavior unlocks only.** Commander buffs are
+  coordination, visible in how the garrison fights — and decapitation
+  visibly dumbs it down. No invisible stat nudges.
+- **P4.q5 → DECIDED: the cloud is the unit.** Gnats run a cheap kinematic
+  boid model + collision sting — the one bestiary member that isn't a full
+  combatant under the hood, and that's a design statement, not a cheat.
+- **P4.q6 → DECIDED: palette-swap now, with a pinned refinement (user).**
+  Allied forces mirror the roster for now (war-sim symmetry, readable,
+  cheap). But the eventual identity should be *derived from characteristics
+  that carry real force-level differences*: each identity fields **its own
+  version of the same archetype** — the archetype seats (the matrix rows)
+  are the shared grammar, and a faction expresses each seat with its own
+  tradeoffs. Same seat, different answer. Pinned for the commander-mode /
+  faction era (F3); the archetype-seat structure this iteration built is
+  what makes it cheap later.
+
 ---
 
 ## Decision Log
@@ -1306,3 +1384,27 @@ without a thing to counter is noise.
   - **Vertical-slice four**: Raider + Turret (shipped) + Gnat + Aegis, with
     flak as the natural third weapon; Screamer enters alongside acquirable
     FCS gear.
+- **2026-07-17 — v1.9.** Iteration 2 STEERED (user review):
+  - **Water domain added (user)** — the P4.1 domain axis grows a fourth
+    seat (surface/water), grounded minimally now: two sea-annex stat blocks
+    (**Gunboat** patrol boat, **Barge** sea supply crawler) + their matrix
+    rows. Full naval expansion stays post-core reserved; this lays its
+    foundation. Roster: twelve. Design insight recorded: open water is the
+    **no-cover domain** — the terrain column inverts at sea; coastal cliffs
+    (P1.9) is the seam between the two cover economies.
+  - **P4.q1 decided** — twelve archetypes + veterancy tiers is the 1.0
+    surface; variety from tiers × biomes × combos.
+  - **P4.q2 LOCKED** — reaction-dodgeability at every tier: elites get
+    smarter positioning, never faster/straighter fire.
+  - **P4.q3 decided** — terrain-only counterplay for homing threats at
+    launch; countermeasures later as P3 equipment.
+  - **P4.q4 decided** — commander buffs are behavior/coordination only,
+    visibly lost on decapitation.
+  - **P4.q5 decided** — gnats as kinematic boids + collision sting; the
+    cloud is the unit.
+  - **P4.q6 decided + pinned** — allied forces palette-swap the roster now;
+    eventual faction identity = each identity fields *its own version of the
+    same archetype seat* with real force-level differences (same matrix row,
+    faction-specific tradeoffs). Pinned for the F3 commander-mode era.
+  - **Next**: Iteration 3 — P3 (frames, hardpoint profiles, the weapon
+    roster designed against the locked matrix).
