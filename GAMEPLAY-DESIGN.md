@@ -1,14 +1,17 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.15 (2026-07-18) — **the design phase is complete.** All four
-> forks (F1–F4) decided; all five pillar iterations proposed and steered — P1
-> (theater), P4 (bestiary), P3 (arsenal), P5 (economy), P2 (composition); the
-> war-sim skeleton lives (v1.7). Everything composes: the war generates nodes,
-> the manifest dresses them in the bestiary, the arsenal answers the matrix, the
-> economy prices it, and the composer projects it into sorties whose difficulty
-> the harness will prove. **Next: Iteration 6 — the balance-harness spec + the
-> stated difficulty curve (2.4/P1.7) — then the vertical slice starts getting
-> built.**
+> **Status:** v1.17 (2026-07-18) — **THE PAPER PHASE IS COMPLETE.** Six
+> iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
+> economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
+> curve, H1–H9) all proposed *and* steered; all four forks (F1–F4) decided; the
+> war-sim skeleton lives and runs green (v1.7). The model composes end to end and
+> now *proves itself*: the war generates nodes, the manifest dresses them in the
+> bestiary, the arsenal answers the matrix, the economy prices it, the composer
+> projects it into sorties, and a four-layer harness (unit/sortie/economy/
+> strategic) measures whether it all lands on the difficulty curve — SDI measured,
+> not authored; a scripted reference pilot the hands calibrate. **Next is not
+> paper: it's the vertical-slice build** (P4.10/P3.10/P5.11/P2.13), the H9 harness
+> cut making it measurable from its first commit.
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -2254,6 +2257,339 @@ vertical slice starts getting *built*.** Paper's edge, reached.
 
 ---
 
+## Iteration 6 — The Balance Harness & the Difficulty Curve (PROPOSED, 2026-07-18 — awaiting steering)
+
+> Not a pillar — the **bridge**. Five iterations built a theater, a bestiary, an
+> arsenal, an economy, and a composer; each one ended by handing an IOU to *"the
+> harness"* (P4.9, P5.10, P2.11) and deferring the stated difficulty curve
+> (P1.7/F1.a). This iteration collects every one of those IOUs into a single
+> **layered balance harness** and writes the **difficulty curve** it must
+> assert — the last thing that has to exist on paper before the vertical slice
+> starts getting *built*. It discharges §2.4 (the balance methodology) and P1.7
+> (the stated curve). Concrete, opinionated, meant to be torn apart. Sections
+> **H1–H9**; react by ID.
+
+### H1 — The thesis: proven before flown
+
+Iteration 6 invents nothing. It **unifies a trick the project has used since
+M0**: the flight model was bench-tuned against `step_response.gd` /
+`rate_tune_sweep.gd`, the war-sim was soak-proven against `war_soak.gd`, and the
+five shipped checks (`hover`/`combat`/`wave`/`missile`/`run`) guard correctness —
+all of it the *real game running headless* (Glossary), printing measurements far
+faster than real time. The whole design leaned on the phrase "the harness will
+prove it" five iterations running; H1 is where that phrase gets a body.
+
+**Doctrine (locked): no balance number ships unmeasured, and every invariant is
+re-checked forever.** Correctness has a test suite (the five checks); *balance*
+gets one too. The paper is always the spec, the measurement is always the test,
+and divergence is either a bug in the numbers or a lie in the design — caught
+numerically, before anyone flies it, and re-caught after every config edit. This
+is the flight-tuning workflow (§2.4) promoted from the rate loop to the entire
+game.
+
+### H2 — The four layers (the harness is a stack because the game is a stack)
+
+The scattered harness promises are really **one harness with four layers**, each
+feeding the one above it — unit results set sortie difficulty, sortie difficulty
+sets campaign pace, campaign pace sets the war's shape:
+
+| Layer | Harness | Question it answers | Status |
+|---|---|---|---|
+| **Unit** | the matchup harness (P4.9/P3.7) | does the counter-web hold? (every weapon×enemy, frame×enemy) | to build |
+| **Sortie** | the composed-sortie harness (P2.11) | is *this composed node* winnable-but-not-trivial by its intended loadout? | to build |
+| **Economy** | the autopilot-economy soak (P5.10) | can a reasonable buyer keep pace without a dominant farm? | to build (extends war_soak) |
+| **Strategic** | `war_soak` (shipped, v1.7) | is the *war's* shape sound — determinism, losability, monotonic skill? | **lives** |
+
+The layering is the point: a red flag at the unit layer (a weapon trivializes
+bombers) *propagates upward* as a too-easy sortie, a too-fast campaign, a broken
+war. Fixing balance at the lowest layer that shows the flag is the discipline —
+and the bottom layer already runs green (v1.7), so the build works **downward
+from a proven strategic skeleton into the sortie/unit detail the slice adds.**
+
+### H3 — The measured matrix (P4.3 / P3.7 made falsifiable)
+
+The unit layer's output is the paper matrices (P4.3 weapon×enemy, P3.4/P3.7
+frame×enemy) **re-derived from measurement.** For every cell the harness runs N
+seeded duels — and, where the web's stories demand it, escorted squads (the
+aegis+screamer pair, commander-led packs; P4.3's combos are cells too) — under
+the reference pilot (H5), then bands the result back into the same `++`…`−−`
+scale by the function in H4. The paper matrix is the **spec targets** each config
+is held to (P3.1); the measured matrix is the test; a diverging cell is the
+alarm.
+
+The three invariants (P4.3) stop being prose and become **automated
+assertions** that fail a harness run:
+
+1. every row keeps ≥1 `++` and ≥1 `−`/`−−` (every enemy has a great answer and
+   punishes some loadout);
+2. every column keeps ≥1 `++` and ≥1 `−−` (no dead content, no universal answer
+   — the locked rule, now falsifiable);
+3. no column dominates another (≥ in every row) — the dominated archetype is
+   dead content walking.
+
+**Red-flag automation (the regression teeth):** any row losing its `++`, any
+column losing its `−−`, any dominance pair appearing → the run goes red and names
+the cell. That's the P4.9/P3.7 promise, mechanized: caught before anyone flies
+it, re-caught after every balance edit, forever.
+
+### H4 — The measurement grammar (what each layer emits, and the banding function)
+
+Every layer prints the same shape of output as `step_response.gd` does today — a
+compact table of measured numbers, human-legible, diffable across runs:
+
+- **Unit:** time-to-kill · damage-taken · economy-spent (rounds/heat/lock-time) ·
+  **win-rate** — per cell, mean ± spread across seeds.
+- **Sortie:** completion-rate · time-on-target · pad-dependency (win-rate with
+  pads vs. without) · abort-rate · degrade-achieved-on-loss (P2.9's "every kill
+  dents").
+- **Economy:** acquisition-pace (sorties-to-first-director) · farm-ratio (best
+  vs. median kinetic loop) · dead-end-rate (campaigns that soft-lock on
+  repair/redeploy) · currency-binding (does influence ever gate progress, or
+  would salvage alone do — P5.q1's falsifier).
+- **Strategic (shipped):** sorties-to-win · spectator-loss-rate · front-line
+  monotonicity · determinism/save round-trip.
+
+**The banding function (H.q1 to steer):** win-rate is the primary driver — a cell
+is `++`/`+`/`0`/`−`/`−−` by fixed, *stated* win-rate thresholds under the
+reference pilot — with TTK and economy-spent as tiebreakers (two `++` win-rates
+split by which one costs the pilot less hull and ammo). Fixed thresholds, not
+percentiles, because a falsifiable spec needs a stable ruler that doesn't drift
+as the roster grows. Sentinel's caveat (P4.3 invariant 1) carries over: its
+counter-pressure is the ambush clock, scored as sortie-completion-under-time, not
+a weapon band.
+
+### H5 — The reference pilot (the instrument the whole thing hangs on)
+
+**This is the hard problem the strategic soak never had to face.** `war_soak`
+works because garrisons are abstract floats — nothing flies. The moment the
+harness drops to the sortie and unit layers, *something has to be at the sticks*,
+and here the project's founding tenet bites: **flight feel cannot be evaluated by
+the agent — the human's hands are the test suite** (CLAUDE.md). A headless
+harness has no hands.
+
+The resolution is a **division of labor, stated as doctrine (locked): the harness
+measures *balance*; the hands measure *feel*; neither substitutes for the
+other.**
+
+- The harness flies a **reference pilot** — a scripted, deterministic autopilot
+  proxy (the M0 autopilot / pause-hold machinery and the war_soak `skill` scalar
+  are the seed): it dodges on telegraph, masks on cover, holds a firing solution,
+  lands on pads — *competently, not perfectly, and identically every seed.* It
+  produces **relative** truth: weapon A beats weapon B on bombers, node X is
+  harder than node Y. That is exactly what the counter-web and the difficulty
+  curve are made of — comparisons.
+- The reference pilot is **calibrated by the human**, not trusted blind. Periodic
+  hands-on flights (the checkpoint protocol, §11) set where its competence datum
+  sits against real skill — the sortie-layer analogue of choosing `skill 0.9` in
+  war_soak. A pilot that can't dodge a SAM would report SAMs as impossible; one
+  that flies perfectly reports everything as trivial. **The human's hands
+  calibrate the ruler; the ruler then measures a thousand things the hands can't
+  fly.** That is the honest scope of what the harness can and cannot prove — and
+  writing it down now is what keeps H6's difficulty numbers from being fiction.
+
+*(H.q3 is where the reference pilot's exact competence model gets steered — this
+section commits to the division of labor, not the pilot's internals.)*
+
+### H6 — The difficulty curve, stated (P1.7 / F1.a made numerical at last)
+
+The deliverable §2.4 named and P1.7 deferred: **the curve the strategic layer
+must produce.** The crux — and the thing that makes "organic balancing, not
+hand-tuned levels" (P2/2.2) a real engineering claim instead of a hope:
+
+**The Sortie Difficulty Index (SDI) is measured, not authored.** The composer
+(P2.1) never sets difficulty; it sets *inputs* — garrison strength, biome cover,
+weather, pads, escalation tier (P2.11). The harness flies the reference pilot
+against the composed output and *measures* the resulting difficulty (chiefly
+reference-pilot win-rate, shaded by hull-cost and pad-dependency). **SDI is a
+readout of the fight, not a knob on it.** Difficulty is therefore a *verified
+emergent property* — and the curve is the **assertion that emergent difficulty
+lands in the right band at each point of the war**:
+
+| Point in the war | Reference-pilot win band | Feel (the constraint it encodes) |
+|---|---|---|
+| **Starting pocket** (P1.1 easy gradient) | high (strawman **70–85%**) | the newbie floor (F1.a): feasible on **angle-mode Cinematic**, pad-rich, clear weather, tier-0 garrisons |
+| **Mid theater** | middle (**~45–65%**) | the war has teeth; loadout and frame choice (P3.4) start to matter |
+| **Deep territory / escalated** | low-but-real (**~30–50%**) | mask-or-die flying; the arsenal must be earned to keep pace (P5) |
+| **HQ raid** (P1.5) | hard-but-possible (strawman **25–40%**) | layered everything; the campaign's peak, unlocked by breaking the command net |
+
+The curve's four stated properties, each an assertion the harness checks:
+
+1. **The floor holds** — no pocket node drops the *newbie datum* below feasible.
+   The rate-preset ladder and angle mode (P1.7) ride on top as the real on-ramp;
+   the harness proves the strategic layer *hands the newbie winnable ground*.
+2. **The ceiling is real** — no node, even fully escalated, is unwinnable by the
+   *skilled datum* with the *right earned loadout* (P2.11's "no unwinnable
+   composition"), and none is trivial (P2.11's "no node folds to any input").
+3. **The gradient rises** — SDI is monotone non-decreasing along pocket→HQ
+   progression, as an *envelope* (local variety is welcome; the trend and the
+   ceiling are the assertions).
+4. **Escalation stays under its cap** — adaptive escalation (P4.6) may raise SDI,
+   but only within what surviving production affords, and **never above the
+   skilled-datum ceiling.** The P1.7 guardrail ("never punish excellence; a
+   broken enemy stays broken") becomes numerical: escalation shifts the curve up,
+   a hard ceiling clamps it, and a broken enemy's cap *falls* — the crushed war
+   gets measurably easier, on purpose.
+
+The **campaign-length target** rides on the same instrument: **25–40 sorties to
+win at the skilled datum** (P1.q5). This is where H7's honesty lives.
+
+### H7 — Calibration & the recalibration debt (owning v1.7's brutal number)
+
+The design phase already produced one damning measurement and logged it plainly:
+at v1.7, **skill 0.9 wins ~10% of the time at ~127 sorties** — against a 25–40
+target, the war is *brutal*, and the win band far below H6's floor. Iteration 6
+does not paper over that; it **names it as the debt the harness exists to
+retire.**
+
+The debt is deferred *honestly* (v1.7's own call): the 127-sortie war ran on
+**abstract garrisons and a stopgap draft economy** — the exact systems P4/P5/P2
+replace with real bestiary, real prices, and a real composer. Recalibrating
+against the old skeleton would tune the wrong thing. The loop that closes it:
+**build the slice → measure with the harness → tune *configs*, never physics or
+code (§2.4) → re-measure.** Every difficulty lever is a `.tres` field
+(EnemyConfig strength, EconomyConfig `starting_pilots`, the P1.7 global scalar,
+composer weights) — live-tunable in the overlay, bench-verified in the harness,
+baked only when the human says the feel is right (§14). **The harness makes the
+war *re-tunable* from data; the hands say when it's right.** The 127→25–40 gap is
+the first headline the slice's harness will chase.
+
+### H8 — The harness's home, configs & the regression guarantee
+
+- **Where it lives:** unit and sortie layers sit in `scripts/tests/` beside the
+  five checks and the benches (the established home); the economy pass extends
+  `war_soak.gd`; the composed-sortie runner reuses the P2.12 `SortieComposer`
+  headless. All of it is the *real game* headless — no shadow simulation to drift
+  from the shipped one (the war_soak precedent).
+- **The knobs it turns are all data:** every balance lever is a `TunableConfig`
+  field (EnemyConfig, WeaponConfig, FrameConfig, EquipmentConfig, EconomyConfig,
+  BiomeConfig, composer weights). The harness reads them, the overlay writes them
+  live, the human bakes them — the same triangle the flight model has lived in
+  for three months, now spanning the whole game.
+- **The regression guarantee (the green board):** the harness is *balance CI*.
+  A run is **green** when every H3 invariant holds, every H6 curve property
+  holds, and the H4 economy assertions (completable / no-dominant-farm /
+  no-dead-ends / currency-binds) pass. Any red names the offending cell, node, or
+  price. This is the balance twin of the correctness checks: run it after every
+  config change, treat red as a build break.
+
+### H9 — The slice's harness cut (2.5): measurable from day one
+
+The slice (P4.10/P3.10/P5.11/P2.13: Kestrel+Atlas · Blaster+Missile+Flak pod ·
+raider+turret+gnat+aegis · cyberpunk-city Strike+Dogfight · salvage-only) does
+**not** need the whole harness — it needs the *smallest slice of the harness that
+makes the slice build measurable from its first commit*:
+
+- **Unit layer (day one):** the mini-matrix — 3 weapons × 4 enemies + 2 frames ×
+  4 enemies — with the H3 invariants asserted on that sub-web. It's small enough
+  to eyeball and large enough to catch the designed stories (guns die on aegis,
+  missiles bankrupt on gnats, flak starves on aegis, the turret punishes anyone
+  who stops). The reference pilot ships at a **single competence datum** here;
+  the newbie/skilled split (H6) waits for the full curve.
+- **Sortie layer (day one, minimal):** a composed-sortie runner over the two
+  slice archetypes asserting **floor + ceiling only** — the city Strike is
+  feasible, the hardest slice composition is non-trivial. Full-curve monotonicity
+  is meaningless across ~5 nodes; it lands when the theater carries real composed
+  nodes (H.q5).
+- **Economy layer:** the P5.11 salvage-only economy is thin enough that the
+  existing war_soak invariants plus a single "can the buyer afford the gun
+  director by the time the screamer shows" check suffice; the full autopilot
+  buyer (P5.10) waits for the two-currency menu.
+- **Strategic layer:** already green (v1.7) — the slice inherits it.
+
+Everything above the cut — the full 12-enemy matrix, the escorted-squad combos
+beyond aegis+screamer, the full difficulty-curve assertion, the two-currency
+autopilot — is **deferred to grow with the roster**, each new element arriving
+*with its harness row*, never before it (the P4.10 "a counter without a thing to
+counter is noise," applied to measurement). **That is the bridge:** the slice is
+buildable the moment this cut exists, and it is *measurable* the same day.
+
+### H open questions (react by ID)
+
+- **H.q1 — the banding function.** Win-rate as the primary `++`…`−−` driver under
+  the reference pilot, TTK/economy as tiebreakers, **fixed stated thresholds**
+  (not percentiles)? My lean: fixed thresholds — a falsifiable spec needs a ruler
+  that doesn't drift as the roster grows; percentiles would let power creep hide.
+- **H.q2 — SDI: scalar, vector, or both?** A single composite index (clean
+  monotonicity assertion) vs. the raw axis vector (garrison/cover/weather/pads/
+  escalation — diagnosable) vs. both. My lean: **both** — the vector for *why a
+  node is hard* (diagnosis, tuning), the scalar for the *curve rises* assertion
+  (the one-number test).
+- **H.q3 — the reference pilot's competence model.** A hand-scripted proxy
+  (deterministic, cheap, the war_soak-skill analogue) vs. replaying recorded
+  human blackbox runs (real skill, but brittle to map changes) vs. a bounded
+  learned pilot (expensive, risks over-fitting to exploits). My lean: **scripted
+  proxy at 1.0, human-calibrated (H5)** — it's the fast regression instrument;
+  blackbox-replay is a reserved richer datum once the slice has real maps to
+  record on.
+- **H.q4 — the win-rate bands (H6's numbers).** Are 70–85% (pocket) → 25–40% (HQ)
+  the right feasibility/challenge targets, or tune the spread? My lean: adopt as
+  the strawman and **calibrate hands-on** — like the sortie-length dial (P2.q6),
+  these are set with hands on sticks, not on paper; the table states the *shape*,
+  the flying sets the *values*.
+- **H.q5 — how much curve does the slice assert?** Floor+ceiling only (my H9
+  cut — monotonicity is meaningless at ~5 nodes) vs. attempt a mini-gradient
+  across the slice's handful of nodes. My lean: **floor+ceiling at slice**, full
+  monotone-envelope assertion when a real theater's worth of composed nodes
+  exists to draw a curve through.
+- **H.q6 — does the harness gate the build, or advise it?** Balance-CI red = a
+  hard build break (rigorous, but early slice churn may fight it) vs. an advisory
+  board the human reads and overrides (flexible, but red can rot). My lean:
+  **advisory through slice bring-up, hardening to a gate once the mini-web
+  stabilizes** — you can't fail a test suite for a web that's still being born,
+  but the day the four-enemy web is "right," red means stop.
+
+### H steering — ANSWERED (v1.17, 2026-07-18)
+
+Iteration 6 is steered — all six H.q resolved to their leans, closing the bridge
+iteration and, with it, the paper phase entire:
+
+- **H.q1 → DECIDED: fixed stated thresholds.** Win-rate is the primary `++`…`−−`
+  driver under the reference pilot, TTK/economy as tiebreakers, banded by fixed
+  thresholds — a falsifiable spec needs a ruler that doesn't drift as the roster
+  grows, and percentiles would let power creep hide.
+- **H.q2 → DECIDED: both scalar and vector.** The harness emits the raw axis
+  vector (garrison/cover/weather/pads/escalation) for *why a node is hard* —
+  diagnosis and tuning — and the composite SDI scalar for the *curve rises*
+  monotonicity assertion. Diagnose with the vector, test with the number.
+- **H.q3 → DECIDED: scripted proxy at 1.0, human-calibrated (H5).** The reference
+  pilot is a deterministic scripted proxy — the fast regression instrument that
+  produces *relative* truth; blackbox-replay stays a reserved richer datum for
+  when the slice has real maps to record on. The H5 division of labor stands
+  locked: **the harness measures balance, the hands measure feel.**
+- **H.q4 → DECIDED: adopt the strawman bands, calibrate hands-on — and the
+  calibration is *my* process to initiate and lead.** The H6 win bands (pocket
+  70–85% → HQ 25–40%) ship as the shape; the values get set with hands on sticks,
+  like the sortie-length dial (P2.q6). **Responsibility recorded (user): when the
+  slice is flyable and it is time to calibrate, *I* initiate and lead the
+  calibration process** — I don't wait to be asked. It is the sortie/economy-layer
+  twin of the flight-tuning checkpoints (§14): I set up the harness runs and the
+  hands-on flights, propose the config moves, and drive the loop until the human
+  says the feel is right. The datum-setting is a scheduled duty, not an
+  if-someone-remembers.
+- **H.q5 → DECIDED: floor+ceiling at slice.** The slice asserts only that its
+  pocket Strike is feasible and its hardest composition is non-trivial;
+  full monotone-envelope assertion waits until a real theater's worth of composed
+  nodes exists to draw a curve through. Monotonicity across ~5 nodes is noise.
+- **H.q6 → DECIDED: advisory → gate.** Balance CI is an advisory board the human
+  reads through slice bring-up (you can't fail a test suite for a web still being
+  born), hardening into a hard build-break gate the day the four-enemy mini-web is
+  "right." Red rots if it's never enforced; enforced too early it fights a web
+  that's still forming — so it earns its teeth on a stated trigger.
+
+**THE PAPER PHASE IS COMPLETE.** Six iterations — five pillars (P1 theater, P4
+bestiary, P3 arsenal, P5 economy, P2 composition) proposed and steered, plus
+Iteration 6 the balance harness + difficulty curve — all closed; four forks
+(F1–F4) decided; the war-sim skeleton lives and runs green (v1.7). The model
+composes end to end and, now, *proves itself*: the war generates nodes, the
+manifest dresses them in the bestiary, the arsenal answers the matrix, the
+economy prices it, the composer projects it into sorties, and the harness
+measures whether the whole thing lands on the stated difficulty curve — with the
+hands calibrating the ruler. **Next is not more paper. Next is the vertical-slice
+build** (P4.10/P3.10/P5.11/P2.13), with the H9 harness cut making it measurable
+from its first commit. Paper's edge crossed.
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -2695,3 +3031,84 @@ vertical slice starts getting *built*.** Paper's edge, reached.
     forks decided; the whole model composes end to end. **Next**: Iteration 6 —
     the balance-harness spec + the stated difficulty curve (2.4/P1.7) — the
     bridge from paper to the vertical-slice build.
+- **2026-07-18 — v1.16.** Iteration 6 opened — **The Balance Harness & the
+  Difficulty Curve** proposal written (H1–H9 + six open questions H.q1–q6). Not a
+  pillar — the *bridge*: it discharges §2.4's balance methodology and P1.7's
+  stated curve, collecting every "the harness will prove it" IOU (P4.9, P5.10,
+  P2.11) into one instrument before the slice gets built. Highlights:
+  - **The thesis (H1):** unify the M0-era trick (step_response/rate_tune_sweep
+    tuned flight; war_soak proved the war) into whole-game balance CI. **Doctrine
+    (locked): no balance number ships unmeasured; every invariant re-checked
+    forever** — paper is the spec, measurement is the test, divergence is a bug or
+    a lie.
+  - **Four layers (H2):** one harness, four tiers each feeding the next — **unit**
+    (matchup matrix, P4.9/P3.7) → **sortie** (composed-node runner, P2.11) →
+    **economy** (autopilot buyer, P5.10, extends war_soak) → **strategic**
+    (war_soak, *shipped* v1.7, already green). Build works *downward* from the
+    proven skeleton.
+  - **Measured matrix (H3):** the P4.3/P3.7 paper matrices re-derived from N
+    seeded duels + escorted-squad combos; the three counter-web invariants become
+    **automated assertions** with red-flag naming (row loses `++`, column loses
+    `−−`, dominance pair → red).
+  - **Measurement grammar (H4):** every layer prints step_response-style tables —
+    TTK/damage/economy/win-rate (unit), completion/pad-dependency/abort/degrade
+    (sortie), acquisition-pace/farm-ratio/dead-end/currency-binding (economy).
+    Banding by fixed win-rate thresholds, TTK/economy as tiebreakers (H.q1).
+  - **The reference pilot (H5) — the hard problem the strategic soak never faced:**
+    the sortie/unit layers need *something at the sticks*, and flight feel is the
+    human's to judge (CLAUDE.md). **Doctrine (locked): the harness measures
+    *balance*; the hands measure *feel*; neither substitutes for the other.** A
+    scripted reference-pilot proxy produces *relative* truth (A beats B, X harder
+    than Y); the human *calibrates its competence datum* (the sortie-layer analogue
+    of war_soak's `skill` scalar). The hands calibrate the ruler; the ruler
+    measures what the hands can't fly.
+  - **The difficulty curve, numerical (H6) — P1.7/F1.a discharged:** the crux —
+    **SDI (Sortie Difficulty Index) is *measured, not authored.*** The composer
+    sets inputs (garrison/cover/weather/pads/escalation); the harness *measures*
+    the emergent difficulty. Difficulty becomes a *verified emergent property*,
+    making "organic balancing, not hand-tuned levels" an engineering claim.
+    Stated win bands: pocket **70–85%** (newbie floor, angle-mode Cinematic) →
+    HQ raid **25–40%** (hard-but-possible), with four asserted properties — floor
+    holds, ceiling real, gradient rises (monotone envelope), escalation under a
+    hard cap (P1.7's "never punish excellence" made numerical; a broken enemy's
+    cap *falls*). Length target: 25–40 sorties at the skilled datum.
+  - **Recalibration debt owned (H7):** v1.7's brutal number (skill 0.9 wins ~10%
+    at ~127 sorties vs the 25–40 target) named as the debt the harness retires —
+    deferred honestly because it ran on abstract garrisons P4/P5/P2 now replace.
+    The loop: build slice → measure → tune *configs, never code* (§2.4) →
+    re-measure → bake when the hands say right (§14).
+  - **Home & CI (H8):** lives in `scripts/tests/` + extends `war_soak`; every
+    lever is a `TunableConfig` field (overlay-writable, harness-readable,
+    human-baked); a **green board** = all invariants + curve properties + economy
+    assertions pass. Balance CI, the twin of the correctness checks.
+  - **Slice cut (H9):** the smallest harness that makes the slice *measurable from
+    day one* — the 3×4/2×4 mini-matrix with invariants, a floor+ceiling
+    composed-sortie check, a single "can the buyer afford the gun director"
+    economy check, inheriting the green strategic layer. Everything above the cut
+    grows *with the roster* — each element arrives with its harness row.
+  - **Next**: steer Iteration 6 (react H1–H9 + H.q1–q6 by ID), then the vertical
+    slice starts getting *built* — paper's edge crossed.
+- **2026-07-18 — v1.17. THE PAPER PHASE IS COMPLETE.** Iteration 6 STEERED (user
+  review) — all six H.q resolved to their leans, closing the bridge iteration and
+  the whole paper phase:
+  - **H.q1** — fixed stated win-rate thresholds (not percentiles; a ruler that
+    doesn't drift as the roster grows). **H.q2** — both SDI scalar (monotonicity
+    test) and the raw axis vector (diagnosis). **H.q3** — scripted reference-pilot
+    proxy at 1.0, human-calibrated; the H5 division of labor locked (**harness
+    measures balance, hands measure feel**); blackbox-replay reserved.
+  - **H.q4 (+ responsibility recorded)** — adopt the strawman win bands (pocket
+    70–85% → HQ 25–40%), calibrate hands-on — **and the calibration is *my*
+    process to initiate and lead:** when the slice is flyable, I set up the harness
+    runs and the hands-on flights, propose the config moves, and drive the datum-
+    setting loop until the human says the feel is right (the §14 flight-tuning
+    checkpoint, extended to the sortie/economy layers). A scheduled duty, not an
+    if-someone-remembers.
+  - **H.q5** — floor+ceiling only at slice (monotonicity across ~5 nodes is
+    noise; full-curve envelope waits for a real theater). **H.q6** — balance CI is
+    advisory through slice bring-up, hardening to a hard build-break gate the day
+    the four-enemy mini-web is "right."
+  - **Milestone:** six iterations (P1/P4/P3/P5/P2 + the harness) proposed and
+    steered; four forks decided; the war-sim runs green (v1.7); the model composes
+    *and proves itself* end to end. **Next is not more paper — it's the
+    vertical-slice build** (P4.10/P3.10/P5.11/P2.13), with the H9 harness cut
+    making it measurable from its first commit.
