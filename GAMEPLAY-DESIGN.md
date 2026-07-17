@@ -510,6 +510,43 @@ The between-sorties screen — the "battle commanding room" (F2):
   map movement** — the moment the player *feels* the theater being alive.
 - Save/exit anywhere; the whole thing is one portable file (F4).
 
+### P1.9 — Node biomes (added v1.5, user concept)
+
+Nodes get an **environment archetype — a biome** (the term used broadly and
+proudly): a well-defined env configuration set that gives each node character,
+difficulty texture, geometry, and interest points. The node *type* (P1.2) says
+what you're attacking; the *biome* says what flying there feels like. Type ×
+biome is the variety multiplier — a radar site in fog-drenched green hills
+plays nothing like a radar site on a desert ridge.
+
+Starting palette (user's list, extended — each is: flight challenge / combat
+texture / mood):
+
+- **Cyberpunk city** — canyon streets, dense verticality; the flight-skill
+  biome (terrain-masking heaven, SAM hell above the rooftops); neon-soaked,
+  the look pass's home turf.
+- **Industrial / factory sprawl** — pipes, gantries, chimneys, tight
+  interiors; complex 3D obstacles, indoor-outdoor transitions; sodium haze.
+- **Fortified airbase** — open approaches, layered defenses, hangars and
+  revetments; the "plan your vector" biome — little cover, high SAM/turret
+  density.
+- **Desert dunes** — sparse cover, heat glare, sandstorm-prone (weather
+  synergy, P1.6), rare oasis interest points; long sightlines favor missiles,
+  storms flip it to knife-fight.
+- **Green hills with ruins** — rolling terrain-masking, crumbled walls and
+  arches to thread; fog-prone; the freestyle biome.
+- **Coastal cliffs / port** — the sea seam (P4 naval): vertical cliff faces,
+  cranes and containers, ship traffic; wind-prone.
+- **Canyon / megastructure** *(imagination flying, as licensed)* — a natural
+  slot canyon or the bones of some colossal ruin; the racing biome — one
+  dominant line, brutal in wind.
+
+Implementation shape (when we get there): each biome = an env configuration
+set — a structure/prop palette (greybox-compatible), a LookConfig mood, a
+weather-probability table, and encounter-composition biases — so the theater
+generator assigns biomes per node/sector and the sortie builder composes
+inside them. Biomes are content, not code: adding one is data.
+
 ### P1 open questions (react by ID)
 
 - **P1.q1** — Theater size: is 20–40 nodes the right *campaign length* for the
@@ -609,3 +646,31 @@ The between-sorties screen — the "battle commanding room" (F2):
   - **WEATHER overlay group added as an explicit TODO stub** (WeatherConfig:
     wind heading/speed/gust, precipitation, fog, heat) — persisted, tunable,
     driving nothing yet; exists to entice the P1.6 implementation.
+- **2026-07-17 — v1.5.** Feedback batch (bug + polish + back-burner ideas):
+  - **Bug fixed** — unpausing disarmed the drone: Godot's action state is
+    event-driven, so stateful switches held through the binding-context swap
+    read as released. InputBindings now re-derives stateful switch state from
+    raw hardware after every apply (`STATEFUL_ACTIONS` sync).
+  - **Pause muffle shipped** — Master-bus low-pass while slow-mo is active
+    (`pause_muffle_hz`, AudioConfig): the stepped-out-of-the-club effect.
+  - **Exit gate presence** — bigger, thicker frame + an animated additive
+    portal-vortex shader filling the opening; it now reads as a doorway out
+    of the world, which is what it is.
+  - **P1.9 added — node biomes** (user concept): environment archetypes
+    (cyberpunk city, factory sprawl, fortified airbase, desert, green-hill
+    ruins, coastal cliffs, canyon/megastructure) as data-driven env config
+    sets; node type × biome is the variety multiplier.
+  - **Pinned — diegetic building-menu** (user concept, ROADMAP M7): menus
+    rendered by the game engine as buildings seen side-on — the menu tree
+    locally flattened left-to-right (parent building ← current ← selected
+    child), a building's floors = its menu items; an AI-run battlefield
+    (F4.a war-sim!) plays behind the title screen for character.
+  - **Audio direction** — a high-ROI sound sweep is queued (ROADMAP M7):
+    richer motor synthesis (harmonic stack + blade-pass tone driven by the
+    motor model's live outputs), doppler on projectiles/missiles, low-health
+    and lock/draft UI audio. **engine-sim (community edition) evaluated and
+    declined**: it models combustion engines (pistons/exhaust — wrong physics
+    for brushless electric quads), it's a standalone GPL C++ app (license
+    contamination + no clean Godot embedding), and our motor audio is already
+    physically driven by motor outputs — the *idea* (physics-driven audio
+    synthesis) is adopted, the dependency is not.

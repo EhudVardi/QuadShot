@@ -60,6 +60,8 @@ The gameplay model that makes the game unique: a procedurally generated, persist
 - **Weather** *(absorbed into M6/P1 as battlefield modifiers)*: dynamic wind, rain, hail, fog, heat wave, sandstorm — design lives in GAMEPLAY-DESIGN.md.
 - **Physics** *(deferred, revisit later)*: propwash, ground effect, turtle mode (not needed near-term — 3D mode already recovers inverted).
 - **Replays/ghosts** *(sits as-is)*: blackbox already records 240 Hz state and has proven itself as a debug channel; the player-facing feature waits for the full M5 graphics pass + a cinematic camera director (random static cameras would kill it).
+- **Audio sweep** *(near-term, high-ROI)*: richer motor synthesis (harmonic stack + blade-pass tone driven by the motor model's live outputs), doppler on projectiles/missiles, low-health/lock/draft UI audio. engine-sim evaluated and declined (ICE physics, GPL, no clean embedding) — physics-driven synthesis stays the approach.
+- **Diegetic menu system** *(back burner, from design doc v1.5)*: menus rendered in-engine as buildings viewed side-on — menu tree flattened left-to-right, floors = items — with an AI-run war-sim battlefield playing behind the title screen (F4.a synergy).
 - **Settings/quality options** *(pre-release)*: graphics scaling for weaker GPUs (shadow resolution, glow toggle, resolution scale, LOD).
 - **Commander mode** *(future gameplay branch, from F3)*: macro agency over allied AI, entering as an acquirable in-playthrough capability.
 - **Multiplayer** *(pinned far-future, from F4.b)*: players joining a running battlefield to help; the deterministic war-sim keeps the door open.
