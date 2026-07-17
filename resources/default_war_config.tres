@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WarConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/war_config.gd" id="1_war"]
+
+[resource]
+script = ExtResource("1_war")
+node_count = 30.0
+player_pocket_hops = 2.0
+garrison_base = 8.0
+garrison_per_hop = 2.5
+garrison_cap = 40.0
+production_rate = 2.0
+unsupplied_decay = 0.85
+enemy_op_budget = 2.0
+attack_commit_fraction = 0.6
+attack_win_ratio = 1.3
+escalation_per_tick = 0.003
+max_ticks = 300.0
+starting_pilots = 5.0
+sortie_range_hops = 4.0
+sortie_damage = 10.0
+pilot_loss_base = 0.03
+hq_unlock_command_posts = 1.0
