@@ -101,6 +101,7 @@ func _set_paused(paused: bool) -> void:
 	_drone.autopilot = paused
 	if input_bindings != null:
 		input_bindings.apply_context(paused)
+	SoundBank.set_muffled(paused)
 	_hud.show_pause(paused)
 	print("[pause] %s" % ("slow-mo engaged, autopilot holding" if paused else "resumed"))
 

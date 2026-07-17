@@ -21,6 +21,8 @@ static var _instance: SoundBank
 var _streams: Dictionary = {}
 var _players: Array[AudioStreamPlayer3D] = []
 var _next_player: int = 0
+var _muffle: AudioEffectLowPassFilter
+var _muffle_index: int = -1
 
 
 func _enter_tree() -> void:
@@ -46,6 +48,21 @@ func _ready() -> void:
 		player.max_distance = 250.0
 		add_child(player)
 		_players.append(player)
+	# Pause muffle: a Master-bus low-pass, disabled until slow-mo engages.
+	_muffle = AudioEffectLowPassFilter.new()
+	_muffle_index = AudioServer.get_bus_effect_count(0)
+	AudioServer.add_bus_effect(0, _muffle)
+	AudioServer.set_bus_effect_enabled(0, _muffle_index, false)
+
+
+## The "stepped out of the club" effect while pause/slow-mo is active.
+static func set_muffled(muffled: bool) -> void:
+	if _instance == null or _instance._muffle_index < 0:
+		return
+	var cutoff: float = _instance.audio_config.pause_muffle_hz
+	_instance._muffle.cutoff_hz = maxf(cutoff, 40.0)
+	AudioServer.set_bus_effect_enabled(0, _instance._muffle_index,
+			muffled and cutoff > 0.0)
 
 
 func _process(_delta: float) -> void:

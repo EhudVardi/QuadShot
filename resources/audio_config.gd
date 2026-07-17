@@ -11,6 +11,11 @@ extends TunableConfig
 @export var motor_volume: float = 1.0
 @export var wind_volume: float = 1.0
 
+@export_group("Pause")
+## Low-pass cutoff (Hz) applied to the Master bus while pause/slow-mo is
+## active — the "stepped out of the club" muffle. 0 disables.
+@export var pause_muffle_hz: float = 600.0
+
 
 const SAVE_PATH: String = "user://audio_config.tres"
 const DEFAULTS_PATH: String = "res://resources/default_audio_config.tres"

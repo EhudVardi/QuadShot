@@ -143,6 +143,7 @@ const _AUDIO_FLOAT_ROWS: Array[Array] = [
 	["sfx_volume", 0.0, 1.0, 0.01],
 	["motor_volume", 0.0, 1.0, 0.01],
 	["wind_volume", 0.0, 1.0, 0.01],
+	["pause_muffle_hz", 0.0, 4000.0, 50.0],
 ]
 
 ## TODO stub rows — fields exist and persist but drive nothing yet (P1.6).
