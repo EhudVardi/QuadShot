@@ -1,10 +1,9 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.6 (2026-07-17) — all four forks decided; **Iteration 1
-> (P1 — Living Theater) STEERED** (open questions answered, see P1 steering).
-> Proposed next: the war-sim skeleton + theater soak harness (implementation
-> pull-forward), with Iteration 2 (P4 bestiary + counter-matrix) as the next
-> design conversation.
+> **Status:** v1.8 (2026-07-17) — all four forks decided; Iteration 1 (P1)
+> steered; the war-sim skeleton lives (v1.7). **Iteration 2 (P4 — Bestiary +
+> counter-matrix) PROPOSED** (sections P4.1–P4.10 + open questions P4.q1–q6,
+> awaiting steering).
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -665,6 +664,432 @@ Iteration 1 is steered. The proposal above stands as accepted, with:
 
 ---
 
+## Iteration 2 — P4: The Bestiary & the Counter-Matrix (PROPOSED, 2026-07-17 — awaiting steering)
+
+> The enemy ecosystem, designed on paper before code (per 2.4). This iteration
+> defines what P3's weapons and frames must answer — so the matrix's columns
+> are provisional **answer archetypes**, not final gear; Iteration 3 (P3)
+> instantiates them. Concrete, opinionated, meant to be torn apart. Sections
+> are **P4.1–P4.10**; react by ID.
+
+### P4.1 — The design grammar
+
+Every enemy is defined along fixed axes — the bestiary's analogue of the P3
+weapon axes:
+
+- **Domain** — air / ground-mobile / static.
+- **Threat vector** — *which player resource it taxes*: **hull** (direct
+  fire), **position** (area denial), **time** (routes and clocks), **systems**
+  (jamming), **economy** (lock/ammo bankruptcy), or **the war itself**
+  (strategic targets that never shoot at you). A garrison that mixes vectors
+  is a *problem*, not a target list — this is where sortie tension comes from.
+- **Durability model** — the damage grammar below.
+- **Mobility envelope** — can it out-turn, out-run, or out-climb the player?
+  Stated relative to the baseline raider; absolute numbers belong to the
+  harness (P4.9), not this paper.
+- **Sensors** — sight range, line-of-sight discipline, lock behavior.
+- **Counter-web role** — punishes X / answered by Y / hard-countered by Z.
+  The locked ≥1-answer/≥1-hard-counter rule is held *per unit*, checked in
+  the matrix (P4.3).
+- **Terrain sensitivity** — how cover economics prices it (the P2 v1.6
+  requirement, made explicit per unit and totaled in P4.5).
+- **Strategic footprint** — garrison-strength cost, which production tag
+  builds it (P4.7), what its presence signals in intel.
+
+**The damage grammar** — the mechanical heart of the web. Four durability
+models × three damage styles:
+
+- **Light** — a plain hull pool. Dies to anything; numbers and speed are the
+  only defense.
+- **Shielded** — a regenerating shield gates the hull; hits below a **break
+  threshold** are absorbed and healed back — chip fire *cannot* win, burst
+  cracks it open. (The v1 "ignore chip damage" note, given a mechanism.)
+- **Armored** — flat damage reduction per hit: spray is wasted, heavy single
+  hits work. Armored units are slow — the tradeoff stays honest.
+- **Distributed** — the pool is many bodies; per-target overkill is wasted,
+  area economy wins.
+
+Weapon styles land as **chip** (sustained small hits), **burst** (rare heavy
+hits), **area** (cheap hits across many bodies). Every P3 weapon will sit
+somewhere in this grammar — and the grammar is *visually explicit* (readable
+presentation): shields shimmer, armor is plated, swarms are visibly many.
+Reading a garrison IS reading its answer.
+
+**Readability doctrine (proposed as a locked rule, Into-the-Breach lineage):**
+every unit telegraphs before it hurts you. SAM locks growl before launch, a
+falx pass commits to a visible line, bomber routes are drawn in intel, gnat
+swarms are audible. Enemy fire stays *reaction-dodgeable* (bounded muzzle
+speeds, honest aim jitter — the knob `enemy_aim_jitter_deg` already embodies
+this); elites get smarter, never twitchier (see P4.q2). Dodging is informed;
+deaths are lessons.
+
+### P4.2 — The roster
+
+Ten types — five air, five ground/static — absorbing both shipped enemies as
+canon. Block format: role / durability / mobility / threat vector / behavior
+& telegraph / web role / terrain / strategic footprint.
+
+**Air:**
+
+**Gnat — swarm drone.**
+- *Durability:* distributed (packs of 6–12; each body is tissue).
+- *Mobility:* slow per body (~0.6× raider) but omnidirectional pressure —
+  the pack surrounds.
+- *Threat:* economy + hull — collision sting (contact detonation) plus the
+  sheer arithmetic of bodies; one missile per gnat is bankruptcy.
+- *Behavior:* boils toward the player as a loose cloud, audible hum rising
+  with proximity; individual gnats are trivially dodged, the *cloud* is the
+  problem.
+- *Web role:* punishes single-target loadouts and hover; answered by area
+  weapons and kiting; hard counter to lock-based play.
+- *Terrain:* tight spaces are gnat heaven (they envelop your cover); open
+  ground lets you kite and rake the cloud.
+- *Strategic:* cheap filler — light-industry production, the mass in
+  low-value garrisons.
+
+**Raider — line fighter** *(today's `EnemyDrone`, canonized: orbit slot,
+led jittered bolts, LOS discipline — the `enemy_*` CombatConfig group).*
+- *Durability:* light.
+- *Mobility:* the baseline (1×) — deliberately human-beatable.
+- *Threat:* hull — sustained led fire from an orbiting slot.
+- *Behavior:* wander → engage on sight → orbit at preferred range. Orbit
+  spacing is deliberately *peelable*: the sortie-18 finding (isolate one
+  bandit, kill, next) is intended play, preserved by design — sticky lock +
+  raider spacing make peeling the skill.
+- *Web role:* the universal donor — answered by guns and missiles alike;
+  punishes stationary play (orbits find your blind side).
+- *Terrain:* breaking LOS resets its engagement — cover works.
+- *Strategic:* the standing army; airframe production, everywhere.
+
+**Falx — pursuit interceptor.**
+- *Durability:* light (fragile is the price of speed).
+- *Mobility:* fast (~1.8× raider), wide turns — it out-runs everything and
+  out-turns nothing.
+- *Threat:* hull + position — boom-and-zoom: long committed gun passes, then
+  a climbing recovery arc.
+- *Behavior:* telegraphs each pass (a drawn approach line / rising shriek);
+  vulnerable and predictable during recovery. **The anti-camper**: falx wings
+  launch to flush static players — the deliberate counter to indirect-fire
+  camping that Firehawk doctrine demands (P3 v1.6).
+- *Web role:* punishes slow/heavy frames and manual tracking (too fast for
+  chip guns); answered by bait-and-overshoot (make it pass, kill the
+  recovery), flak curtains, off-boresight FCS (P3's turret pods); hard
+  counter to lob loadouts.
+- *Terrain:* open sky is its home; obstacles are *your* answer — dragging a
+  pass through geometry forces the overshoot.
+- *Strategic:* airfield-based (P1.2: enemy airbases generate patrols);
+  presence in intel = "bring agility, not tonnage."
+
+**Aegis — shielded bomber (the ticking bomb).**
+- *Durability:* shielded (high break threshold; chip fire regenerates away).
+- *Mobility:* slow (~0.5× raider), route-bound, does not evade.
+- *Threat:* time + the war — it ignores you and flies its strike route
+  toward a friendly asset (your pad, an allied garrison, the exit gate's
+  sector). Every second alive is a countdown; the v1 "ticking bomb" note,
+  operationalized.
+- *Behavior:* route drawn in intel/briefing; escort wings (raider/falx) fly
+  cover; a screamer escort (below) jams your easy answer.
+- *Web role:* punishes chip-only loadouts (hard counter) and forces priority
+  calls; answered by burst weapons and missiles — *unless* the escort jams
+  the lock: the aegis+screamer pair is the web's first designed combo.
+- *Terrain:* indifferent (route-bound) — cover doesn't stop the clock.
+- *Strategic:* heavy-industry production; enemy operations can commit them
+  as **bomber raids** against your nodes (P4.7) — an intercept sortie the
+  war generates.
+
+**Screamer — EW escort.**
+- *Durability:* light.
+- *Mobility:* ~raider speed; holds standoff orbit at the edge of the fight.
+- *Threat:* systems — a jam bubble: missile locks break/refuse inside it,
+  FCS solutions degrade (gun director confidence collapses, director arcs
+  stutter). The P3 counter-web note ("EW jams FCS — both directors") made
+  flesh. HUD fuzz at bubble edge telegraphs it before it bites.
+- *Web role:* hard counter to lock/FCS-dependent loadouts; the *designed
+  reason* manual gunnery stays a skill fallback, not dead content. Answered
+  by a masked approach + one burst kill — it's tissue once reached. Punishes
+  players who bought positioning-gear and no trigger skill.
+- *Terrain:* your approach cover is the counterplay; it prefers open standoff.
+- *Strategic:* EW production tag — rare, high-value; intel showing a
+  screamer rewrites your loadout before takeoff (P1.3 → P3 intel-driven
+  choice, working as designed).
+
+**Ground / static:**
+
+**Turret — autocannon emplacement** *(shipped: lead-computed, rate-limited
+head, respawn — the `turret_*` CombatConfig group).*
+- *Durability:* light-armored (modest flat reduction; deliberate answers
+  beat idle spray).
+- *Threat:* position + hull — a direct-fire denial zone with honest lead
+  computation; hover inside its envelope and it *will* out-trade you.
+- *Behavior:* tracking head is visible; the rate-limited slew is the
+  outplay — sharp geometry changes defeat the track.
+- *Web role:* punishes straight lines and open hover; answered by
+  terrain-masked approaches, standoff outside its range, and **lob weapons
+  arcing over its LOS — the indirect-fire archetype's reason to exist**
+  (Firehawk doctrine: the camper's tool gets a legitimate target).
+- *Terrain:* wholly LOS-bound — cover negates it; open approaches are its
+  kill box.
+- *Strategic:* fortification value in the war-sim; garrison stiffener.
+
+**SAM battery.**
+- *Durability:* armored (launcher vehicles + radar van; spray bounces).
+- *Threat:* position — the area-denial king: lock (audible growl, HUD
+  warning swell), then a guided missile with real kinematics. A **dead zone**
+  under/inside minimum range rewards getting close and low.
+- *Behavior:* lock → launch telegraphed in stages; breaking LOS during
+  guidance defeats the shot (terrain-masking is the counterplay, exactly as
+  P1.2's SEAD flavor promises). No countermeasure gear at launch — see P4.q3.
+- *Web role:* hard counter to high/slow/open flight and heavy frames;
+  answered by masked ingress + lob/standoff SEAD, or knife-range dead-zone
+  play *reached* via cover. Punishes gun-only loadouts in the open.
+- *Terrain:* the most terrain-priced unit in the game — flat biomes make it
+  a monster, canyon/city biomes half-blind it (P1.9 desert vs city, priced).
+- *Strategic:* covers nodes AND supply edges (P1.2); the SEAD economy's
+  anchor; heavy production tag.
+
+**Convoy — supply crawler.**
+- *Durability:* armored (trucks) + a light mobile-AA escort bubble.
+- *Threat:* the war — it never hunts you; it moves garrison strength along
+  supply edges (the war-sim's supply flow, embodied). Its AA escort punishes
+  lazy strafing runs, not presence.
+- *Web role:* strategic prey — interdiction is a sortie flavor (the P1.2
+  siege/starve play made kinetic); answered by standoff/lob/missiles;
+  punishes loitering inside the AA bubble.
+- *Terrain:* road-bound and exposed — ambush geometry is the player's gift.
+- *Strategic:* killing convoys is *edge* warfare: starve a sector without
+  assaulting it. Intel freshness decides whether the convoy is even there.
+
+**Commander — command track.**
+- *Durability:* armored, escorted (elite raider/falx guard).
+- *Threat:* systems + everything — a force multiplier: units in its datalink
+  radius gain *coordination* (focus fire, flanking orbits, disciplined
+  spacing), *not* stat buffs — see P4.q4. Kill it and the garrison visibly
+  dumbs down mid-sortie: the decapitation payoff you can *feel*.
+- *Web role:* punishes ignore-it play (everything nearby fights smarter);
+  answered by decap strikes — a missile through a lock window or a
+  knife-fight through the guard. Hard counter: lob (it repositions under
+  escort).
+- *Terrain:* hides in structure clutter; open biomes expose it.
+- *Strategic:* garrisons command posts (P1.2) — the war-sim's command
+  network gets its face; elite production only.
+
+**Sentinel — radar dish.**
+- *Durability:* light structure (the dish is fragile; the *node* is not).
+- *Threat:* time + detection — while it spins, it calls ambush waves onto
+  you and extends sector detection (P1.2/P1.3). Unarmed; its weapon is the
+  clock and everything it summons.
+- *Web role:* no weapon-level counter needed — its defense is layered
+  (turrets/SAM ring + the ambush clock). The answer is *speed*: fast masked
+  ingress, kill the dish, survive the outward leg. Loitering is the
+  punished play.
+- *Terrain:* sited on high ground by generation — the approach is always
+  uphill/exposed unless the biome offers a seam.
+- *Strategic:* the intel war's kinetic end — every dead sentinel widens
+  your fog-of-war advantage (P1.3).
+
+*(Naval rows stay reserved (v1): ship classes slot into this same grammar —
+shielded capital ships, distributed boat swarms, armored convoys at sea —
+when the P4 naval expansion opens. Nothing above needs regenerating.)*
+
+### P4.3 — The counter-matrix (paper v0)
+
+Columns are the six provisional **answer archetypes** (P3 will instantiate
+them as real weapons/gear): **chip gun** (sustained direct fire — today's
+blaster), **burst** (charge-shot / heavy single hits), **lob** (indirect
+ballistic — mortar archetype), **missile** (lock-based homing — today's
+missile), **flak** (area/spray), **terrain** (cover used *as* a weapon —
+priced as a real column per P2 v1.6). FCS is not a column: it's a
+*multiplier* on gun/missile columns, and the screamer is its dedicated
+counter.
+
+Rating = how well that answer handles that enemy: `++` excellent, `+` good,
+`0` workable, `−` poor, `−−` hard-countered (building a loadout on this
+answer is punished).
+
+| Enemy | Chip gun | Burst | Lob | Missile | Flak | Terrain |
+|---|---|---|---|---|---|---|
+| **Gnat** | + | −− | − | −− | ++ | − |
+| **Raider** | ++ | + | − | + | 0 | + |
+| **Falx** | − | 0 | −− | + | ++ | ++ |
+| **Aegis** | −− | ++ | − | ++ | −− | 0 |
+| **Screamer** | + | ++ | 0 | −− | 0 | + |
+| **Turret** | 0 | + | ++ | + | − | ++ |
+| **SAM** | − | 0 | ++ | + | − | ++ |
+| **Convoy** | − | + | ++ | ++ | 0 | + |
+| **Commander** | + | + | − | ++ | − | + |
+| **Sentinel** | ++ | + | + | + | 0 | ++ |
+
+**Invariants this table must hold** (and the harness must re-verify
+numerically, forever):
+
+1. Every row has ≥1 `++` (every enemy has a great answer) and ≥1 `−`/`−−`
+   (every enemy punishes some loadout). *(Sentinel's counter-pressure is the
+   ambush clock, not a weapon rating — noted, accepted.)*
+2. Every column has ≥1 `++` (no dead content) and ≥1 `−−` (no universal
+   answer — the locked rule, now falsifiable).
+3. No column dominates another (≥ in every row): if one does, the dominated
+   archetype is dead content walking. *(Checked by inspection now, by the
+   harness later.)*
+
+Reading the table back out loud, the web's stories check out: missiles rule
+until gnats bankrupt them and screamers jam them; guns rule until aegis
+shields shrug them; lob rules the static ground game until falx wings flush
+the camper; terrain answers almost everything except the clock-driven units
+(aegis, sentinel) — cover can't stop a countdown. That last row of stories
+is the game.
+
+### P4.4 — Frame-class pressure
+
+The same web priced against P3's frame classes (light interceptor /
+all-rounder / heavy gunship) — what a garrison mix does to *frame* choice
+before a single weapon is picked:
+
+| Enemy | Light | All-round | Heavy |
+|---|---|---|---|
+| Gnat | − (one sting hurts) | 0 | ++ (tank + spray) |
+| Falx | ++ (out-turn it) | 0 | −− (can't refuse the pass) |
+| Aegis | − (no burst tonnage) | 0 | ++ (missile racks) |
+| SAM | ++ (mask + sprint) | 0 | −− (slow in the open) |
+| Turret/Sentinel | + (speed ingress) | 0 | − |
+
+Swarm+bomber garrisons are heavy days; falx+SAM garrisons are light days;
+mixed garrisons make the all-rounder honest — or split the answer across the
+loadout instead. **Intel composition → frame choice** becomes a real
+decision every briefing (P1.3 feeding P3, as designed), and the all-rounder
+column being all zeros is intentional: it's the frame you pick when intel is
+stale.
+
+### P4.5 — Terrain pricing (cover economics, totaled)
+
+The P2 v1.6 requirement, aggregated: each unit carries a terrain coefficient
+(how much cover shifts the fight, visible in its block above), and the
+**sortie composer must price biome × garrison jointly**:
+
+- Enemy doctrine prefers suited ground: falx wings garrison open biomes,
+  gnat clouds garrison dense ones — because the *enemy AI* also reads the
+  matrix. Mismatches (falx trapped defending a canyon city) happen only when
+  the war forces them — retreats, encirclements, production shortfalls — and
+  stale-intel surprises aside, a mismatch is an *exploitable weakness intel
+  can reveal* (P1.3 value, again).
+- Which means terrain is a strategic weapon: **herd the war onto ground the
+  enemy fights badly** — cut the desert supply lines so the falx production
+  has to defend cities. The player who thinks in biomes fights easier
+  sorties. This is P1's map and P4's web shaking hands.
+
+### P4.6 — Escalation & veterancy (P1.7's mechanism, concretely)
+
+Adaptive escalation gets its bestiary form — and its cap:
+
+- **Veterancy tiers** per type (regular → veteran → elite): tighter aim
+  jitter, faster reactions, smarter behavior selection — **never** more HP,
+  never faster bolts (the readability doctrine outranks difficulty; see
+  P4.q2). Elites are *visibly* marked (trim color/energy accents per the
+  emissive palette — red family).
+- **Escalation = mix shift + veterancy**, drawn only from surviving
+  production of the matching tag (P4.7): kill the airframe plants and falx
+  tiers *cannot* climb; a broken enemy stays broken — the v1.6 guardrail is
+  now enforced by supply arithmetic, not by promise.
+- Desperation (war going badly for the enemy) shifts *doctrine*, not stats:
+  more combos (aegis+screamer pairs, commander-led packs), bolder bomber
+  raids — desperate means, fictionally sourced.
+
+### P4.7 — Strategic integration (garrisons get faces)
+
+Reconciling P1.3's promise ("an actual unit list, not an abstract strength
+7") with the v1.7 war-sim reality (garrisons ARE abstract floats — and the
+soak harness is fast *because* they are):
+
+- **Strength stays the war-sim currency.** The tick engine keeps trading
+  abstract strength — proven, deterministic, fast.
+- **Composition is a deterministic projection, not sim state:**
+  `manifest(seed, node, strength, type, biome, escalation_tier, production
+  surviving) → unit list`. Same tick, same manifest, always — briefings,
+  sorties, and intel all derive the same truth without the war-sim carrying
+  per-unit books. The portable save (F4) stays exactly as small and exactly
+  as provable as it is today.
+- **Factory product tags** at generation (airframe / heavy / EW /
+  light-industry): production tints its sector's mixes, targeted strikes gain
+  surgical meaning ("kill the EW plant → fewer screamers theater-wide"), and
+  escalation caps (P4.6) fall out of the same arithmetic.
+- **Intel shows the manifest through fog** (P1.3): freshness degrades
+  composition detail first (exact counts → families → "strength ~7"),
+  which quietly closes the loop — *stale intel literally regresses to the
+  abstract number the war-sim actually keeps.*
+- **Bomber raids:** the enemy-operations phase can commit aegis groups
+  against your nodes; the war generates intercept sorties. (Sortie
+  composition rules belong to Iteration 5 / P2 — flagged, not designed.)
+
+### P4.8 — Stat configs & migration (2.4 discharged)
+
+Per the balance methodology: every roster type gets an **`EnemyConfig`**
+(`TunableConfig` subclass — one `.tres` per type under `resources/`), fields
+mirroring the P4.1 axes: durability block (hull, shield, break threshold,
+regen, armor), mobility block (speed, accel, turn), sensor block (sight,
+engage, lock), weapon block (damage, rate, muzzle speed, jitter), behavior
+block (preferred range, aggression, telegraph timings), strategic block
+(strength cost, production tag, points/salvage — salvage *values* priced in
+Iteration 4 / P5, not here). All live-tunable: the overlay grows a
+**BESTIARY** section with the standard preset bar. Migration path: the
+`enemy_*` and `turret_*` groups in CombatConfig become `raider.tres` and
+`turret.tres` — CombatConfig keeps player-side weapons only. Wave/sortie
+composition knobs move toward the P2 iteration's composer.
+
+### P4.9 — The matchup harness (the matrix, falsifiable)
+
+The 2.4 combat-sim harness, specced against this iteration: headless runs of
+**every answer archetype × every roster type** (duels and escorted squads),
+N seeds each, printing TTK / damage taken / ammo-energy spent / win rate —
+assembled into a **measured matrix** in the same `++`…`−−` bands as P4.3.
+The paper matrix is the spec; the measured matrix is the test; divergence
+means a bug in the numbers or a lie in the design — either way, caught
+numerically before anyone flies it, and re-caught after every balance edit
+(the war-soak precedent, applied to combat). Red-flag automation: any row
+losing its `++`, any column losing its `−−`, any dominance pair appearing.
+
+### P4.10 — The vertical-slice four
+
+2.5 asks for 4 enemy types forming a minimal web. The pick — chosen so three
+durability models, both domains, and three threat vectors are all present on
+day one:
+
+> **Raider** (shipped) + **Turret** (shipped) + **Gnat** + **Aegis**
+
+With the slice's 3 weapons (chip gun + missile exist; flak is the natural
+third), the mini-web already has no universal answer: guns die on aegis,
+missiles bankrupt on gnats, flak feeds on gnats but starves on aegis, the
+turret punishes whoever stops moving. **Screamer is the designated fifth** —
+it enters the moment FCS gear becomes acquirable (P3), because a counter
+without a thing to counter is noise.
+
+### P4 open questions (react by ID)
+
+- **P4.q1** — Roster size: ten types + veterancy tiers as the 1.0 surface —
+  right-sized? (My lean: yes — variety comes from tiers × biomes × combos,
+  not more base types; every new type is another matrix row to balance
+  forever.)
+- **P4.q2** — Is *reaction-dodgeability* a locked rule even at elite tier
+  (elites position smarter, never shoot faster/straighter than a stated
+  ceiling)? My lean: lock it — it's the combat twin of "never silent stat
+  inflation."
+- **P4.q3** — Enemy homing missiles (SAM, and falx later?): terrain-only
+  counterplay at launch, with flares/chaff arriving as P3 equipment — or do
+  countermeasures need to exist from day one? My lean: terrain-only first;
+  gear later (it makes early SEAD purely a flying problem, which is on
+  brand).
+- **P4.q4** — Commander buffs: behavior unlocks only (my strong lean —
+  visible, readable, and decapitation visibly dumbs the garrison down), or
+  also small stat nudges (easier to sim, invisible in play)?
+- **P4.q5** — Gnat implementation reality: full physics bodies at 240 Hz ×
+  12 will hurt; are gnats allowed a cheaper motion model (kinematic
+  boids + collision sting only) — the one bestiary member that isn't a
+  "real" combatant under the hood? My lean: yes, and it's not a cheat — the
+  cloud is the unit.
+- **P4.q6** — Allied forces: same roster palette-swapped (war-sim symmetry,
+  cheap, readable) or a distinct allied identity later? My lean:
+  palette-swap now, identity when commander mode (F3) arrives.
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -841,3 +1266,43 @@ Iteration 1 is steered. The proposal above stands as accepted, with:
   — a Firehawk-doctrine exemplar worth preserving, not patching away;
   **arcade mode** idea logged (ROADMAP M7): a dedicated mode growing from
   the dev room as capabilities grow.
+- **2026-07-17 — v1.8.** Iteration 2 opened — **P4: Bestiary +
+  counter-matrix proposal written** (P4.1–P4.10 + open questions P4.q1–q6),
+  status PROPOSED, awaiting steering. Highlights:
+  - **The design grammar** — enemies defined along fixed axes; threat
+    vectors tax distinct player resources (hull / position / time / systems
+    / economy / the war); a **damage grammar** of four durability models
+    (light / shielded / armored / distributed) × three damage styles (chip /
+    burst / area) as the web's mechanical heart; readability doctrine
+    (telegraph everything; reaction-dodgeable fire) proposed as a locked
+    rule.
+  - **Ten-type roster** with stat blocks — air: Gnat (swarm), Raider (the
+    shipped EnemyDrone, canonized — isolate-one-bandit preserved as intended
+    play), Falx (pursuit interceptor, the designed anti-camper), Aegis
+    (shielded ticking-bomb bomber), Screamer (EW escort, the FCS counter);
+    ground/static: Turret (shipped, canonized), SAM battery (staged-telegraph
+    area denial with a dead zone), Convoy (supply interdiction prey),
+    Commander (coordination multiplier, decapitation payoff), Sentinel
+    (radar dish — the clock as a weapon). Naval rows still reserved.
+  - **The counter-matrix v0** — 10 enemies × 6 answer archetypes (chip gun /
+    burst / lob / missile / flak / terrain-as-a-column), with three
+    falsifiable invariants (every row a `++` and a `−`; every column a `++`
+    and a `−−`; no column dominance) to be re-verified numerically forever
+    by the matchup harness (paper matrix = spec, measured matrix = test).
+  - **Frame-class pressure table** — garrison mix prices frame choice at
+    briefing (intel → frame, P1.3 feeding P3).
+  - **Escalation mechanics** — veterancy tiers (smarter, never spongier or
+    twitchier) + mix shifts, capped by surviving tagged production: a broken
+    enemy stays broken *by supply arithmetic*.
+  - **Strategic integration** — garrison strength stays the war-sim
+    currency; composition becomes a deterministic *projection*
+    (seed × node × strength × tier → manifest), so P1.3's unit lists arrive
+    without touching the proven portable save; factory product tags give
+    strikes surgical meaning; intel decay regresses manifests back toward
+    the abstract number.
+  - **EnemyConfig** (`TunableConfig` per type + overlay BESTIARY section)
+    specced; CombatConfig's `enemy_*`/`turret_*` groups to migrate into
+    `raider.tres`/`turret.tres`.
+  - **Vertical-slice four**: Raider + Turret (shipped) + Gnat + Aegis, with
+    flak as the natural third weapon; Screamer enters alongside acquirable
+    FCS gear.
