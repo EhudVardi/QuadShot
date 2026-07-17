@@ -801,3 +801,43 @@ Iteration 1 is steered. The proposal above stands as accepted, with:
     win/loss, serialization) with abstract garrisons, run hundreds of
     seeded theaters to completion unattended, and validate the war's shape
     with data before Iteration 2 (P4) locks the bestiary.
+- **2026-07-17 — v1.6.1.** Back-burner log (user): **interactive tutoring** —
+  the game will grow complex enough to confuse; plan an opt-outable teaching
+  layer that intervenes in-gameplay on first encounters (slow/freeze time,
+  blur, one concise hint — visual cues preferred over text). The shipped
+  pause/slow-mo + muffle machinery is the natural delivery vehicle. Parked
+  for a late dev cycle (ROADMAP M7); next-step greenlit: **the war-sim
+  skeleton is a go.**
+- **2026-07-17 — v1.7. THE BIRTH: the war-sim skeleton lives.**
+  `scripts/war/` (theater_generator + war_sim, pure deterministic modules
+  over a serializable state Dictionary) + `war_soak.gd` (invariant soak:
+  200 theaters fight themselves) + `war_trace.gd` (single-war trace). All
+  invariants green: **determinism** (same seed = same history),
+  **lossless portable saves** (F4 proven from day one), **spectator
+  losability** (without you the enemy wins 33/40, median collapse 21 ticks —
+  thematically perfect), **skill-monotonic outcomes**. The tuning loop
+  itself produced doctrine, each finding forced by data:
+  - **Anti-treadmill targeting** — never re-bomb rubble you can't capture.
+  - **Decisive assaults** — a WON assault sortie IS the node cleared
+    (matching what the M4 loop actually means).
+  - **Frontier-projected strike range** — friendly ground is staging; reach
+    projects `sortie_range_hops` beyond the front line, or drives starve.
+  - **Decapitation doctrine** — without explicit command-post priority,
+    campaigns conquer half the map and stall forever at a locked HQ.
+  - **P5 influence orders are load-bearing** — idle allied mass (700
+    strength watching the pilot fight alone) made wars unwinnable until
+    the proxy could order allied offensives; the q3 synthesis is not
+    optional flavor, it's structural. *Design validated by simulation.*
+  - **The escalation clock kills stalemates** (P1.7 confirmed).
+  Honest current calibration: skill 0.9 wins ~10% at ~127 sorties (vs the
+  25–40 target) — the war is brutal; recalibration deferred until P4/P5
+  replace abstract garrisons with real systems.
+  Same-day playtest findings (sortie-18 radio run): **draft economy inverts
+  difficulty** (fire-rate scaling + one Self-Repair pick ≈ invincible;
+  regen nerfed 1.5→0.7 as a stopgap — the real fix is the P5 economy
+  iteration); **sticky missile lock** shipped (1.5× cone hysteresis — locks
+  are lost by escape, not stolen by crowds); the crowd-lock chaos had
+  already birthed a real emergent strategy (isolate one bandit, kill, next)
+  — a Firehawk-doctrine exemplar worth preserving, not patching away;
+  **arcade mode** idea logged (ROADMAP M7): a dedicated mode growing from
+  the dev room as capabilities grow.
