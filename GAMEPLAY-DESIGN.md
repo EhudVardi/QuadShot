@@ -1,7 +1,10 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.1 (2026-07-16) — two steering passes folded in, all four forks
-> decided, **Iteration 1 (P1 — Living Theater) proposed and awaiting steering.**
+> **Status:** v1.6 (2026-07-17) — all four forks decided; **Iteration 1
+> (P1 — Living Theater) STEERED** (open questions answered, see P1 steering).
+> Proposed next: the war-sim skeleton + theater soak harness (implementation
+> pull-forward), with Iteration 2 (P4 bestiary + counter-matrix) as the next
+> design conversation.
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -137,6 +140,34 @@ live here. **Difficulty falls out of the strategic state — organic balancing
 instead of hand-tuned levels.** ("Organic" is the key word — fairness as an
 emergent outcome of the balance web, not per-level tuning.)
 
+*Added v1.6 — sortie scale & the land as gameplay (user):* sorties should
+feel **big and expansive** — the current dev room is a testbed, not a sortie.
+The terrain itself is a primary gameplay force: hills, dunes, buildings and
+trees offer **cover and cooldown positions**; a long ingress over barren
+ground toward a defended base builds tension (exposed, low-margin flying,
+battle ahead); dense cities flip the economics — lots of cover for the
+player, so the enemy must position and equip differently. Sortie maps get an
+**approach-phase structure** (ingress corridor → target zone) and their
+geometry comes from the node's biome (P1.9). Land = cover economics; the
+counter-web (P4) must price it in.
+
+*Added v1.6 — repair/re-arm pads (user):* forward landing pads inside sortie
+maps where touching down repairs and re-arms — landing skill becomes
+gameplay (the flight model is the product, and precision landings under fire
+are peak flight model). Pad availability/count/quality is a **difficulty
+knob** the strategic layer and biome can set; a pad can also be a capturable
+or destructible asset, making "secure the pad first" a valid opening move.
+
+*Added v1.6 — dares: opportunistic skill challenges (user):* sortie maps
+sprinkle **one-time, optional, high-risk micro-challenges** that entice an
+adventurous pilot: a stray gate, a building window, the gap between a
+collapsed slab and a rebar arch over the rubble. Fly the gap cleanly →
+unique reward (salvage cache, an extra draft pick, intel, a pilot?). Dares
+are the flight model advertising itself: pure flying skill converted into
+campaign currency, priced by risk (clipping the rebar at speed is a real
+crash). Generated from biome geometry (P1.9 interest points), announced
+subtly (a glint, a ring of light — no quest markers), never required.
+
 **P3 — The Arsenal & Airframe** (build / loadout). *Endorsed v1.*
 Multiple frames with *real* tradeoffs expressed directly in FlightConfig (mass,
 TWR, rates, filtering): light interceptor vs. heavy gunship vs. stealth recon
@@ -194,6 +225,23 @@ always knows what the computer is about to do. Confirmed for the counter-web:
 **EW/jammers should jam FCS members** (both gun director and missile
 director), degrading or breaking their solutions — positioning gear vs.
 denial gear becomes a real loadout axis.
+
+*Added v1.6 — weapon design axes (user insight, the Firehawk lesson):* the
+weapon roster is under-designed so far, and the user's Firehawk story is the
+design compass: an energy weapon with charge-fire (hold = one powerful,
+fast, flat shot; tap = cheap, slow, *ballistic-arc* shots) accidentally
+enabled hovering-behind-a-hill lob-spam — dominant because it had **no cost
+and no counter**, not because indirect fire is wrong. The lesson, adopted as
+doctrine: **emergent tactics like that are treasures — design FOR them, with
+prices and counters, instead of letting them be accidents.** Indirect fire
+becomes a deliberate archetype (mortar/lob launcher: safe, slow, blind —
+countered by interceptors that flush the camper); charge mechanics become a
+weapon *axis*. The P3 iteration defines every weapon along explicit axes:
+**trajectory** (direct / ballistic / homing), **fire model** (auto / burst /
+charge), **economy** (ammo / energy / cooldown), **FCS compatibility**
+(directable or manual-only), and **counter-web role** (which enemies it
+answers, which punish it). "The right tool for the right job" is the leading
+design hint for the whole roster.
 
 **P4 — The Bestiary** (enemy ecosystem). *Endorsed v1.*
 Enemy types built as a counter-web so composition matters and no loadout
@@ -496,12 +544,23 @@ newbie-curve constraint:
    a new player flies angle-mode Cinematic into light garrisons and the same
    war stays playable.
 
+*Guardrail (v1.6, user):* adaptive escalation must never become a counter
+punishment for excellence. A player who has genuinely crushed the enemy
+should *feel* dominant — the escalation gives an adequate challenge, it never
+erases earned superiority. Concretely: escalation draws only on what the
+enemy fictionally has left (production, reserves, desperation tactics), it's
+**capped by the war state**, and a broken enemy stays broken. Desperate times
+call for desperate means — but a defeated army doesn't conjure fresh elite
+squadrons from nothing.
+
 ### P1.8 — The command room (where the theater lives)
 
 The between-sorties screen — the "battle commanding room" (F2):
 
 - The **theater map**: nodes, ownership, front line, supply edges, weather
-  icons, your airbase range rings.
+  icons, your airbase range rings. *(v1.6, user: nodes render as **hexagons**
+  — a beehive tessellation, not floating rectangles. Hexes also give the
+  war-sim clean adjacency for free; the map and the graph agree.)*
 - **Node inspection**: intel card (freshness-stamped), garrison estimate,
   forecast.
 - **Pilot roster** (F1) and **hangar** (P3: frames + loadouts).
@@ -565,6 +624,44 @@ inside them. Biomes are content, not code: adding one is data.
   node's garrison recover, stay damaged, or counter-attack next tick?
 - **P1.q5** — How many sorties should a typical won campaign take? (My
   strawman: 25–40 sorties ≈ 8–15 hours across sessions — calibrate.)
+
+### P1 steering — ANSWERED (v1.6, 2026-07-17)
+
+Iteration 1 is steered. The proposal above stands as accepted, with:
+
+- **P1.q1 → DECIDED: ~30 nodes default, exposed as a lever (20–40).**
+  Theater size must track content variety — 40 nodes with three sortie
+  flavors would drag. 30 fits the current complexity; the range becomes a
+  new-campaign setting, trivially extensible later (it's a generator input).
+- **P1.q2 → DECIDED: capture is earned, not tapped.** Adjacency/supply-
+  connection rule adopted: deep strikes *degrade*, only supply-connected
+  assaults *capture* — this is a war, not a tag game. User enrichment
+  adopted with it: a captured node **forces the enemy to decide whether to
+  divert forces to retake it**, which makes **diversion attacks a real
+  strategy** — feint at a node the enemy can't ignore, pull its garrison out
+  of position, strike the true objective. Ownership through outsmarting.
+- **P1.q3 → DECIDED: allied defense always; allied offense only on the
+  player's order.** Defense is a must (user) — garrisons hold and fight, and
+  it lays the groundwork for command-room unit positioning later. For
+  offense, the synthesis of both views: allied forces don't spearhead on
+  their own initiative (protagonist clarity + F3 kinetic-first + one
+  attacking AI to balance instead of two), but **P5 influence actions can
+  order limited allied offensives** — spend resources, allies push a front.
+  The war feels alive on both sides, the player remains its author, and the
+  mechanism previews commander mode exactly where F3 parked it.
+- **P1.q4 → DECIDED: mid-sortie exit, two doors (user design).**
+  1. *Exit without save* — quit mid-sortie → the war reverts to the last
+     war-room state, sortie achievements lost. Simple, honest, always
+     available.
+  2. *Abort mission* — the in-fiction retreat, tail between legs: you return
+     to the war room alive (wounded run state stands), **and the war ticks
+     anyway** — you chose your life over the war's tempo. The price scales
+     with **battlefield context** (aborting over a node ringed by capable
+     hostiles costs more than slipping out of a quiet sector), tuned to
+     sting, never to frustrate. Abort is player agency with a price tag —
+     a strategic decision, sometimes the right one.
+- **P1.q5 → DECIDED: 25–40 sorties per campaign** as the starting
+  calibration target; expected to move as content grows.
 
 ---
 
@@ -674,3 +771,33 @@ inside them. Biomes are content, not code: adding one is data.
     contamination + no clean Godot embedding), and our motor audio is already
     physically driven by motor outputs — the *idea* (physics-driven audio
     synthesis) is adopted, the dependency is not.
+- **2026-07-17 — v1.6.** Iteration 1 STEERED (user review) + a rich feedback
+  batch folded in:
+  - **P1.q1–q5 all answered** — see "P1 steering — ANSWERED": ~30-node
+    default with a 20–40 lever; capture requires supply-connected assault
+    (deep strikes only degrade) and enables diversion-attack strategy;
+    allied defense always, allied offense only via P5 influence orders (the
+    synthesis of both views); mid-sortie exit gets two doors — plain
+    exit-without-save (revert to war room) and in-fiction **abort mission**
+    (war ticks anyway; context-priced); 25–40 sorties per campaign.
+  - **P1.7 guardrail** — adaptive escalation must never punish excellence:
+    capped by what the enemy fictionally has left; a broken enemy stays
+    broken.
+  - **P1.8** — theater map renders as **hexagons** (beehive); hex adjacency
+    doubles as the war-sim graph.
+  - **P2 extended** — sortie scale ("the land itself becomes a very big
+    effect": approach-phase structure, terrain as cover economics, biome-
+    driven geometry); **repair/re-arm landing pads** as difficulty knobs and
+    capturable assets; **dares** — one-time opportunistic skill challenges
+    (fly the impossible gap, earn a unique reward) generated from biome
+    geometry, announced without quest markers.
+  - **P3 extended** — the Firehawk charge-shot lesson becomes doctrine:
+    design FOR emergent tactics with prices and counters (indirect fire as a
+    deliberate archetype); weapon roster to be defined along explicit axes
+    (trajectory / fire model / economy / FCS compatibility / counter-web
+    role).
+  - **Next step proposed** — pull the **war-sim skeleton + theater soak
+    harness** forward: implement P1's module headless (generation, tick, AI,
+    win/loss, serialization) with abstract garrisons, run hundreds of
+    seeded theaters to completion unattended, and validate the war's shape
+    with data before Iteration 2 (P4) locks the bestiary.

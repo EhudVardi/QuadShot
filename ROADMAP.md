@@ -49,7 +49,7 @@ Fly the greybox loop popping targets; it should feel like an action-game trailer
 
 The gameplay model that makes the game unique: a procedurally generated, persistent, turn-based **living theater** — a war that develops as the player fights it. Falcon 4.0's dynamic campaign spirit on a roguelike node-map, on top of the sim-grade flight model.
 
-- **Designed in [GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md)** — the living design doc + decision log (append-only history; read it before touching anything gameplay-related). Forks decided 2026-07-15: pilot-lives economy (F1), turn-based war ticks (F2), kinetic-first influence (F3), persistent portable-file saves with a deterministic serializable war-sim (F4).
+- **Designed in [GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md)** — the living design doc + decision log (append-only history; read it before touching anything gameplay-related). Forks decided 2026-07-15: pilot-lives economy (F1), turn-based war ticks (F2), kinetic-first influence (F3), persistent portable-file saves with a deterministic serializable war-sim (F4). **Iteration 1 (P1 Living Theater) steered 2026-07-17** — next build step: the war-sim skeleton + theater soak harness (headless theaters running themselves end-to-end).
 - Pillars: Living Theater (nodes + war ticks + weather modifiers) · Sortie composition from war state · Frames/hardpoints/loadouts · Enemy counter-web bestiary · Reward economy & influence.
 - Balance rigor: stat configs as `TunableConfig` resources, counter-matrix designed on paper first, headless combat-sim harness sweeping matchups before anything is flown.
 - Build order: design iterations (P1 → P4 → P3 → P5 → P2 → harness), then the smallest vertical slice that delivers the feeling (~5 nodes, 2 frames, 3 weapons, 4 enemies).
