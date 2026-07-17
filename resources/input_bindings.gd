@@ -24,6 +24,15 @@ const SYSTEM_ACTIONS: Array[StringName] = [
 	&"pause_toggle", &"pause_switch", &"overlay_toggle",
 ]
 
+## Stateful (position = state) switch actions. After every apply() their
+## pressed state is re-derived from the raw hardware: Godot's action state is
+## event-driven, so a switch held through an InputMap rebuild would otherwise
+## read as released — which disarmed the drone on unpause. Momentary actions
+## are deliberately NOT synced (that would fabricate just-pressed edges).
+const STATEFUL_ACTIONS: Array[StringName] = [
+	&"arm_switch", &"pause_switch", &"missile_auto_switch",
+]
+
 enum Kind { KEY, JOY_BUTTON, JOY_AXIS }
 
 ## action name (String) -> Array of {"kind": int, "code": int, "sign": float}.
@@ -94,6 +103,41 @@ func apply() -> void:
 		InputMap.action_erase_events(action)
 		for binding: Dictionary in _set_for(action, paused_context_active).get(String(action), []):
 			InputMap.action_add_event(action, _to_event(binding))
+	_sync_stateful_actions()
+
+
+## See STATEFUL_ACTIONS: reconcile Godot's event-driven action state with the
+## physical switch positions after the InputMap was rebuilt.
+func _sync_stateful_actions() -> void:
+	for action: StringName in STATEFUL_ACTIONS:
+		var pressed: bool = _raw_pressed(action)
+		if pressed == Input.is_action_pressed(action):
+			continue
+		if pressed:
+			Input.action_press(action)
+		else:
+			Input.action_release(action)
+
+
+## The action's pressed state read directly from hardware, ignoring Godot's
+## action-state cache.
+func _raw_pressed(action: StringName) -> bool:
+	for binding: Dictionary in _set_for(action, paused_context_active).get(String(action), []):
+		match int(binding.get("kind", Kind.KEY)):
+			Kind.JOY_BUTTON:
+				for device: int in Input.get_connected_joypads():
+					if Input.is_joy_button_pressed(device, int(binding.get("code", 0)) as JoyButton):
+						return true
+			Kind.JOY_AXIS:
+				var sign: float = signf(float(binding.get("sign", 1.0)))
+				for device: int in Input.get_connected_joypads():
+					if sign * Input.get_joy_axis(device,
+							int(binding.get("code", 0)) as JoyAxis) > 0.5:
+						return true
+			_:
+				if Input.is_physical_key_pressed(int(binding.get("code", 0)) as Key):
+					return true
+	return false
 
 
 ## The dict an action reads from in the given context: system actions always
