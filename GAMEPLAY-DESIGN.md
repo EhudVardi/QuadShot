@@ -1,13 +1,13 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.13 (2026-07-18) — all four forks decided; Iterations 1 (P1),
-> 2 (P4), 3 (P3), and 4 (P5) steered; the war-sim skeleton lives (v1.7).
-> **Iteration 4 (P5 — the reward economy & influence) STEERED** (all six P5.q
-> decided to their leans): three resources (salvage / influence / pilots) on two
-> walled loops + a life, salvage values discharged (P4.8), the intel-gated depot,
-> attrition & abort priced (P1.q4), and a locked doctrine — *the flight challenge
-> is an attrition sink priced in risk* (P5.q4). Next: Iteration 5 — P2 (mission
-> composition: node state → encounter).
+> **Status:** v1.14 (2026-07-18) — all four forks decided; Iterations 1 (P1),
+> 2 (P4), 3 (P3), 4 (P5) steered; the war-sim skeleton lives (v1.7). **Iteration
+> 5 (P2 — mission composition) PROPOSED, awaiting steering** (P2.1–P2.13 + six
+> open questions P2.q1–q6): the deterministic **composer** —
+> `compose(seed, node, war_state, escalation) → sortie_spec` — turning node type
+> into objective/archetype, manifest into placed garrison, biome into map &
+> approach, and weather/pads/escalation into *organic* difficulty the harness
+> proves. The capstone that consumes P1/P3/P4/P5. React by ID.
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -1940,6 +1940,275 @@ node state → encounter), which consumes all four priced pillars as ingredients
 
 ---
 
+## Iteration 5 — P2: Mission Composition (PROPOSED, 2026-07-18 — awaiting steering)
+
+> The capstone design iteration. P1 built a theater, P4 a bestiary, P3 an
+> arsenal, P5 a price list — P2 is the **function that turns a node on the map
+> into a sortie you fly**. Everything above is an ingredient; this is the recipe.
+> The v1 promise stands: **difficulty falls out of the strategic state — organic
+> balancing, not hand-tuned levels.** Sections **P2.1–P2.13**; react by ID. Per
+> 2.4/2.5 this is paper: composition *grammar* and the harness that proves it,
+> not authored missions.
+
+### P2.1 — The composer (the deterministic spine)
+
+Everything the last four iterations defined is an *ingredient*; P2 is the
+**function that cooks them into a flyable sortie**:
+
+> `compose(seed, node, war_state, escalation_tier) → sortie_spec`
+
+- **Deterministic and pure** (F4): same seed + same war state → the same sortie,
+  always — which is what lets the harness (P4.9) fight composed sorties headless
+  and the portable save replay them honestly.
+- **Two evaluations of one function** (P1.3's fog, mechanized): the **briefing**
+  runs the composer against the *manifest-through-fog* (P4.7 projection filtered
+  by intel freshness) — what you *think* you'll face; the **sortie** runs it
+  against *truth*. Fresh intel: the two agree. Stale intel: the truth the
+  composer bakes diverges from the briefing — the surprise is *designed*, not
+  random.
+- **Inputs → outputs:** node *type* (P1.2) picks the **objective & archetype**
+  (P2.2); the *manifest* (P4.7) supplies the **garrison** (P2.3); the *biome*
+  (P1.9) supplies the **map geometry & approach** (P2.4); *weather* (P1.6), *pad*
+  and *escalation* state tune the **difficulty**, organically (P2.11). No
+  hand-authored levels — the sortie is a *projection of the war*, exactly as P2
+  promised at v1.
+
+### P2.2 — Encounter archetypes (node type → objective)
+
+Each P1.2 node type maps to an **archetype**: a primary objective + a doctrine
+for how the garrison fights. The archetype is a *template the composer fills*,
+not an authored mission:
+
+| Node (P1.2) | Objective | Archetype feel |
+|---|---|---|
+| **Factory** | destroy production assets | **Strike** — smash it before escorts converge; the enemy's reinforcement tick is the clock |
+| **Radar site** | kill the dish | **SEAD** — the dish calls interceptors *onto you* (triggered CAP); kill it to blind the sector |
+| **SAM battery** | kill the launchers | **SEAD** — terrain-mask, break lock, close the area-denial bubble (terrain-only counterplay, P4.q3) |
+| **Airbase** | crater the runway + ground assets | **Strike under CAP** — the most defended non-HQ target; patrols already up |
+| **Command post** | kill the commander (P4) | **Decapitation** — an elite-guarded VIP; killing it dumbs the sector (P4.q4) |
+| **Supply depot** | destroy the stores | **Interdiction** — cut the artery; the sector starves over ticks (P1.4) |
+| **Contested airspace** | clear / hold | **Dogfight** — the shipped M3/M4 wave loop's natural home, the one archetype that *is* waves |
+| **Theater HQ** | the final raid | **The Raid** — layered everything; unlocked only by breaking the command network (P1.5) |
+| *(reserved)* **Port / sea lane** | anti-ship / convoy | naval expansion (P4 sea annex) — the door P1.1's coastline holds open |
+
+The objective is what *captures/degrades* the node (P2.9); the archetype is what
+it *feels like to fly*. Type × biome × garrison is the variety multiplier
+(P1.9) — a radar site in a fog city plays nothing like one on a desert ridge,
+and the composer honors both.
+
+### P2.3 — Garrison placement & triggered reinforcements
+
+The manifest (P4.7) hands the composer a *unit list*; placement turns the list
+into a fight:
+
+- **Doctrine-in-terrain** (P4.5): units garrison ground that suits them — falx
+  wings hold open approaches, gnat clouds nest in dense cover, SAM/turret rings
+  cover the objective. A *mismatch* (falx trapped in a canyon) happens only when
+  the war forced it (retreat, encirclement, production shortfall) and is an
+  intel-revealable weakness — P1.3's value, again.
+- **Layered by role:** the objective sits behind concentric pressure — outer
+  patrols/pickets → mid area-denial (SAM/turret/flak) → inner guard. Reading the
+  layers *is* reading your ingress (P2.4).
+- **Triggered reinforcements, not RNG spawns** (P2.q3 lean): radar detection
+  *triggers* interceptor CAP (P1.2), an airbase launches patrols, a command post
+  coordinates a counter-push — all **seed-deterministic responses to player
+  action** (you were seen, you crossed a line), never dice. Keeps the sortie
+  replayable (F4) and the harness honest. The "ambush waves" of P1.2 are *earned
+  by detection*, and staying unseen (Shade, terrain-masking) is the counterplay
+  — the intel war reaching into the sortie.
+
+### P2.4 — The map: biome geometry & the approach phase
+
+The dev room is a testbed; a sortie is **big and expansive** (P2 v1.6). The map
+is generated, not authored:
+
+- **Biome → geometry** (P1.9): the node's biome supplies a structure/prop palette
+  (greybox-compatible), a LookConfig mood, a weather table, and encounter biases.
+  The composer lays the objective and garrison into that palette. Biomes are
+  *content, not code* — adding one is data.
+- **The approach phase** (P2 v1.6): every assault has an **ingress → target
+  zone** structure. A long, exposed ingress over barren ground toward a defended
+  base *builds tension* (low-margin flying, battle ahead); a dense city flips it
+  (cover everywhere, the enemy must position for it).
+- **Open approach, chosen vector** (P2.q2 lean): ingress is *not* a rail — the
+  biome defines natural corridors (a canyon line, a city street grid, a ridge to
+  mask behind) and **you choose masking vs. speed vs. angle**. The geometry
+  shapes the options; the pilot picks the line. The flight model is the product,
+  so the approach is a *flying decision*, not a cutscene.
+
+### P2.5 — Terrain as cover economics (P4.5, in the sortie)
+
+The composer prices **biome × garrison jointly** (P4.5's aggregated requirement,
+now the composer's job):
+
+- **Cover is the player's currency.** Dense biomes (city, factory, ruins) hand
+  you masking — the flight-skill biomes, where terrain-masking beats SAM and you
+  dictate the merge. Open biomes (desert, airbase, open water) strip it — the
+  "plan your vector" fights, where standoff and speed replace cover. Open water
+  goes *negative* (P4 steering): no cover at all, the boldest posture in the game.
+- **The enemy reads the same matrix** (P4.5): garrisons are composed to *exploit*
+  their ground, so cover is contested, not gifted — and it makes terrain a
+  *strategic weapon*: herd the war onto ground the enemy fights badly and the
+  sorties there are easier. P1's map and P4's web shaking hands, inside the
+  sortie now.
+
+### P2.6 — Pads (repair/re-arm, priced as a knob)
+
+Forward landing pads (P2 v1.6): touch down → repair hull + re-arm magazines.
+Landing skill becomes gameplay — precision touchdowns under fire are peak flight
+model (the product advertising itself).
+
+- **The in-sortie side of P5.6's attrition:** pads are the *free tactical reset*
+  inside the fight; the *between-sortie* repair bill (P5.6) is what's left. A
+  pad-rich node is survivable; a pad-poor node makes every hit and every spent
+  magazine *count* — the risk-sink (P5.q4) turned up.
+- **A difficulty knob** the strategic layer & biome set (P2 v1.6): pad
+  count/quality scales inversely with node difficulty. Hard nodes are pad-poor.
+- **Capturable/destructible** (P2 v1.6): a contested pad is an *optional
+  sub-objective* the composer can place — "secure the pad first" as a valid
+  opening move, or deny the enemy theirs. Landing as a strategic act.
+
+### P2.7 — Dares (skill challenges, risk-priced)
+
+The flight model advertising itself (P2 v1.6): one-time, optional, high-risk
+micro-challenges seeded from biome interest points (P1.9) — a stray gate, a
+building window, the gap under a collapsed slab.
+
+- **Announced without quest markers** — a glint, a ring of light; the adventurous
+  pilot *notices*. Never required, never waypointed.
+- **Priced by risk** (the P5.q4 doctrine in miniature): clipping the rebar at
+  speed is a real crash — the dare *is* a risk sink, and clearing it cleanly is
+  pure flying skill.
+- **Rewards hook straight into P5:** a salvage cache, an intel refresh, a direct
+  gear drop (P5.5's dares-drop-gear), or — the rare top-tier prize — a **pilot**
+  (P5.4/P5.q6's earned 1-up). Pure flying converted into campaign currency,
+  exactly the bridge P5.2 built for style.
+
+### P2.8 — Weather in the sortie (P1.6, applied)
+
+The sortie inherits the node's weather state (P1.6's seeded Markov chain) and
+applies the **modifier pack**: wind as honest external force (never bending the
+flight model), rain/fog compressing sensors and lock range (gun play rises,
+missile play weakens), heat sagging sustained throttle (MotorModel-honest),
+sandstorm abrasion. The command room's **1-tick forecast** makes *when* to strike
+a decision — "hit the SAM in tomorrow's fog, when it's half-blind." Weather is
+where P1's clock and P2's fight meet: the composer just reads the state the war
+already evolved.
+
+### P2.9 — Objectives, success & the degrade
+
+- **Primary objective per archetype** (P2.2) is the *capture/decapitation gate*:
+  complete it and the node flips or degrades per **P1.q2** — supply-connected
+  assaults *capture*, deep strikes *degrade*.
+- **No wasted sortie** (P2.q4 lean): *everything you destroy dents the node* —
+  kills feed the garrison-strength attrition even if you don't complete the
+  objective, so a hard-fought partial (or an abort, P5.6) still *weakens* the
+  target for next time. The war remembers what you broke.
+- **This composes the whole exit chain** (P1.q4 + P5.6): complete → capture +
+  full salvage; partial/abort → degrade + reduced salvage + war tick; death →
+  the sortie's uncollected salvage lost, the node dented by what you managed.
+  Success is a spectrum, and the war-sim eats all of it.
+
+### P2.10 — Defensive sorties (the enemy composes against you)
+
+Composition runs *both ways* (P4.7's bomber raids, promised): the
+enemy-operations phase (P1.4) can commit aegis groups or raider packs against
+*your* nodes, and the composer generates the **intercept sortie** — the same
+function, enemy as attacker, you as defender.
+
+- **Optional, not forced** (P2.q5 lean): the war *offers* you the intercept;
+  **decline and it resolves by war-sim odds** (P1.4 — your sorties are the thumb
+  on the scale, and *not* flying is a real choice with a real cost). Forced
+  scrambles would tax agency and make the war a chore; the strategic price of
+  declining does the work instead.
+- This is where allied defense (P1.q3) is *felt*: your garrisons hold and fight
+  the odds; flying the intercept is you *reinforcing* them with the one thing the
+  war-sim can't model — a human pilot.
+
+### P2.11 — Organic difficulty & the harness that proves it
+
+The thesis, finally assembled (P2 v1 + P1.7): **difficulty is not hand-tuned —
+it falls out of the composer's inputs.** A sortie's hardness = garrison strength
+× biome cover economics × weather × pad availability × escalation tier (P4.6) —
+every term a projection of the war state, none a per-level knob.
+
+- **The newbie curve** (P1.7, F1.a) is *generated*: light garrisons in the
+  starting pocket, pad-rich, clear-weather, low-tier — a feasible on-ramp — with
+  the rate-preset ladder (Cinematic→Race) and angle mode riding on top.
+- **The harness closes the loop** (P4.9 + war_soak, extended to *composed
+  sorties*): the headless sim fights the composer's actual outputs across
+  hundreds of seeds and asserts the **P1.7 difficulty curve** — no unwinnable
+  composition (a garrison the slice loadout literally cannot crack), no trivial
+  one (a node that folds to any input), a monotone gradient from the pocket to
+  the HQ. "This node is impossible / this node is free" gets caught
+  **numerically, before anyone flies it** — the step-response trick, now on whole
+  missions.
+
+### P2.12 — Configs, migration & the composer's home
+
+- **`SortieComposer`** lives beside the sim in `scripts/war/` (pure, static-func,
+  deterministic over the war-state dict — the established war/ doctrine) or a
+  sibling `scripts/sortie/`; it consumes `EnemyConfig`/`FrameConfig`/biome data
+  and emits a `sortie_spec` the scene layer instantiates. The spec is
+  serializable — a sortie can be *saved mid-flight* as seed + spec + progress.
+- **The M3 `wave_director` becomes one archetype** (P2.2 contested-airspace
+  dogfight), not the default sortie engine — the shipped wave loop keeps a home,
+  demoted from "the game" to "one kind of node." Its composition knobs
+  (P4.8/P4.10) migrate into the composer's difficulty inputs.
+- **`BiomeConfig`** (new, P1.9 made real): structure/prop palette + LookConfig +
+  weather table + encounter biases, one `.tres` per biome — content, not code.
+  The overlay grows a **SORTIE/BIOME** section for live-tuning composition
+  weights, standard preset bar.
+
+### P2.13 — The vertical-slice cut (2.5, the sortie)
+
+The smallest composer that delivers the feeling, against the P3.10/P4.10/P5.11
+slices:
+- **One biome** — the cyberpunk city (the flight-skill biome, the look pass's
+  home turf, dense cover to prove terrain economics).
+- **Two archetypes** — a **Strike** (factory) and a **Dogfight** (contested
+  airspace, reusing the shipped wave loop) — the minimum to show node type →
+  different fight.
+- **The slice garrison** (P4.10: raider + turret + gnat + aegis) placed by
+  doctrine-in-terrain; triggered CAP off a single radar/airbase.
+- **Pads** (the P5.6 attrition made real) + **one dare** (a signature city gap,
+  the flight model advertising itself) + **one weather state** (clear vs. the
+  city's fog, to prove the modifier pack).
+- **Deferred to post-slice:** SEAD/decapitation/raid archetypes, defensive
+  intercepts, capturable pads, multi-biome composition, and the full
+  difficulty-curve harness assertion (the P5.10 war_soak economy pass lands
+  first).
+
+### P2 open questions (react by ID)
+
+- **P2.q1 — Sortie shape: placed garrison or waves?** A defended target you
+  strike (placed garrison + objective, the assault archetypes) vs. the shipped
+  M3 wave loop as the default. My lean: **placed garrison for assaults; waves
+  only for contested-airspace dogfights** — the wave_director becomes one node
+  type, not the game (P2.2/P2.12).
+- **P2.q2 — Approach: open vector or authored corridor?** Player-chosen ingress
+  through biome-defined natural corridors (agency) vs. a designed ingress rail
+  (authored tension). My lean: **open, biome-shaped** — masking vs. speed is a
+  flying decision; the geometry offers lines, the pilot picks one.
+- **P2.q3 — Reinforcements: deterministic triggers or live spawns?** Seed-fixed
+  responses to detection/line-crossing vs. dynamic RNG waves. My lean:
+  **deterministic triggers only** — replayability (F4) and a honest harness
+  demand it, and it makes staying unseen real counterplay.
+- **P2.q4 — The degrade: does every kill count?** Everything destroyed dents the
+  node even on partial/abort (no wasted sortie) vs. objective-binary (all or
+  nothing). My lean: **kills always dent**; the objective is the capture gate,
+  the degrade is emergent — ties P1.q2 + P5.6 into one honest spectrum.
+- **P2.q5 — Defensive sorties: optional or forced?** The war offers an intercept
+  you can decline (resolves by odds — the thumb on the scale) vs. a forced
+  scramble (respond or lose the node). My lean: **optional** — declining is a
+  priced strategic choice; forced scrambles tax agency and make the war a chore.
+- **P2.q6 — Sortie length target?** A calibration strawman against the 25–40
+  sorties / 8–15 hr campaign (P1.q5): **~4–8 min** typical, dogfights shorter,
+  the HQ raid longer. My lean: that band — but this is a dial to set with hands
+  on sticks, not on paper.
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -2322,3 +2591,42 @@ node state → encounter), which consumes all four priced pillars as ingredients
     pays currency, the in-sortie→campaign bridge).
   - **Next**: Iteration 5 — P2 (mission composition: node state → encounter),
     the last pure-design iteration before the balance-harness spec + slice build.
+- **2026-07-18 — v1.14.** Iteration 5 opened — **P2: Mission Composition**
+  proposal written (P2.1–P2.13 + six open questions P2.q1–q6). The capstone: a
+  deterministic **composer**, `compose(seed, node, war_state, escalation_tier) →
+  sortie_spec`, that projects the war state into a flyable sortie — consuming all
+  four prior pillars as ingredients. Per 2.4/2.5 it's composition *grammar*, not
+  authored missions:
+  - **The spine (P2.1):** pure & deterministic (F4); **two evaluations of one
+    function** — the briefing runs it against the manifest-through-fog (P1.3/
+    P4.7), the sortie against truth, so stale intel makes the surprise *designed*.
+  - **Archetypes (P2.2):** each P1.2 node type → an objective + doctrine (Strike,
+    SEAD, Decapitation, Interdiction, Dogfight, the HQ Raid); contested airspace
+    is the one archetype that *is* the shipped wave loop.
+  - **Placement (P2.3):** manifest → doctrine-in-terrain units (P4.5), layered
+    around the objective; **triggered reinforcements, not RNG** — radar/airbase
+    CAP as seed-fixed responses to detection (staying unseen is counterplay).
+  - **Map & approach (P2.4/P2.5):** biome → geometry (P1.9); the expansive
+    ingress→target structure; **open, player-chosen ingress vector**; cover as
+    the player's currency, priced biome × garrison (open water goes negative).
+  - **Pads (P2.6):** in-sortie free reset + P5.6's between-sortie bill; a
+    difficulty knob and a capturable sub-objective.
+  - **Dares (P2.7):** biome-seeded skill gaps, quest-marker-free, risk-priced,
+    rewarding straight into P5 (salvage/intel/gear/the rare pilot).
+  - **Weather (P2.8):** the node's P1.6 state as a modifier pack; the forecast
+    makes *when* to strike a decision.
+  - **Success spectrum (P2.9):** objective = the P1.q2 capture/degrade gate; **no
+    wasted sortie** — every kill dents the node; composes the P1.q4/P5.6 exit
+    chain.
+  - **Defensive sorties (P2.10):** the composer runs both ways (P4.7 raids);
+    intercepts are **optional** — decline resolves by war-sim odds (P1.4).
+  - **Organic difficulty + harness (P2.11):** hardness = garrison × cover ×
+    weather × pads × escalation, no per-level knob; the war_soak/P4.9 harness,
+    extended to composed sorties, asserts the P1.7 curve (no unwinnable/trivial
+    node, monotone gradient) numerically before anyone flies it.
+  - **Configs (P2.12):** `SortieComposer` (war/ doctrine) + new `BiomeConfig`;
+    the M3 `wave_director` demoted to one archetype; overlay SORTIE/BIOME section.
+  - **Slice (P2.13):** one biome (cyberpunk city), two archetypes (Strike +
+    Dogfight), the slice garrison, pads + one dare + one weather state.
+  - **Next**: steer P2 (react to P2.q1–q6 + any section by ID), then Iteration 6
+    — the balance-harness spec + difficulty curve, and the slice build begins.
