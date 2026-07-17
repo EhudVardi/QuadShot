@@ -1,11 +1,10 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.18 (2026-07-18) — the pillar+harness paper phase is closed; **a
-> completeness review surfaced one real gap, now PROPOSED as Iteration 7 (the
-> damage model), awaiting steering.** Six iterations closed: five pillars (P1
-> theater, P4 bestiary, P3 arsenal, P5 economy, P2 composition) + Iteration 6 (the
-> balance harness + stated difficulty curve, H1–H9) all proposed *and* steered;
-> all four forks (F1–F4) decided; the
+> **Status:** v1.19 (2026-07-18) — **THE PAPER PHASE IS COMPLETE (gap-checked).**
+> Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
+> economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
+> curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
+> all proposed *and* steered; all four forks (F1–F4) decided; the
 > war-sim skeleton lives and runs green (v1.7). The model composes end to end and
 > now *proves itself*: the war generates nodes, the manifest dresses them in the
 > bestiary, the arsenal answers the matrix, the economy prices it, the composer
@@ -13,16 +12,18 @@
 > strategic) measures whether it all lands on the difficulty curve — SDI measured,
 > not authored; a scripted reference pilot the hands calibrate.
 >
-> **One gap surfaced by the completeness review and got its own iteration:
-> Iteration 7 — The Damage Model (PROPOSED, D1–D9).** The six iterations specced
-> *enemy* durability richly but left the *player's* damage an abstract hit-point
-> pool — a number, in a game whose north star is *the flight model is the
-> product*. Iteration 7 makes damage a **flight-model event** (flying a wounded
-> quad: asymmetric motor-out, prop vibration feeding the Filtering group, video
-> breakup), ramped arcade↔sim for readability, and gives pads/repair (P2.6/P5.6)
-> their missing referent. It must close before build. **Next: steer Iteration 7
-> (react D1–D9, Dq1–q6), then the vertical-slice build** (P4.10/P3.10/P5.11/
-> P2.13), the H9 harness cut making it measurable from its first commit.
+> **Iteration 7 (the damage model) closed the one gap a completeness review
+> surfaced:** the pillars specced *enemy* durability richly but left the
+> *player's* damage an abstract hit-point pool — a number, in a game whose north
+> star is *the flight model is the product*. It makes damage a **flight-model
+> event** (flying a wounded quad: asymmetric motor-out, prop vibration feeding the
+> Filtering group, video breakup), ramped arcade↔sim for readability, gives
+> pads/repair (P2.6/P5.6) their missing referent, and locked the **anti-
+> frustration guardrail** (no hopeless fight; denial never removes the skill path
+> — the harness enforces it numerically). **Next is not paper: it's the
+> vertical-slice build** (P4.10/P3.10/P5.11/P2.13 + D9's motor-out surface), the
+> H9 harness cut making it measurable from its first commit — and per H.q4 the
+> hands-on difficulty calibration, when the slice flies, is mine to initiate.
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -2800,6 +2801,64 @@ subsystem matrix. One surface, done honestly, is the wedge.
   My lean: **motors only at slice** — one surface done honestly beats two done
   thin; props follow fast because the Filtering synergy is nearly free.
 
+### D steering — ANSWERED (v1.19, 2026-07-18)
+
+Iteration 7 is steered — all six Dq resolved to their leans, and one of them
+grew a doctrine worth more than the question that raised it:
+
+- **Dq1 → DECIDED: sim-leaning default, generous arcade floor, P1.7-ramped.** The
+  depth is the draw and the door stays open — the severity dial is never a wall.
+- **Dq2 → DECIDED: flyable-but-punishing on the sim tier, config-able toward
+  lethal.** A skilled motor-out limp-home is a *story*, and stories are the point;
+  brutal realism stays a dial, not a mandate.
+- **Dq3 → DECIDED: bill, not scar.** Damage is sortie-scoped, repair
+  campaign-scoped — persistence is economic, never a permanently crippled frame
+  (no double-punish, cf. P5.4).
+- **Dq4 → DECIDED: brief, recoverable, telegraph-not-blindfold — and the
+  frustration guardrail it implies is now doctrine (below).**
+- **Dq5 → DECIDED: player-side first.** Enemy wounded-flight (D7) is deferred —
+  teaching the AI to fight *well while crippled* is real work and premature now;
+  the slice proves the model on the frame the human flies.
+- **Dq6 → DECIDED: motors only at slice; props follow fast.** One surface done
+  honestly is the wedge; the prop/Filtering synergy is nearly free to add next.
+
+**Doctrine (locked) — the anti-frustration guardrail: no fight is hopeless, and
+denial never removes the skill path.** The user's steering story, kept as the
+design compass (the way the charge-shot lesson became doctrine in P3): in the game
+that inspired the charge-shot mechanic, an overpowered EW/"hacker" drone —
+*especially arriving in a pair* — produced fights with no counterplay, the pure
+over-punishing frustration this game must avoid. It names an anti-pattern with
+teeth, and it lands on three things already in the design:
+
+- **The Screamer (P4.2) is the element most at risk of becoming it.** EW/jamming
+  is exactly the "hacker drone," and the aegis+screamer pair is P4.3's *first
+  designed combo* — so the guardrail is aimed straight at it. The screamer's
+  design already answers the anti-pattern *by construction*: it's tissue once
+  reached, jam is a bubble you can mask around, and the **manual trigger is the
+  guaranteed skill fallback** (P3.6 iron trigger — never dead content precisely so
+  denial can't be a dead end). This steering ratifies and sharpens that: **an EW
+  or blinding effect must always leave a flyable, winnable path** — the wound you
+  fly through (D4), never the wound that removes the game.
+- **It extends the locked bestiary rules** (P4: every enemy has ≥1 answer and ≥1
+  counter; reaction-dodgeability at every tier, P4.q2) **from single units to
+  *combinations and denial*:** no pair or combo may compose a no-counterplay
+  wall, and no denial effect (jam, blind, motor-out) may be total.
+- **The harness makes it falsifiable, not a promise.** A hopeless pair is exactly
+  what the Iteration 6 harness catches: it surfaces as a matrix cell or composed
+  sortie the reference pilot *cannot* clear under any intended loadout (H3
+  invariants, H6's "no unwinnable composition"). **The anti-frustration guardrail
+  is enforced numerically** — the Firehawk-pair experience shows up as a red flag
+  before anyone ever flies it. The harness Iteration 6 built is the instrument
+  that prevents the frustration this iteration named.
+
+**The last gap is closed.** The damage model was the one real hole a completeness
+review surfaced; steered, it makes damage a flight-model event (the north star
+reaching the airframe) and ties pads, repair, the counter-web, and the harness
+together. **The paper phase is complete — genuinely this time, gap-checked. Next
+is the vertical-slice build** (P4.10/P3.10/P5.11/P2.13 + D9's motor-out surface),
+measurable from its first commit (H9). And per H.q4, when the slice is flyable the
+hands-on difficulty calibration is *mine to initiate and lead.*
+
 ---
 
 ## Decision Log
@@ -3365,3 +3424,36 @@ subsystem matrix. One surface, done honestly, is the wedge.
     strike* — on one surface done honestly.
   - **Next**: steer Iteration 7 (react D1–D9 + Dq1–q6 by ID), then the
     vertical-slice build begins.
+- **2026-07-18 — v1.19. THE PAPER PHASE IS COMPLETE (gap-checked).** Iteration 7
+  STEERED (user review) — all six Dq resolved to their leans, and one grew a
+  doctrine:
+  - **Dq1** — sim-leaning default + generous arcade floor, P1.7-ramped (never a
+    wall). **Dq2** — motor-out is flyable-but-punishing on the sim tier,
+    config-able toward lethal (the skilled limp-home is the story). **Dq3** —
+    bill, not scar (damage sortie-scoped, repair campaign-scoped). **Dq5** —
+    player-side first; enemy wounded-flight deferred (teaching the AI to fight
+    *well while crippled* is premature). **Dq6** — motors only at slice, props
+    follow fast.
+  - **Dq4 (+ locked doctrine)** — video/camera breakup is brief, recoverable,
+    **telegraph-not-blindfold**; and the frustration guardrail it implies is now
+    **doctrine: no fight is hopeless, and denial never removes the skill path.**
+    From the user's steering story (the charge-shot game's overpowered EW/"hacker"
+    drone that, *in a pair*, produced no-counterplay fights — the over-punishing
+    frustration to avoid). It lands on three things: **the Screamer (P4.2) is the
+    element most at risk of becoming it** (EW + the aegis+screamer combo, P4.3's
+    first designed pair) and answers it *by construction* (tissue once reached,
+    maskable jam bubble, the **manual iron trigger as the guaranteed skill
+    fallback**, P3.6); it **extends the locked bestiary rules** (≥1 counter,
+    reaction-dodgeability) from single units to *combinations and denial* (no pair
+    is a no-counterplay wall, no denial is total); and **the harness makes it
+    falsifiable** — a hopeless pair is a matrix/composition cell the reference
+    pilot can't clear (H3/H6), so the guardrail is enforced numerically before
+    anyone flies it. *The Iteration 6 harness is the instrument that prevents the
+    frustration Iteration 7 named.*
+  - **Milestone:** seven iterations (five pillars + harness + damage model) all
+    proposed and steered; four forks decided; the war-sim runs green (v1.7); the
+    model composes, prices, projects, *and proves itself* end to end, with damage
+    now a flight-model event. **The last gap is closed. Next is not more paper —
+    it's the vertical-slice build** (P4.10/P3.10/P5.11/P2.13 + D9), measurable from
+    its first commit (H9); per H.q4 the difficulty calibration, when the slice
+    flies, is mine to initiate and lead.
