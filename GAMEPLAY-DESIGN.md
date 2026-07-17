@@ -1,12 +1,13 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.12 (2026-07-17) — all four forks decided; Iterations 1 (P1),
-> 2 (P4), and 3 (P3) steered; the war-sim skeleton lives (v1.7). **Iteration 4
-> (P5 — the reward economy & influence) PROPOSED, awaiting steering** (P5.1–P5.11
-> + six open questions P5.q1–q6): three resources (salvage / influence / pilots)
-> on two walled loops + a life, salvage values discharged (P4.8), the intel-gated
-> depot, attrition & abort priced (P1.q4), the economy harness, and the
-> slice cut. React by ID.
+> **Status:** v1.13 (2026-07-18) — all four forks decided; Iterations 1 (P1),
+> 2 (P4), 3 (P3), and 4 (P5) steered; the war-sim skeleton lives (v1.7).
+> **Iteration 4 (P5 — the reward economy & influence) STEERED** (all six P5.q
+> decided to their leans): three resources (salvage / influence / pilots) on two
+> walled loops + a life, salvage values discharged (P4.8), the intel-gated depot,
+> attrition & abort priced (P1.q4), and a locked doctrine — *the flight challenge
+> is an attrition sink priced in risk* (P5.q4). Next: Iteration 5 — P2 (mission
+> composition: node state → encounter).
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -1890,6 +1891,53 @@ cross-campaign codex → the reserved power-meta toggle, last and optional.
   — trading war-agency for one more life is an honest, painful choice, and it
   can't be ground out.
 
+### P5 steering — ANSWERED (v1.13, 2026-07-18)
+
+Iteration 4 is steered. The proposal above stands as accepted — every open
+question resolved to its lean, plus one enrichment that earns its own doctrine:
+
+- **P5.q1 → DECIDED: two currencies, harness-gated.** Salvage + influence ship as
+  separate walled loops; the economy harness (P5.10) must *prove influence binds*
+  — if salvage alone would do, it collapses to one. Two by default, falsifiable
+  by the sim, never by assertion.
+- **P5.q2 → DECIDED: non-power meta by default, power-meta reserved & optional.**
+  The persistent layer is codex/mastery (mechanically inert); any cross-campaign
+  *power* is an opt-in, off-by-default, non-canonical "veteran start." The v1.1
+  endorsement (progression exists) and the v1.11 doctrine (power is earned each
+  war) both stay intact.
+- **P5.q3 → DECIDED: fungible lives at 1.0; named-pilot veterancy reserved.** The
+  1-up model ships; named pilots, perks, and the weight of losing a specific ace
+  are the natural post-core depth, not slice surface.
+- **P5.q4 → DECIDED: modest currency sink + the flight itself as a *risk sink*
+  (user enrichment).** Repair/re-arm stays a modest salvage cost — but the
+  *decisive* attrition channel is the flying: a hard sortie already taxes you in
+  danger (the frame, the pilot life, the uncollected salvage, all on the table).
+  **Doctrine (locked): the flight challenge is a sink in its own right — paid in
+  risk, not currency.** This is *why* the salvage sink stays genuinely modest:
+  the product (the flight model) carries the attrition weight, the wallet only
+  tops it off. Fly efficiently and you pay less on both channels; fly greedy and
+  the danger is the price. The economy leans on the thing the game *is*.
+- **P5.q5 → DECIDED: intel-gated acquisition.** The Depot catalog opens by what
+  the war shows you — intel unlocks the entry, salvage buys the item. The manifest
+  /intel system (P4.7) already carries the bookkeeping.
+- **P5.q6 → DECIDED: pilots earned primarily.** 1-ups come from strategic
+  achievement and top-tier dares; the steep-influence buy stays a last-resort
+  desperation trade, **never** salvage. Lives don't grind.
+
+**Also accepted (blanket endorsement — "all your instincts are well formed" —
+logged for the record, append-only):**
+- **M4 RunMods retired to in-sortie scope** — the run-scoped drafting layer
+  becomes within-sortie temporary pickups; the campaign is the new persistence
+  (P5.1). The one build-vs-design tension I resolved by fiat, now ratified.
+- **Combo multiplier scales salvage** (P5.2) — style pays in currency, not just
+  score. The in-sortie→campaign bridge stands.
+
+**Doctrine adopted this iteration:** *the flight challenge is an attrition sink
+priced in risk* (P5.q4) — the wallet-side economy is deliberately light because
+the flying already extracts the real cost. Iteration 4 is closed; P5 is locked as
+the pricing layer over P1/P3/P4. Next is Iteration 5 — P2 (mission composition:
+node state → encounter), which consumes all four priced pillars as ingredients.
+
 ---
 
 ## Decision Log
@@ -2253,3 +2301,24 @@ cross-campaign codex → the reserved power-meta toggle, last and optional.
     meta.
   - **Next**: steer P5 (react to P5.q1–q6 + any section by ID), then Iteration 5
     — P2 (mission composition: node state → encounter), needing all of the above.
+- **2026-07-18 — v1.13.** Iteration 4 STEERED (user review). All six P5.q decided
+  to their proposed leans; the proposal body stands as accepted:
+  - **P5.q1** — two currencies (salvage + influence), **harness-gated**: the
+    economy soak (P5.10) must prove influence *binds* or it collapses to one.
+  - **P5.q2** — non-power codex/mastery meta by default; cross-campaign *power*
+    is a reserved, opt-in, non-canonical "veteran start."
+  - **P5.q3** — fungible lives at 1.0; named-pilot veterancy reserved post-core.
+  - **P5.q4** — modest salvage repair/re-arm sink **+ user enrichment: the flight
+    challenge is itself a *risk sink*.** **Doctrine locked:** attrition is paid on
+    two channels — a light wallet cost and the intrinsic danger of the flying
+    (frame, pilot, uncollected salvage on the table). The salvage sink stays
+    modest precisely because the flight model carries the real attrition weight;
+    the economy leans on the thing the game *is*.
+  - **P5.q5** — intel-gated acquisition (the Depot opens by what the war shows).
+  - **P5.q6** — pilots earned primarily (strategic milestones + top-tier dares);
+    steep-influence buy is last-resort only, never salvage.
+  - **Ratified by blanket endorsement:** M4 RunMods retired to in-sortie scope
+    (campaign is the new persistence); combo multiplier scales salvage (style
+    pays currency, the in-sortie→campaign bridge).
+  - **Next**: Iteration 5 — P2 (mission composition: node state → encounter),
+    the last pure-design iteration before the balance-harness spec + slice build.
