@@ -1,13 +1,14 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.14 (2026-07-18) — all four forks decided; Iterations 1 (P1),
-> 2 (P4), 3 (P3), 4 (P5) steered; the war-sim skeleton lives (v1.7). **Iteration
-> 5 (P2 — mission composition) PROPOSED, awaiting steering** (P2.1–P2.13 + six
-> open questions P2.q1–q6): the deterministic **composer** —
-> `compose(seed, node, war_state, escalation) → sortie_spec` — turning node type
-> into objective/archetype, manifest into placed garrison, biome into map &
-> approach, and weather/pads/escalation into *organic* difficulty the harness
-> proves. The capstone that consumes P1/P3/P4/P5. React by ID.
+> **Status:** v1.15 (2026-07-18) — **the design phase is complete.** All four
+> forks (F1–F4) decided; all five pillar iterations proposed and steered — P1
+> (theater), P4 (bestiary), P3 (arsenal), P5 (economy), P2 (composition); the
+> war-sim skeleton lives (v1.7). Everything composes: the war generates nodes,
+> the manifest dresses them in the bestiary, the arsenal answers the matrix, the
+> economy prices it, and the composer projects it into sorties whose difficulty
+> the harness will prove. **Next: Iteration 6 — the balance-harness spec + the
+> stated difficulty curve (2.4/P1.7) — then the vertical slice starts getting
+> built.**
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -2207,6 +2208,50 @@ slices:
   the HQ raid longer. My lean: that band — but this is a dial to set with hands
   on sticks, not on paper.
 
+### P2 steering — ANSWERED (v1.15, 2026-07-18)
+
+Iteration 5 is steered — all six P2.q resolved to their leans, with two
+enrichments the user articulated worth locking:
+
+- **P2.q1 → DECIDED: placed garrison for assaults; waves for dogfights only.**
+  Assault nodes are a defended *target* you strike (placed, layered garrison +
+  objective); the shipped M3 wave loop is *one archetype* — contested airspace —
+  not the default sortie engine (P2.2/P2.12).
+- **P2.q2 → DECIDED: open, biome-shaped ingress.** No approach rail; the biome
+  offers natural corridors and the pilot chooses masking vs. speed vs. angle. The
+  approach is a flying decision.
+- **P2.q3 → DECIDED: deterministic triggers only.** Reinforcements are seed-fixed
+  responses to detection/line-crossing, never RNG spawns — replayability (F4) and
+  an honest harness demand it, and it makes staying unseen real counterplay.
+- **P2.q4 → DECIDED: every kill dents the node** — "an important complexity to
+  include" (user). No wasted sortie: the objective is the P1.q2 capture gate, the
+  degrade is emergent, and a hard partial or an abort (P5.6) still weakens the
+  target. Success is an honest spectrum the war-sim eats whole.
+- **P2.q5 → DECIDED: intercepts are optional — and the *responsibility* is the
+  point (user).** The player is a **pilot, not a commander** (F3): being *forced*
+  to scramble to defend would be a commander's call imposed on you; the game
+  keeps that big-picture decision in the player's hands as **felt
+  responsibility.** Decline an intercept and a node may fall by the odds (P1.4) —
+  that weight, owned, is the immersion. **Doctrine (locked):** *the player is
+  never forced to defend; strategic defense is a responsibility the player
+  carries, not a scramble the game imposes.* It previews commander mode exactly
+  where F3 parked it — when command authority is later acquired, big-picture
+  defense gets its tooling; until then the responsibility rests on the one
+  decisive pilot, and is meant to be felt.
+- **P2.q6 → DECIDED: ~4–8 min band, calibrated hands-on.** The strawman stands
+  (dogfights shorter, the HQ raid longer), and — user, emphatically — it **is a
+  dial set with hands on sticks, not on paper.** Logged as a calibration target
+  for the slice, not a locked number.
+
+**The design phase is complete.** Five iterations — P1 (theater), P4 (bestiary),
+P3 (arsenal), P5 (economy), P2 (composition) — are proposed and steered; all four
+forks (F1–F4) decided; the war-sim skeleton lives (v1.7). Everything composes:
+the war generates nodes, the manifest dresses them in the bestiary, the arsenal
+answers the matrix, the economy prices it, and the composer projects it into
+sorties whose difficulty the harness will prove. **Next is Iteration 6 — the
+balance-harness spec + the stated difficulty curve (2.4/P1.7) — after which the
+vertical slice starts getting *built*.** Paper's edge, reached.
+
 ---
 
 ## Decision Log
@@ -2630,3 +2675,23 @@ slices:
     Dogfight), the slice garrison, pads + one dare + one weather state.
   - **Next**: steer P2 (react to P2.q1–q6 + any section by ID), then Iteration 6
     — the balance-harness spec + difficulty curve, and the slice build begins.
+- **2026-07-18 — v1.15. THE DESIGN PHASE IS COMPLETE.** Iteration 5 STEERED (user
+  review) — all six P2.q resolved to their leans, closing the fifth and last
+  pillar iteration:
+  - **P2.q1** — placed garrison for assault archetypes; the M3 wave loop is one
+    archetype (contested-airspace dogfight), not the default.
+  - **P2.q2** — open, biome-shaped ingress (no rail; masking-vs-speed is the
+    pilot's call). **P2.q3** — deterministic triggers only (F4 + honest harness;
+    unseen is counterplay). **P2.q4** — every kill dents the node (no wasted
+    sortie; the P1.q2/P5.6 spectrum).
+  - **P2.q5 (+ user doctrine)** — intercepts are **optional**; **the player is a
+    pilot, not a commander (F3)** — never *forced* to defend. Strategic defense is
+    a **responsibility the player carries**, not a scramble the game imposes;
+    declining and watching a node maybe fall by the odds (P1.4) is the felt
+    weight. Previews commander mode where F3 parked it.
+  - **P2.q6** — ~4–8 min sortie band, explicitly a **hands-on-sticks dial, not a
+    paper number** (user); a slice calibration target.
+  - **Milestone:** five iterations (P1/P4/P3/P5/P2) proposed and steered; four
+    forks decided; the whole model composes end to end. **Next**: Iteration 6 —
+    the balance-harness spec + the stated difficulty curve (2.4/P1.7) — the
+    bridge from paper to the vertical-slice build.
