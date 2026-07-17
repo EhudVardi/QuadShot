@@ -1,11 +1,12 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.11 (2026-07-17) — all four forks decided; Iterations 1 (P1),
-> 2 (P4), and 3 (P3) steered; the war-sim skeleton lives (v1.7). **Iteration 3
-> (P3 — frames, hardpoints, the arsenal) STEERED** (all P3.q decided; the
-> all-rounder christened **Kestrel**; "enrichment is acquired, not given"
-> adopted as doctrine). Proposed next: Iteration 4 (P5 — economy, rewards,
-> pilots, influence — pricing everything P3 defined).
+> **Status:** v1.12 (2026-07-17) — all four forks decided; Iterations 1 (P1),
+> 2 (P4), and 3 (P3) steered; the war-sim skeleton lives (v1.7). **Iteration 4
+> (P5 — the reward economy & influence) PROPOSED, awaiting steering** (P5.1–P5.11
+> + six open questions P5.q1–q6): three resources (salvage / influence / pilots)
+> on two walled loops + a life, salvage values discharged (P4.8), the intel-gated
+> depot, attrition & abort priced (P1.q4), the economy harness, and the
+> slice cut. React by ID.
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -1570,6 +1571,327 @@ are Iteration 4 (P5), which this doctrine now anchors.
 
 ---
 
+## Iteration 4 — P5: The Reward Economy & Influence (PROPOSED, 2026-07-17 — awaiting steering)
+
+> The price tags. Iterations 1–3 defined a theater, a bestiary, and an arsenal;
+> none of it costs anything yet. P5 makes the war an *economy* — what you earn
+> for fighting, what you spend it on, how lives work (F1), and how you bend the
+> war with resources (F3's light influence layer). The anchor is the doctrine
+> locked in v1.11: **enrichment is acquired, not given** — the campaign hands
+> you a baseline and makes everything better a thing you earn. Sections
+> **P5.1–P5.11**; react by ID. Per 2.4, this paper fixes the economic *grammar*
+> — currencies, bands, rules — **not** absolute numbers: every price lives in a
+> config and gets bench-tuned in the harness, exactly like a flight gain.
+
+### P5.1 — The economic grammar (two loops and a life)
+
+Three resources, deliberately mapped onto the pillars so each layer of play
+funds its own agency:
+
+- **Salvage** — the *tactical* currency. Dropped by the things that shoot at you
+  (P4 combatants). Spent on the arsenal (P3): gear acquisition, repair, re-arm.
+  The kinetic loop pays for kinetic power.
+- **Influence** — the *strategic* currency. Earned by *strategic* achievement —
+  capturing nodes, breaking the command network, killing the "war itself"
+  targets (P4.1's threat vector: convoys, barges, production — the units that
+  never fire at you). Spent on influence actions that bend the war tick (P5.3).
+  The map loop pays for map power.
+- **Pilots** — the *lives* economy (F1). Not spent by choice; consumed by death,
+  granted rarely as a reward. Running out ends *your* road, not the war (P1.5).
+
+The structural payoff (2.4 rigor applied to money): **the two spendable loops
+are self-funding and can't cross-subsidize by grind.** You cannot farm gnats
+into an allied blitz, or capture your way to free missiles — killing a *raider*
+pays salvage, killing a *convoy* pays influence, and the wall between them is
+what stops a single dominant farming strategy from buying the whole war.
+Kinetic-first (F3) falls out naturally: salvage is the fat everyday loop;
+influence is scarce and deliberate.
+
+*The three reward axes (P5 pillar), reconciled with what's built:*
+- **In-sortie** — transient boosts inside a single sortie (pad-side buffs / field
+  pickups): the M4 RunMods layer, **narrowed to within-sortie scope** and
+  evaporating at debrief. The run is gone; the campaign is the new persistence.
+- **Campaign** — the persistent spine: salvage & influence, owned gear, pilots,
+  the war state itself. The M4 between-wave *draft* graduates here — the
+  **debrief** is the curated-choice moment (what the field yielded, what the
+  depot now offers), but the goods are **persistent**, not run-scoped.
+  Campaign > run.
+- **Cross-campaign** — meta (P5.8): deliberately thin and mostly non-power, to
+  protect each war's from-baseline integrity (F4).
+
+### P5.2 — Salvage: the tactical economy (P4.8's deferral, discharged)
+
+Every `EnemyConfig` gets two economy fields (the P4.8 strategic block, now
+defined): `score_points` (the M4 combo/score currency — already live) and
+`salvage_value` (the new campaign currency). They are **not** the same number
+and **not** HP-scaled — you're paid for the *tactical value* of the kill, not
+its hit-point sponge. The bands, relative (absolutes → config + harness):
+
+| Tier | Types | Salvage | Why |
+|---|---|---|---|
+| Filler | Gnat (per body) | trivial | distributed grammar — area economy, never a farm |
+| Line | Raider | small | the standing army; the baseline earner |
+| Specialist | Falx · Screamer · Aegis · Turret · Sentinel | medium | units that *tax a specific resource* — killing the answer to your weakness pays |
+| Heavy / static | SAM · Gunboat | large | expensive to build, dangerous to approach |
+| Strategic | Convoy · Barge · Commander · production | *pays influence, not salvage* | the "war itself" vector — its reward is strategic (P5.3) |
+
+Nuances that keep the loop honest:
+- **Distributed = cheap on purpose.** A gnat cloud's total salvage is
+  deliberately low: clouds cost you ammo and time, they don't reward you with
+  riches (P4.2 "cheap filler," economically enforced). Area-clearing is
+  *survival*, not income.
+- **Strategic targets pay the *other* currency.** Convoys, barges, commanders,
+  and production drop little salvage — their reward is **influence** and a
+  changed war (P5.3, P5.7). The P5.1 wall, made concrete per-unit.
+- **Veterancy pays** (P4.6): elites carry a salvage multiplier per tier — they
+  cost the enemy more production, so they're worth more dead. Honestly sourced,
+  like everything about escalation.
+- **Style pays** (the in-sortie→campaign bridge): the M4 **combo multiplier
+  scales salvage**, not just score — the clean, chained sortie literally funds
+  the next loadout. The flight-model-is-the-product thesis given an *economic*
+  reward, not only a dopamine one. *(Lean: adopt; knobbed, so it can be
+  flattened if it snowballs.)*
+
+Salvage is **credited at debrief**, banked to the campaign — which is what gives
+the abort/death rules (P5.6) their teeth: uncollected salvage is *leverage the
+battlefield holds over you.*
+
+### P5.3 — Influence: the strategic economy (F3's light layer, P1.q3's mechanism)
+
+Influence is scarce, strategic, and spent on **war-tick modifiers** — inputs the
+deterministic war-sim consumes exactly like a sortie result, so every influence
+action is seed-reproducible and serializable (the war/ module doctrine; F4 stays
+trivially portable). The launch menu, deliberately tight (F3 kinetic-first — a
+*preview* of commander mode, not commander mode):
+
+| Action | Cost | Effect | Lineage |
+|---|---|---|---|
+| **Recon sweep** | cheap | refresh a sector's manifests through the fog (P1.3) — *pay instead of fly* the Shade | the common spend |
+| **Fortify** | modest | harden a friendly node against the next enemy counter-offensive (war-tick defense buff) | holds what you captured (P1.q2) |
+| **Allied strike** | mid | a one-shot allied strike degrades a target garrison's strength before you fly it — or kills a convoy you can't reach | interdiction from the map |
+| **Allied offensive** | expensive | order allies to push a designated front for a tick or two — **the only way allied offense happens** (P1.q3) | the flagship; commander-mode preview (F3) |
+
+Where influence comes from: **breaking the command structure** (P1.5 command
+posts), **strategic-target kills** (the P5.2 "war itself" tier), and
+**operation/objective completion**. The strategic game funds strategic agency;
+the two loops stay walled (P5.1). *Fortify* + *Allied offensive* are also the
+exact seam where F3's deferred commander layer later docks as an "acquirable
+capability" — the mechanism is previewed here, priced small, and the door stays
+open.
+
+### P5.4 — The pilot economy (F1, priced)
+
+- **Starting pilots:** `starting_pilots` (EconomyConfig), scaled by the P1.7
+  global knob — part of the newbie ramp lives here. Strawman: 3–5.
+- **Death** consumes one pilot; you redeploy fresh from Home Airbase. The
+  *frame* is not lost (a dead pilot doesn't burn the airframe — you have a
+  hangar), but the sortie's **uncollected salvage is forfeit** and redeploying a
+  wrecked frame costs repair (P5.6). Losing a life shouldn't *also* strip your
+  gear — that double-punish cheapens the loadout game.
+- **Tempo cost (F1.b):** `death_war_ticks` — death can advance the war while you
+  re-deploy. **Default 0** (F1.b's call); a knob, revisited once slice numbers
+  exist.
+- **Earning pilots (1-ups):** rare and meaningful, primarily **strategic** — a
+  milestone of the command-network arc (P1.5) and the occasional top-tier
+  **dare** reward (P2). *Purchasable* only at **steep influence** as a last
+  resort (a desperate pilot trades war-agency for survival — an honest tension),
+  and **never for salvage** (lives must not become a grind — the F1 anti-goal).
+  *(Open: pilots-buyable-at-all — P5.q6.)*
+- **Zero pilots** → the F1/P1.5 defeat: the player's road ends, the war keeps
+  ticking, the defeat screen is **F4.a spectator mode** — the theater concludes
+  from its seed while you watch. Epilogue, not curtain. The economy of lives is
+  the one that ends the game.
+- **Pilot identity:** at 1.0, pilots are **fungible lives** (the 1-up model).
+  Named pilots with veterancy/perks — losing *Kestrel-lead Vega* hurting more
+  than losing life #3 — is the richer long-game and is **reserved** post-core
+  (P5.q3), not forced into the slice.
+
+### P5.5 — Acquisition: how enrichment is earned
+
+The doctrine (v1.11): everything past the baseline (Kestrel + Blaster + Missile,
+P3.8) is earned. The mechanisms:
+
+- **The Depot** (Home Airbase, command room): buy gear for salvage — but the
+  catalog is **not** static. Two gates enforce "the war shapes what you buy":
+  1. **Discovery gate (intel):** an item becomes *purchasable* only once the war
+     has *shown you its reason* — screamers in intel unlock the lead computer's
+     catalog entry; overflying an airframe plant reveals the Dart; a cache
+     blueprint reveals a module. Intel unlocks the *entry*; salvage buys the
+     *item* (P3.8's "screamers in intel sell lead computers," mechanized).
+  2. **Salvage gate:** once unlocked, you pay — frames big-ticket, weapons mid,
+     equipment small.
+- **Production-capture blueprints** (the P1↔P5 handshake): overrunning an enemy
+  **production node** (P4.7's factory tags) grants the blueprint for what it
+  built — take their airframe plant, learn to field the interceptor. Capturing
+  the war's means of production *is* the tech tree, and it makes P1.q2's
+  supply-captures pay in gear, not just territory.
+- **Direct drops** (P3.8, P2): **dares** drop gear straight into the hangar — a
+  pure skill reward, bypassing salvage — and **salvage caches** (node rewards)
+  yield free modules or blueprints. The curated-choice UX inherited from the M4
+  draft lives here: the debrief offers what the field yielded.
+- **The dev room stays fully stocked, always** (v1.11 exception; CLAUDE.md) —
+  it's the testbed, not the campaign.
+
+### P5.6 — Attrition: repair, re-arm, abort & death (P1.q4 discharged economically)
+
+Where the flight-model-is-the-product thesis gets economic teeth: **flying well
+is literally cheaper.**
+
+- **In-sortie** (pads, P2): pads repair hull and re-arm magazines mid-sortie, as
+  designed — the tactical reset, free within the fight.
+- **Between sorties** (Home Airbase): full repair + re-arm costs salvage —
+  `repair_cost_mult`, `rearm_cost_mult`. A sortie that chews your frame and
+  dumps its missiles has a *bill*; efficient flying pays it down. **Tuned to
+  friction, never grind** — cheap relative to acquisition, auto-paid when
+  affordable. *(Open: real sink vs. free heal — P5.q4.)*
+- **Abort mission** (P1.q4's "price scales with battlefield context," now
+  priced): you extract alive, keep pilot and gear, **the war ticks anyway** (+
+  optional F1.b tempo), and you **forfeit a fraction of the sortie's salvage** —
+  `abort_salvage_forfeit`, scaled by battlefield context (aborting over a node
+  ringed by capable hostiles leaves more materiel on the field than slipping out
+  of a quiet sector). The abort price *is* forfeited salvage + tempo — agency
+  with a legible tag.
+- **Exit without save** (P1.q4): rewind to the last war-room state, no economy
+  change. The honest escape hatch.
+- **Death** (P5.4): lose the life + the sortie's uncollected salvage; redeploy in
+  a repaired/fresh frame (a repair bill, not a lost airframe).
+
+### P5.7 — The war itself as a reward surface (non-currency rewards)
+
+Not every reward is a number in a wallet. The strategic layer *is* a reward
+channel:
+- **Escalation relief** (P1.7): killing enemy **production** doesn't just pay
+  influence — it caps the escalation clock (P4.6: broken production can't climb
+  veterancy or refill mixes). *The war getting easier is a reward you buy with
+  kinetic work* — honestly sourced (the guardrail: a broken enemy stays broken,
+  never silent re-inflation).
+- **Terrain leverage** (P4.5): herding the war onto ground the enemy fights
+  badly is a reward with no currency — easier sorties, earned by strategic
+  thinking. P1's map and P4's web shaking hands, again.
+- **Codex / mastery** (feeds P5.8): every bestiary entry seen, biome flown,
+  weapon mastered fills a persistent record — recognition, not power.
+
+*Enemy-economy symmetry (mostly P1, noted for interlock):* the enemy spends
+**production** (the war-sim's existing strength currency) to rebuild and
+escalate — the asymmetric mirror of your salvage/influence. You never
+out-*produce* the enemy; you out-*fly* and out-*maneuver* them. The economies
+interlock without symmetry — which is the whole game.
+
+### P5.8 — Cross-campaign meta (scoped, with a fault line flagged)
+
+A real tension to steer: P5's pillar endorsed "permanent unlocks / mastery"
+(v1.1), but v1.11's doctrine is **enrichment is acquired *in-campaign*, not
+given** — and F4's ownership rests on each war being *earned from baseline*.
+Permanent power-unlocks carried across campaigns would quietly erode both.
+
+Proposed resolution (P5.q2 to steer):
+- **Default — non-power meta only:** a persistent **codex/mastery** layer
+  (bestiary filled, biomes seen, personal-best wars, records) — recognition and
+  collection, mechanically inert. Each new war still starts from the Kestrel
+  baseline; purity preserved.
+- **Reserved — optional "veteran start":** any *mechanical* meta (a wider
+  starting catalog, bonus pilots) is an **opt-in toggle**, off by default and
+  flagged non-canonical — so purists get the clean roguelike and collectors get
+  progression, and the two never contaminate balance or the harness's guarantees.
+
+This keeps the v1.1 endorsement alive (there *is* permanent progression) while
+honoring v1.11 (power is earned each war).
+
+### P5.9 — Stat configs & migration (2.4 discharged, economy side)
+
+- **`EconomyConfig`** (`TunableConfig`): the global knobs — `starting_pilots`,
+  `starting_salvage`, `starting_influence`, `repair_cost_mult`,
+  `rearm_cost_mult`, `abort_salvage_forfeit`, `death_war_ticks` (F1.b),
+  `combo_salvage_mult`, the influence-action cost table, per-tier veterancy
+  salvage multipliers, and the P1.7 global-difficulty scalar's economy hooks.
+  Live-tunable; the overlay grows an **ECONOMY** section with the standard
+  preset bar. Re-balancing the whole economy in play is the flight-tuning
+  workflow, again.
+- **Per-item economy fields** (added to the existing configs): `salvage_value` +
+  `score_points` on `EnemyConfig` (P4.8's block, filled in); `price` +
+  `unlock_gate` on `WeaponConfig` / `FrameConfig` / `EquipmentConfig`.
+- **Campaign economy state** (serializable, part of the portable save — F4):
+  salvage & influence balances, pilot count, owned-gear set, unlocked-catalog
+  set, per-frame hull/magazine state. It lives in the war-state dict and
+  round-trips via `var_to_str` bit-exactly, like everything the war/ modules
+  already carry. The economy adds fields to the save, never a second save.
+
+### P5.10 — The economy harness (P4.9 / war_soak extended)
+
+2.4's "validated by the sim," applied to money. The matchup harness (P4.9)
+already fights loadouts; the **war_soak** already runs 200 theaters for
+invariants. Extend the soak with an **autopilot economy**: a headless buyer
+plays salvage/influence/pilots across hundreds of seeded campaigns and asserts
+economic health —
+- **Completable:** a reasonable player can acquire enough to keep pace with
+  escalation and reach the HQ raid — no unwinnable money-starve.
+- **No dominant farm:** no single kinetic loop (gnat-farming, raider-camping)
+  snowballs the war — the P5.1 wall holds numerically.
+- **No dead-ends:** you can always afford to redeploy/repair enough to continue;
+  the pilot economy can't soft-lock.
+- **Currency separation earns its keep:** if influence never binds (salvage
+  alone would do), the harness says so — and P5.q1 collapses to one currency.
+  The sim decides, not the paper.
+
+Same trick as `step_response.gd`: catch "the economy trivializes / starves the
+war" **numerically, before anyone plays it**, and re-catch it after every price
+change.
+
+### P5.11 — The vertical-slice cut (2.5, economy version)
+
+The smallest economy that delivers the feeling, against the P3.10 / P4.10 slice:
+- **One currency: salvage.** Influence and its menu wait unless the slice feels
+  toothless without one action — in which case add **Allied strike** only (the
+  most legible spend).
+- **Pilots:** the F1 lives loop, `starting_pilots` set, death → redeploy →
+  spectator on zero.
+- **The Depot, intel-gated:** the slice's one acquisition — the **gun director**
+  (P4.10's first acquirable), unlocked when the **screamer** shows in intel (the
+  counter arrives with the thing it counters — P4.10, now with a price).
+- **Attrition:** the repair/re-arm salvage sink (modest), the abort forfeit.
+- **Cross-campaign meta:** codex only.
+- **No production-capture blueprints, no allied offensive, no veteran-start** at
+  slice — all reserved until the core loop proves out.
+
+Growth order after the slice: influence + Allied strike → the full influence menu
+(fortify, recon, allied offensive) → production-capture blueprints →
+cross-campaign codex → the reserved power-meta toggle, last and optional.
+
+### P5 open questions (react by ID)
+
+- **P5.q1 — One currency or two?** Salvage + influence (separate
+  tactical/strategic loops, walled against cross-subsidy) vs. salvage only
+  (simpler, one number). My lean: **two**, but let the harness (P5.10) prove
+  influence binds — collapse to one if it doesn't. The slice ships one currency
+  regardless (P5.11).
+- **P5.q2 — Cross-campaign meta power?** Non-power codex/mastery only (protect
+  roguelike purity + F4 ownership) vs. optional reserved "veteran start" vs. full
+  permanent power-unlocks (the literal v1.1 endorsement). My lean: **non-power
+  default + reserved optional power-meta** (P5.8) — the synthesis that keeps both
+  promises.
+- **P5.q3 — Pilot identity?** Fungible lives at 1.0 (the 1-up model, clean) vs.
+  named pilots with veterancy/perks (richer stakes — "death never loses its
+  meaning" argues for it). My lean: **fungible at 1.0, identity reserved** — the
+  slice shouldn't carry the emotional-stakes system yet, but it's the natural
+  post-core depth.
+- **P5.q4 — Repair/re-arm: real sink or free?** Modest salvage sink (attrition
+  has teeth; flying well literally pays; loadout durability choices matter) vs.
+  free heal at base (zero friction, pure arcade). My lean: **modest sink** —
+  it's where the flight-model-is-product thesis earns economic meaning — tuned
+  to friction, never grind, auto-paid when affordable.
+- **P5.q5 — Acquisition gating: intel-discovery or flat catalog?** Intel-gate +
+  salvage (the "war shapes what you buy" thesis, richer) vs. flat salvage catalog
+  (simpler, everything for sale once affordable). My lean: **intel-gate** — it's
+  load-bearing for the whole meta-loop's texture — accepting the extra
+  bookkeeping (which the manifest/intel system P4.7 already carries).
+- **P5.q6 — Pilots buyable?** Never (earned only — death stays scarce and
+  meaningful) vs. buyable at steep influence as a last-resort desperation trade
+  (never for salvage). My lean: **earned primarily, buyable at steep influence**
+  — trading war-agency for one more life is an honest, painful choice, and it
+  can't be ground out.
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -1884,3 +2206,50 @@ are Iteration 4 (P5), which this doctrine now anchors.
     doctrine now anchors the P5 economy iteration.
   - **Next**: Iteration 4 — P5 (economy, rewards, pilots (F1), influence
     actions — pricing everything P1/P4/P3 defined).
+- **2026-07-17 — v1.12.** Iteration 4 opened — **P5: The Reward Economy &
+  Influence** proposal written (P5.1–P5.11 + six open questions P5.q1–q6),
+  anchored on the v1.11 doctrine *enrichment is acquired, not given*. Per 2.4 it
+  fixes the economic *grammar*, not absolute numbers (every price is a config
+  field, harness-tuned):
+  - **Three resources on two walled loops + a life (P5.1):** **salvage**
+    (tactical — dropped by combatants, buys arsenal/repair/re-arm), **influence**
+    (strategic — from captures/command-breaks/"war itself" kills, buys war-tick
+    actions), **pilots** (F1 lives). The wall — raiders pay salvage, convoys pay
+    influence — stops any single farm from buying the whole war (2.4 rigor on
+    money); kinetic-first (F3) falls out. M4 RunMods narrowed to in-sortie; the
+    campaign is the new persistence.
+  - **Salvage values discharged (P5.2 / P4.8):** `salvage_value` + `score_points`
+    on EnemyConfig; tactical-value bands (filler→line→specialist→heavy), not
+    HP-scaled; distributed cheap on purpose; strategic targets pay influence not
+    salvage; veterancy pays; **combo multiplier scales salvage** (style pays —
+    the in-sortie→campaign bridge).
+  - **Influence menu (P5.3):** recon sweep / fortify / **allied strike** /
+    **allied offensive** (P1.q3's "allied offense only on player order") as
+    deterministic war-tick modifiers — the seam where F3's commander layer later
+    docks.
+  - **Pilots priced (P5.4):** `starting_pilots` (P1.7-scaled), death forfeits
+    uncollected salvage + costs repair but not the frame, `death_war_ticks`
+    (F1.b) default 0, 1-ups earned (steep-influence buy as last resort, never
+    salvage), zero → F4.a spectator epilogue. Fungible at 1.0; named-pilot
+    veterancy reserved (P5.q3).
+  - **Acquisition (P5.5):** the **intel-gated Depot** ("war shapes what you buy":
+    intel unlocks the entry, salvage buys it) + **production-capture blueprints**
+    (P1↔P5 handshake) + dares/caches direct drops. Dev room stays fully stocked.
+  - **Attrition & P1.q4 priced (P5.6):** between-sortie repair/re-arm salvage
+    sink (flying well is literally cheaper), **abort = forfeit fraction +
+    war-tick** (battlefield-context scaled), exit-without-save rewinds.
+  - **War as reward surface (P5.7):** escalation relief (kill production → cap
+    the P4.6 clock), terrain leverage, codex — non-currency rewards; enemy spends
+    *production* (asymmetric mirror).
+  - **Meta fault line flagged (P5.8):** v1.1 "permanent unlocks" vs. v1.11
+    "acquired in-campaign" — proposed synthesis: non-power codex default +
+    reserved optional "veteran start" (P5.q2).
+  - **Configs & harness (P5.9/P5.10):** `EconomyConfig` + per-item `price`/
+    `unlock_gate`; economy state in the war-state dict (F4-clean, `var_to_str`
+    round-trip); **war_soak gains an autopilot-economy pass** asserting
+    completable / no-dominant-farm / no-dead-ends / currency-separation-binds.
+  - **Slice (P5.11):** salvage only, pilots, one intel-gated acquisition (gun
+    director unlocked by the screamer in intel), modest attrition, codex-only
+    meta.
+  - **Next**: steer P5 (react to P5.q1–q6 + any section by ID), then Iteration 5
+    — P2 (mission composition: node state → encounter), needing all of the above.
