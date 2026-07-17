@@ -11,7 +11,7 @@ const POOL: Array[Dictionary] = [
 	{"id": &"twin_racks", "title": "Twin Racks", "desc": "-50% missile cooldown"},
 	{"id": &"seeker_optics", "title": "Seeker Optics", "desc": "35% faster missile lock, +25% lock cone"},
 	{"id": &"armor_plating", "title": "Armor Plating", "desc": "+40 max hull"},
-	{"id": &"self_repair", "title": "Self-Repair", "desc": "Regenerate 1.5 hull/s"},
+	{"id": &"self_repair", "title": "Self-Repair", "desc": "Regenerate 0.7 hull/s"},
 	{"id": &"salvage_magnet", "title": "Salvage Magnet", "desc": "+50% score from kills"},
 ]
 
@@ -30,7 +30,9 @@ static func apply(id: StringName, mods: RunMods) -> void:
 		&"armor_plating":
 			mods.max_health_bonus += 40.0
 		&"self_repair":
-			mods.regen_rate += 1.5
+			# Nerfed 1.5 -> 0.7 (playtest: one pick made the run effectively
+			# invincible once fire rate scaled; see design doc v1.7).
+			mods.regen_rate += 0.7
 		&"salvage_magnet":
 			mods.score_mult *= 1.5
 

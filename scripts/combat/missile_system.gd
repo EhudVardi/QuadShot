@@ -40,7 +40,11 @@ func _physics_process(delta: float) -> void:
 		_lock_announced = false
 		_lock_stable = 0.0
 		return
-	var candidate: Node3D = _best_candidate()
+	# Sticky lock: a target being worked stays the target while it remains
+	# inside a widened cone (hysteresis) — crowds don't steal your lock
+	# mid-acquisition; you lose it by letting it escape, not by flying past
+	# a nearer bandit.
+	var candidate: Node3D = target if _target_still_holdable() else _best_candidate()
 	if candidate != target:
 		target = candidate
 		lock_progress = 0.0
@@ -78,6 +82,22 @@ func auto_hold_progress() -> float:
 		return 0.0
 	return clampf(_lock_stable / maxf(combat_config.missile_auto_hold_s, 0.001),
 			0.0, 1.0)
+
+
+## The current target keeps the lock while inside 1.5x the lock cone, in
+## range, and in line of sight (hysteresis — see the sticky-lock note).
+func _target_still_holdable() -> bool:
+	if target == null or not is_instance_valid(target) \
+			or target.is_queued_for_deletion():
+		return false
+	var offset: Vector3 = target.global_position - global_position
+	if offset.length() > combat_config.missile_lock_range:
+		return false
+	var hold_cone: float = deg_to_rad(combat_config.missile_lock_cone_deg
+			* RunMods.current.lock_cone_mult * 1.5)
+	if (-global_basis.z).angle_to(offset) >= hold_cone:
+		return false
+	return _has_line_of_sight(target)
 
 
 ## Nearest-to-reticle enemy inside the lock cone, range, and line of sight.
