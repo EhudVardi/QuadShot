@@ -6,6 +6,9 @@ extends Node3D
 ## through their "destroyed" signals; waves flow through the WaveDirector.
 
 @export var combat_config: CombatConfig
+## Shared bindings resource (same instance the overlay edits) — main flips
+## its context when pause engages.
+@export var input_bindings: InputBindings
 
 ## Sample times (s) along the blaster's ballistic path for the HUD gun
 ## funnel — near rings aid close dogfights, far ones show the drop.
@@ -28,6 +31,8 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _profile: PlayerProfile
 var _combo: float = 1.0
 var _last_kill_time: float = -1000.0
+var _paused_mode: bool = false
+var _pause_switch_was: bool = false
 
 
 func _ready() -> void:
@@ -57,6 +62,7 @@ func _process(delta: float) -> void:
 			and _drone_health.alive:
 		_drone_health.heal(RunMods.current.regen_rate * delta)
 		_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_handle_pause()
 	if Input.is_action_just_pressed(&"camera_toggle"):
 		if _fpv_camera.current:
 			_chase_camera.make_current()
@@ -70,6 +76,33 @@ func _process(delta: float) -> void:
 	_update_gun_funnel()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
+
+
+## BeamNG-style pause: time crawls (pause_time_scale) instead of stopping,
+## the paused binding context activates (gameplay keys go quiet for safe
+## typing), and the autopilot parks the drone.
+func _handle_pause() -> void:
+	# Typing in an overlay field must not toggle pause (P is a default key).
+	if get_viewport().gui_get_focus_owner() is LineEdit:
+		return
+	if Input.is_action_just_pressed(&"pause_toggle"):
+		_set_paused(not _paused_mode)
+	if InputMap.has_action(&"pause_switch") \
+			and not InputMap.action_get_events(&"pause_switch").is_empty():
+		var switch_on: bool = Input.is_action_pressed(&"pause_switch")
+		if switch_on != _pause_switch_was:
+			_pause_switch_was = switch_on
+			_set_paused(switch_on)
+
+
+func _set_paused(paused: bool) -> void:
+	_paused_mode = paused
+	Engine.time_scale = _drone.config.pause_time_scale if paused else 1.0
+	_drone.autopilot = paused
+	if input_bindings != null:
+		input_bindings.apply_context(paused)
+	_hud.show_pause(paused)
+	print("[pause] %s" % ("slow-mo engaged, autopilot holding" if paused else "resumed"))
 
 
 func _update_gun_funnel() -> void:

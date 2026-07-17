@@ -38,4 +38,7 @@ fpv_fov_deg = 94.0
 chase_distance = 3.5
 chase_height = 1.2
 chase_smoothing = 8.0
+pause_time_scale = 0.03
+autopilot_tilt_deg_per_ms = 4.0
+autopilot_climb_gain = 0.08
 arm_throttle_threshold = 0.05

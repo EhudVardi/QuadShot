@@ -15,7 +15,13 @@ extends TunableConfig
 const ACTIONS: Array[StringName] = [
 	&"arm_toggle", &"arm_switch", &"reset_drone", &"flight_mode_toggle",
 	&"camera_toggle", &"fire", &"fire_missile", &"missile_auto_switch",
-	&"overlay_toggle",
+	&"pause_toggle", &"pause_switch", &"overlay_toggle",
+]
+
+## Always bound from the flight (resumed) set, in BOTH contexts — pausing
+## must never lock the player out of unpausing or the overlay.
+const SYSTEM_ACTIONS: Array[StringName] = [
+	&"pause_toggle", &"pause_switch", &"overlay_toggle",
 ]
 
 enum Kind { KEY, JOY_BUTTON, JOY_AXIS }
@@ -23,10 +29,18 @@ enum Kind { KEY, JOY_BUTTON, JOY_AXIS }
 ## action name (String) -> Array of {"kind": int, "code": int, "sign": float}.
 ## sign is the trigger direction for JOY_AXIS bindings, unused otherwise.
 @export var bindings: Dictionary = {}
+## Second mapping set, active during pause (slow-mo). Gameplay actions are
+## unbound here by default, so typing in overlay fields while paused can't
+## fire weapons; the player may deliberately bind slow-mo controls.
+@export var bindings_paused: Dictionary = {}
+
+## Which context apply() writes onto the InputMap (runtime state, not saved).
+var paused_context_active: bool = false
 
 
 func _init() -> void:
 	bindings = factory_defaults()
+	bindings_paused = {}
 
 
 ## Defaults mirror the project.godot gamepad layout and add keyboard
@@ -41,6 +55,8 @@ static func factory_defaults() -> Dictionary:
 		"fire": [make_key(KEY_SPACE), make_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"fire_missile": [make_key(KEY_F), make_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)],
 		"missile_auto_switch": [],
+		"pause_toggle": [make_key(KEY_P)],
+		"pause_switch": [],
 		"overlay_toggle": [make_key(KEY_TAB), make_button(JOY_BUTTON_START)],
 	}
 
@@ -59,6 +75,12 @@ static func make_axis(code: int, sign: float) -> Dictionary:
 
 ## Rewrites the live InputMap from the stored bindings. Actions missing from
 ## the project (e.g. arm_switch) are created on the fly.
+## Switches the live InputMap between the flight and paused mapping sets.
+func apply_context(paused: bool) -> void:
+	paused_context_active = paused
+	apply()
+
+
 func apply() -> void:
 	# 2026-07-16 rename: saved configs may still carry the old action name.
 	if bindings.has("missile_auto"):
@@ -70,27 +92,36 @@ func apply() -> void:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action, 0.5)
 		InputMap.action_erase_events(action)
-		for binding: Dictionary in bindings.get(String(action), []):
+		for binding: Dictionary in _set_for(action, paused_context_active).get(String(action), []):
 			InputMap.action_add_event(action, _to_event(binding))
 
 
-func add_binding(action: StringName, binding: Dictionary) -> void:
-	var list: Array = bindings.get(String(action), [])
+## The dict an action reads from in the given context: system actions always
+## use the flight set, everything else uses the context's set.
+func _set_for(action: StringName, paused: bool) -> Dictionary:
+	if paused and not SYSTEM_ACTIONS.has(action):
+		return bindings_paused
+	return bindings
+
+
+func add_binding(action: StringName, binding: Dictionary, paused: bool = false) -> void:
+	var target: Dictionary = _set_for(action, paused)
+	var list: Array = target.get(String(action), [])
 	if not list.has(binding):
 		list.append(binding)
-	bindings[String(action)] = list
+	target[String(action)] = list
 	apply()
 
 
-func clear_action(action: StringName) -> void:
-	bindings[String(action)] = []
+func clear_action(action: StringName, paused: bool = false) -> void:
+	_set_for(action, paused)[String(action)] = []
 	apply()
 
 
 ## Short human-readable summary for the overlay row.
-func describe(action: StringName) -> String:
+func describe(action: StringName, paused: bool = false) -> String:
 	var parts: PackedStringArray = []
-	for binding: Dictionary in bindings.get(String(action), []):
+	for binding: Dictionary in _set_for(action, paused).get(String(action), []):
 		match int(binding.get("kind", Kind.KEY)):
 			Kind.JOY_BUTTON:
 				parts.append("btn%d" % int(binding.get("code", 0)))

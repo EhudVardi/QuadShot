@@ -18,6 +18,8 @@ extends CanvasLayer
 ## Action bindings (keys / joypad buttons / axis-switches). Applied onto the
 ## InputMap at ready and after every change/load/defaults.
 @export var input_bindings: InputBindings
+## TODO stub (GAMEPLAY-DESIGN P1.6): weather tunables, not yet simulated.
+@export var weather_config: WeatherConfig
 
 @onready var _telemetry: Label = $Panel/VBox/TelemetryText
 @onready var _motors_box: VBoxContainer = $Panel/VBox/Motors
@@ -32,6 +34,8 @@ var _refreshers: Array[Callable] = []
 var _section: VBoxContainer
 ## Non-empty while the BINDINGS section is listening for the next input.
 var _capture_action: StringName = &""
+## Which binding context the BINDINGS rows are editing (flight vs paused).
+var _bindings_edit_paused: bool = false
 ## device -> axis values at capture start (rest positions for switch capture).
 var _capture_rest: Dictionary = {}
 
@@ -67,6 +71,9 @@ const _FLIGHT_FLOAT_ROWS: Array[Array] = [
 	["chase_height", 0.0, 5.0, 0.1],
 	["chase_smoothing", 1.0, 20.0, 0.5],
 	["arm_throttle_threshold", 0.0, 0.2, 0.01],
+	["pause_time_scale", 0.01, 1.0, 0.01],
+	["autopilot_tilt_deg_per_ms", 0.0, 20.0, 0.5],
+	["autopilot_climb_gain", 0.0, 0.5, 0.01],
 ]
 
 # Vector3 (per-axis) FlightConfig fields: property, slider min/max/step.
@@ -138,6 +145,16 @@ const _AUDIO_FLOAT_ROWS: Array[Array] = [
 	["wind_volume", 0.0, 1.0, 0.01],
 ]
 
+## TODO stub rows — fields exist and persist but drive nothing yet (P1.6).
+const _WEATHER_FLOAT_ROWS: Array[Array] = [
+	["wind_heading_deg", -180.0, 180.0, 5.0],
+	["wind_speed_ms", 0.0, 30.0, 0.5],
+	["wind_gust_ms", 0.0, 20.0, 0.5],
+	["precipitation", 0.0, 1.0, 0.05],
+	["fog_amount", 0.0, 1.0, 0.05],
+	["heat_wave", 0.0, 1.0, 0.05],
+]
+
 const _LOOK_FLOAT_ROWS: Array[Array] = [
 	["exposure", 0.2, 3.0, 0.05],
 	["glow_intensity", 0.0, 2.0, 0.05],
@@ -189,6 +206,13 @@ func _ready() -> void:
 		_add_section_header("LOOK")
 		_add_preset_bar("look", look_config)
 		_add_config_rows(look_config, _LOOK_FLOAT_ROWS, [])
+	if weather_config != null:
+		_configs.append(weather_config)
+		if weather_config.load_from_user():
+			print("[config] loaded %s" % weather_config.save_path())
+		_add_section_header("WEATHER (todo)")
+		_add_preset_bar("weather", weather_config)
+		_add_config_rows(weather_config, _WEATHER_FLOAT_ROWS, [])
 	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
 	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
 	$Panel/VBox/Buttons/DefaultsButton.pressed.connect(_on_defaults)
@@ -400,6 +424,22 @@ func _add_preset_row(config: FlightConfig) -> Callable:
 func _build_bindings_section() -> void:
 	# Re-apply bindings whenever configs are reloaded/reset from the buttons.
 	_refreshers.append(func() -> void: input_bindings.apply())
+	# Context selector: flight = normal play; paused = the slow-mo mapping set
+	# (gameplay actions unbound there by default; system actions always live).
+	var context_row := HBoxContainer.new()
+	var context_label := Label.new()
+	context_label.text = "context"
+	context_label.custom_minimum_size.x = 180.0
+	var context_option := OptionButton.new()
+	context_option.focus_mode = Control.FOCUS_NONE
+	context_option.add_item("flight")
+	context_option.add_item("paused")
+	context_option.item_selected.connect(func(index: int) -> void:
+		_bindings_edit_paused = index == 1
+		_refresh_all())
+	context_row.add_child(context_label)
+	context_row.add_child(context_option)
+	_section.add_child(context_row)
 	for action: StringName in InputBindings.ACTIONS:
 		var row := HBoxContainer.new()
 		var name_label := Label.new()
@@ -414,12 +454,12 @@ func _build_bindings_section() -> void:
 		clear_button.text = "x"
 		clear_button.focus_mode = Control.FOCUS_NONE
 		var refresh := func() -> void:
-			value_label.text = input_bindings.describe(action)
+			value_label.text = input_bindings.describe(action, _bindings_edit_paused)
 		bind_button.pressed.connect(func() -> void:
 			_start_capture(action)
 			value_label.text = "press key / flip switch… (Esc)")
 		clear_button.pressed.connect(func() -> void:
-			input_bindings.clear_action(action)
+			input_bindings.clear_action(action, _bindings_edit_paused)
 			refresh.call())
 		_refreshers.append(refresh)
 		refresh.call()
@@ -467,7 +507,7 @@ func _input(event: InputEvent) -> void:
 		if absf(event.axis_value - rest) > 0.75:
 			binding = InputBindings.make_axis(event.axis, signf(event.axis_value))
 	if not binding.is_empty():
-		input_bindings.add_binding(_capture_action, binding)
+		input_bindings.add_binding(_capture_action, binding, _bindings_edit_paused)
 		_capture_action = &""
 		_refresh_all()
 	get_viewport().set_input_as_handled()

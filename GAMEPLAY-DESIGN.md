@@ -596,3 +596,16 @@ The between-sorties screen — the "battle commanding room" (F2):
   `missile_auto_switch` — it's a two-position stateful switch exactly like
   `arm_switch`, and the name should say so. Saved binding configs carrying the
   old `missile_auto` key migrate automatically on load.
+- **2026-07-17 — v1.4.** Pause mode + weather stub (user ideas):
+  - **Pause = BeamNG-style slow-mo** (`pause_time_scale`), not a hard stop —
+    time crawls as far as the sampling rate allows. Bindings gain a **second
+    context** (paused): gameplay actions unbound there by default, so overlay
+    typing is safe; players can deliberately bind slow-mo controls. System
+    actions (pause/overlay) always stay live from the flight set. **Autopilot**
+    holds position while paused (level-and-brake + hover collective) — player
+    agency preserved while time crawls. Candidates for later gameplay use:
+    slow-mo as an acquirable ability ("reflex module"?), autopilot as an
+    equipment tier — parked, not designed.
+  - **WEATHER overlay group added as an explicit TODO stub** (WeatherConfig:
+    wind heading/speed/gust, precipitation, fog, heat) — persisted, tunable,
+    driving nothing yet; exists to entice the P1.6 implementation.

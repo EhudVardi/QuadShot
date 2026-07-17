@@ -119,6 +119,17 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 ## Exponential smoothing rate (1/s) for the chase camera follow.
 @export var chase_smoothing: float = 8.0
 
+@export_group("Pause & Autopilot")
+## BeamNG-style pause: time slows to this scale rather than stopping (the
+## physics needs ticks to flow). Driven by the pause_toggle / pause_switch
+## bindings; while paused the "paused" binding context is active.
+@export var pause_time_scale: float = 0.03
+## Pause-mode position hold: tilt (deg) commanded per m/s of horizontal
+## drift — the autopilot brakes and levels the drone while time crawls.
+@export var autopilot_tilt_deg_per_ms: float = 4.0
+## Collective added per m/s of vertical drift (centered on hover throttle).
+@export var autopilot_climb_gain: float = 0.08
+
 @export_group("Arming")
 ## Arming is refused above this throttle fraction (safety, handoff §6.6).
 @export var arm_throttle_threshold: float = 0.05

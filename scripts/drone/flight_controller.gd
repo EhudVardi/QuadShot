@@ -31,6 +31,10 @@ var throttle_override: float = -1.0
 ## Test hook (scripts/tests/step_response.gd): replaces stick target rates.
 var rate_override_enabled: bool = false
 var rate_override: Vector3 = Vector3.ZERO
+## Pause-mode position hold (set by main while slow-mo pause is active):
+## overrides sticks with a level-and-brake controller so the drone parks
+## itself while the pilot tunes/binds in peace.
+var autopilot: bool = false
 
 ## For the overlay's target-vs-actual readout; zeroed while disarmed.
 var telemetry_target_rates: Vector3 = Vector3.ZERO
@@ -60,6 +64,10 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	_input.poll(config, hover_throttle(), delta)
 	collective = throttle_override if throttle_override >= 0.0 else _input.throttle
+	if autopilot and armed:
+		# Hold altitude around hover throttle; _autopilot_rates() holds level.
+		collective = clampf(hover_throttle()
+				+ config.autopilot_climb_gain * -linear_velocity.y, -1.0, 1.0)
 	_handle_buttons()
 	if armed:
 		_run_rate_control(delta)
@@ -194,6 +202,8 @@ func _run_rate_control(delta: float) -> void:
 func _target_rates() -> Vector3:
 	if rate_override_enabled:
 		return rate_override
+	if autopilot:
+		return _autopilot_rates()
 	if flight_mode == FlightMode.ACRO:
 		return _input.rate_command
 	# Angle mode (handoff §6.4): stick deflection → target attitude, and an
@@ -214,6 +224,32 @@ func _target_rates() -> Vector3:
 		clampf(roll_rate, -max_roll, max_roll),
 		clampf(pitch_rate, -max_pitch, max_pitch),
 		_input.rate_command.z)
+
+
+## Pause-mode position hold: tilt against horizontal drift (braking), level
+## out otherwise, yaw frozen; the collective override in _physics_process
+## handles the vertical axis. Reuses the angle-mode attitude loop with
+## computed target angles instead of stick input.
+func _autopilot_rates() -> Vector3:
+	var max_angle: float = deg_to_rad(config.max_angle_deg)
+	var forward: Vector3 = -global_basis.z
+	var right: Vector3 = global_basis.x
+	var forward_flat: Vector3 = Vector3(forward.x, 0.0, forward.z).normalized()
+	var right_flat: Vector3 = Vector3(right.x, 0.0, right.z).normalized()
+	var horizontal: Vector3 = Vector3(linear_velocity.x, 0.0, linear_velocity.z)
+	var tilt: float = deg_to_rad(config.autopilot_tilt_deg_per_ms)
+	var target_pitch: float = clampf(horizontal.dot(forward_flat) * tilt,
+			-max_angle * 0.6, max_angle * 0.6)
+	var target_roll: float = clampf(-horizontal.dot(right_flat) * tilt,
+			-max_angle * 0.6, max_angle * 0.6)
+	var current_pitch: float = asin(clampf(forward.y, -1.0, 1.0))
+	var current_roll: float = asin(clampf(-right.y, -1.0, 1.0))
+	var max_roll: float = deg_to_rad(config.max_rate_deg.x)
+	var max_pitch: float = deg_to_rad(config.max_rate_deg.y)
+	return Vector3(
+			clampf(config.angle_p * (target_roll - current_roll), -max_roll, max_roll),
+			clampf(config.angle_p * (target_pitch - current_pitch), -max_pitch, max_pitch),
+			0.0)
 
 
 ## Body angular velocity mapped to pilot axes. Godot body space: +X right,

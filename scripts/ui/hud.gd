@@ -27,6 +27,7 @@ var _lock_indicator: LockIndicator
 var _gate_marker: GateMarker
 var _gun_funnel: GunFunnel
 var _stick_display: StickDisplay
+var _pause_label: Label
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -154,6 +155,15 @@ func _ready() -> void:
 	_stick_display.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stick_display)
+	_pause_label = Label.new()
+	_pause_label.text = "|| SLOW-MO — autopilot holding"
+	_pause_label.add_theme_color_override(&"font_color", Color(0.4, 0.85, 1.0))
+	_pause_label.add_theme_font_size_override(&"font_size", 20)
+	_pause_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_pause_label.position.y = 48.0
+	_pause_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_label.visible = false
+	add_child(_pause_label)
 	for side: StringName in [&"front", &"back", &"left", &"right"]:
 		var edge := ColorRect.new()
 		edge.color = Color(1, 0, 0, 0)
@@ -250,6 +260,10 @@ func update_gate_marker(marker_visible: bool,
 	_gate_marker.marker_visible = marker_visible
 	_gate_marker.marker_position = screen_position
 	_gate_marker.queue_redraw()
+
+
+func show_pause(paused: bool) -> void:
+	_pause_label.visible = paused
 
 
 func show_death(dead: bool) -> void:
