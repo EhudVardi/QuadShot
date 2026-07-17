@@ -1,10 +1,10 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.9 (2026-07-17) — all four forks decided; Iteration 1 (P1)
-> steered; the war-sim skeleton lives (v1.7). **Iteration 2 (P4 — Bestiary +
-> counter-matrix) STEERED** (all P4.q answered; **water domain added** — see
-> P4 steering). Proposed next: Iteration 3 (P3 — frames, hardpoint profiles,
-> the weapon roster vs. the matrix).
+> **Status:** v1.10 (2026-07-17) — all four forks decided; Iterations 1 (P1)
+> and 2 (P4) steered; the war-sim skeleton lives (v1.7). **Iteration 3 (P3 —
+> frames, hardpoint profiles, the arsenal vs. the matrix) PROPOSED** —
+> awaiting steering. Next after steering: Iteration 4 (P5 — economy, rewards,
+> pilots, influence).
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -1168,6 +1168,328 @@ Iteration 2 is steered. The proposal above stands as accepted, with:
 
 ---
 
+## Iteration 3 — P3: Frames, Hardpoints & the Arsenal (PROPOSED, 2026-07-17 — awaiting steering)
+
+> The answers to the bestiary. Iteration 2 locked the matrix's columns as
+> provisional *answer archetypes*; this iteration gives them bodies — real
+> frames, real weapons, real equipment — and wires the whole thing into the
+> config discipline the flight model already lives by. Concrete, opinionated,
+> meant to be torn apart. Sections are **P3.1–P3.10**; react by ID.
+
+### P3.1 — The design grammar (the v1.6 axes, locked)
+
+Every weapon is defined along the axes the Firehawk lesson demanded:
+
+- **Seat** — which matrix column it instantiates (chip gun / burst / lob /
+  missile / flak; *terrain* is flying, not gear). The seat carries the P4.3
+  column ratings as the weapon's **spec targets** — the harness holds each
+  weapon to its column (P3.7).
+- **Trajectory** — direct / ballistic / homing.
+- **Fire model** — auto / burst / charge (charge is an axis, not a gimmick —
+  the Firehawk homage made canon in the Lance, P3.5).
+- **Economy** — one of two honest currencies:
+  - **Heat** — energy weapons self-recharge but overheat: sustained fire hits
+    a lockout. Chip's economy is *time*, never scarcity.
+  - **Magazine** — ammo weapons carry finite rounds and **re-arm only at
+    landing pads** (P2 v1.6) — the loadout economy lands on landing skill,
+    exactly where this game wants every road to lead.
+- **Damage style** — chip / burst / area, straight from the P4.1 damage
+  grammar; the style is what the durability models price.
+- **FCS compatibility** — which director (if any) can run it, and what the
+  screamer's jam does to that (P3.6).
+- **Hardpoint class** — which slot it needs (P3.2) and what it weighs.
+- **Counter-web role** — which enemies it answers, which punish it.
+
+Player fire stays **yellow** across the roster (emissive palette) — weapon
+identity comes from form (bolt / slug / arc / trail / burst-cloud), not from
+color drift.
+
+### P3.2 — The hardpoint grammar & honest mass
+
+The hardpoint profile (v1 clarification) gets its concrete shape:
+
+- **Slot classes:** **S** (light — pods, small guns), **M** (standard — most
+  weapons), **H** (heavy — racks and big tubes), **E** (equipment bay —
+  internal: FCS modules, countermeasures, utility; no aerodynamic footprint).
+  A bigger slot accepts smaller items (M takes S), never the reverse.
+- **Mass budget:** each frame states a total mounted-mass cap *alongside* its
+  slots — slots say what *fits*, the budget says what *flies*. Maxing every
+  slot on a light frame busts the budget; the loadout screen makes you choose.
+- **Honest mass (proposed as a locked rule):** mounted mass is **real
+  rigidbody mass** — no stat-sheet abstraction. TWR sags, inertia grows,
+  stopping distances stretch, because the physics says so; the flight model is
+  the product, and the loadout screen is now a flight decision. The hangar
+  shows a **predicted hover-throttle readout** per loadout so the price is
+  visible before takeoff (and the P1.6 heat-wave modifier compounds it
+  honestly — a heavy loadout in a heat wave is a real commitment).
+
+Layering order (stated once, binding): **FlightConfig (frame base) → loadout
+mass (physics) → RunMods (in-sortie drafts) → weather (P1.6)**. No ad-hoc
+multipliers outside the stack.
+
+### P3.3 — The frame roster
+
+Four frames at 1.0. Block format: flight profile (relative to the shipped
+baseline — absolute numbers belong to the `.tres` and the harness, per P4.1
+doctrine) / hardpoints / signature / web role / the feel.
+
+**Firehawk — the all-rounder** *(today's shipped drone, canonized — the name
+honors the story that gave us the weapon doctrine).*
+- *Flight:* the baseline (1× mass, 1× TWR) — every other frame is stated
+  against it. Current `default_flight_config.tres` IS this frame.
+- *Hardpoints:* 1×M + 2×S + 1×E; medium budget.
+- *Signature:* baseline.
+- *Web role:* the all-zeros column of P4.4, on purpose — **the frame you fly
+  when intel is stale.** Never the best answer, never punished.
+- *Feel:* what the last three months of tuning already feel like.
+
+**Dart — light interceptor.**
+- *Flight:* ~0.65× mass, agility priority — highest rates, crispest response,
+  Race-preset native; light frame, light legs.
+- *Hardpoints:* 2×S + 1×E; tight budget — a Dart carrying tonnage stops being
+  a Dart, and the physics enforces it (P3.2).
+- *Signature:* small — spotted later, locked slower.
+- *Web role:* falx days (out-turn the pass) and SAM days (mask + sprint);
+  punished by gnat clouds (one sting is real damage) and aegis (no burst
+  tonnage on S slots).
+- *Feel:* the dare-chaser (P2 v1.6) — the frame you pick to fly the gap.
+
+**Atlas — heavy gunship.**
+- *Flight:* ~1.9× mass, TWR held modest, soft rates, heavy filtering — it
+  *plants* in the air.
+- *Hardpoints:* 1×H + 2×M + 2×S + 2×E; big budget. The only frame that lifts
+  the H-class racks.
+- *Signature:* huge — everything sees it coming.
+- *Durability:* the one frame with innate armor (flat reduction — the P4.1
+  grammar applied to the player's side).
+- *Web role:* gnat days (tank the stings, carry the flak) and aegis days
+  (missile racks + burst tonnage); hard-punished by falx (can't refuse the
+  pass) and SAM in the open. Over water it is the boldest posture in the game
+  — no cover, slow, loud (P4 steering's no-cover domain, priced).
+- *Feel:* a stable gun platform — and honestly so: FCS solutions converge
+  faster on a steady frame because miss-distance jitter shrinks. That's
+  physics, not a stat: the heavy frame is the FCS frame *emergently*.
+
+**Shade — stealth recon.**
+- *Flight:* ~0.85× mass, smooth-tuned (Cinematic-adjacent), quiet motor
+  profile (the SoundBank motor synthesis gets a hush variant — audio is part
+  of the fantasy).
+- *Hardpoints:* 1×S + 2×E; minimal budget. Nearly unarmed by design.
+- *Signature:* the point — enemy sight/lock/detection ranges sharply reduced
+  against it; SAM lock stages stretch.
+- *Web role:* the intel war's vehicle: overflying a node **refreshes its
+  intel** (P1.3's recon flights get their airframe); ++ against everything
+  that can be *avoided* (turrets, SAM, sentinels — slip in, kill the dish,
+  slip out), hard-punished by anything with a clock (aegis doesn't care that
+  you're sneaky) and by clouds that hunt by proximity.
+- *Feel:* the held-breath frame — flying *unseen* as its own skill
+  expression.
+
+**Frames vs. rate presets (boundary stated):** presets tune *feel within* a
+frame; frames change the *airframe*. Orthogonal — each frame carries its own
+FlightConfig, and the preset ladder (Cinematic→Race) rides on top of
+whichever frame you fly. The overlay tuning loop works per-frame for free.
+
+### P3.4 — Frame pressure, instantiated (P4.4 grown to the full roster)
+
+| Enemy | Dart | Firehawk | Atlas | Shade |
+|---|---|---|---|---|
+| **Gnat** | − | 0 | ++ | − |
+| **Raider** | + | 0 | 0 | 0 |
+| **Falx** | ++ | 0 | −− | + |
+| **Aegis** | − | 0 | ++ | −− |
+| **Screamer** | + | 0 | − | ++ |
+| **Turret** | + | 0 | − | ++ |
+| **SAM** | ++ | 0 | −− | ++ |
+| **Convoy** | 0 | 0 | + | + |
+| **Commander** | + | 0 | + | + |
+| **Sentinel** | + | 0 | − | ++ |
+| **Gunboat** | + | 0 | − | + |
+| **Barge** | 0 | 0 | + | + |
+
+Same invariants as the weapon matrix: every frame has great days and punished
+days; the Firehawk column staying flat is the design (the stale-intel
+frame); no frame dominates another. **Intel composition → frame choice →
+loadout** is now a three-step briefing decision, and the whole chain runs on
+P1.3's fog.
+
+### P3.5 — The weapon roster (one weapon per seat)
+
+Five weapons at 1.0 — **one instantiation per matrix column.** Variety at 1.0
+comes from loadout × equipment × frame combos (the P4.q1 logic applied to
+gear); second instantiations per seat are the post-1.0 growth axis, reserved.
+Weapons get functional names (the shipped blaster/missile precedent); frames
+get proper names. Block format: seat / trajectory / fire model / economy /
+damage style / FCS / slot / web role.
+
+**Blaster** *(shipped, canonized)* — seat: **chip gun**.
+- Direct · auto · **heat** (sustained fire overheats — chip's price is time,
+  proposed as its missing economy) · chip · directable (gun director / lead
+  computer) · S.
+- *Web role:* the raider/sentinel answer, the universal donor's counterpart;
+  dies on aegis shields and armor (P4.3 column, unchanged).
+
+**Lance** — seat: **burst**. *The Firehawk homage, made a real weapon.*
+- Direct · **charge** (tap = light bolt; full hold = a fast, flat,
+  shield-cracking slug) · heat (a full slug drains most of the gauge — burst
+  economy through depth of draw) · burst · director-compatible **at full
+  charge only** (P3.q6) · M.
+- *Web role:* the aegis-cracker and armor-beater (SAM vans, convoys,
+  commanders, barges); punished by gnats (overkill per body is the
+  distributed grammar working) and pressured by falx (charge time is
+  exposure time).
+
+**Mortar** — seat: **lob**. *The indirect-fire archetype, deliberate at last.*
+- Ballistic · single-shot cycle · **magazine** · burst with a light splash ·
+  **manual-only at 1.0** (the skill weapon — a ballistic computer is a
+  reserved post-core module, P3.q7) · M.
+- *Web role:* arcs over LOS — the turret/SAM/convoy/barge answer, the
+  Firehawk tactic *with its price attached*: falx wings flush the camper
+  (P4.2), and the shell's flight time is honest.
+
+**Missile** *(shipped, canonized)* — seat: **homing**.
+- Homing · lock-gated single fire · magazine (scarce — the bestiary's economy
+  vector has teeth) · burst · missile director · M (an H-rack carries more
+  tubes, Atlas country).
+- *Web role:* aegis/gunboat/commander killer; bankrupted by gnats, jammed by
+  screamers — the two designed humiliations stand.
+
+**Flak pod** — seat: **flak**. *The slice's third weapon (P4.10).*
+- Direct with **proximity-fused burst** (shells detonate at computed range
+  into a fragment cloud) · auto, slow cycle · magazine (generous) · area · S.
+- *FCS note:* the fuse ranging is onboard computation — **a screamer degrades
+  it to contact-only**, gracefully (the P4.3 `0` vs screamer, mechanized).
+  EW pressures every computed solution in the game, uniformly.
+- *Web role:* the gnat shredder and the falx curtain (`++` on both, per
+  P4.3); useless tonnage against shields and armor.
+
+### P3.6 — FCS & the equipment bay
+
+The E-slot roster. FCS members are *acquirable gear competing for slots*
+(the v1.2 rule — assets, not modes), and every one of them degrades inside a
+screamer bubble:
+
+- **Iron trigger** — the baseline, free, unjammable: your thumb. The manual
+  fallback stays a skill path forever (the screamer guarantees it's never
+  dead content).
+- **Gun director** *(canonizes the shipped `fire_assist_miss_m` /
+  `fire_assist_range` prototype)* — auto-fires the blaster on a ballistic
+  solution. The dev knobs become this item's stats; knobs stay until the
+  equipment system ships.
+- **Lead computer** — the director upgrade: wider solution window, faster
+  convergence, works at longer range. (The Atlas platform-stability synergy
+  is emergent — see P3.3.)
+- **Missile director** *(canonizes `missile_auto_switch`)* — the stateful
+  switch becomes this module's function: stable full lock auto-launches.
+- **Turret pod** — off-boresight FCS: occupies an **S weapon slot** (not E —
+  it's a gun), a gimballed micro-chip-gun with a bounded rear/side cone. The
+  designed falx answer for frames that can't out-turn the pass. Autonomy
+  bounded and jam-vulnerable (P3.q5).
+- **Flare/chaff pod** — the P4.q3 countermeasure, **explicitly a later-tier
+  acquisition**: early SEAD stays a flying problem; this arrives as the
+  war's SAM density escalates.
+- **Ammo cassette / aux battery** — magazine depth / heat-pool depth. The
+  boring-but-honest picks that fight the interesting ones for slots.
+- **Armor plate** — hull + flat reduction, paid in real mass (P3.2 makes the
+  price physical).
+- **Recon suite** — widens intel-refresh radius and sharpens manifest detail
+  (P1.3/P4.7); native to Shade, mountable anywhere — any frame can moonlight
+  as a scout, Shade just does it while unseen.
+
+### P3.7 — Matrix reconciliation (columns become gear)
+
+The P4.3 + sea-annex matrix maps 1:1 — chip gun→Blaster, burst→Lance,
+lob→Mortar, missile→Missile, flak→Flak pod, terrain→the pilot. The paper
+ratings transfer as each weapon's **spec targets**, and the P4.9 harness
+gains its second axis: **weapon × enemy** measured runs land in the same
+`++`…`−−` bands, plus **frame × enemy** runs against P3.4. Red-flag
+automation extends accordingly: a weapon drifting off its column's ratings,
+a frame column going flat (except the Firehawk's, which must *stay* flat),
+any dominance pair — caught numerically, before anyone flies it, forever.
+
+### P3.8 — The loadout loop & acquisition
+
+The briefing-room chain, end to end: **intel manifest (P4.7, through P1.3's
+fog) → frame pick (P3.4 pressure) → loadout fill (slots + budget, P3.2) →
+sortie → pads repair & re-arm magazines (P2) → debrief → salvage.**
+
+- **Campaign start:** the hangar holds a Firehawk, the Blaster, and the
+  Missile — today's shipped kit, canonized as the starting spread. Everything
+  else is **acquired in-campaign** (v1's intel-driven acquisition: what the
+  war shows you shapes what you buy — screamers in intel sell lead computers).
+- **Prices, salvage values, and acquisition mechanics belong to Iteration 4
+  (P5)** — flagged, not designed here. Dares (P2 v1.6) can drop gear
+  directly; that hook stands.
+- **Cross-campaign meta unlocks** (P5's third axis) also deferred — this
+  iteration only fixes *what exists* to be priced.
+
+### P3.9 — Stat configs & migration (2.4 discharged, player side)
+
+- **`FrameConfig`** (`TunableConfig`, one `.tres` per frame): hardpoint block
+  (slot list, mass budget), signature block (visual/sensor/audio
+  multipliers), durability block (hull, armor). **Each frame also carries its
+  own `FlightConfig` `.tres`** — frames ARE flight configs (P3 v1), so the
+  entire overlay FLIGHT section, preset bar, and tuning loop work per-frame
+  with zero new machinery.
+- **`WeaponConfig`** (one `.tres` per weapon): trajectory/fire/economy/damage
+  /FCS blocks mirroring P3.1. Migration: CombatConfig's blaster and missile
+  fields split out into `blaster.tres` / `missile.tres`; CombatConfig slims
+  toward player-side plumbing (with `enemy_*`/`turret_*` already leaving for
+  the bestiary per P4.8, it may dissolve entirely — fine).
+- **`EquipmentConfig`** (one `.tres` per module): the P3.6 roster's stats.
+- **Loadout state** is a small serializable dict (slot → item id) living in
+  campaign state — portable-save-friendly by construction (F4).
+- **Overlay:** a **HANGAR section** (frame/loadout picking, hover-throttle
+  preview) + the P4.8 BESTIARY precedent extended with an **ARSENAL section**
+  (live-tuning WeaponConfigs, standard preset bar). The balance workflow
+  stays the flight-tuning workflow.
+
+### P3.10 — The vertical-slice cut (2.5, updated)
+
+- **2 frames: Firehawk + Atlas.** Against the slice bestiary (raider, turret,
+  gnat, aegis — P4.10), the heavy/all-round choice is the one that matters:
+  gnat+aegis days are Atlas days, and the Firehawk covers stale intel. Dart
+  and Shade follow when falx and the intel war arrive to justify them.
+- **3 weapons: Blaster + Missile + Flak pod** — confirmed from P4.10; the
+  mini-web holds (guns die on aegis, missiles bankrupt on gnats, flak
+  starves on aegis).
+- **First acquirable: the gun director** (it's already prototyped as knobs) —
+  and per P4.10, **the screamer enters alongside it**: the counter arrives
+  with the thing it counters.
+- Growth order after the slice: Lance → falx+Dart (burst and the
+  interceptor war), Mortar → SAM/convoy (the ground game), Shade+recon suite
+  → sentinel/intel war, sea annex last.
+
+### P3 open questions (react by ID)
+
+- **P3.q1** — Frame roster: four at 1.0, with Shade included — or is Shade's
+  signature model (new sensor tech) post-core, leaving three? My lean: keep
+  Shade at 1.0 — it's the intel pillar's airframe, and P1.3 is load-bearing.
+- **P3.q2** — Naming: proper names for frames, functional names for weapons
+  (as proposed)? And is the **Firehawk homage** the right name for the
+  all-rounder — the story lives in the doctrine, should it live on the
+  airframe?
+- **P3.q3** — Honest mass as a locked rule: mounted mass = real rigidbody
+  mass/inertia, hangar shows predicted hover throttle. Any appetite for
+  softening it (a % feel-dampener), or lock it pure? My lean: pure.
+- **P3.q4** — Heat economy: per-weapon heat gauges (readable, independent) vs
+  one shared power pool per frame (deeper loadout tradeoff, muddier HUD)? My
+  lean: per-weapon at 1.0; shared-power as a possible Atlas-only quirk later.
+- **P3.q5** — Turret pod autonomy: how bounded before it stops trivializing
+  the falx bait-game? (Proposed: narrow rear/side cone, chip damage only,
+  jam-vulnerable, and it eats an S weapon slot.) Does it need a harsher
+  price?
+- **P3.q6** — Lance × gun director: director releases only at full charge on
+  a solution (tap stays manual) — or is charge-fire manual-only forever, as
+  the skill identity of the burst seat? My lean: director-at-full-charge;
+  the screamer keeps it honest.
+- **P3.q7** — Mortar: manual-only at 1.0 (skill weapon identity), ballistic
+  computer as a reserved post-core module — or ship the computer at 1.0 as
+  the lob seat's FCS member? My lean: manual at 1.0; the lob seat's price is
+  aim-by-feel.
+
+---
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -1408,3 +1730,44 @@ Iteration 2 is steered. The proposal above stands as accepted, with:
     faction-specific tradeoffs). Pinned for the F3 commander-mode era.
   - **Next**: Iteration 3 — P3 (frames, hardpoint profiles, the weapon
     roster designed against the locked matrix).
+- **2026-07-17 — v1.10.** Iteration 3 opened — **P3: Frames, Hardpoints &
+  the Arsenal proposal written** (P3.1–P3.10 + open questions P3.q1–q7),
+  status PROPOSED, awaiting steering. Highlights:
+  - **Weapon grammar locked to the v1.6 axes** — seat (matrix column) /
+    trajectory / fire model / economy / damage style / FCS compatibility /
+    hardpoint class / web role; two honest economies (**heat** = time,
+    **magazine** = pad re-arms — the loadout economy lands on landing skill).
+  - **Hardpoint grammar** — S/M/H weapon slots + E equipment bays, per-frame
+    mass budget, and **honest mass** proposed as a locked rule: mounted mass
+    is real rigidbody mass (hangar shows predicted hover throttle); modifier
+    stack stated once (frame → loadout → RunMods → weather).
+  - **Four frames** — **Firehawk** (the shipped drone canonized as the
+    all-rounder, name honoring the doctrine story), **Dart** (light
+    interceptor, dare-chaser), **Atlas** (heavy gunship, innate armor,
+    emergent FCS-platform synergy), **Shade** (stealth recon — signature
+    model + overflight intel refresh; P1.3's recon flights get their
+    airframe). Frame × enemy pressure table extended to the full twelve-row
+    roster; frames ≠ rate presets (orthogonal, each frame carries its own
+    FlightConfig).
+  - **Five weapons, one per matrix seat** — Blaster (chip, canonized, gains
+    heat), **Lance** (charge burst — the Firehawk homage as a real weapon),
+    **Mortar** (deliberate indirect fire, manual-only, falx-priced),
+    Missile (canonized), **Flak pod** (proximity-fused area; screamer
+    degrades its fuse to contact-only — EW pressures every computed
+    solution uniformly). Second instantiations per seat reserved post-1.0.
+  - **E-bay roster** — iron trigger (free, unjammable) → gun director
+    (canonizes `fire_assist_*`) → lead computer → missile director
+    (canonizes `missile_auto_switch`) → turret pod (off-boresight, eats an
+    S slot); flare/chaff explicitly later-tier (P4.q3 honored); ammo/battery
+    /armor/recon-suite utility picks.
+  - **Harness gains the player axis** — weapon × enemy and frame × enemy
+    measured matrices against the paper spec targets; Firehawk's column must
+    *stay* flat.
+  - **Configs** — FrameConfig + per-frame FlightConfig, WeaponConfig,
+    EquipmentConfig `.tres`; overlay HANGAR + ARSENAL sections; CombatConfig
+    dissolves toward weapon files; loadout = serializable dict (F4-clean).
+  - **Slice cut updated** — Firehawk + Atlas; Blaster + Missile + Flak pod;
+    gun director as first acquirable with the screamer entering alongside
+    it. Growth order sketched (Lance/Dart → Mortar → Shade → sea annex).
+  - Prices and acquisition mechanics explicitly deferred to Iteration 4
+    (P5).
