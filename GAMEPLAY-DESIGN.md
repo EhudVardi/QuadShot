@@ -1,10 +1,11 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.10 (2026-07-17) — all four forks decided; Iterations 1 (P1)
-> and 2 (P4) steered; the war-sim skeleton lives (v1.7). **Iteration 3 (P3 —
-> frames, hardpoint profiles, the arsenal vs. the matrix) PROPOSED** —
-> awaiting steering. Next after steering: Iteration 4 (P5 — economy, rewards,
-> pilots, influence).
+> **Status:** v1.11 (2026-07-17) — all four forks decided; Iterations 1 (P1),
+> 2 (P4), and 3 (P3) steered; the war-sim skeleton lives (v1.7). **Iteration 3
+> (P3 — frames, hardpoints, the arsenal) STEERED** (all P3.q decided; the
+> all-rounder christened **Kestrel**; "enrichment is acquired, not given"
+> adopted as doctrine). Proposed next: Iteration 4 (P5 — economy, rewards,
+> pilots, influence — pricing everything P3 defined).
 >
 > **How this doc works:** this file is the design *and its history*. Nothing is
 > deleted — decisions get dated entries in the [Decision Log](#decision-log),
@@ -1178,7 +1179,8 @@ Iteration 2 is steered. The proposal above stands as accepted, with:
 
 ### P3.1 — The design grammar (the v1.6 axes, locked)
 
-Every weapon is defined along the axes the Firehawk lesson demanded:
+Every weapon is defined along the axes the charge-shot lesson (P3 v1.6)
+demanded:
 
 - **Seat** — which matrix column it instantiates (chip gun / burst / lob /
   missile / flak; *terrain* is flying, not gear). The seat carries the P4.3
@@ -1186,7 +1188,7 @@ Every weapon is defined along the axes the Firehawk lesson demanded:
   weapon to its column (P3.7).
 - **Trajectory** — direct / ballistic / homing.
 - **Fire model** — auto / burst / charge (charge is an axis, not a gimmick —
-  the Firehawk homage made canon in the Lance, P3.5).
+  the charge-shot doctrine (P3 v1.6) made canon in the Charge cannon, P3.5).
 - **Economy** — one of two honest currencies:
   - **Heat** — energy weapons self-recharge but overheat: sustained fire hits
     a lockout. Chip's economy is *time*, never scarcity.
@@ -1233,8 +1235,10 @@ Four frames at 1.0. Block format: flight profile (relative to the shipped
 baseline — absolute numbers belong to the `.tres` and the harness, per P4.1
 doctrine) / hardpoints / signature / web role / the feel.
 
-**Firehawk — the all-rounder** *(today's shipped drone, canonized — the name
-honors the story that gave us the weapon doctrine).*
+**Kestrel — the all-rounder** *(today's shipped drone, canonized. The kestrel
+is the falcon that hunts from a hover — apt for the frame you hold station in.
+Renamed from the v1.10 proposal's placeholder per P3.q2; see the inspiration
+note at the end of P3.5.)*
 - *Flight:* the baseline (1× mass, 1× TWR) — every other frame is stated
   against it. Current `default_flight_config.tres` IS this frame.
 - *Hardpoints:* 1×M + 2×S + 1×E; medium budget.
@@ -1292,7 +1296,7 @@ whichever frame you fly. The overlay tuning loop works per-frame for free.
 
 ### P3.4 — Frame pressure, instantiated (P4.4 grown to the full roster)
 
-| Enemy | Dart | Firehawk | Atlas | Shade |
+| Enemy | Dart | Kestrel | Atlas | Shade |
 |---|---|---|---|---|
 | **Gnat** | − | 0 | ++ | − |
 | **Raider** | + | 0 | 0 | 0 |
@@ -1308,7 +1312,7 @@ whichever frame you fly. The overlay tuning loop works per-frame for free.
 | **Barge** | 0 | 0 | + | + |
 
 Same invariants as the weapon matrix: every frame has great days and punished
-days; the Firehawk column staying flat is the design (the stale-intel
+days; the Kestrel column staying flat is the design (the stale-intel
 frame); no frame dominates another. **Intel composition → frame choice →
 loadout** is now a three-step briefing decision, and the whole chain runs on
 P1.3's fog.
@@ -1329,7 +1333,8 @@ damage style / FCS / slot / web role.
 - *Web role:* the raider/sentinel answer, the universal donor's counterpart;
   dies on aegis shields and armor (P4.3 column, unchanged).
 
-**Lance** — seat: **burst**. *The Firehawk homage, made a real weapon.*
+**Charge cannon** — seat: **burst**. *The charge-shot doctrine (P3 v1.6) made
+a real weapon; see the inspiration note at the end of this section.*
 - Direct · **charge** (tap = light bolt; full hold = a fast, flat,
   shield-cracking slug) · heat (a full slug drains most of the gauge — burst
   economy through depth of draw) · burst · director-compatible **at full
@@ -1344,8 +1349,8 @@ damage style / FCS / slot / web role.
   **manual-only at 1.0** (the skill weapon — a ballistic computer is a
   reserved post-core module, P3.q7) · M.
 - *Web role:* arcs over LOS — the turret/SAM/convoy/barge answer, the
-  Firehawk tactic *with its price attached*: falx wings flush the camper
-  (P4.2), and the shell's flight time is honest.
+  camp-behind-cover tactic *with its price attached*: falx wings flush the
+  camper (P4.2), and the shell's flight time is honest.
 
 **Missile** *(shipped, canonized)* — seat: **homing**.
 - Homing · lock-gated single fire · magazine (scarce — the bestiary's economy
@@ -1362,6 +1367,18 @@ damage style / FCS / slot / web role.
   EW pressures every computed solution in the game, uniformly.
 - *Web role:* the gnat shredder and the falx curtain (`++` on both, per
   P4.3); useless tonnage against shields and armor.
+
+> **Inspiration note (deep-docs credit, per P3.q2 — 2026-07-17).** The
+> charge-shot mechanic at the heart of the Charge cannon — and the whole
+> "design *for* emergent tactics with prices and counters" doctrine (P3 v1.6)
+> that runs through this design — was sparked by a charge-fire energy weapon
+> the user encountered in an existing game. That game's name is deliberately
+> **not** carried onto any QuadShot element (no frame, weapon, or system bears
+> it): it was the *inspiration*, and it stays credited here, quietly, rather
+> than borrowed as a name. The internal design vocabulary in the locked
+> history above (where prior versions nicknamed the lesson after it) is left
+> as-written per the append-only rule; going forward the doctrine is referred
+> to functionally (the *charge-shot* / *indirect-fire* doctrine).
 
 ### P3.6 — FCS & the equipment bay
 
@@ -1398,13 +1415,13 @@ screamer bubble:
 
 ### P3.7 — Matrix reconciliation (columns become gear)
 
-The P4.3 + sea-annex matrix maps 1:1 — chip gun→Blaster, burst→Lance,
+The P4.3 + sea-annex matrix maps 1:1 — chip gun→Blaster, burst→Charge cannon,
 lob→Mortar, missile→Missile, flak→Flak pod, terrain→the pilot. The paper
 ratings transfer as each weapon's **spec targets**, and the P4.9 harness
 gains its second axis: **weapon × enemy** measured runs land in the same
 `++`…`−−` bands, plus **frame × enemy** runs against P3.4. Red-flag
 automation extends accordingly: a weapon drifting off its column's ratings,
-a frame column going flat (except the Firehawk's, which must *stay* flat),
+a frame column going flat (except the Kestrel's, which must *stay* flat),
 any dominance pair — caught numerically, before anyone flies it, forever.
 
 ### P3.8 — The loadout loop & acquisition
@@ -1413,7 +1430,7 @@ The briefing-room chain, end to end: **intel manifest (P4.7, through P1.3's
 fog) → frame pick (P3.4 pressure) → loadout fill (slots + budget, P3.2) →
 sortie → pads repair & re-arm magazines (P2) → debrief → salvage.**
 
-- **Campaign start:** the hangar holds a Firehawk, the Blaster, and the
+- **Campaign start:** the hangar holds a Kestrel, the Blaster, and the
   Missile — today's shipped kit, canonized as the starting spread. Everything
   else is **acquired in-campaign** (v1's intel-driven acquisition: what the
   war shows you shapes what you buy — screamers in intel sell lead computers).
@@ -1446,9 +1463,9 @@ sortie → pads repair & re-arm magazines (P2) → debrief → salvage.**
 
 ### P3.10 — The vertical-slice cut (2.5, updated)
 
-- **2 frames: Firehawk + Atlas.** Against the slice bestiary (raider, turret,
+- **2 frames: Kestrel + Atlas.** Against the slice bestiary (raider, turret,
   gnat, aegis — P4.10), the heavy/all-round choice is the one that matters:
-  gnat+aegis days are Atlas days, and the Firehawk covers stale intel. Dart
+  gnat+aegis days are Atlas days, and the Kestrel covers stale intel. Dart
   and Shade follow when falx and the intel war arrive to justify them.
 - **3 weapons: Blaster + Missile + Flak pod** — confirmed from P4.10; the
   mini-web holds (guns die on aegis, missiles bankrupt on gnats, flak
@@ -1456,7 +1473,7 @@ sortie → pads repair & re-arm magazines (P2) → debrief → salvage.**
 - **First acquirable: the gun director** (it's already prototyped as knobs) —
   and per P4.10, **the screamer enters alongside it**: the counter arrives
   with the thing it counters.
-- Growth order after the slice: Lance → falx+Dart (burst and the
+- Growth order after the slice: Charge cannon → falx+Dart (burst and the
   interceptor war), Mortar → SAM/convoy (the ground game), Shade+recon suite
   → sentinel/intel war, sea annex last.
 
@@ -1487,6 +1504,69 @@ sortie → pads repair & re-arm magazines (P2) → debrief → salvage.**
   computer as a reserved post-core module — or ship the computer at 1.0 as
   the lob seat's FCS member? My lean: manual at 1.0; the lob seat's price is
   aim-by-feel.
+
+### P3 steering — ANSWERED (v1.11, 2026-07-17)
+
+Iteration 3 is steered. The proposal above stands as accepted, with the
+naming folded through the live body (P3.1–P3.10) and the rest confirmed:
+
+- **P3.q1 → DECIDED: keep Shade at 1.0.** Four frames ship; the stealth-recon
+  airframe is the intel pillar's vehicle and P1.3 is load-bearing, so it earns
+  its 1.0 seat rather than waiting post-core.
+- **P3.q2 → DECIDED: proper names for frames, functional names for weapons —
+  and the inspiration name is retired from every game element.** Two
+  consequences, applied throughout P3:
+  1. The all-rounder frame is **Kestrel** (the falcon that hunts from a hover
+     — apt for a frame you hold station in), replacing the v1.10 placeholder.
+  2. The burst weapon, proposed as a proper name, becomes the functional
+     **Charge cannon** (parallel to Blaster / Mortar / Missile / Flak pod).
+  **Hard rule (user):** the external game that inspired the charge-shot /
+  indirect-fire doctrine is **never used as the name of any QuadShot frame,
+  weapon, or system.** It is credited once, quietly, as an *inspiration note*
+  deep in the docs (end of P3.5) — the source is honored, not borrowed. The
+  locked historical sections that nicknamed the design lesson after it are
+  left as-written (append-only); going-forward text names the doctrine
+  functionally.
+- **P3.q3 → DECIDED: honest mass is pure.** Mounted mass = real rigidbody
+  mass and inertia, no feel-dampener, no softening percentage. TWR sag, grown
+  inertia, and stretched stopping distances are the physics telling the truth;
+  the hangar's predicted hover-throttle readout makes the price legible before
+  takeoff. The flight model is the product — the loadout screen is a flight
+  decision.
+- **P3.q4 → DECIDED: per-weapon heat gauges at 1.0.** Independent, readable
+  gauges — "more than enough" (user). The shared-power-pool idea stays parked
+  as a possible later frame quirk, not 1.0 surface.
+- **P3.q5 → DECIDED (delegated to me): the turret pod is insurance, not
+  autopilot.** The proposed bounds are locked — narrow rear/side cone, chip
+  damage only, jam-vulnerable (a screamer kills it), and it eats an **S weapon
+  slot** (real opportunity cost against a gun). My added price to protect the
+  bait-and-overshoot skill (P4.2): the pod's fire rate is **low enough that it
+  *chips* a passing falx, rarely kills it outright** — so the clean kill still
+  wants the deliberate bait, and the pod is the safety net that punishes the
+  falx for the pass rather than the button that deletes it. If the harness
+  (P4.9) ever shows turret-pod loadouts trivializing falx days, the fire rate
+  is the first knob down.
+- **P3.q6 → DECIDED: director-at-full-charge.** The gun director releases the
+  Charge cannon only at full charge on a valid solution; the tap stays manual.
+  The user's read is exactly the intent: **it automates the trigger so the
+  pilot's attention returns to flight** — the FCS thesis (positioning is the
+  skill), now on the burst seat too. The screamer keeps it honest (jam the
+  director, fall back to manual charge-timing).
+- **P3.q7 → DECIDED: Mortar is manual-only at 1.0; the ballistic computer is
+  acquired, not given.** The lob seat's price is aim-by-feel. This crystallizes
+  a **doctrine the user stated outright and is worth locking:** *anything that
+  can enrich the gameplay model — like buying equipment to fly more
+  efficiently — should be **earned in-campaign**, not handed out. The **dev
+  room** is the exception: it gets everything unlocked, always* (it's the
+  testbed, per CLAUDE.md). Acquisition-as-enrichment now guides the whole P5
+  economy iteration: gear the player *wants* is a purchase/salvage/dare reward,
+  never a default.
+
+**Doctrine adopted this iteration (for the record):** *enrichment is acquired,
+not given* (P3.q7) — the campaign hands you a baseline (Kestrel + Blaster +
+Missile) and makes everything that makes you *better* a thing you earn; the dev
+room alone is fully stocked. Prices, salvage values, and acquisition mechanics
+are Iteration 4 (P5), which this doctrine now anchors.
 
 ---
 
@@ -1771,3 +1851,36 @@ sortie → pads repair & re-arm magazines (P2) → debrief → salvage.**
     it. Growth order sketched (Lance/Dart → Mortar → Shade → sea annex).
   - Prices and acquisition mechanics explicitly deferred to Iteration 4
     (P5).
+- **2026-07-17 — v1.11.** Iteration 3 STEERED (user review). All P3.q decided;
+  naming folded through the live proposal body (P3.1–P3.10):
+  - **The all-rounder frame is renamed Kestrel** (was a v1.10 placeholder).
+    **Hard rule (user, P3.q2):** the external game that inspired the
+    charge-shot / indirect-fire doctrine is **never** the name of any QuadShot
+    frame/weapon/system — it is credited once, quietly, as an *inspiration
+    note* deep in the docs (end of P3.5). Locked historical sections that
+    nicknamed the design lesson after it are left as-written (append-only);
+    new text names the doctrine functionally.
+  - **The burst weapon is renamed Charge cannon** (P3.q2: weapons get
+    functional names; the v1.10 proper name retired).
+  - **P3.q1** — Shade stays at 1.0 (four frames); the intel airframe earns its
+    seat (P1.3 load-bearing).
+  - **P3.q3** — honest mass is **pure**: mounted mass = real rigidbody
+    mass/inertia, no feel-dampener; hangar shows predicted hover throttle.
+  - **P3.q4** — per-weapon heat gauges at 1.0; shared-power pool parked.
+  - **P3.q5 (delegated to me)** — the turret pod is **insurance, not
+    autopilot**: proposed bounds locked (narrow cone, chip-only,
+    jam-vulnerable, eats an S slot) + a low fire rate so it *chips* a passing
+    falx and rarely kills outright, protecting the bait-and-overshoot skill;
+    fire rate is the first harness knob if it ever trivializes falx days.
+  - **P3.q6** — director-at-full-charge: the gun director releases the Charge
+    cannon only at full charge on a solution (tap stays manual) — automating
+    the trigger returns attention to flight (the FCS thesis on the burst
+    seat); the screamer keeps it honest.
+  - **P3.q7** — Mortar manual-only at 1.0; ballistic computer is acquired, not
+    given. This crystallizes a **locked doctrine: *enrichment is acquired, not
+    given*** — the campaign hands a baseline (Kestrel + Blaster + Missile) and
+    makes everything that makes you *better* an earned purchase/salvage/dare
+    reward; **the dev room alone is fully stocked** (it's the testbed). The
+    doctrine now anchors the P5 economy iteration.
+  - **Next**: Iteration 4 — P5 (economy, rewards, pilots (F1), influence
+    actions — pricing everything P1/P4/P3 defined).
