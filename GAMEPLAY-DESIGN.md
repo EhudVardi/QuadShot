@@ -1,11 +1,15 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.20 (2026-07-18) — paper phase complete; **the vertical-slice
-> build has begun.** Landed: the matchup harness + reference pilot (P1, `71f9324`)
-> and the damage model (P2, `12d6f41`) + a wounded-flight bench (`5cabf53`); all
-> headless-verified. Next checkpoint: the human flies Phase 2's wounded quad. See
-> the v1.20 decision-log entry for build progress + findings (incl. the reference
-> pilot's gun-vs-evasive-Raider gap, calibration task #1). Design record below.
+> **Status:** v1.21 (2026-07-18) — paper phase complete; **the vertical-slice
+> build is underway, Phases 1–2 landed and steered by playtest.** Done: the
+> matchup harness + reference pilot (P1), and P2 — the damage model + the
+> fly-through **repair-gate** wounded-quad loop + the **FCS reticle** (one CCIP +
+> real missile lock-zone rings) + the repair-drift fix; all headless-verified and
+> flown. **Next: Phase 3 — the bestiary** (Gnat + Aegis + EnemyConfig migration +
+> the reference-pilot gun-run pass). See the v1.20–v1.21 decision-log entries for
+> build progress; **note v1.21 corrects v1.20's reference-pilot diagnosis** (the
+> gun-run gap is *range management*, not "curved orbit defeats the FCS"). Design
+> record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3502,3 +3506,38 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     **Next checkpoint: the human flies Phase 2** (does the wounded quad *feel*
     right? tune the DAMAGE section live), then Phase 3 — Gnat + Aegis + the
     EnemyConfig migration, where the pilot's gun-run gap gets its proper pass.
+- **2026-07-18 — v1.21. Phase 2 steered by playtest + a diagnosis corrected.**
+  The human flew Phase 2; the wounded-quad loop is landed and steered, and one
+  v1.20 claim is formally retracted:
+  - **CORRECTION (supersedes v1.20 / the P1 finding): the reference pilot's
+    gun-run failure is NOT "the Raider's curved orbit defeats the linear FCS."**
+    That was a wrong diagnosis. Playtest evidence (the human routinely guns
+    Raiders; probe traces of the v0 pilot) shows the real cause: **the v0 pilot
+    engages at too-close range (~13–15 m), where an orbiter's angular rate is
+    highest, and aims coarsely.** There is an effective **mid-range band** (too
+    far = drop/spread, too close = high angular rate). The Raider's orbit is
+    predictable and *meant* to be fun-but-not-trivial, not an annoyance. Fix
+    (Phase 3, calibration task #1): give the pilot **range management** (hold the
+    mid-band) + tighter aim, calibrated against Gnat *and* Raider to avoid
+    over-fitting. The v1.20 "curved orbit" wording stays in place per append-only,
+    marked superseded by this entry.
+  - **The wounded-quad loop, steered by hands:** the hover **repair pad** was
+    replaced by a fly-through green **repair gate** — hovering stationary on a
+    wounded quad under fire was a death sentence; you recover by flying *through*
+    now (`9ec2c5d`). Damage rebalanced fair (motor floor 0.15→0.30, gentle
+    crash-to-motor scale) so it's challenge not death-spiral (`713d871`). The
+    **repair-transition drift** (I-term windup unwinding after an instant repair)
+    is fixed by clearing the rate integrator on repair — runtime state only, so
+    every rate preset is preserved (`05d76b8`).
+  - **FCS reticle shipped and simplified:** built CCIP + Funnel + Dot, then — per
+    playtest — collapsed to **one** reticle (CCIP + integrated lock cone;
+    `f64012a`→`05d76b8`). The **missile lock cone now shows the real zone** (an
+    acquire ring + a wider hold ring at the 1.5× hysteresis), both scaling with
+    `lock_cone_mult` so upgrades visibly widen it. No auto-lead — lead-compute
+    stays a future FCS-gear tier, keeping aim a skill.
+  - **Doctrine reaffirmed (F-word, verified twice now):** the wounded-quad damage
+    model + a *skill-earned recovery* is a major USP asset — the human's words:
+    "two major assets to the gameplay." Balance (fair-but-hard) is the gate to it
+    paying off.
+  - **Next: Phase 3** — the bestiary (Gnat + Aegis + EnemyConfig migration),
+    harness rows for the P4.3 mini-web, and the reference-pilot gun-run pass.
