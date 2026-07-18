@@ -91,6 +91,10 @@ var _bombed: bool = false
 var _results: Array[Array] = []
 var _failures: PackedStringArray = []
 var _watching: bool = DisplayServer.get_name() != "headless"
+## Watch mode only: the real game HUD, fed by the same ReticleSolver the game
+## uses, so what you see over the pilot's shoulder is what you would see over
+## your own — fall line, pipper, range ticks, lock cone.
+var _hud: Node = null
 
 
 func _initialize() -> void:
@@ -140,6 +144,9 @@ func _build_duel() -> void:
 	root.add_child(_arena)
 	if _watching:
 		_build_scenery()
+		if _hud == null:
+			_hud = (load("res://scenes/ui/hud.tscn") as PackedScene).instantiate()
+			root.add_child(_hud)
 
 	var pool := ProjectilePool.new()
 	_arena.add_child(pool)
@@ -212,6 +219,26 @@ func _build_duel() -> void:
 			view.current = true
 		print("[matchup] --- %s, rep %d/%d ---"
 				% [matchup["name"], _rep + 1, REPS])
+
+
+## Feed the HUD exactly what main.gd feeds it, via the shared solver — the
+## reticle in the rig is then the same reticle in the game, by construction.
+func _update_hud() -> void:
+	if _hud == null or _drone == null or not is_instance_valid(_drone):
+		return
+	var solution: Dictionary = ReticleSolver.solve(
+			root.get_viewport().get_camera_3d(),
+			_drone.get_node("FpvCamera/Weapon") as Weapon, _drone,
+			(_drone.get_node("FpvCamera/Weapon") as Weapon).combat_config,
+			_drone.get_node("FpvCamera/MissileSystem") as MissileSystem,
+			self, RunMods.current.lock_cone_mult)
+	if solution.is_empty():
+		_hud.call(&"clear_reticle")
+		return
+	_hud.call(&"update_reticle", solution["center"], solution["pipper"],
+			solution["arc"], solution["ticks"], solution["lock_radius"],
+			solution["hold_radius"], solution["lockable"])
+	_hud.call(&"set_health", _health.current, _player_max)
 
 
 ## Watch-mode scenery. The measured arena is deliberately bare — no light, no
