@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/aegis.gd" id="1_aegis"]
 [ext_resource type="Resource" path="res://resources/default_enemy_aegis.tres" id="2_ecfg"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
+[ext_resource type="Script" path="res://scripts/combat/shield_shell.gd" id="4_shell"]
 
 [sub_resource type="StandardMaterial3D" id="mat_hull"]
 albedo_color = Color(0.16, 0.11, 0.11, 1)
@@ -29,6 +30,9 @@ height = 5.2
 [sub_resource type="BoxShape3D" id="shape_hull"]
 size = Vector3(2.2, 0.7, 3.4)
 
+[sub_resource type="SphereShape3D" id="shape_shield"]
+radius = 2.6
+
 [node name="Aegis" type="CharacterBody3D" groups=["enemies"]]
 motion_mode = 1
 script = ExtResource("1_aegis")
@@ -39,9 +43,16 @@ enemy_config = ExtResource("2_ecfg")
 [node name="Hull" type="MeshInstance3D" parent="Visual"]
 mesh = SubResource("mesh_hull")
 
-[node name="Shield" type="MeshInstance3D" parent="Visual"]
+[node name="ShieldShell" type="AnimatableBody3D" parent="."]
+sync_to_physics = false
+script = ExtResource("4_shell")
+
+[node name="Mesh" type="MeshInstance3D" parent="ShieldShell"]
 mesh = SubResource("mesh_shield")
 surface_material_override/0 = SubResource("mat_shield")
+
+[node name="Collision" type="CollisionShape3D" parent="ShieldShell"]
+shape = SubResource("shape_shield")
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 shape = SubResource("shape_hull")

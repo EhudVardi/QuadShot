@@ -39,8 +39,9 @@ var team: StringName = &"enemy"
 ## specimen dropped into a map still behaves like a bomber.
 var route_end: Vector3 = Vector3.INF
 
-@onready var _visual: Node3D = $Visual
-@onready var _shield_visual: MeshInstance3D = $Visual/Shield
+@onready var _shell: ShieldShell = $ShieldShell
+@onready var _shield_visual: MeshInstance3D = $ShieldShell/Mesh
+@onready var _shell_collision: CollisionShape3D = $ShieldShell/Collision
 @onready var _health: Health = $Health
 
 var _shield_flash: float = 0.0
@@ -49,6 +50,9 @@ var _route_start: Vector3
 
 func _ready() -> void:
 	_route_start = global_position
+	# Without this the bomber's own move_and_slide fights the shell it carries.
+	add_collision_exception_with(_shell)
+	_shell.hit.connect(_health.take)
 	if route_end == Vector3.INF:
 		route_end = global_position - global_basis.z * DEFAULT_ROUTE_LENGTH
 	_health.max_health = enemy_config.hull
@@ -88,10 +92,14 @@ func _face_route(delta: float) -> void:
 ## The shield is the type's whole readability problem: a player whose shots do
 ## nothing must be able to SEE why. The bubble is visible only while the shield
 ## holds, and flares on every absorbed hit.
+## The shield is a barrier, not an overlay: when it is up you can neither shoot
+## through it nor fly inside it, and when it drops both facts reverse at once.
 func _update_shield_visual(delta: float) -> void:
 	_shield_flash = maxf(_shield_flash - delta * 3.0, 0.0)
 	var up: bool = _health.shielded()
 	_shield_visual.visible = up
+	if _shell_collision.disabled == up:
+		_shell_collision.set_deferred(&"disabled", not up)
 	if up:
 		var material: StandardMaterial3D = \
 				_shield_visual.get_surface_override_material(0) as StandardMaterial3D
@@ -107,6 +115,7 @@ func _on_shield_absorbed(_amount: float) -> void:
 
 func _on_shield_broken() -> void:
 	_shield_visual.visible = false
+	_shell_collision.set_deferred(&"disabled", true)
 	Effects.explosion(get_tree().root, global_position, 0.7)
 
 

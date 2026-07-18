@@ -127,7 +127,14 @@ func _has_line_of_sight(enemy: Node3D) -> bool:
 	var query := PhysicsRayQueryParameters3D.create(global_position, enemy.global_position)
 	query.exclude = [_drone.get_rid()]
 	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
-	return not hit.is_empty() and hit["collider"] == enemy
+	if hit.is_empty():
+		return false
+	var collider: Node = hit["collider"] as Node
+	# An enemy's own bodywork is not cover. Multi-part types (the aegis carries
+	# a solid shield shell) present a child collider to the ray, and refusing
+	# the lock there would let a shielded target be un-targetable rather than
+	# merely hard to kill.
+	return collider == enemy or enemy.is_ancestor_of(collider)
 
 
 func _launch() -> void:
