@@ -49,23 +49,50 @@ const BOMB_TARGET_Z: float = 20.0
 ## now explicit here rather than hidden.
 const DIRECTOR_MISS_M: float = 1.2
 
-# One entry per measured cell. weapon: blaster|missile. enemy scene + label.
+# One entry per measured cell. weapon: blaster|missile; enemy scene; "paper"
+# is the P4.3 spec band this cell is held to; "mode" picks the banding rule:
+#   win  — win-rate against the H4 thresholds (the default ruler)
+#   pack — exchange rate (kills vs pack, minus hull spent): a swarm makes
+#          win-rate meaningless, because the pack also "loses" by spending
+#          itself on your hull (P3.2 finding)
+#   hand — the rig cannot measure this cell; the band is the HUMAN's, per the
+#          H5 division of labor, and the report says so out loud
 const MATCHUPS: Array[Dictionary] = [
 	{"name": "Blaster x Raider", "weapon": "blaster",
-			"enemy": "res://scenes/combat/enemy_drone.tscn"},
+			"enemy": "res://scenes/combat/enemy_drone.tscn",
+			"paper": "++", "mode": "hand",
+			# User, 2026-07-18: "a tough chance to hit, but the weapon itself
+			# is very powerful, specially with high fire rate." The scripted
+			# pilot cannot fly the human's sweep-fire passes (calibration task
+			# #1, parked); the cell keeps its paper band on the human's word.
+			"hand_band": "++"},
 	{"name": "Missile x Raider", "weapon": "missile",
-			"enemy": "res://scenes/combat/enemy_drone.tscn"},
+			"enemy": "res://scenes/combat/enemy_drone.tscn",
+			"paper": "+", "mode": "win"},
 	{"name": "Blaster x Turret", "weapon": "blaster",
-			"enemy": "res://scenes/combat/turret.tscn"},
+			"enemy": "res://scenes/combat/turret.tscn",
+			"paper": "0", "mode": "win"},
 	{"name": "Blaster x Gnats", "weapon": "blaster",
-			"enemy": "res://scenes/combat/gnat_swarm.tscn"},
+			"enemy": "res://scenes/combat/gnat_swarm.tscn",
+			"paper": "+", "mode": "pack"},
 	{"name": "Missile x Gnats", "weapon": "missile",
-			"enemy": "res://scenes/combat/gnat_swarm.tscn"},
+			"enemy": "res://scenes/combat/gnat_swarm.tscn",
+			"paper": "--", "mode": "pack"},
 	{"name": "Blaster x Aegis", "weapon": "blaster",
-			"enemy": "res://scenes/combat/aegis.tscn"},
+			"enemy": "res://scenes/combat/aegis.tscn",
+			"paper": "--", "mode": "win"},
 	{"name": "Missile x Aegis", "weapon": "missile",
-			"enemy": "res://scenes/combat/aegis.tscn"},
+			"enemy": "res://scenes/combat/aegis.tscn",
+			"paper": "++", "mode": "win"},
 ]
+
+## H4 banding, fixed stated thresholds (H.q1: a ruler that does not drift).
+## Win-mode: band by reference-pilot win rate.
+const WIN_BANDS: Array = [[0.85, "++"], [0.70, "+"], [0.50, "0"], [0.25, "-"]]
+## Pack-mode: band by EXCHANGE — fraction of the pack shot down minus fraction
+## of the player's hull spent. A perfect rake is +1, absorbing the cloud with
+## your face is -1. Thresholds stated, like the win ruler.
+const PACK_BANDS: Array = [[0.6, "++"], [0.3, "+"], [0.0, "0"], [-0.3, "-"]]
 
 enum { BUILD, RUN, RECORD }
 
@@ -356,34 +383,25 @@ func _report() -> void:
 		print("[matchup] %-18s   outcomes: %s"
 				% ["", ", ".join(outcomes)])
 
-	# Phase-1 sanity asserts what the RIG genuinely proves: the reference
-	# pilot flies the real physics, engages, and its two aim paths both land —
-	# homing (Missile x Raider) and gun-line-on-a-static-target (Blaster x
-	# Turret). If either collapses, the harness itself is broken, not the
-	# balance.
+	_print_banded_matrix()
+
+	# Rig-sanity asserts — what the RIG genuinely proves: the reference pilot
+	# flies the real physics, engages, and its two aim paths both land — homing
+	# (Missile x Raider) and gun-line-on-a-static-target (Blaster x Turret).
+	# If either collapses, the harness itself is broken, not the balance.
 	if _win_rate(1) < 0.75:
 		_failures.append("rig broken: Missile x Raider win %.0f%% (< 75%%) — pilot not engaging"
 				% (_win_rate(1) * 100.0))
 	if _win_rate(2) < 0.75:
 		_failures.append("rig broken: Blaster x Turret win %.0f%% (< 75%%) — gun-line aim failing"
 				% (_win_rate(2) * 100.0))
-
-	# Blaster x Raider is REPORTED, not asserted. v0 aims the gun line well
-	# but cannot yet gun-run a fast orbiter (a level target + the 44 deg cam
-	# uptilt forces diving passes, not hover-sniping) — so this number is not
-	# yet a trustworthy measurement of the chip-gun-vs-raider cell (P4.3 says
-	# it should be ++). Closing it is the first reference-pilot calibration
-	# task (H.q4): teach v1 tracking gun-runs, with the human on feel.
-	print("[matchup] NOTE: Blaster x Raider (%.0f%%) is the v0 pilot's known gap —"
-			% (_win_rate(0) * 100.0))
-	print("[matchup]       moving-target gun-runs are calibration task #1, not a rig fault.")
-	# The gnat cells need the same health warning, for the opposite reason:
-	# there the win column LOOKS green and is not measuring what it says.
-	print("[matchup] NOTE: for pack types 'win' means the pack left the field, which it")
-	print("[matchup]       also does by stinging itself out on the player. Read `kills`")
-	print("[matchup]       against pack_size: killing 1 of 9 while losing half your hull")
-	print("[matchup]       is a beating that the win column scores as a victory. Banding")
-	print("[matchup]       these cells needs kills+damage, not win-rate (P3.4 / H4).")
+	# One STRUCTURAL assert: chip fire mathematically cannot crack the aegis
+	# shield (every bolt lands under the break threshold and splashes off).
+	# A single blaster win here means the threshold gate itself broke — a
+	# model regression, not a balance drift, so it fails the run like one.
+	if _win_rate(5) > 0.0:
+		_failures.append("shield gate broken: Blaster x Aegis won %.0f%% — chip fire cracked a shield it cannot"
+				% (_win_rate(5) * 100.0))
 
 	if _failures.is_empty():
 		print("[matchup] PASS")
@@ -393,6 +411,55 @@ func _report() -> void:
 			print("[matchup] FAIL: %s" % f)
 		print("[matchup] FAIL")
 		quit(1)
+
+
+## The measured mini-web, banded (H3/H4): paper band vs measured band per
+## cell, divergences flagged. ADVISORY through slice bring-up (H.q6) — the
+## table informs the human, only the rig-sanity and structural asserts fail
+## the run. Hand-mode cells print the human's band and say whose it is.
+func _print_banded_matrix() -> void:
+	var pack_size: float = maxf(
+			(load("res://resources/default_enemy_gnat.tres") as EnemyConfig).pack_size, 1.0)
+	print("[matchup] ---- banded matrix (paper -> measured) ----")
+	for i: int in MATCHUPS.size():
+		var matchup: Dictionary = MATCHUPS[i]
+		var paper: String = matchup["paper"]
+		var band: String
+		var detail: String
+		match matchup["mode"]:
+			"hand":
+				band = matchup["hand_band"]
+				detail = "hand-calibrated (H5): the rig cannot fly this cell; band is the human's"
+			"pack":
+				var exchange: float = _mean(i, "kills") / pack_size \
+						- _mean(i, "damage_taken") / _player_max
+				band = _band(exchange, PACK_BANDS)
+				detail = "exchange %+.2f (kills %.1f/%d, hull spent %.0f%%)" % [
+						exchange, _mean(i, "kills"), int(pack_size),
+						_mean(i, "damage_taken")]
+			_:
+				band = _band(_win_rate(i), WIN_BANDS)
+				detail = "win %.0f%%" % (_win_rate(i) * 100.0)
+		var flag: String = "" if band == paper else "  <- DIVERGES from paper"
+		print("[matchup] %-18s %3s -> %-3s %s%s"
+				% [matchup["name"], paper, band, detail, flag])
+
+
+func _band(value: float, bands: Array) -> String:
+	for entry: Array in bands:
+		if value >= float(entry[0]):
+			return entry[1]
+	return "--"
+
+
+func _mean(matchup_i: int, key: String) -> float:
+	var runs: Array = _results[matchup_i]
+	if runs.is_empty():
+		return 0.0
+	var total: float = 0.0
+	for r: Dictionary in runs:
+		total += float(r[key])
+	return total / float(runs.size())
 
 
 func _win_rate(matchup_i: int) -> float:

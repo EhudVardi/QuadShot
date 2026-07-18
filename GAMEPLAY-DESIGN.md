@@ -1,15 +1,18 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.21 (2026-07-18) — paper phase complete; **the vertical-slice
-> build is underway, Phases 1–2 landed and steered by playtest.** Done: the
-> matchup harness + reference pilot (P1), and P2 — the damage model + the
-> fly-through **repair-gate** wounded-quad loop + the **FCS reticle** (one CCIP +
-> real missile lock-zone rings) + the repair-drift fix; all headless-verified and
-> flown. **Next: Phase 3 — the bestiary** (Gnat + Aegis + EnemyConfig migration +
-> the reference-pilot gun-run pass). See the v1.20–v1.21 decision-log entries for
-> build progress; **note v1.21 corrects v1.20's reference-pilot diagnosis** (the
-> gun-run gap is *range management*, not "curved orbit defeats the FCS"). Design
-> record below.
+> **Status:** v1.22 (2026-07-18) — paper phase complete; **the vertical-slice
+> build is underway, Phases 1–3 landed and steered by playtest.** Done: the
+> matchup harness + reference pilot (P1), P2 — the damage model + the
+> fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
+> **the slice bestiary**: EnemyConfig migration, the **Gnat** swarm ("the cloud
+> is the unit"), the **Aegis** shielded bomber (threshold-gate shield, a real
+> barrier), the harness banding the measured mini-web against P4.3, and a
+> **watchable harness** (drop `--headless` and see the duels, real HUD included).
+> Major steering (v1.22): **the chip gun's ratings assume the FCS gun director**
+> — confirmed by the human, now stated in the harness rather than hidden; the
+> Blaster×Raider cell is **hand-banded** (H5 division of labor, exercised for
+> real). **Next: Phase 4 — flak + Atlas** completing the mini-web's columns.
+> Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3541,3 +3544,100 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     paying off.
   - **Next: Phase 3** — the bestiary (Gnat + Aegis + EnemyConfig migration),
     harness rows for the P4.3 mini-web, and the reference-pilot gun-run pass.
+- **2026-07-18 — v1.22. Phase 3: the bestiary lands — and the harness learns
+  whose hands hold the ruler.** The slice's P4.10 four are all real (Raider +
+  Turret shipped; Gnat + Aegis built this phase), the stat layer migrated, the
+  measured mini-web is banded against P4.3, and one H-iteration doctrine got
+  exercised for real rather than rhetorically. Commits `6ee184b`→`c9d7c10` +
+  the banding. By sub-phase:
+  - **P3.1 — EnemyConfig migration (P4.8)** (`6ee184b`): per-type
+    `EnemyConfig` .tres (raider/turret values bit-exact), CombatConfig back to
+    player-side only, overlay BESTIARY blocks with per-type preset bars, and
+    per-rep `ai_seed` determinism for the harness. Pure refactor, proven by
+    the matrix not moving. *Finding:* determinism is AI-level, not bit-exact —
+    solver float variance across processes can still flip a knife-edge rep;
+    stated in the harness header (read aggregate movement, not single reps).
+  - **P3.2 — the Gnat** (`5f25405`): kinematic boids, one loop for the whole
+    pack (P4.q5 — "the cloud is the unit"); bodies are shootable
+    AnimatableBody3D tissue; stings are distance tests that feed the D2
+    directional wound. **Playtest: landed** — "a very challenging and
+    interesting enemy… I really liked it"; pack size/density stay tunable as
+    difficulty dials. *Finding (the harness earning its keep):* the gnat
+    cells' first 100% win rate was a lie — with no missile splash, the pack
+    was stinging itself out on the player's hull and an empty pack read as
+    victory. Fixed the accounting (a sting-spent gnat pays no points) and
+    added a kills column; the truth was kills 1/9 with half the hull gone.
+    **Win-rate saturates on suicide swarms** — the pack cells band by
+    *exchange* (kills vs pack minus hull spent), an H4 amendment.
+  - **P3.3 — the Aegis** (`9260a6b`, `e310586`): shields live in the shared
+    Health as an opt-in **threshold gate** — under-threshold hits splash off
+    entirely (no chipping), a breaking hit carries its excess to hull; regen
+    after quiet. The bomber flies its route, ignores you, detonates on
+    arrival: the harness scores that `bombed` — a loss at full hull, the
+    outcome a health-bar harness would misread as safety. *Model fix found by
+    measuring:* a 2-point regenerated shield sliver was swallowing a whole
+    60-damage missile (the answer weapon got worse the closer it came to
+    winning) — excess now penetrates; no numbers were softened. *Playtest
+    steering:* the decorative shield bubble read as broken (you could fly
+    inside it) → the shield is now a **physical barrier** (ShieldShell), and
+    fixing that exposed a general bug: an enemy's own bodywork counted as
+    cover against missile lock — multi-part enemies were un-targetable. LOS
+    now accepts the target's own children; every multi-part type to come
+    needs this. The intended loop taught itself in play: *"one missile breaks
+    it and then the blaster kills it."*
+  - **P3.4 — the pilot pass, resolved by steering rather than code.** The
+    planned "give the pilot range management" pass ran into a wall the traces
+    then explained: four real bugs fixed (44°-tilt throttle compensation —
+    the pilot had been *sinking out of the world* every duel since v0;
+    line-of-sight-rate feed-forward — pure P lags a mover by a constant ~2.5 m,
+    a miss the trigger never forgives; a ground guard — it flew into the
+    raider's face, tumbled inverted, and drove itself into the floor; and the
+    trigger itself). **The decisive steering (user):** the FCS gun director
+    is *how the game is actually played* — "with fire_assist at 0 I can't get
+    a shot out"; the reticle answers *where bolts go*, the human supplies
+    *where the target will be*, and the director closes that gap. **The chip
+    gun's P4.3 ratings ASSUME the director** (the v1.20 question, answered
+    yes). The pilot now does positioning only; `weapon.gd`'s arc solver pulls
+    the trigger at the human's own 1.2 m setting, stated in the harness as
+    `DIRECTOR_MISS_M`. Result: every cell improved (Missile×Aegis 8.1s→2.3s),
+    except Blaster×Raider — still 0%, now losing honestly (alive all duel).
+    **Final steering: leave the pilot.** The human's calibration — "a tough
+    chance to hit, but the weapon itself is very powerful, specially with
+    high fire rate" — bands the cell `++` by hand. H5's division of labor
+    (*the harness measures balance, the hands measure feel*) now has its
+    first hand-banded cell, printed as such in the matrix.
+  - **The banded matrix (H3/H4, advisory per H.q6):** paper→measured per
+    cell, fixed stated thresholds (win-rate bands for duel cells, exchange
+    bands for pack cells, hands for the unmeasurable). Green where it
+    matters: Aegis row exactly to spec (`--`/`++` — guns die on aegis,
+    missiles crack it), Missile×Gnats one notch off its `--`. Known-cause
+    divergences left visible: bare-arena duels overstate vs static targets
+    (Blaster×Turret `0`→`++`: the paper band prices the denial zone in
+    composed sorties — the sortie layer's job, not a duel's), and the pack
+    cells under-band while the pilot cannot kite (parked with the pilot). One
+    structural assert added with real teeth: a single Blaster×Aegis win means
+    the threshold gate itself broke and fails the run.
+  - **The instrument grew eyes (user request):** drop `--headless` and the
+    harness renders every duel from the pilot's FPV camera — scenery, muted
+    audio, and the **real HUD** via a new shared `ReticleSolver` (main.gd and
+    the rig draw the same reticle *by construction*; the "never lies"
+    guarantee survives only as one implementation). `tools/watch_matchups.cmd`
+    double-clicks it. Watching found the ground crashes in minutes after
+    traces had circled for an hour — the founding tenet applies to the
+    instrument too. *Bonus finding from watching:* the bot's reticle
+    collapses to a dot because the fall line only separates at speed — the
+    degenerate reticle is a symptom of the bot's pottering, not a drawing
+    bug.
+  - Also: blackbox logs renamed to sortable `flight_YYYYMMDD_HHMMSS.csv`
+    (`c3fee15`; the old name was ms-since-engine-start — session-relative
+    noise).
+  - **Open questions parked for later phases:** does `fire_assist_miss_m`
+    stay a 0.0 default when the ratings assume it on (design call: FCS is
+    acquirable gear — should baseline loadouts include a basic director?);
+    lead-aware reticle as an FCS gear tier (the human aims by eye between
+    boresight and pipper today — "a physics truth the FCS does not take into
+    account"); aegis escorts (Phase 4) may justify revisiting the
+    inside-the-bubble knife-range play once being inside costs something.
+  - **Next: Phase 4** — the flak pod (3rd weapon column: the gnat answer) +
+    Atlas (2nd frame), completing the slice mini-web; then the H.q4 hands-on
+    difficulty calibration once the slice is flyable end to end.
