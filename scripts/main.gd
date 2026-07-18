@@ -56,8 +56,8 @@ func _ready() -> void:
 	_drone_health.damaged.connect(_on_player_damaged)
 	_drone_health.died.connect(_on_player_died)
 	_drone.crashed.connect(_on_player_crashed)
-	for pad: Node in get_tree().get_nodes_in_group(&"repair_pads"):
-		(pad as RepairPad).repairing.connect(_on_repair_status)
+	for gate: Node in get_tree().get_nodes_in_group(&"repair_gates"):
+		(gate as RepairGate).repaired.connect(_on_engines_restored)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_refresh_motor_hud()
 
@@ -259,13 +259,12 @@ func _refresh_motor_hud() -> void:
 	_hud.set_motor_health(healths)
 
 
-## A repair pad reports whether it is nursing the drone (D5): drive the HUD
-## prompt, and keep the motor pips + health bar live while engines recover.
-func _on_repair_status(active: bool, _worst_motor: float) -> void:
-	_hud.set_repairing(active)
-	if active:
-		_refresh_motor_hud()
-		_hud.set_health(_drone_health.current, _drone_health.max_health)
+## Flew through a repair gate (D5): engines back, hull topped up — refresh the
+## HUD and flash the confirmation.
+func _on_engines_restored() -> void:
+	_refresh_motor_hud()
+	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_hud.flash_engines_restored()
 
 
 ## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by a

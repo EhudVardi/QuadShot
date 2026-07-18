@@ -1,9 +1,8 @@
 extends SceneTree
 
-## Repair-pad regression (GAMEPLAY-DESIGN P2.6 / D5): boots main, damages the
-## drone's engines, parks it in a low hover over the pad, and asserts the pad
-## nurses the motors (and hull) back up — the recovery half of the wounded-quad
-## loop. A fly-by (too fast / too high) must NOT repair.
+## Repair-gate regression (GAMEPLAY-DESIGN P2.6 / D5): boots main, breaks the
+## drone's engines, then drives it THROUGH the green repair gate and asserts the
+## engines come back — the fly-through recovery half of the wounded-quad loop.
 ##
 ## Run: <godot> --headless -s scripts/tests/repair_check.gd --path .
 
@@ -11,12 +10,11 @@ const MAX_SECONDS: float = 6.0
 
 var _main: Node3D
 var _drone: FlightController
-var _pad: RepairPad
+var _gate: RepairGate
 var _phase: int = 0
 var _ticks: int = 0
 var _ticks_max: int
-var _start_health: float
-var _off_pad_health: float
+var _broken_health: float
 
 
 func _initialize() -> void:
@@ -36,47 +34,31 @@ func _on_frame() -> void:
 			if not _main.is_node_ready():
 				return
 			_drone = _main.get_node("Drone") as FlightController
-			_pad = get_first_node_in_group(&"repair_pads") as RepairPad
-			if _pad == null:
-				_fail("no repair pad in scene")
+			_gate = get_first_node_in_group(&"repair_gates") as RepairGate
+			if _gate == null:
+				_fail("no repair gate in scene")
 				return
-			_drone.arm()
-			# Park a still hover OFF the pad (freeze so it holds for the test).
-			_drone.global_position = _pad.global_position + Vector3(40, 4, 0)
-			_drone.freeze = true
+			# Never arm: no auto-run means no field-repair to undo our damage.
+			(_drone.get_node("MotorModel") as MotorModel).damage_motor(1, 0.7)
+			_broken_health = _drone.motor_health(1)
+			if _broken_health > 0.5:
+				_fail("could not break the test engine")
+				return
+			# Coast the drone THROUGH the gate opening (Area needs real motion).
+			_drone.global_position = _gate.global_position + Vector3(0, 0, 7)
+			_drone.linear_velocity = Vector3(0, 0, -13)
 			_phase = 1
 			_ticks = 0
 		1:
-			# Let the auto-started run finish its field-repair, THEN break an
-			# engine — otherwise _start_run heals it back before we measure.
-			if _ticks > 90:
-				(_drone.get_node("MotorModel") as MotorModel).damage_motor(0, 0.6)
-				_start_health = _drone.motor_health(0)
-				_phase = 2
-				_ticks = 0
-		2:
-			# ~0.5 s off the pad: motors must NOT recover.
-			if _ticks > 120:
-				_off_pad_health = _drone.motor_health(0)
-				if _off_pad_health > _start_health + 0.02:
-					_fail("motors repaired while OFF the pad")
-					return
-				# Now park in a low hover over the pad.
-				_drone.global_position = _pad.global_position + Vector3(0, 3, 0)
-				_phase = 3
-				_ticks = 0
-		3:
-			# ~2 s hovering on the pad: motors must climb back toward full.
-			if _ticks > 480:
-				var repaired: float = _drone.motor_health(0)
-				print("[repair_check] motor0: broke to %.2f, off-pad %.2f, on-pad %.2f"
-						% [_start_health, _off_pad_health, repaired])
-				if repaired > _start_health + 0.3:
-					print("[repair_check] PASS")
-					quit(0)
-				else:
-					_fail("pad did not repair engines (%.2f -> %.2f)"
-							% [_start_health, repaired])
+			var repaired: float = _drone.motor_health(1)
+			if repaired > 0.98:
+				print("[repair_check] engine1: broke to %.2f, flew gate -> %.2f"
+						% [_broken_health, repaired])
+				print("[repair_check] PASS")
+				quit(0)
+			elif _ticks > 180:
+				_fail("gate did not restore engines (%.2f -> %.2f)"
+						% [_broken_health, repaired])
 
 
 func _fail(msg: String) -> void:

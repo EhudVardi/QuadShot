@@ -216,13 +216,13 @@ func _ready() -> void:
 	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stick_display)
 	_repair_label = Label.new()
-	_repair_label.text = "⟳ REPAIRING ENGINES — hold the hover"
+	_repair_label.text = "⟳ ENGINES RESTORED"
 	_repair_label.add_theme_color_override(&"font_color", Color(0.3, 1.0, 0.45))
-	_repair_label.add_theme_font_size_override(&"font_size", 18)
+	_repair_label.add_theme_font_size_override(&"font_size", 20)
 	_repair_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_repair_label.position.y = 76.0
 	_repair_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_repair_label.visible = false
+	_repair_label.modulate.a = 0.0
 	add_child(_repair_label)
 	_pause_label = Label.new()
 	_pause_label.text = "|| SLOW-MO — autopilot holding"
@@ -345,8 +345,12 @@ func update_gate_marker(marker_visible: bool,
 	_gate_marker.queue_redraw()
 
 
-func set_repairing(active: bool) -> void:
-	_repair_label.visible = active
+## Brief green confirmation flash when a repair gate restores the engines.
+func flash_engines_restored() -> void:
+	_repair_label.modulate.a = 1.0
+	var tween: Tween = create_tween()
+	tween.tween_interval(0.8)
+	tween.tween_property(_repair_label, "modulate:a", 0.0, 0.7)
 
 
 func show_pause(paused: bool) -> void:
