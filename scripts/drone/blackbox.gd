@@ -51,9 +51,28 @@ func _physics_process(delta: float) -> void:
 		_file.flush()
 
 
+## flight_YYYYMMDD_HHMMSS.csv, local time. The old name used ticks since
+## engine start, which restarted at zero every session — so a log's number
+## said "6 seconds after launch", sorted meaninglessly, and collided across
+## runs. Time-of-day sorts chronologically by name and says when you flew.
+func _next_path() -> String:
+	var now: Dictionary = Time.get_datetime_dict_from_system(false)
+	var stamp: String = "%04d%02d%02d_%02d%02d%02d" % [
+		now["year"], now["month"], now["day"],
+		now["hour"], now["minute"], now["second"],
+	]
+	var path: String = "%s/flight_%s.csv" % [DIR_PATH, stamp]
+	# Two arms inside one second would otherwise overwrite the first log.
+	var attempt: int = 2
+	while FileAccess.file_exists(path):
+		path = "%s/flight_%s_%d.csv" % [DIR_PATH, stamp, attempt]
+		attempt += 1
+	return path
+
+
 func _open() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR_PATH))
-	var path: String = "%s/flight_%d.csv" % [DIR_PATH, Time.get_ticks_msec()]
+	var path: String = _next_path()
 	_file = FileAccess.open(path, FileAccess.WRITE)
 	if _file == null:
 		push_warning("[blackbox] cannot open %s" % path)
