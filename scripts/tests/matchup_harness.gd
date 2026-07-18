@@ -38,6 +38,16 @@ const ENGAGE_DISTANCE: float = 40.0
 ## Where a bomber's strike route ends — behind the player, so the intercept
 ## clock (~60 m of transit) fits inside MAX_SECONDS.
 const BOMB_TARGET_Z: float = 20.0
+## The FCS gun director's setting while measuring (CombatConfig.
+## fire_assist_miss_m). This is the human's own play setting: with the director
+## at 0 they "can't get a shot out" at all, because on a radio the trigger
+## competes with flying — which is the exact problem FCS was designed to solve.
+##
+## Measuring the chip gun WITHOUT it would therefore not be a purer test, it
+## would be a test of a way nobody plays. Confirmed with the user (2026-07-18):
+## the chip gun's `++` against raiders ASSUMES the director. That assumption is
+## now explicit here rather than hidden.
+const DIRECTOR_MISS_M: float = 1.2
 
 # One entry per measured cell. weapon: blaster|missile. enemy scene + label.
 const MATCHUPS: Array[Dictionary] = [
@@ -142,6 +152,8 @@ func _build_duel() -> void:
 	_player_max = _health.max_health
 	_drone.arm()
 	_drone.prime_motors(_drone.hover_throttle())
+	var weapon: Weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
+	weapon.combat_config.fire_assist_miss_m = DIRECTOR_MISS_M
 
 	_enemy = (load(matchup["enemy"]) as PackedScene).instantiate()
 	# Per-rep determinism (P4.8): flyers self-randomize in _ready, so the seed
@@ -185,7 +197,7 @@ func _build_duel() -> void:
 
 	_pilot = ReferencePilot.new()
 	_pilot.drone = _drone
-	_pilot.weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
+	_pilot.weapon = weapon
 	_pilot.missile = _drone.get_node("FpvCamera/MissileSystem") as MissileSystem
 	_pilot.use_missile = matchup["weapon"] == "missile"
 	_pilot.target = _enemy as Node3D

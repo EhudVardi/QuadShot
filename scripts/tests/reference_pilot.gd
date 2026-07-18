@@ -37,9 +37,21 @@ var aim_p: float = 5.0
 ## (rad/s of roll rate per m/s of sideways velocity).
 var roll_damp: float = 0.18
 ## Fire when the target sits within this cone of the GUN line, degrees.
+## Only consulted when the pilot is shooting manually (use_director off).
 var fire_cone_deg: float = 6.0
 ## Don't waste blaster rounds past this range, meters.
 var fire_range: float = 55.0
+## Let the FCS gun director pull the trigger (CombatConfig.fire_assist_miss_m)
+## instead of deciding the shot here.
+##
+## This is how the game is actually played (user, 2026-07-18): the director
+## sweeps the true ballistic arc — muzzle speed, inherited velocity, gravity
+## drop — against the target's predicted motion and fires the instant they
+## intersect. The pilot's job is POSITIONING; the trigger is the gear's job.
+## Hand-rolling the trigger here meant re-deriving that solution badly and
+## firing 679 rounds at a raider for zero hits, while the correct solver sat
+## unused three metres away in weapon.gd.
+var use_director: bool = true
 
 
 ## Drive one physics tick. Called by the harness each physics_frame; the
@@ -85,22 +97,37 @@ func update(_delta: float) -> void:
 	var max_pitch_rate: float = deg_to_rad(drone.config.max_rate_deg.y)
 	var max_yaw_rate: float = deg_to_rad(drone.config.max_rate_deg.z)
 
+	# Line-of-sight rate: how fast the bearing to the target is swinging, given
+	# both bodies are moving. A pure P aim loop LAGS a mover by a roughly
+	# constant error proportional to this rate — traced settling at a permanent
+	# ~2.5 m miss on an orbiting raider, which is a miss the director will never
+	# fire on. Feed it forward; let P correct only the residual.
+	var los_rate := Vector3.ZERO
+	var relative_velocity: Vector3 = -drone.linear_velocity
+	var measured_velocity: Variant = target.get(&"velocity")
+	if measured_velocity is Vector3:
+		relative_velocity += measured_velocity as Vector3
+	if to_target.length_squared() > 0.01:
+		los_rate = to_target.cross(relative_velocity) / to_target.length_squared()
+
 	# Yaw: swing the gun line's heading onto the target's bearing.
 	var yaw_error: float = 0.0
 	if to_flat.length() > 0.1:
 		yaw_error = gun_flat.signed_angle_to(to_flat.normalized(), Vector3.UP)
-	var yaw_rate: float = clampf(-yaw_p * yaw_error, -max_yaw_rate, max_yaw_rate)
+	var yaw_rate: float = clampf(-yaw_p * yaw_error - los_rate.dot(Vector3.UP),
+			-max_yaw_rate, max_yaw_rate)
 
 	# Pitch: raise/lower the gun line's elevation onto the target's. Target
 	# above the gun line -> nose up; below -> nose down (which also closes).
 	var pitch_error: float = asin(clampf(to_dir.y, -1.0, 1.0)) \
 			- asin(clampf(gun.y, -1.0, 1.0))
-	var pitch_rate: float = clampf(aim_p * pitch_error, -max_pitch_rate, max_pitch_rate)
-
 	# Roll: null sideways velocity so the firing line stays steady (positive
 	# roll accelerates right, so oppose rightward drift with negative roll).
 	var right_flat: Vector3 = Vector3(drone.global_basis.x.x, 0.0,
 			drone.global_basis.x.z).normalized()
+	var pitch_rate: float = clampf(
+			aim_p * pitch_error + los_rate.dot(right_flat),
+			-max_pitch_rate, max_pitch_rate)
 	var lateral_speed: float = drone.linear_velocity.dot(right_flat)
 	var roll_rate: float = clampf(-roll_damp * lateral_speed,
 			-max_roll_rate, max_roll_rate)
@@ -116,6 +143,11 @@ func update(_delta: float) -> void:
 		if missile != null:
 			missile.fire_override = true
 		_hold_blaster()
+	elif use_director:
+		# Hands off the trigger: weapon.gd fires itself whenever its own arc
+		# solution says a hostile is about to be hit. Keeping the gun pointed
+		# somewhere useful is this loop's entire contribution.
+		_hold_blaster()
 	else:
 		weapon.fire_override = on_target and to_target.length() < fire_range
 
@@ -124,9 +156,16 @@ func _altitude_throttle(target_alt: float) -> float:
 	var climb: float = drone.config.autopilot_climb_gain
 	var error: float = target_alt - drone.global_position.y
 	# PD around hover: seek the altitude, damp vertical speed.
-	return clampf(drone.hover_throttle()
-			+ climb * (clampf(error, -4.0, 4.0) - drone.linear_velocity.y),
-			0.0, 1.0)
+	var demand: float = drone.hover_throttle() \
+			+ climb * (clampf(error, -4.0, 4.0) - drone.linear_velocity.y)
+	# Tilt compensation. hover_throttle() is the LEVEL hover figure, but this
+	# pilot spends an engagement pitched ~44 deg nose-down putting the uptilted
+	# gun line on target, where only cos(44) = 72% of its thrust is holding it
+	# up. Without this it sinks the whole fight and eventually falls out of the
+	# world — traced doing exactly that, altitude 13 m to -24 m in ten seconds,
+	# which is most of why it could never finish a gun run.
+	var lift_fraction: float = maxf(drone.global_basis.y.dot(Vector3.UP), 0.25)
+	return clampf(demand / lift_fraction, 0.0, 1.0)
 
 
 func _hold_fire() -> void:
