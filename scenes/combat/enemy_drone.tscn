@@ -1,7 +1,7 @@
 [gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/enemy_drone.gd" id="1_ed"]
-[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
+[ext_resource type="Resource" path="res://resources/default_enemy_raider.tres" id="2_ecfg"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
 
 [sub_resource type="StandardMaterial3D" id="mat_body"]
@@ -27,7 +27,7 @@ size = Vector3(0.5, 0.2, 0.5)
 [node name="EnemyDrone" type="CharacterBody3D" groups=["enemies"]]
 motion_mode = 1
 script = ExtResource("1_ed")
-combat_config = ExtResource("2_ccfg")
+enemy_config = ExtResource("2_ecfg")
 
 [node name="Visual" type="Node3D" parent="."]
 

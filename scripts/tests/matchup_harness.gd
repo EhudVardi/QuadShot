@@ -12,9 +12,14 @@ extends SceneTree
 ## covers what exists today — Kestrel flying Blaster/Missile against the
 ## shipped Raider and Turret. The banded ++..-- matrix and the P4.3 invariants
 ## arrive as the roster does (Gnat/Aegis/Flak/Atlas, Phases 3-4): this file is
-## data-driven so a new row/column is one list entry. Enemy AI self-randomizes
-## (enemy_drone _ready), so runs are REPEATED rather than seed-fixed; per-run
-## determinism lands with the EnemyConfig migration (Phase 3).
+## data-driven so a new row/column is one list entry.
+##
+## DETERMINISM (P4.8, Phase 3): every rep seeds the enemy's AI RNG with the rep
+## index, so rep N is the same fight run after run and across balance edits —
+## a changed number means a changed BALANCE, not a reshuffled die. It is not
+## bit-exact: the physics solver carries float variance between processes, so a
+## rep sitting on a knife edge (one bolt grazing vs. missing) can still flip.
+## Read aggregate movement, not single-rep noise.
 ##
 ## Run: <godot> --headless -s scripts/tests/matchup_harness.gd --path .
 
@@ -104,6 +109,11 @@ func _build_duel() -> void:
 	_drone.prime_motors(_drone.hover_throttle())
 
 	_enemy = (load(matchup["enemy"]) as PackedScene).instantiate()
+	# Per-rep determinism (P4.8): flyers self-randomize in _ready, so the seed
+	# must be set before the node enters the tree. Rep index = seed, so rep 3
+	# of a cell is the same fight every run and across balance edits.
+	if _enemy.get(&"ai_seed") != null:
+		_enemy.set(&"ai_seed", _rep)
 	_arena.add_child(_enemy)
 	(_enemy as Node3D).global_position = \
 			Vector3(0.0, ARENA_ALTITUDE, -ENGAGE_DISTANCE)
@@ -165,7 +175,7 @@ func _report() -> void:
 				ttk_sum += float(r["ttk"])
 		var win_rate: float = float(wins) / float(runs.size())
 		var mean_ttk: String = "%.1fs" % (ttk_sum / float(wins)) if wins > 0 else "-"
-		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.0f"
+		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.1f"
 				% [MATCHUPS[i]["name"], wins, runs.size(), win_rate * 100.0,
 				mean_ttk, dmg_sum / float(runs.size())])
 

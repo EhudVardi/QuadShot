@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
+
+[resource]
+script = ExtResource("1_ecfg")
+type_id = &"raider"
+hull = 40.0
+armor = 0.0
+shield_max = 0.0
+shield_break_threshold = 0.0
+shield_regen = 0.0
+shield_regen_delay = 0.0
+speed = 14.0
+accel = 18.0
+turn_speed_deg = 120.0
+sight_range = 60.0
+damage = 8.0
+fire_rate = 1.5
+muzzle_speed = 45.0
+aim_jitter_deg = 3.0
+preferred_range = 18.0
+respawn_delay = 0.0
+points = 150.0
+strength_cost = 1.0

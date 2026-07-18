@@ -21,6 +21,9 @@ extends CanvasLayer
 @export var input_bindings: InputBindings
 ## TODO stub (GAMEPLAY-DESIGN P1.6): weather tunables, not yet simulated.
 @export var weather_config: WeatherConfig
+## The bestiary's per-type stat blocks (P4.8). Order is the BESTIARY section's
+## order; each gets its own sub-header and preset bar.
+@export var enemy_configs: Array[EnemyConfig] = []
 
 @onready var _telemetry: Label = $Panel/VBox/TelemetryText
 @onready var _motors_box: VBoxContainer = $Panel/VBox/Motors
@@ -100,26 +103,8 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["crash_damage_speed", 2.0, 40.0, 1.0],
 	["crash_damage_scale", 0.0, 20.0, 0.5],
 	["respawn_delay", 0.0, 10.0, 0.5],
-	["turret_health", 10.0, 300.0, 10.0],
-	["turret_range", 10.0, 120.0, 5.0],
-	["turret_fire_rate", 0.2, 10.0, 0.2],
-	["turret_muzzle_speed", 10.0, 120.0, 5.0],
-	["turret_damage", 1.0, 50.0, 1.0],
-	["turret_turn_speed_deg", 10.0, 360.0, 10.0],
-	["turret_respawn_delay", 0.0, 60.0, 5.0],
-	["turret_points", 0.0, 1000.0, 10.0],
 	["target_points", 0.0, 500.0, 10.0],
 	["target_respawn_delay", 0.0, 30.0, 1.0],
-	["enemy_health", 5.0, 300.0, 5.0],
-	["enemy_points", 0.0, 1000.0, 10.0],
-	["enemy_speed", 2.0, 40.0, 1.0],
-	["enemy_accel", 2.0, 60.0, 1.0],
-	["enemy_sight_range", 10.0, 150.0, 5.0],
-	["enemy_preferred_range", 5.0, 60.0, 1.0],
-	["enemy_fire_rate", 0.2, 8.0, 0.1],
-	["enemy_muzzle_speed", 10.0, 120.0, 5.0],
-	["enemy_damage", 1.0, 50.0, 1.0],
-	["enemy_aim_jitter_deg", 0.0, 15.0, 0.5],
 	["missile_lock_range", 10.0, 150.0, 5.0],
 	["missile_lock_cone_deg", 2.0, 45.0, 1.0],
 	["missile_lock_time", 0.1, 4.0, 0.1],
@@ -137,6 +122,29 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["sortie_enemy_bonus", 0.0, 5.0, 0.5],
 	["combo_window", 0.5, 15.0, 0.5],
 	["combo_max", 1.0, 10.0, 1.0],
+]
+
+## Bestiary (P4.8): one shared row table for every EnemyConfig — the roster is
+## described in one vocabulary, so a new type is a new .tres, not new UI.
+const _ENEMY_FLOAT_ROWS: Array[Array] = [
+	["hull", 1.0, 300.0, 1.0],
+	["armor", 0.0, 30.0, 0.5],
+	["shield_max", 0.0, 300.0, 5.0],
+	["shield_break_threshold", 0.0, 100.0, 1.0],
+	["shield_regen", 0.0, 60.0, 1.0],
+	["shield_regen_delay", 0.0, 10.0, 0.25],
+	["speed", 0.0, 40.0, 0.5],
+	["accel", 0.0, 60.0, 1.0],
+	["turn_speed_deg", 10.0, 360.0, 10.0],
+	["sight_range", 10.0, 150.0, 5.0],
+	["damage", 0.0, 50.0, 0.5],
+	["fire_rate", 0.0, 10.0, 0.1],
+	["muzzle_speed", 10.0, 120.0, 5.0],
+	["aim_jitter_deg", 0.0, 15.0, 0.5],
+	["preferred_range", 0.0, 60.0, 1.0],
+	["respawn_delay", 0.0, 60.0, 1.0],
+	["points", 0.0, 1000.0, 10.0],
+	["strength_cost", 0.0, 20.0, 0.5],
 ]
 
 ## Damage model (Iteration 7): severity dial + the wounded-quad knobs.
@@ -207,6 +215,17 @@ func _ready() -> void:
 	_add_section_header("COMBAT")
 	_add_preset_bar("combat", combat_config)
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
+	# BESTIARY (P4.8): one collapsible block per roster type, each with its own
+	# preset bar — tuning a matchup means editing one type, not a shared blob.
+	for enemy_config: EnemyConfig in enemy_configs:
+		if enemy_config == null:
+			continue
+		_configs.append(enemy_config)
+		if enemy_config.load_from_user():
+			print("[config] loaded %s" % enemy_config.save_path())
+		_add_section_header("BESTIARY: %s" % String(enemy_config.type_id).to_upper())
+		_add_preset_bar("bestiary/%s" % enemy_config.type_id, enemy_config)
+		_add_config_rows(enemy_config, _ENEMY_FLOAT_ROWS, [])
 	if damage_config != null:
 		_add_section_header("DAMAGE")
 		_add_preset_bar("damage", damage_config)

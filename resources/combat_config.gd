@@ -2,8 +2,14 @@ class_name CombatConfig
 extends TunableConfig
 
 ## Combat/balance tunables (roadmap M1/M2), live-editable in the overlay
-## exactly like FlightConfig. Shared instance: weapon, turrets, targets and
-## main all export the same default_combat_config.tres.
+## exactly like FlightConfig. Shared instance: weapon, targets and main all
+## export the same default_combat_config.tres.
+##
+## PLAYER SIDE ONLY (GAMEPLAY-DESIGN P4.8): the enemy_* and turret_* groups
+## moved out to per-type EnemyConfig .tres files, so the bestiary is tuned one
+## row at a time and CombatConfig means "the player's weapons and the run".
+## Saved user configs carrying the old fields load fine — copy_from only reads
+## properties this class still declares.
 
 @export_group("Weapon")
 @export var fire_rate: float = 10.0
@@ -31,33 +37,9 @@ extends TunableConfig
 @export var crash_damage_scale: float = 6.0
 @export var respawn_delay: float = 2.5
 
-@export_group("Turrets")
-@export var turret_health: float = 50.0
-@export var turret_range: float = 45.0
-@export var turret_fire_rate: float = 2.0
-@export var turret_muzzle_speed: float = 55.0
-@export var turret_damage: float = 10.0
-@export var turret_turn_speed_deg: float = 120.0
-@export var turret_respawn_delay: float = 20.0
-@export var turret_points: float = 250.0
-
 @export_group("Targets")
 @export var target_points: float = 100.0
 @export var target_respawn_delay: float = 8.0
-
-@export_group("Enemies")
-@export var enemy_health: float = 40.0
-@export var enemy_points: float = 150.0
-@export var enemy_speed: float = 14.0
-@export var enemy_accel: float = 18.0
-@export var enemy_sight_range: float = 60.0
-## Enemies orbit the player at roughly this distance while attacking.
-@export var enemy_preferred_range: float = 18.0
-@export var enemy_fire_rate: float = 1.5
-@export var enemy_muzzle_speed: float = 45.0
-@export var enemy_damage: float = 8.0
-## Random cone added to enemy aim — the dodgeability knob.
-@export var enemy_aim_jitter_deg: float = 3.0
 
 @export_group("Missiles")
 @export var missile_lock_range: float = 60.0

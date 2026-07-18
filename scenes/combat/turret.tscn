@@ -1,7 +1,7 @@
 [gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/turret.gd" id="1_tur"]
-[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
+[ext_resource type="Resource" path="res://resources/default_enemy_turret.tres" id="2_ecfg"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
 
 [sub_resource type="StandardMaterial3D" id="mat_base"]
@@ -30,7 +30,7 @@ size = Vector3(1, 2.2, 1)
 
 [node name="Turret" type="StaticBody3D" groups=["turrets"]]
 script = ExtResource("1_tur")
-combat_config = ExtResource("2_ccfg")
+enemy_config = ExtResource("2_ecfg")
 
 [node name="Base" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)

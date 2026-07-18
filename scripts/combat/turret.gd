@@ -11,7 +11,7 @@ signal destroyed(points: float)
 ## Combat-AI feel constant (not flight/input physics).
 const AIM_TOLERANCE_DEG: float = 4.0
 
-@export var combat_config: CombatConfig
+@export var enemy_config: EnemyConfig
 
 ## Read by projectiles: enemy fire never damages enemy structures.
 var team: StringName = &"enemy"
@@ -28,7 +28,7 @@ var _alive: bool = true
 
 
 func _ready() -> void:
-	_health.max_health = combat_config.turret_health
+	_health.max_health = enemy_config.hull
 	_health.revive()
 	_health.died.connect(_on_died)
 
@@ -46,7 +46,7 @@ func _physics_process(delta: float) -> void:
 	# visible=false is the death state (main.gd) — corpses are not targets.
 	if not _player.armed or not _player.visible:
 		return
-	if _head.global_position.distance_to(_player.global_position) > combat_config.turret_range:
+	if _head.global_position.distance_to(_player.global_position) > enemy_config.sight_range:
 		return
 	if not _has_line_of_sight():
 		return
@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	_track(lead, delta)
 	if _cooldown <= 0.0 and _aimed_at(lead):
 		_fire()
-		_cooldown = 1.0 / combat_config.turret_fire_rate
+		_cooldown = 1.0 / enemy_config.fire_rate
 
 
 func take_hit(damage: float) -> void:
@@ -65,14 +65,14 @@ func take_hit(damage: float) -> void:
 func _on_died() -> void:
 	_alive = false
 	Effects.explosion(get_tree().root, _head.global_position, 1.3)
-	destroyed.emit(combat_config.turret_points)
+	destroyed.emit(enemy_config.points)
 	visible = false
 	_collision.set_deferred(&"disabled", true)
-	get_tree().create_timer(combat_config.turret_respawn_delay).timeout.connect(_respawn)
+	get_tree().create_timer(enemy_config.respawn_delay).timeout.connect(_respawn)
 
 
 func _respawn() -> void:
-	_health.max_health = combat_config.turret_health
+	_health.max_health = enemy_config.hull
 	_health.revive()
 	_alive = true
 	visible = true
@@ -90,7 +90,7 @@ func _has_line_of_sight() -> bool:
 ## Aim where the player will be when a straight-line bolt arrives.
 func _lead_position() -> Vector3:
 	var flight_time: float = _muzzle.global_position.distance_to(_player.global_position) \
-			/ combat_config.turret_muzzle_speed
+			/ enemy_config.muzzle_speed
 	return _player.global_position + _player.linear_velocity * flight_time
 
 
@@ -104,7 +104,7 @@ func _track(point: Vector3, delta: float) -> void:
 	# Directly opposite: any perpendicular axis works; use yaw.
 	if axis.length_squared() < 0.000001:
 		axis = Vector3.UP
-	var step: float = minf(angle, deg_to_rad(combat_config.turret_turn_speed_deg) * delta)
+	var step: float = minf(angle, deg_to_rad(enemy_config.turn_speed_deg) * delta)
 	_head.global_basis = (Basis(axis.normalized(), step) * _head.global_basis).orthonormalized()
 
 
@@ -116,8 +116,8 @@ func _aimed_at(point: Vector3) -> bool:
 func _fire() -> void:
 	var direction: Vector3 = -_head.global_basis.z
 	# Zero projectile gravity: the lead solution assumes a straight bolt.
-	var lifetime: float = combat_config.turret_range / combat_config.turret_muzzle_speed * 1.6
+	var lifetime: float = enemy_config.sight_range / enemy_config.muzzle_speed * 1.6
 	_pool.fire(_muzzle.global_position + direction * 0.3,
-			direction * combat_config.turret_muzzle_speed,
-			combat_config.turret_damage, team, [get_rid()], 0.0, lifetime)
+			direction * enemy_config.muzzle_speed,
+			enemy_config.damage, team, [get_rid()], 0.0, lifetime)
 	SoundBank.play_at(&"shot", _muzzle.global_position, -4.0, 0.2)

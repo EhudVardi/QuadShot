@@ -112,8 +112,8 @@ func _setup() -> void:
 	# the pilot's saved combat config, which can carry any difficulty tuning.
 	config.sortie_waves = 1.0
 	config.wave_intermission = 0.25
-	config.enemy_damage = 0.0
-	config.turret_range = 0.0
+	(load("res://resources/default_enemy_raider.tres") as EnemyConfig).damage = 0.0
+	(load("res://resources/default_enemy_turret.tres") as EnemyConfig).sight_range = 0.0
 	config.wave_base_enemies = 2.0
 	config.wave_growth = 1.0
 	config.sortie_enemy_bonus = 1.0

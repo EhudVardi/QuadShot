@@ -55,12 +55,14 @@ func _setup() -> void:
 	_drone = _main.get_node("Drone") as FlightController
 	_missiles = _drone.get_node("FpvCamera/MissileSystem") as MissileSystem
 	var config: CombatConfig = _main.get("combat_config")
-	# Deterministic conditions on the shared config: the planted enemy cannot
+	# Deterministic conditions on the shared configs: the planted enemy cannot
 	# move or hurt, turrets and wave enemies stay out of the fight.
-	config.enemy_speed = 0.0
-	config.enemy_accel = 0.0
-	config.enemy_damage = 0.0
-	config.turret_range = 0.0
+	var raider: EnemyConfig = load("res://resources/default_enemy_raider.tres")
+	var turret: EnemyConfig = load("res://resources/default_enemy_turret.tres")
+	raider.speed = 0.0
+	raider.accel = 0.0
+	raider.damage = 0.0
+	turret.sight_range = 0.0
 	config.wave_base_enemies = 1.0
 
 	_drone.arm()
