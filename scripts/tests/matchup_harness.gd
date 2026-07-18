@@ -21,7 +21,15 @@ extends SceneTree
 ## rep sitting on a knife edge (one bolt grazing vs. missing) can still flip.
 ## Read aggregate movement, not single-rep noise.
 ##
-## Run: <godot> --headless -s scripts/tests/matchup_harness.gd --path .
+## Run:   <godot> --headless -s scripts/tests/matchup_harness.gd --path .
+## WATCH: <godot> -s scripts/tests/matchup_harness.gd --path .
+##
+## Drop --headless and the duels render from the reference pilot's own FPV
+## camera, in real time, with each matchup announced as it starts. The numbers
+## say a cell is 0%; watching says WHY it is 0% — which pass geometry the pilot
+## flies, where its shots actually go, whether it is fighting or falling. The
+## project's founding tenet applies to the instrument as much as to the game:
+## some things are only visible to eyes.
 
 const REPS: int = 6
 const MAX_SECONDS: float = 10.0
@@ -72,6 +80,7 @@ var _bombed: bool = false
 # Aggregates, one array of result dicts per matchup index.
 var _results: Array[Array] = []
 var _failures: PackedStringArray = []
+var _watching: bool = DisplayServer.get_name() != "headless"
 
 
 func _initialize() -> void:
@@ -81,6 +90,13 @@ func _initialize() -> void:
 		_results.append([])
 	print("[matchup] %d matchups x %d reps, %ds cap"
 			% [MATCHUPS.size(), REPS, int(MAX_SECONDS)])
+	if _watching:
+		# Silence. The rig restarts a duel every few seconds, so the drone's
+		# motor tone becomes a stuttering drone with no mixing around it —
+		# unpleasant enough to make watching a chore. This is a measurement
+		# instrument; the game is where sound belongs.
+		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
+		print("[matchup] WATCH MODE — pilot's FPV camera, audio muted.")
 	physics_frame.connect(_on_physics_frame)
 
 
@@ -112,6 +128,8 @@ func _build_duel() -> void:
 	var matchup: Dictionary = MATCHUPS[_matchup_i]
 	_arena = Node3D.new()
 	root.add_child(_arena)
+	if _watching:
+		_build_scenery()
 
 	var pool := ProjectilePool.new()
 	_arena.add_child(pool)
@@ -174,6 +192,54 @@ func _build_duel() -> void:
 	_pilot.cruise_altitude = ARENA_ALTITUDE
 	_duel_ticks = 0
 
+	if _watching:
+		# Ride along with the pilot: its own gun camera is the honest view of
+		# what the aim loop is doing.
+		var view: Camera3D = _drone.get_node("FpvCamera") as Camera3D
+		if view != null:
+			view.current = true
+		print("[matchup] --- %s, rep %d/%d ---"
+				% [matchup["name"], _rep + 1, REPS])
+
+
+## Watch-mode scenery. The measured arena is deliberately bare — no light, no
+## sky, no ground — because headless rendering costs time and proves nothing.
+## Watching it, though, means staring into a black void with an unlit drone in
+## it. This adds the minimum needed to SEE: a sun, a sky, and a grid floor for
+## motion reference.
+##
+## Visual only, and deliberately so: the floor is a mesh with NO collider, so a
+## watched duel is physically identical to a measured one. The instrument must
+## not read differently when observed.
+func _build_scenery() -> void:
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-50.0, -35.0, 0.0)
+	sun.light_energy = 1.1
+	_arena.add_child(sun)
+
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_horizon_color = Color(0.35, 0.38, 0.45)
+	sky_material.ground_horizon_color = Color(0.12, 0.13, 0.16)
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+	var environment := Environment.new()
+	environment.background_mode = Environment.BG_SKY
+	environment.sky = sky
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	environment.tonemap_mode = Environment.TONE_MAPPER_AGX
+	var world := WorldEnvironment.new()
+	world.environment = environment
+	_arena.add_child(world)
+
+	var floor_mesh := PlaneMesh.new()
+	floor_mesh.size = Vector2(600.0, 600.0)
+	var floor_material := ShaderMaterial.new()
+	floor_material.shader = load("res://resources/checker_ground.gdshader")
+	floor_mesh.material = floor_material
+	var ground := MeshInstance3D.new()
+	ground.mesh = floor_mesh
+	_arena.add_child(ground)
+
 
 ## A distributed enemy has no single position to aim at, so the pilot is fed
 ## the nearest live body each tick — the same choice a player makes when a
@@ -187,6 +253,10 @@ func _retarget() -> void:
 
 
 func _record(outcome: String) -> void:
+	if _watching:
+		print("[matchup]     %s in %.1fs (kills %d, hull lost %.0f)"
+				% [outcome, float(_duel_ticks) / _pps, _kills,
+				_player_max - _health.current])
 	_results[_matchup_i].append({
 		"outcome": outcome,
 		"ttk": float(_duel_ticks) / _pps,
