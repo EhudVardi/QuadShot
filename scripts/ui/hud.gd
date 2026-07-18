@@ -28,6 +28,35 @@ var _gate_marker: GateMarker
 var _gun_funnel: GunFunnel
 var _stick_display: StickDisplay
 var _pause_label: Label
+var _motor_status: MotorStatus
+var _video_glitch: ColorRect
+
+
+## Four motor-capability pips in quad-X layout (GAMEPLAY-DESIGN Iteration 7 /
+## D4): the legible half of the wound (the sticks tell you first). Green =
+## healthy, red = failed; a damaged corner is exactly the one the drone now
+## fights toward.
+class MotorStatus:
+	extends Control
+
+	## FL, FR, BL, BR — matches MotorModel's order.
+	var healths: PackedFloat32Array = PackedFloat32Array([1.0, 1.0, 1.0, 1.0])
+
+	func _draw() -> void:
+		var origin := Vector2(28.0, 92.0)
+		var pip := 15.0
+		var gap := 9.0
+		var offsets: Array[Vector2] = [
+			Vector2(0, 0), Vector2(pip + gap, 0),
+			Vector2(0, pip + gap), Vector2(pip + gap, pip + gap)]
+		draw_string(get_theme_default_font(), origin + Vector2(0, -6),
+				"MOTORS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+		for i: int in 4:
+			var h: float = healths[i]
+			var color := Color(1.0, 0.2, 0.15).lerp(Color(0.3, 1.0, 0.4), h)
+			draw_rect(Rect2(origin + offsets[i], Vector2(pip, pip)), color)
+			draw_rect(Rect2(origin + offsets[i], Vector2(pip, pip)),
+					Color(0, 0, 0, 0.6), false, 1.0)
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -139,6 +168,20 @@ class GateMarker:
 
 
 func _ready() -> void:
+	# Video-breakup overlay sits at the bottom of the layer so the crisp HUD
+	# draws on top of it (the feed degrades, the instruments do not).
+	_video_glitch = ColorRect.new()
+	_video_glitch.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_video_glitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var glitch_material := ShaderMaterial.new()
+	glitch_material.shader = load("res://resources/video_glitch.gdshader") as Shader
+	_video_glitch.material = glitch_material
+	_video_glitch.visible = false
+	add_child(_video_glitch)
+	_motor_status = MotorStatus.new()
+	_motor_status.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_motor_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_motor_status)
 	_lock_indicator = LockIndicator.new()
 	_lock_indicator.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_lock_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -209,6 +252,20 @@ func announce_gate(sortie: int) -> void:
 func set_health(current: float, maximum: float) -> void:
 	_health_bar.max_value = maximum
 	_health_bar.value = current
+
+
+func set_motor_health(healths: PackedFloat32Array) -> void:
+	_motor_status.healths = healths
+	_motor_status.queue_redraw()
+
+
+## Video-breakup intensity [0, 1]; 0 hides the overlay entirely (no cost).
+func set_video_glitch(intensity: float) -> void:
+	var clamped: float = clampf(intensity, 0.0, 1.0)
+	_video_glitch.visible = clamped > 0.001
+	if _video_glitch.visible:
+		(_video_glitch.material as ShaderMaterial).set_shader_parameter(
+				&"glitch", clamped)
 
 
 ## side: front/back/left/right for an edge hint, anything else full-screen.

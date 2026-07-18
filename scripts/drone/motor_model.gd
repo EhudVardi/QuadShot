@@ -14,11 +14,38 @@ const Z_SIGNS: Array[float] = [-1.0, -1.0, 1.0, 1.0]
 
 var _commands: PackedFloat32Array
 var _outputs: PackedFloat32Array
+## Per-motor capability [0, 1] (GAMEPLAY-DESIGN Iteration 7 / D2): 1 = healthy,
+## 0 = failed. Battle damage lowers these, producing asymmetric thrust the rate
+## loop must fight — the wounded quad, felt through the sticks. Undamaged (all
+## 1.0) it is exactly the old model, so the harness and arcade tier are
+## untouched. A failed motor still makes `min_thrust_floor` of its share.
+var _health: PackedFloat32Array
+var min_thrust_floor: float = 0.0
 
 
 func _init() -> void:
 	_commands.resize(MOTOR_COUNT)
 	_outputs.resize(MOTOR_COUNT)
+	_health.resize(MOTOR_COUNT)
+	repair()
+
+
+## Effective thrust scale of a motor: healthy = 1, failed = the residual floor.
+func _effective(index: int) -> float:
+	return min_thrust_floor + (1.0 - min_thrust_floor) * _health[index]
+
+
+func health(index: int) -> float:
+	return _health[index]
+
+
+func damage_motor(index: int, amount: float) -> void:
+	_health[index] = clampf(_health[index] - amount, 0.0, 1.0)
+
+
+func repair() -> void:
+	for i: int in MOTOR_COUNT:
+		_health[i] = 1.0
 
 
 ## Range [-1, 1]: negative only occurs in 3D throttle mode (reverse thrust);
@@ -76,12 +103,15 @@ func apply_thrust(body: RigidBody3D, config: FlightConfig, gravity: float) -> vo
 	var per_motor_max: float = max_total_thrust(config, gravity) / float(MOTOR_COUNT)
 	var yaw_sum: float = 0.0
 	for i: int in MOTOR_COUNT:
-		var thrust: float = _outputs[i] * per_motor_max
+		# Damage scales delivered thrust AND yaw torque: a weak corner lifts
+		# less (roll/pitch bias) and reacts less (yaw imbalance) — honest.
+		var effective: float = _effective(i)
+		var thrust: float = _outputs[i] * per_motor_max * effective
 		if _outputs[i] < 0.0:
 			# 3D mode reverse: props are less efficient pushing down.
 			thrust *= config.reverse_thrust_scale
 		var force: Vector3 = body.global_basis.y * thrust
 		var position_offset: Vector3 = body.global_basis * motor_position(i, config)
 		body.apply_force(force, position_offset)
-		yaw_sum += float(SPIN_DIRECTIONS[i]) * _outputs[i]
+		yaw_sum += float(SPIN_DIRECTIONS[i]) * _outputs[i] * effective
 	body.apply_torque(body.global_basis.y * (config.yaw_authority * yaw_sum))

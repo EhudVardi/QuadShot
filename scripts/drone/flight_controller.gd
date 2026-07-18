@@ -12,6 +12,9 @@ enum FlightMode { ACRO, ANGLE }
 signal crashed(impact_speed: float)
 
 @export var config: FlightConfig
+## Damage model (GAMEPLAY-DESIGN Iteration 7). Null in the harness/tests, where
+## motors stay undamaged and flight is the shipped model exactly.
+@export var damage_config: DamageConfig
 
 @onready var _motors: MotorModel = $MotorModel
 @onready var _input: InputHandler = $InputHandler
@@ -51,6 +54,8 @@ func _ready() -> void:
 	if config.load_from_user():
 		print("[config] loaded %s" % FlightConfig.SAVE_PATH)
 	mass = config.mass
+	if damage_config != null:
+		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_spawn_transform = global_transform
 	body_entered.connect(_on_body_entered)
 
@@ -62,6 +67,8 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if damage_config != null:
+		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_input.poll(config, hover_throttle(), delta)
 	collective = throttle_override if throttle_override >= 0.0 else _input.throttle
 	if autopilot and armed:
@@ -107,7 +114,46 @@ func reset_to_spawn() -> void:
 	global_transform = _spawn_transform
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	_motors.repair()
 	print("[drone] reset to spawn")
+
+
+## Battle damage to the airframe's flight (GAMEPLAY-DESIGN Iteration 7 / D2):
+## a hit degrades the motor on the side it came FROM, so the wound is asymmetric
+## and located, not an abstract number. Directionless damage (a crash) frays the
+## whole frame. Gated by the severity dial; a no-op without a damage_config.
+func apply_hit_to_motors(damage: float) -> void:
+	if damage_config == null or damage_config.severity <= 0.0:
+		return
+	var amount: float = minf(damage * damage_config.motor_damage_scale,
+			damage_config.motor_damage_max) * damage_config.severity
+	if amount <= 0.0:
+		return
+	var from_body: Vector3 = global_basis.inverse() * last_hit_direction
+	from_body.y = 0.0
+	if from_body.length_squared() < 0.000001:
+		for i: int in MotorModel.MOTOR_COUNT:
+			_motors.damage_motor(i, amount)
+		return
+	from_body = from_body.normalized()
+	var best: int = 0
+	var best_dot: float = -2.0
+	for i: int in MotorModel.MOTOR_COUNT:
+		var pos: Vector3 = _motors.motor_position(i, config)
+		pos.y = 0.0
+		var d: float = pos.normalized().dot(from_body)
+		if d > best_dot:
+			best_dot = d
+			best = i
+	_motors.damage_motor(best, amount)
+
+
+func motor_health(index: int) -> float:
+	return _motors.health(index)
+
+
+func repair_motors() -> void:
+	_motors.repair()
 
 
 ## Throttle fraction at which total thrust equals weight. With the linear

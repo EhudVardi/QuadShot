@@ -33,6 +33,8 @@ var _combo: float = 1.0
 var _last_kill_time: float = -1000.0
 var _paused_mode: bool = false
 var _pause_switch_was: bool = false
+## Decaying FPV-breakup spike from the last hit (GAMEPLAY-DESIGN Iteration 7).
+var _video_glitch_spike: float = 0.0
 
 
 func _ready() -> void:
@@ -55,6 +57,7 @@ func _ready() -> void:
 	_drone_health.died.connect(_on_player_died)
 	_drone.crashed.connect(_on_player_crashed)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_refresh_motor_hud()
 
 
 func _process(delta: float) -> void:
@@ -76,6 +79,7 @@ func _process(delta: float) -> void:
 	_update_gun_funnel()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
+	_update_damage_feedback(delta)
 
 
 ## BeamNG-style pause: time crawls (pause_time_scale) instead of stopping,
@@ -162,6 +166,7 @@ func _start_run() -> void:
 	_drone_health.max_health = combat_config.player_max_health
 	_drone_health.revive()
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_repair_airframe()
 	_wave_director.start_run()
 
 
@@ -174,6 +179,7 @@ func _on_gate_entered() -> void:
 	# Gate transit heals to full — sorties are self-contained challenges.
 	_drone_health.heal(_drone_health.max_health)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_repair_airframe()
 	# The gate fires from a physics callback; pausing for the draft waits
 	# until the physics flush is done.
 	_draft.call_deferred(&"open", Upgrades.draft())
@@ -227,9 +233,51 @@ func _on_player_crashed(impact_speed: float) -> void:
 		_drone_health.take(excess * combat_config.crash_damage_scale)
 
 
-func _on_player_damaged(_amount: float, remaining: float) -> void:
+func _on_player_damaged(amount: float, remaining: float) -> void:
+	# Damage is a flight-model event (D1): degrade the motor on the struck side
+	# BEFORE the direction is consumed below, and spike the video feed (D4).
+	_drone.apply_hit_to_motors(amount)
+	var dc: DamageConfig = _drone.damage_config
+	if dc != null and dc.severity > 0.0:
+		var bite: float = clampf(amount / maxf(_drone_health.max_health, 1.0) * 4.0,
+				0.0, 1.0)
+		_video_glitch_spike = clampf(
+				_video_glitch_spike + dc.video_glitch_on_hit * bite * dc.severity,
+				0.0, 1.0)
+	_refresh_motor_hud()
 	_hud.set_health(remaining, _drone_health.max_health)
 	_hud.flash_damage(_incoming_fire_side())
+
+
+func _refresh_motor_hud() -> void:
+	var healths := PackedFloat32Array()
+	for i: int in MotorModel.MOTOR_COUNT:
+		healths.append(_drone.motor_health(i))
+	_hud.set_motor_health(healths)
+
+
+## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by a
+## sustained wash that grows as integrity falls (D4). Off entirely when dead —
+## the death banner owns the screen then.
+func _update_damage_feedback(delta: float) -> void:
+	var dc: DamageConfig = _drone.damage_config
+	if dc == null:
+		return
+	_video_glitch_spike = maxf(_video_glitch_spike - dc.video_glitch_decay * delta, 0.0)
+	var sustained: float = 0.0
+	if _drone_health.alive and _drone_health.max_health > 0.0:
+		var integrity_frac: float = _drone_health.current / _drone_health.max_health
+		sustained = dc.video_glitch_sustained * (1.0 - integrity_frac) * dc.severity
+	_hud.set_video_glitch(maxf(_video_glitch_spike, sustained))
+
+
+## Field patch (D5): pads/gate/respawn restore the airframe's flight and clear
+## the feed — the wound is sortie-scoped, healed at the reset, not carried.
+func _repair_airframe() -> void:
+	_drone.repair_motors()
+	_video_glitch_spike = 0.0
+	_refresh_motor_hud()
+	_hud.set_video_glitch(0.0)
 
 
 ## Maps the last projectile's incoming direction to a screen edge for the
@@ -269,3 +317,4 @@ func _respawn_player() -> void:
 	_drone.visible = true
 	_hud.show_death(false)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_repair_airframe()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/drone/flight_controller.gd" id="1_fc"]
 [ext_resource type="Script" path="res://scripts/drone/motor_model.gd" id="2_mm"]
@@ -12,6 +12,7 @@
 [ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="10_acfg"]
 [ext_resource type="Script" path="res://scripts/combat/missile_system.gd" id="11_msys"]
 [ext_resource type="Script" path="res://scripts/drone/blackbox.gd" id="12_bbox"]
+[ext_resource type="Resource" path="res://resources/default_damage_config.tres" id="13_dmg"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
 size = Vector3(0.28, 0.08, 0.28)
@@ -41,6 +42,7 @@ linear_damp_mode = 1
 angular_damp_mode = 1
 script = ExtResource("1_fc")
 config = ExtResource("3_cfg")
+damage_config = ExtResource("13_dmg")
 
 [node name="MotorModel" type="Node" parent="."]
 script = ExtResource("2_mm")

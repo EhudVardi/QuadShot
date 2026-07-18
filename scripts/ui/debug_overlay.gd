@@ -11,6 +11,7 @@ extends CanvasLayer
 
 @export var drone: FlightController
 @export var combat_config: CombatConfig
+@export var damage_config: DamageConfig
 @export var audio_config: AudioConfig
 ## Optional: only the dev-room testbed wires this (its LookController applies
 ## it). Null in main.tscn, where the LOOK section is simply skipped.
@@ -138,6 +139,17 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["combo_max", 1.0, 10.0, 1.0],
 ]
 
+## Damage model (Iteration 7): severity dial + the wounded-quad knobs.
+const _DAMAGE_FLOAT_ROWS: Array[Array] = [
+	["severity", 0.0, 1.0, 0.05],
+	["motor_damage_scale", 0.0, 0.05, 0.001],
+	["motor_damage_max", 0.0, 1.0, 0.05],
+	["motor_min_thrust", 0.0, 1.0, 0.05],
+	["video_glitch_on_hit", 0.0, 1.0, 0.05],
+	["video_glitch_decay", 0.5, 6.0, 0.1],
+	["video_glitch_sustained", 0.0, 1.0, 0.05],
+]
+
 const _AUDIO_FLOAT_ROWS: Array[Array] = [
 	["master_volume", 0.0, 1.0, 0.01],
 	["sfx_volume", 0.0, 1.0, 0.01],
@@ -179,6 +191,8 @@ const _LOOK_FLOAT_ROWS: Array[Array] = [
 
 func _ready() -> void:
 	_configs = [drone.config, combat_config, audio_config]
+	if damage_config != null:
+		_configs.append(damage_config)
 	if look_config != null:
 		_configs.append(look_config)
 	_section = _tuning
@@ -192,6 +206,10 @@ func _ready() -> void:
 	_add_section_header("COMBAT")
 	_add_preset_bar("combat", combat_config)
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
+	if damage_config != null:
+		_add_section_header("DAMAGE")
+		_add_preset_bar("damage", damage_config)
+		_add_config_rows(damage_config, _DAMAGE_FLOAT_ROWS, [])
 	_add_section_header("AUDIO")
 	_add_preset_bar("audio", audio_config)
 	_add_config_rows(audio_config, _AUDIO_FLOAT_ROWS, [])

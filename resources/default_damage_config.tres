@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="DamageConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/damage_config.gd" id="1_dmg"]
+
+[resource]
+script = ExtResource("1_dmg")
+severity = 0.6
+motor_damage_scale = 0.01
+motor_damage_max = 0.5
+motor_min_thrust = 0.15
+video_glitch_on_hit = 0.7
+video_glitch_decay = 2.0
+video_glitch_sustained = 0.45

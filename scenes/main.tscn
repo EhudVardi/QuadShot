@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -18,6 +18,7 @@
 [ext_resource type="Resource" path="res://resources/default_look_config.tres" id="17_lookcfg"]
 [ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="18_bind"]
 [ext_resource type="Resource" path="res://resources/default_weather_config.tres" id="19_wthr"]
+[ext_resource type="Resource" path="res://resources/default_damage_config.tres" id="20_dmg"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -51,6 +52,7 @@ target = NodePath("../Drone")
 [node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
 drone = NodePath("../Drone")
 combat_config = ExtResource("7_ccfg")
+damage_config = ExtResource("20_dmg")
 audio_config = ExtResource("14_acfg")
 look_config = ExtResource("17_lookcfg")
 input_bindings = ExtResource("18_bind")
