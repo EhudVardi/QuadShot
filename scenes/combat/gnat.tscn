@@ -1,0 +1,26 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/gnat.gd" id="1_gnat"]
+
+[sub_resource type="StandardMaterial3D" id="mat_gnat"]
+albedo_color = Color(0.14, 0.07, 0.07, 1)
+emission_enabled = true
+emission = Color(1, 0.25, 0.12, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="BoxMesh" id="mesh_gnat"]
+material = SubResource("mat_gnat")
+size = Vector3(0.22, 0.09, 0.22)
+
+[sub_resource type="BoxShape3D" id="shape_gnat"]
+size = Vector3(0.3, 0.2, 0.3)
+
+[node name="Gnat" type="AnimatableBody3D" groups=["enemies"]]
+sync_to_physics = false
+script = ExtResource("1_gnat")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_gnat")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_gnat")

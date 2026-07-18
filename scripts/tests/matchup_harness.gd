@@ -36,6 +36,10 @@ const MATCHUPS: Array[Dictionary] = [
 			"enemy": "res://scenes/combat/enemy_drone.tscn"},
 	{"name": "Blaster x Turret", "weapon": "blaster",
 			"enemy": "res://scenes/combat/turret.tscn"},
+	{"name": "Blaster x Gnats", "weapon": "blaster",
+			"enemy": "res://scenes/combat/gnat_swarm.tscn"},
+	{"name": "Missile x Gnats", "weapon": "missile",
+			"enemy": "res://scenes/combat/gnat_swarm.tscn"},
 ]
 
 enum { BUILD, RUN, RECORD }
@@ -55,6 +59,7 @@ var _pilot: ReferencePilot
 var _duel_ticks: int = 0
 var _player_max: float = 100.0
 var _won: bool = false
+var _kills: int = 0
 
 # Aggregates, one array of result dicts per matchup index.
 var _results: Array[Array] = []
@@ -79,6 +84,7 @@ func _on_physics_frame() -> void:
 		RUN:
 			_duel_ticks += 1
 			if _pilot != null:
+				_retarget()
 				_pilot.update(1.0 / _pps)
 			if _won:
 				_record("win")
@@ -114,13 +120,28 @@ func _build_duel() -> void:
 	# of a cell is the same fight every run and across balance edits.
 	if _enemy.get(&"ai_seed") != null:
 		_enemy.set(&"ai_seed", _rep)
+	# Placed BEFORE entering the tree: types read their own position in _ready
+	# (the swarm spawns its pack around it, the raider takes its wander home
+	# from it), so positioning afterwards would build them around the origin.
+	# The arena sits at the origin, so local position is the global one.
+	(_enemy as Node3D).position = Vector3(0.0, ARENA_ALTITUDE, -ENGAGE_DISTANCE)
 	_arena.add_child(_enemy)
-	(_enemy as Node3D).global_position = \
-			Vector3(0.0, ARENA_ALTITUDE, -ENGAGE_DISTANCE)
-	# Both shipped hostiles expose destroyed(points); that is our win signal.
+	# Win = the ENEMY is defeated, which for a distributed type means the whole
+	# pack (P4.q5: the cloud is the unit, so one dead gnat is not a win). Types
+	# that can be cleared say so with `cleared`; single-body types win on their
+	# own destroyed(points).
 	_won = false
+	# Kills the PLAYER scored. For single-body types this is the win itself;
+	# for a pack it is the honest half of the story, because a swarm can also
+	# leave the field by spending every body on the player's hull.
+	_kills = 0
 	(_enemy as Object).connect(&"destroyed",
-			func(_points: float) -> void: _won = true)
+			func(_points: float) -> void: _kills += 1)
+	if (_enemy as Object).has_signal(&"cleared"):
+		(_enemy as Object).connect(&"cleared", func() -> void: _won = true)
+	else:
+		(_enemy as Object).connect(&"destroyed",
+				func(_points: float) -> void: _won = true)
 
 	_pilot = ReferencePilot.new()
 	_pilot.drone = _drone
@@ -132,11 +153,23 @@ func _build_duel() -> void:
 	_duel_ticks = 0
 
 
+## A distributed enemy has no single position to aim at, so the pilot is fed
+## the nearest live body each tick — the same choice a player makes when a
+## cloud arrives, and the reason gnats bankrupt single-target answers.
+func _retarget() -> void:
+	if _enemy == null or not is_instance_valid(_enemy):
+		return
+	if not _enemy.has_method("nearest_body"):
+		return
+	_pilot.target = _enemy.call("nearest_body", _drone.global_position) as Node3D
+
+
 func _record(outcome: String) -> void:
 	_results[_matchup_i].append({
 		"outcome": outcome,
 		"ttk": float(_duel_ticks) / _pps,
 		"damage_taken": _player_max - _health.current,
+		"kills": _kills,
 	})
 	_phase = RECORD
 
@@ -168,16 +201,19 @@ func _report() -> void:
 		var wins: int = 0
 		var ttk_sum: float = 0.0
 		var dmg_sum: float = 0.0
+		var kill_sum: float = 0.0
 		for r: Dictionary in runs:
 			dmg_sum += float(r["damage_taken"])
+			kill_sum += float(r["kills"])
 			if r["outcome"] == "win":
 				wins += 1
 				ttk_sum += float(r["ttk"])
 		var win_rate: float = float(wins) / float(runs.size())
 		var mean_ttk: String = "%.1fs" % (ttk_sum / float(wins)) if wins > 0 else "-"
-		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.1f"
+		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.1f  kills %.1f"
 				% [MATCHUPS[i]["name"], wins, runs.size(), win_rate * 100.0,
-				mean_ttk, dmg_sum / float(runs.size())])
+				mean_ttk, dmg_sum / float(runs.size()),
+				kill_sum / float(runs.size())])
 
 	# Phase-1 sanity asserts what the RIG genuinely proves: the reference
 	# pilot flies the real physics, engages, and its two aim paths both land —
@@ -200,6 +236,13 @@ func _report() -> void:
 	print("[matchup] NOTE: Blaster x Raider (%.0f%%) is the v0 pilot's known gap —"
 			% (_win_rate(0) * 100.0))
 	print("[matchup]       moving-target gun-runs are calibration task #1, not a rig fault.")
+	# The gnat cells need the same health warning, for the opposite reason:
+	# there the win column LOOKS green and is not measuring what it says.
+	print("[matchup] NOTE: for pack types 'win' means the pack left the field, which it")
+	print("[matchup]       also does by stinging itself out on the player. Read `kills`")
+	print("[matchup]       against pack_size: killing 1 of 9 while losing half your hull")
+	print("[matchup]       is a beating that the win column scores as a victory. Banding")
+	print("[matchup]       these cells needs kills+damage, not win-rate (P3.4 / H4).")
 
 	if _failures.is_empty():
 		print("[matchup] PASS")

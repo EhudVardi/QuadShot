@@ -1,0 +1,8 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/gnat_swarm.gd" id="1_swarm"]
+[ext_resource type="Resource" path="res://resources/default_enemy_gnat.tres" id="2_ecfg"]
+
+[node name="GnatSwarm" type="Node3D"]
+script = ExtResource("1_swarm")
+enemy_config = ExtResource("2_ecfg")

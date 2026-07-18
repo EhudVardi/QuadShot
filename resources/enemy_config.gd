@@ -57,6 +57,24 @@ extends TunableConfig
 ## ceiling).
 @export var aim_jitter_deg: float = 3.0
 
+@export_group("Swarm")
+## Bodies per pack. Inert for non-swarm types — the Gnat is the one roster
+## member whose UNIT is the cloud, not the body (P4.q5), so its numbers
+## describe a flock rather than a fighter.
+@export var pack_size: float = 0.0
+## Spacing each body tries to keep from its neighbours, meters.
+@export var swarm_spacing: float = 3.0
+## Push away from neighbours inside the spacing radius.
+@export var swarm_separation_gain: float = 1.6
+## Pull toward the pack's center of mass — what makes it read as one cloud.
+@export var swarm_cohesion_gain: float = 0.5
+## Pull toward the player: the pack's actual attack.
+@export var swarm_pursuit_gain: float = 1.0
+## Random wander added per body — the boil. 0 = a sterile lattice.
+@export var swarm_jitter: float = 0.35
+## Contact range at which a body stings and detonates, meters.
+@export var swarm_sting_radius: float = 1.6
+
 @export_group("Behavior")
 ## Standoff distance the type holds while attacking (orbit radius for flyers).
 @export var preferred_range: float = 18.0
