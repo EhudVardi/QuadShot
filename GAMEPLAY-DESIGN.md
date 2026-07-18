@@ -1,6 +1,11 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.19 (2026-07-18) — **THE PAPER PHASE IS COMPLETE (gap-checked).**
+> **Status:** v1.20 (2026-07-18) — paper phase complete; **the vertical-slice
+> build has begun.** Landed: the matchup harness + reference pilot (P1, `71f9324`)
+> and the damage model (P2, `12d6f41`) + a wounded-flight bench (`5cabf53`); all
+> headless-verified. Next checkpoint: the human flies Phase 2's wounded quad. See
+> the v1.20 decision-log entry for build progress + findings (incl. the reference
+> pilot's gun-vs-evasive-Raider gap, calibration task #1). Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3457,3 +3462,43 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     it's the vertical-slice build** (P4.10/P3.10/P5.11/P2.13 + D9), measurable from
     its first commit (H9); per H.q4 the difficulty calibration, when the slice
     flies, is mine to initiate and lead.
+- **2026-07-18 — v1.20. THE SLICE BUILD BEGINS** (code, not paper — logged here
+  in the v1.7 spirit of recording build milestones + findings):
+  - **Phase 1 — the matchup harness + reference pilot v0** (H2 unit layer / H5).
+    `scripts/tests/matchup_harness.gd` spins real duels headless; a scripted
+    reference pilot (`reference_pilot.gd`) flies the *real* drone through the
+    *real* rate loop (via `rate_override`), aims the true gun line (accounting
+    for the 44° cam uptilt), and the rig prints win/TTK/damage. Proven on shipped
+    content: **Missile×Raider 100%, Blaster×Turret 100%** (gun-line aim, zero
+    damage). Data-driven so roster growth is one row each.
+  - **Finding (real paper↔measured divergence): the v0 pilot cannot gun-kill an
+    evasively-orbiting Raider** — it positions and fires but misses, *even with
+    the shipped gun director (`fire_assist`) enabled*, because the director's
+    **linear** lead solution is defeated by the Raider's curved orbit. P4.3 rates
+    chip-gun-vs-Raider `++`; the measured cell is 0% for an AI proxy. This is
+    **calibration task #1** and it is *substantial* (curved-prediction FCS,
+    closer-range tactics, or a Raider-evasion balance lever) — flagged, deferred
+    to Phase 3 (where Gnat + a richer mobile roster avoid over-fitting the pilot
+    to one enemy), and reported by the harness rather than papered over. It also
+    raises a genuine design question: is the gun director *load-bearing* for the
+    chip-gun's rating, and how well should it predict maneuver?
+  - **Phase 2 — the damage model** (D9): motors gain per-motor capability that
+    scales delivered thrust + yaw torque (asymmetric thrust the rate loop fights —
+    the wounded quad); hits degrade the motor on the struck side (`last_hit_
+    direction`); a `DamageConfig` severity dial (D3) ramps arcade↔sim; the FPV
+    feed breaks up on damage (D4, capped — informs, never blinds); HUD motor pips
+    make the wound legible; field-patch repair on run/gate/respawn (D5). Wired,
+    live-tunable (overlay DAMAGE section), and headless-verified (import clean,
+    both scenes boot, all five checks + the harness pass). **Feel + visuals are
+    the human's checkpoint — not claimed here.**
+  - **Wounded-flight bench** (`motor_damage_check.gd`, D8): quantifies what feel
+    can't be judged headless. First data under autopilot hold: healthy = perfect
+    hold; ~75% motor = a mild correctable lean (13° tilt, 2 m/s drift); ≤50% =
+    stable-hold lost (55°+ tilt, sinking). The **flyable-but-punishing band under
+    autopilot is ~100%→~65% motor health** — signal the coupling may want to be
+    gentler across the range (a hands-on call). Asserts the wound is real,
+    asymmetric, bounded.
+  - Commits: `71f9324` (P1 harness), `12d6f41` (P2 damage), `5cabf53` (bench).
+    **Next checkpoint: the human flies Phase 2** (does the wounded quad *feel*
+    right? tune the DAMAGE section live), then Phase 3 — Gnat + Aegis + the
+    EnemyConfig migration, where the pilot's gun-run gap gets its proper pass.
