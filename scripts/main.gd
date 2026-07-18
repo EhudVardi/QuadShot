@@ -12,7 +12,11 @@ extends Node3D
 
 ## Sample times (s) along the blaster's ballistic path for the HUD gun
 ## funnel — near rings aid close dogfights, far ones show the drop.
-const FUNNEL_TIMES: Array[float] = [0.08, 0.16, 0.28, 0.45, 0.7]
+## Ranges (m) sampled for the FCS reticle: the fall-line arc, and the labelled
+## range ticks. The pipper sits where the bolts pass at the target's range.
+const RETICLE_ARC_RANGES: Array[float] = [2.0, 8.0, 16.0, 26.0, 38.0, 52.0]
+const RETICLE_TICK_RANGES: Array[float] = [20.0, 35.0, 50.0]
+const RETICLE_DEFAULT_RANGE: float = 40.0
 
 @onready var _drone: FlightController = $Drone
 @onready var _drone_health: Health = $Drone/Health
@@ -78,7 +82,7 @@ func _process(delta: float) -> void:
 		_start_run()
 	_update_lock_indicator()
 	_update_gate_marker()
-	_update_gun_funnel()
+	_update_reticle()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
 	_update_damage_feedback(delta)
@@ -112,25 +116,91 @@ func _set_paused(paused: bool) -> void:
 	print("[pause] %s" % ("slow-mo engaged, autopilot holding" if paused else "resumed"))
 
 
-func _update_gun_funnel() -> void:
+## Draw the selected FCS reticle: the true bolt fall (impact pipper + fall-line
+## arc + range ticks) and the missile lock cone. All geometry mirrors weapon.gd
+## / missile_system.gd exactly, so the reticle never lies.
+func _update_reticle() -> void:
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	if not _drone.armed or camera == null:
-		_hud.update_gun_funnel(PackedVector2Array())
+		_hud.clear_reticle()
 		return
-	# Mirror weapon.gd's launch state exactly so the funnel never lies.
 	var direction: Vector3 = -_weapon.global_basis.z
 	var velocity: Vector3 = direction * combat_config.muzzle_speed \
 			+ _drone.linear_velocity * combat_config.inherit_velocity
 	var origin: Vector3 = _weapon.global_position + direction * 0.4
 	var drop: float = _gravity * combat_config.projectile_gravity_scale
-	var points := PackedVector2Array()
-	for t: float in FUNNEL_TIMES:
-		var sample: Vector3 = origin + velocity * t \
-				+ Vector3.DOWN * (0.5 * drop * t * t)
-		if camera.is_position_behind(sample):
+	var center: Vector2 = camera.unproject_position(
+			camera.global_position + direction * 20.0)
+
+	var arc := PackedVector2Array()
+	for r: float in RETICLE_ARC_RANGES:
+		var p: Variant = _bolt_screen_at_range(camera, origin, velocity, drop, r)
+		if p != null:
+			arc.append(p)
+
+	var ticks: Array = []
+	for r: float in RETICLE_TICK_RANGES:
+		var p: Variant = _bolt_screen_at_range(camera, origin, velocity, drop, r)
+		if p != null:
+			ticks.append({"pos": p, "label": "%dm" % int(r)})
+
+	# The pipper sits at the bolt's screen position for the target's range — the
+	# nearest hostile aligned with the gun, else a default range. No lead: the
+	# pilot still leads a mover by hand (lead-compute is future FCS gear).
+	var pip_range: float = _reticle_target_range(direction, origin)
+	var pip: Variant = _bolt_screen_at_range(camera, origin, velocity, drop, pip_range)
+	var pipper: Vector2 = pip if pip != null else center
+
+	var cone_deg: float = combat_config.missile_lock_cone_deg \
+			* RunMods.current.lock_cone_mult
+	var lock_radius: float = _cone_screen_radius(camera, cone_deg)
+	var lockable: bool = _missiles.target != null \
+			and is_instance_valid(_missiles.target)
+
+	_hud.update_reticle(int(_drone.config.reticle_style), center, pipper,
+			arc, ticks, lock_radius, lockable)
+
+
+## Screen position where a bolt is when it has travelled ~r meters (muzzle +
+## inherited velocity + drop), or null if that point is behind the camera.
+func _bolt_screen_at_range(camera: Camera3D, origin: Vector3, velocity: Vector3,
+		drop: float, r: float) -> Variant:
+	var t: float = r / maxf(velocity.length(), 1.0)
+	var pos: Vector3 = origin + velocity * t + Vector3.DOWN * (0.5 * drop * t * t)
+	if camera.is_position_behind(pos):
+		return null
+	return camera.unproject_position(pos)
+
+
+## Range to the hostile most aligned with the gun (within a cone), for the
+## pipper; the default range when nothing is lined up.
+func _reticle_target_range(aim: Vector3, origin: Vector3) -> float:
+	var best_range: float = RETICLE_DEFAULT_RANGE
+	var best_angle: float = deg_to_rad(9.0)
+	for hostile: Node in get_tree().get_nodes_in_group(&"enemies") \
+			+ get_tree().get_nodes_in_group(&"turrets"):
+		var body: Node3D = hostile as Node3D
+		if body == null or not is_instance_valid(body) \
+				or body.is_queued_for_deletion():
 			continue
-		points.append(camera.unproject_position(sample))
-	_hud.update_gun_funnel(points)
+		var to: Vector3 = body.global_position - origin
+		var angle: float = aim.angle_to(to)
+		if angle < best_angle:
+			best_angle = angle
+			best_range = to.length()
+	return best_range
+
+
+## Screen radius of the missile lock cone (a cone_deg off-axis point projected).
+func _cone_screen_radius(camera: Camera3D, cone_deg: float) -> float:
+	var forward: Vector3 = -camera.global_basis.z
+	var edge: Vector3 = forward.rotated(camera.global_basis.x, deg_to_rad(cone_deg))
+	var edge_point: Vector3 = camera.global_position + edge * 25.0
+	if camera.is_position_behind(edge_point):
+		return 0.0
+	var center: Vector2 = camera.unproject_position(
+			camera.global_position + forward * 25.0)
+	return center.distance_to(camera.unproject_position(edge_point))
 
 
 func _update_gate_marker() -> void:

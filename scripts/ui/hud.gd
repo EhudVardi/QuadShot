@@ -25,7 +25,7 @@ const KILL_FEED_SECONDS: float = 3.0
 var _edges: Dictionary = {}
 var _lock_indicator: LockIndicator
 var _gate_marker: GateMarker
-var _gun_funnel: GunFunnel
+var _reticle: Reticle
 var _stick_display: StickDisplay
 var _pause_label: Label
 var _motor_status: MotorStatus
@@ -119,22 +119,82 @@ class LockIndicator:
 		draw_polyline(points, color, width)
 
 
-## Gun funnel: shrinking rings along the blaster's predicted flight path
-## (muzzle velocity + inherited drone velocity + drop), so the pilot sees
-## where the bolts will actually go instead of where the nose points.
-class GunFunnel:
+## FCS reticle (GAMEPLAY-DESIGN Iteration 7 aiming pass). Three selectable
+## styles, all built on the same truth — the blaster's real impact point
+## (muzzle + inherited drone velocity + drop), so the pilot aims where the bolts
+## actually go, not where the nose points — plus the missile lock cone. Player
+## fire is yellow (emissive palette); the lock cone is navigation blue. No
+## auto-lead: moving targets are led by hand (lead-compute is future FCS gear).
+class Reticle:
 	extends Control
 
-	var points: PackedVector2Array = PackedVector2Array()
+	# CCIP, FUNNEL, DOT — matches FlightConfig.ReticleStyle.
+	var style: int = 0
+	var active: bool = false
+	var center: Vector2 = Vector2.ZERO      # boresight (camera axis)
+	var pipper: Vector2 = Vector2.ZERO      # bolt impact point at target range
+	var arc: PackedVector2Array = PackedVector2Array()
+	var ticks: Array = []                   # [{"pos": Vector2, "label": String}]
+	var lock_radius: float = 0.0
+	var lockable: bool = false
+
+	const GUN := Color(1.0, 0.9, 0.3)
+	const NAV := Color(0.35, 0.75, 1.0)
 
 	func _draw() -> void:
-		if points.size() < 2:
+		if lock_radius > 4.0:
+			_dashed_ring(center, lock_radius,
+					Color(NAV, 0.85 if lockable else 0.30), 40)
+		if not active:
 			return
-		var color := Color(0.55, 1.0, 0.7, 0.45)
-		draw_polyline(points, Color(0.55, 1.0, 0.7, 0.15), 1.0)
-		for i: int in points.size():
-			var radius: float = lerpf(13.0, 4.0, float(i) / float(points.size() - 1))
-			draw_arc(points[i], radius, 0.0, TAU, 24, color, 1.5)
+		match style:
+			1: _draw_funnel()
+			2: _draw_dot()
+			_: _draw_ccip()
+
+	func _draw_ccip() -> void:
+		_cross(center, 4.0, Color(GUN, 0.5))
+		if arc.size() >= 2:
+			draw_polyline(arc, Color(GUN, 0.55), 1.5)
+		for tick: Dictionary in ticks:
+			var p: Vector2 = tick["pos"]
+			draw_line(p + Vector2(-5, 0), p + Vector2(5, 0), Color(GUN, 0.7), 1.5)
+			draw_string(get_theme_default_font(), p + Vector2(9, 4),
+					tick["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(GUN, 0.7))
+		draw_arc(pipper, 7.0, 0.0, TAU, 24, GUN, 2.0)
+		draw_rect(Rect2(pipper - Vector2(1, 1), Vector2(2, 2)), GUN)
+
+	func _draw_funnel() -> void:
+		_cross(center, 3.0, Color(GUN, 0.4))
+		var w: float = 15.0
+		draw_line(center + Vector2(-w, 2), pipper, Color(GUN, 0.4), 1.5)
+		draw_line(center + Vector2(w, 2), pipper, Color(GUN, 0.4), 1.5)
+		var pulse: float = 1.0 + 0.2 * sin(Time.get_ticks_msec() * 0.001 * TAU * 2.5)
+		draw_arc(pipper, 8.0 * pulse, 0.0, TAU, 24, GUN, 2.5)
+		draw_circle(pipper, 3.0, GUN)
+
+	func _draw_dot() -> void:
+		_cross(center, 3.0, Color(GUN, 0.3))
+		draw_circle(pipper, 2.5, GUN)
+		var b: float = 9.0
+		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1),
+				Vector2(-1, 1), Vector2(1, 1)]:
+			var c: Vector2 = pipper + corner * b
+			draw_line(c, c - Vector2(corner.x * 4.0, 0), Color(GUN, 0.9), 1.5)
+			draw_line(c, c - Vector2(0, corner.y * 4.0), Color(GUN, 0.9), 1.5)
+
+	func _cross(at: Vector2, r: float, col: Color) -> void:
+		draw_line(at + Vector2(-r, 0), at + Vector2(r, 0), col, 1.0)
+		draw_line(at + Vector2(0, -r), at + Vector2(0, r), col, 1.0)
+
+	func _dashed_ring(at: Vector2, radius: float, col: Color, segments: int) -> void:
+		for i: int in segments:
+			if i % 2 == 1:
+				continue
+			var a0: float = TAU * float(i) / float(segments)
+			var a1: float = TAU * float(i + 1) / float(segments)
+			draw_line(at + Vector2(cos(a0), sin(a0)) * radius,
+					at + Vector2(cos(a1), sin(a1)) * radius, col, 1.5)
 
 
 ## Raw gamepad stick positions: two boxes flanking the health bar, a dot per
@@ -207,10 +267,10 @@ func _ready() -> void:
 	_gate_marker.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_gate_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gate_marker)
-	_gun_funnel = GunFunnel.new()
-	_gun_funnel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_gun_funnel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_gun_funnel)
+	_reticle = Reticle.new()
+	_reticle.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_reticle)
 	_stick_display = StickDisplay.new()
 	_stick_display.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -333,9 +393,25 @@ func update_sticks(left_stick: Vector2, right_stick: Vector2) -> void:
 
 
 ## Empty array hides the funnel.
-func update_gun_funnel(points: PackedVector2Array) -> void:
-	_gun_funnel.points = points
-	_gun_funnel.queue_redraw()
+func update_reticle(style: int, center: Vector2, pipper: Vector2,
+		arc: PackedVector2Array, ticks: Array, lock_radius: float,
+		lockable: bool) -> void:
+	_reticle.active = true
+	_reticle.style = style
+	_reticle.center = center
+	_reticle.pipper = pipper
+	_reticle.arc = arc
+	_reticle.ticks = ticks
+	_reticle.lock_radius = lock_radius
+	_reticle.lockable = lockable
+	_reticle.queue_redraw()
+
+
+## Disarmed / no camera: keep the lock cone hint if one was passed, hide the gun.
+func clear_reticle() -> void:
+	_reticle.active = false
+	_reticle.lock_radius = 0.0
+	_reticle.queue_redraw()
 
 
 func update_gate_marker(marker_visible: bool,

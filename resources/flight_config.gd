@@ -10,6 +10,10 @@ extends TunableConfig
 
 enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
+## FCS reticle style (GAMEPLAY-DESIGN Iteration 7 aiming pass): CCIP =
+## fighter-HUD fall line + impact pipper; FUNNEL = tapering bolt-stream funnel;
+## DOT = minimalist pipper. All show the true bolt fall + the missile lock cone.
+enum ReticleStyle { CCIP, FUNNEL, DOT }
 
 @export_group("Airframe")
 @export var mass: float = 0.65
@@ -114,6 +118,8 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 @export_group("Camera")
 @export var fpv_uptilt_deg: float = 25.0
 @export var fpv_fov_deg: float = 115.0
+## Which FCS reticle the HUD draws (selectable mode; CCIP is the default).
+@export var reticle_style: ReticleStyle = ReticleStyle.CCIP
 @export var chase_distance: float = 3.5
 @export var chase_height: float = 1.2
 ## Exponential smoothing rate (1/s) for the chase camera follow.
