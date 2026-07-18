@@ -52,6 +52,15 @@ var fire_range: float = 55.0
 ## firing 679 rounds at a raider for zero hits, while the correct solver sat
 ## unused three metres away in weapon.gd.
 var use_director: bool = true
+## Recover if the ground is this close, meters. A firing solution is worth
+## nothing to a pilot who is about to be part of the scenery — and a rig that
+## flies itself into the floor measures the floor, not the balance.
+var floor_guard_m: float = 7.0
+## Seconds of descent looked ahead when deciding that. Reacting to altitude
+## alone is too late at 15 m/s down.
+var floor_lookahead_s: float = 1.2
+## P gain from attitude error to commanded rate, used while recovering.
+var attitude_p: float = 4.0
 
 
 ## Drive one physics tick. Called by the harness each physics_frame; the
@@ -131,6 +140,19 @@ func update(_delta: float) -> void:
 	var lateral_speed: float = drone.linear_velocity.dot(right_flat)
 	var roll_rate: float = clampf(-roll_damp * lateral_speed,
 			-max_roll_rate, max_roll_rate)
+
+	# GROUND GUARD, above everything else. Traced flying into a raider's face at
+	# 9.5 m, tumbling past vertical, and then driving itself into the floor:
+	# once inverted, "more throttle to hold altitude" points at the ground. So
+	# recovery outranks the shot — roll and pitch back to level and climb, and
+	# let the aim loop have the aircraft back once it is safe.
+	var predicted_altitude: float = drone.global_position.y \
+			+ drone.linear_velocity.y * floor_lookahead_s
+	if predicted_altitude < floor_guard_m:
+		var body_pitch: float = asin(clampf(-drone.global_basis.z.y, -1.0, 1.0))
+		var body_roll: float = asin(clampf(drone.global_basis.x.y, -1.0, 1.0))
+		pitch_rate = clampf(attitude_p * -body_pitch, -max_pitch_rate, max_pitch_rate)
+		roll_rate = clampf(attitude_p * body_roll, -max_roll_rate, max_roll_rate)
 
 	drone.rate_override = Vector3(roll_rate, pitch_rate, yaw_rate)
 	drone.throttle_override = _altitude_throttle(cruise_altitude)
