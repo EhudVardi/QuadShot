@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
+
+[resource]
+script = ExtResource("1_ecfg")
+type_id = &"aegis"
+hull = 80.0
+armor = 0.0
+shield_max = 60.0
+shield_break_threshold = 40.0
+shield_regen = 12.0
+shield_regen_delay = 4.0
+speed = 7.0
+accel = 6.0
+turn_speed_deg = 45.0
+sight_range = 0.0
+damage = 0.0
+fire_rate = 0.0
+muzzle_speed = 0.0
+aim_jitter_deg = 0.0
+pack_size = 0.0
+swarm_spacing = 3.0
+swarm_separation_gain = 1.6
+swarm_cohesion_gain = 0.5
+swarm_pursuit_gain = 1.0
+swarm_jitter = 0.35
+swarm_sting_radius = 1.6
+preferred_range = 0.0
+respawn_delay = 0.0
+points = 400.0
+strength_cost = 4.0

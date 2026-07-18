@@ -27,6 +27,9 @@ const REPS: int = 6
 const MAX_SECONDS: float = 10.0
 const ARENA_ALTITUDE: float = 14.0
 const ENGAGE_DISTANCE: float = 40.0
+## Where a bomber's strike route ends — behind the player, so the intercept
+## clock (~60 m of transit) fits inside MAX_SECONDS.
+const BOMB_TARGET_Z: float = 20.0
 
 # One entry per measured cell. weapon: blaster|missile. enemy scene + label.
 const MATCHUPS: Array[Dictionary] = [
@@ -40,6 +43,10 @@ const MATCHUPS: Array[Dictionary] = [
 			"enemy": "res://scenes/combat/gnat_swarm.tscn"},
 	{"name": "Missile x Gnats", "weapon": "missile",
 			"enemy": "res://scenes/combat/gnat_swarm.tscn"},
+	{"name": "Blaster x Aegis", "weapon": "blaster",
+			"enemy": "res://scenes/combat/aegis.tscn"},
+	{"name": "Missile x Aegis", "weapon": "missile",
+			"enemy": "res://scenes/combat/aegis.tscn"},
 ]
 
 enum { BUILD, RUN, RECORD }
@@ -60,6 +67,7 @@ var _duel_ticks: int = 0
 var _player_max: float = 100.0
 var _won: bool = false
 var _kills: int = 0
+var _bombed: bool = false
 
 # Aggregates, one array of result dicts per matchup index.
 var _results: Array[Array] = []
@@ -88,6 +96,9 @@ func _on_physics_frame() -> void:
 				_pilot.update(1.0 / _pps)
 			if _won:
 				_record("win")
+			elif _bombed:
+				# Distinct from a hull loss: the player is alive and lost anyway.
+				_record("bombed")
 			elif _health != null and not _health.alive:
 				_record("loss")
 			elif _duel_ticks >= _ticks_max:
@@ -125,6 +136,12 @@ func _build_duel() -> void:
 	# from it), so positioning afterwards would build them around the origin.
 	# The arena sits at the origin, so local position is the global one.
 	(_enemy as Node3D).position = Vector3(0.0, ARENA_ALTITUDE, -ENGAGE_DISTANCE)
+	# The bomber's route runs past the player and ends behind them, which makes
+	# the duel a real intercept clock rather than a health bar: ~60 m at its
+	# route speed, comfortably inside the duel cap, so "did you kill it in
+	# time" is a question the harness can actually answer.
+	if _enemy.get(&"route_end") != null:
+		_enemy.set(&"route_end", Vector3(0.0, ARENA_ALTITUDE, BOMB_TARGET_Z))
 	_arena.add_child(_enemy)
 	# Win = the ENEMY is defeated, which for a distributed type means the whole
 	# pack (P4.q5: the cloud is the unit, so one dead gnat is not a win). Types
@@ -135,6 +152,7 @@ func _build_duel() -> void:
 	# for a pack it is the honest half of the story, because a swarm can also
 	# leave the field by spending every body on the player's hull.
 	_kills = 0
+	_bombed = false
 	(_enemy as Object).connect(&"destroyed",
 			func(_points: float) -> void: _kills += 1)
 	if (_enemy as Object).has_signal(&"cleared"):
@@ -142,6 +160,10 @@ func _build_duel() -> void:
 	else:
 		(_enemy as Object).connect(&"destroyed",
 				func(_points: float) -> void: _won = true)
+	# A bomber that reaches its target is a LOSS with the player still at full
+	# hull — the one outcome a health-bar-only harness would score as a win.
+	if (_enemy as Object).has_signal(&"detonated"):
+		(_enemy as Object).connect(&"detonated", func() -> void: _bombed = true)
 
 	_pilot = ReferencePilot.new()
 	_pilot.drone = _drone
@@ -202,7 +224,9 @@ func _report() -> void:
 		var ttk_sum: float = 0.0
 		var dmg_sum: float = 0.0
 		var kill_sum: float = 0.0
+		var tally: Dictionary = {}
 		for r: Dictionary in runs:
+			tally[r["outcome"]] = int(tally.get(r["outcome"], 0)) + 1
 			dmg_sum += float(r["damage_taken"])
 			kill_sum += float(r["kills"])
 			if r["outcome"] == "win":
@@ -214,6 +238,14 @@ func _report() -> void:
 				% [MATCHUPS[i]["name"], wins, runs.size(), win_rate * 100.0,
 				mean_ttk, dmg_sum / float(runs.size()),
 				kill_sum / float(runs.size())])
+		# How a cell FAILS is the diagnosis: timing out (could not finish it),
+		# bombed (ran out of clock), or dead (it finished you) are three
+		# different balance problems wearing the same 0%.
+		var outcomes: PackedStringArray = []
+		for key: String in tally:
+			outcomes.append("%s %d" % [key, tally[key]])
+		print("[matchup] %-18s   outcomes: %s"
+				% ["", ", ".join(outcomes)])
 
 	# Phase-1 sanity asserts what the RIG genuinely proves: the reference
 	# pilot flies the real physics, engages, and its two aim paths both land —

@@ -22,8 +22,10 @@
 [ext_resource type="Resource" path="res://resources/default_enemy_raider.tres" id="22_eraider"]
 [ext_resource type="Resource" path="res://resources/default_enemy_turret.tres" id="23_eturret"]
 [ext_resource type="Resource" path="res://resources/default_enemy_gnat.tres" id="24_egnat"]
+[ext_resource type="Resource" path="res://resources/default_enemy_aegis.tres" id="26_eaegis"]
 [ext_resource type="PackedScene" path="res://scenes/combat/repair_gate.tscn" id="21_gate"]
 [ext_resource type="PackedScene" path="res://scenes/combat/gnat_swarm.tscn" id="25_swarm"]
+[ext_resource type="PackedScene" path="res://scenes/combat/aegis.tscn" id="27_aegis"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -62,7 +64,7 @@ audio_config = ExtResource("14_acfg")
 look_config = ExtResource("17_lookcfg")
 input_bindings = ExtResource("18_bind")
 weather_config = ExtResource("19_wthr")
-enemy_configs = Array[Resource]([ExtResource("22_eraider"), ExtResource("23_eturret"), ExtResource("24_egnat")])
+enemy_configs = Array[Resource]([ExtResource("22_eraider"), ExtResource("23_eturret"), ExtResource("24_egnat"), ExtResource("26_eaegis")])
 
 [node name="Hud" parent="." instance=ExtResource("9_hud")]
 
@@ -113,6 +115,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 0, 30)
 
 [node name="GnatSwarm" parent="." instance=ExtResource("25_swarm")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 12, 40)
+
+[node name="Aegis" parent="." instance=ExtResource("27_aegis")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 20, -90)
+loop_route = true
 
 [node name="RepairGate" parent="." instance=ExtResource("21_gate")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 22)
