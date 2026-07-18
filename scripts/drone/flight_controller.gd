@@ -132,8 +132,12 @@ func apply_hit_to_motors(damage: float) -> void:
 	var from_body: Vector3 = global_basis.inverse() * last_hit_direction
 	from_body.y = 0.0
 	if from_body.length_squared() < 0.000001:
+		# Directionless (a crash): frays the whole frame, but gently — a rough
+		# landing must not nuke all four engines into a death spiral. The pad
+		# (D5) is the recovery; this is the price, not a sentence.
+		var crash_amount: float = amount * damage_config.crash_motor_scale
 		for i: int in MotorModel.MOTOR_COUNT:
-			_motors.damage_motor(i, amount)
+			_motors.damage_motor(i, crash_amount)
 		return
 	from_body = from_body.normalized()
 	var best: int = 0
@@ -152,8 +156,18 @@ func motor_health(index: int) -> float:
 	return _motors.health(index)
 
 
+## Lowest engine capability (0 = a dead corner, 1 = all healthy).
+func worst_motor_health() -> float:
+	return _motors.min_health()
+
+
 func repair_motors() -> void:
 	_motors.repair()
+
+
+## Progressive field repair (the repair pad, D5): nurse engines toward full.
+func repair_motors_by(amount: float) -> void:
+	_motors.repair_by(amount)
 
 
 ## Throttle fraction at which total thrust equals weight. With the linear

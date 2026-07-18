@@ -56,6 +56,8 @@ func _ready() -> void:
 	_drone_health.damaged.connect(_on_player_damaged)
 	_drone_health.died.connect(_on_player_died)
 	_drone.crashed.connect(_on_player_crashed)
+	for pad: Node in get_tree().get_nodes_in_group(&"repair_pads"):
+		(pad as RepairPad).repairing.connect(_on_repair_status)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_refresh_motor_hud()
 
@@ -239,11 +241,12 @@ func _on_player_damaged(amount: float, remaining: float) -> void:
 	_drone.apply_hit_to_motors(amount)
 	var dc: DamageConfig = _drone.damage_config
 	if dc != null and dc.severity > 0.0:
+		# Every hit snaps the feed to at least the punch threshold (a sudden
+		# break), bigger hits drive it harder — abrupt, not a gentle ramp.
 		var bite: float = clampf(amount / maxf(_drone_health.max_health, 1.0) * 4.0,
 				0.0, 1.0)
-		_video_glitch_spike = clampf(
-				_video_glitch_spike + dc.video_glitch_on_hit * bite * dc.severity,
-				0.0, 1.0)
+		var spike: float = dc.video_glitch_on_hit * dc.severity * (0.7 + 0.6 * bite)
+		_video_glitch_spike = clampf(maxf(_video_glitch_spike, spike), 0.0, 1.0)
 	_refresh_motor_hud()
 	_hud.set_health(remaining, _drone_health.max_health)
 	_hud.flash_damage(_incoming_fire_side())
@@ -254,6 +257,15 @@ func _refresh_motor_hud() -> void:
 	for i: int in MotorModel.MOTOR_COUNT:
 		healths.append(_drone.motor_health(i))
 	_hud.set_motor_health(healths)
+
+
+## A repair pad reports whether it is nursing the drone (D5): drive the HUD
+## prompt, and keep the motor pips + health bar live while engines recover.
+func _on_repair_status(active: bool, _worst_motor: float) -> void:
+	_hud.set_repairing(active)
+	if active:
+		_refresh_motor_hud()
+		_hud.set_health(_drone_health.current, _drone_health.max_health)
 
 
 ## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by a

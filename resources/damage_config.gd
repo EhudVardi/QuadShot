@@ -25,14 +25,19 @@ extends TunableConfig
 @export var motor_damage_max: float = 0.5
 ## Residual thrust a fully-failed motor still produces (D2 / Dq2): above zero
 ## keeps a motor-out flyable-but-punishing; drive toward 0 for lethal realism.
-@export var motor_min_thrust: float = 0.15
+## 0.30 = a dead corner still pulls its weight enough to fight home to a pad.
+@export var motor_min_thrust: float = 0.30
+## How much of a CRASH's (directionless) damage each motor takes. Crashes fray
+## all four at once, so this is kept low — a rough landing must not spiral all
+## engines to nothing; the repair pad is the recovery, this is the price.
+@export var crash_motor_scale: float = 0.4
 
 @export_group("Video")
-## FPV feed breakup added on each hit (scaled by hit size and severity), which
-## then decays — the brief, recoverable telegraph (D4 / Dq4).
-@export var video_glitch_on_hit: float = 0.7
-## Per-second decay of the on-hit glitch spike.
-@export var video_glitch_decay: float = 2.0
+## FPV feed breakup punched in on each hit (scaled by hit size and severity),
+## which then decays fast — the abrupt, sudden telegraph (D4 / Dq4).
+@export var video_glitch_on_hit: float = 0.85
+## Per-second decay of the on-hit glitch spike — high, so it snaps then clears.
+@export var video_glitch_decay: float = 2.8
 ## Sustained breakup floor as integrity falls (scaled by damage and severity):
 ## a badly hurt feed stays noisy. Kept modest — the wound informs, never blinds.
 @export var video_glitch_sustained: float = 0.45

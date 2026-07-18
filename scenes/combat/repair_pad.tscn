@@ -1,0 +1,55 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/repair_pad.gd" id="1_pad"]
+
+[sub_resource type="CylinderMesh" id="mesh_base"]
+top_radius = 5.0
+bottom_radius = 5.0
+height = 0.3
+
+[sub_resource type="StandardMaterial3D" id="mat_base"]
+albedo_color = Color(0.1, 0.13, 0.11, 1)
+metallic = 0.2
+roughness = 0.7
+
+[sub_resource type="TorusMesh" id="mesh_ring"]
+inner_radius = 4.5
+outer_radius = 5.0
+
+[sub_resource type="StandardMaterial3D" id="mat_ring"]
+shading_mode = 0
+albedo_color = Color(0.2, 1, 0.4, 1)
+emission_enabled = true
+emission = Color(0.2, 1, 0.45, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="CylinderMesh" id="mesh_beam"]
+top_radius = 0.6
+bottom_radius = 0.6
+height = 14.0
+
+[sub_resource type="StandardMaterial3D" id="mat_beam"]
+transparency = 1
+shading_mode = 0
+blend_mode = 1
+albedo_color = Color(0.3, 1, 0.5, 0.12)
+emission_enabled = true
+emission = Color(0.25, 1, 0.5, 1)
+emission_energy_multiplier = 1.2
+
+[node name="RepairPad" type="Node3D"]
+script = ExtResource("1_pad")
+
+[node name="Base" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_base")
+material_override = SubResource("mat_base")
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+mesh = SubResource("mesh_ring")
+material_override = SubResource("mat_ring")
+
+[node name="Beam" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0)
+mesh = SubResource("mesh_beam")
+material_override = SubResource("mat_beam")

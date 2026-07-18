@@ -30,6 +30,7 @@ var _stick_display: StickDisplay
 var _pause_label: Label
 var _motor_status: MotorStatus
 var _video_glitch: ColorRect
+var _repair_label: Label
 
 
 ## Four motor-capability pips in quad-X layout (GAMEPLAY-DESIGN Iteration 7 /
@@ -42,21 +43,37 @@ class MotorStatus:
 	## FL, FR, BL, BR — matches MotorModel's order.
 	var healths: PackedFloat32Array = PackedFloat32Array([1.0, 1.0, 1.0, 1.0])
 
+	## Sharp green->yellow->red ramp: a motor at 0.6 must read as clearly hurt,
+	## not near-green (the old lerp's flaw).
+	static func ramp(h: float) -> Color:
+		var green := Color(0.3, 1.0, 0.4)
+		var yellow := Color(1.0, 0.85, 0.2)
+		var red := Color(1.0, 0.2, 0.15)
+		if h >= 0.6:
+			return yellow.lerp(green, (h - 0.6) / 0.4)
+		return red.lerp(yellow, h / 0.6)
+
 	func _draw() -> void:
-		var origin := Vector2(28.0, 92.0)
-		var pip := 15.0
-		var gap := 9.0
+		var origin := Vector2(30.0, 94.0)
+		var pip := 20.0
+		var gap := 7.0
 		var offsets: Array[Vector2] = [
 			Vector2(0, 0), Vector2(pip + gap, 0),
 			Vector2(0, pip + gap), Vector2(pip + gap, pip + gap)]
-		draw_string(get_theme_default_font(), origin + Vector2(0, -6),
-				"MOTORS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+		draw_string(get_theme_default_font(), origin + Vector2(0, -7),
+				"MOTORS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
 		for i: int in 4:
 			var h: float = healths[i]
-			var color := Color(1.0, 0.2, 0.15).lerp(Color(0.3, 1.0, 0.4), h)
-			draw_rect(Rect2(origin + offsets[i], Vector2(pip, pip)), color)
-			draw_rect(Rect2(origin + offsets[i], Vector2(pip, pip)),
-					Color(0, 0, 0, 0.6), false, 1.0)
+			var box := Rect2(origin + offsets[i], Vector2(pip, pip))
+			# Drained-gauge fill: the pip empties AND reddens as the motor fails,
+			# so a wounded corner is unmissable at a glance.
+			draw_rect(box, Color(0, 0, 0, 0.55))
+			var fill: float = pip * h
+			draw_rect(Rect2(box.position + Vector2(0, pip - fill), Vector2(pip, fill)),
+					ramp(h))
+			var hurt: bool = h < 0.95
+			draw_rect(box, Color(1, 1, 1, 0.85) if hurt else Color(0, 0, 0, 0.6),
+					false, 2.0 if hurt else 1.0)
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -198,6 +215,15 @@ func _ready() -> void:
 	_stick_display.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stick_display)
+	_repair_label = Label.new()
+	_repair_label.text = "⟳ REPAIRING ENGINES — hold the hover"
+	_repair_label.add_theme_color_override(&"font_color", Color(0.3, 1.0, 0.45))
+	_repair_label.add_theme_font_size_override(&"font_size", 18)
+	_repair_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_repair_label.position.y = 76.0
+	_repair_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_repair_label.visible = false
+	add_child(_repair_label)
 	_pause_label = Label.new()
 	_pause_label.text = "|| SLOW-MO — autopilot holding"
 	_pause_label.add_theme_color_override(&"font_color", Color(0.4, 0.85, 1.0))
@@ -317,6 +343,10 @@ func update_gate_marker(marker_visible: bool,
 	_gate_marker.marker_visible = marker_visible
 	_gate_marker.marker_position = screen_position
 	_gate_marker.queue_redraw()
+
+
+func set_repairing(active: bool) -> void:
+	_repair_label.visible = active
 
 
 func show_pause(paused: bool) -> void:

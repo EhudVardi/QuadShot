@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -19,6 +19,7 @@
 [ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="18_bind"]
 [ext_resource type="Resource" path="res://resources/default_weather_config.tres" id="19_wthr"]
 [ext_resource type="Resource" path="res://resources/default_damage_config.tres" id="20_dmg"]
+[ext_resource type="PackedScene" path="res://scenes/combat/repair_pad.tscn" id="21_pad"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -43,6 +44,9 @@ combat_config = ExtResource("7_ccfg")
 
 [node name="ExitGate" parent="." instance=ExtResource("15_gate")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 10, -15)
+
+[node name="RepairPad" parent="." instance=ExtResource("21_pad")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0.2, 6)
 
 [node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)

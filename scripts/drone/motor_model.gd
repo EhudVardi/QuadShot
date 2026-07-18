@@ -48,6 +48,20 @@ func repair() -> void:
 		_health[i] = 1.0
 
 
+## Partial repair toward full (the repair pad nurses engines back over time).
+func repair_by(amount: float) -> void:
+	for i: int in MOTOR_COUNT:
+		_health[i] = clampf(_health[i] + amount, 0.0, 1.0)
+
+
+## Lowest motor capability — for HUD/repair logic ("worst engine").
+func min_health() -> float:
+	var lowest: float = 1.0
+	for i: int in MOTOR_COUNT:
+		lowest = minf(lowest, _health[i])
+	return lowest
+
+
 ## Range [-1, 1]: negative only occurs in 3D throttle mode (reverse thrust);
 ## the mixer's clamp enforces the mode's actual floor.
 func set_command(index: int, value: float) -> void:
