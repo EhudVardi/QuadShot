@@ -163,6 +163,9 @@ func worst_motor_health() -> float:
 
 func repair_motors() -> void:
 	_motors.repair()
+	# Clear the windup trim that fought the wound, so the fixed quad flies clean
+	# instead of drifting while the I-term unwinds (the repair-gate "nudge").
+	_rate_controller.clear_integrator()
 
 
 ## Progressive field repair (the repair pad, D5): nurse engines toward full.

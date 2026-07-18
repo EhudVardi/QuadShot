@@ -128,31 +128,32 @@ class LockIndicator:
 class Reticle:
 	extends Control
 
-	# CCIP, FUNNEL, DOT — matches FlightConfig.ReticleStyle.
-	var style: int = 0
 	var active: bool = false
 	var center: Vector2 = Vector2.ZERO      # boresight (camera axis)
 	var pipper: Vector2 = Vector2.ZERO      # bolt impact point at target range
 	var arc: PackedVector2Array = PackedVector2Array()
 	var ticks: Array = []                   # [{"pos": Vector2, "label": String}]
-	var lock_radius: float = 0.0
+	var lock_radius: float = 0.0            # missile ACQUIRE cone
+	var hold_radius: float = 0.0            # wider cone where a lock is MAINTAINED
 	var lockable: bool = false
 
 	const GUN := Color(1.0, 0.9, 0.3)
 	const NAV := Color(0.35, 0.75, 1.0)
 
 	func _draw() -> void:
+		# Missile lock zone (always shown): the ACQUIRE ring — start a lock with
+		# a bandit inside it — and the wider HOLD ring, out to which an existing
+		# lock is maintained. Both grow with lock upgrades (lock_cone_mult), so
+		# the pilot flies to keep the target inside the circle.
+		if hold_radius > 4.0:
+			_dashed_ring(center, hold_radius, Color(NAV, 0.22), 40)
 		if lock_radius > 4.0:
 			_dashed_ring(center, lock_radius,
-					Color(NAV, 0.85 if lockable else 0.30), 40)
+					Color(NAV, 0.9 if lockable else 0.45), 40)
 		if not active:
 			return
-		match style:
-			1: _draw_funnel()
-			2: _draw_dot()
-			_: _draw_ccip()
-
-	func _draw_ccip() -> void:
+		# CCIP gun reticle: boresight, the bolt fall-line + range ticks, and the
+		# impact pipper where the bolts pass at the target's range.
 		_cross(center, 4.0, Color(GUN, 0.5))
 		if arc.size() >= 2:
 			draw_polyline(arc, Color(GUN, 0.55), 1.5)
@@ -163,25 +164,6 @@ class Reticle:
 					tick["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(GUN, 0.7))
 		draw_arc(pipper, 7.0, 0.0, TAU, 24, GUN, 2.0)
 		draw_rect(Rect2(pipper - Vector2(1, 1), Vector2(2, 2)), GUN)
-
-	func _draw_funnel() -> void:
-		_cross(center, 3.0, Color(GUN, 0.4))
-		var w: float = 15.0
-		draw_line(center + Vector2(-w, 2), pipper, Color(GUN, 0.4), 1.5)
-		draw_line(center + Vector2(w, 2), pipper, Color(GUN, 0.4), 1.5)
-		var pulse: float = 1.0 + 0.2 * sin(Time.get_ticks_msec() * 0.001 * TAU * 2.5)
-		draw_arc(pipper, 8.0 * pulse, 0.0, TAU, 24, GUN, 2.5)
-		draw_circle(pipper, 3.0, GUN)
-
-	func _draw_dot() -> void:
-		_cross(center, 3.0, Color(GUN, 0.3))
-		draw_circle(pipper, 2.5, GUN)
-		var b: float = 9.0
-		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1),
-				Vector2(-1, 1), Vector2(1, 1)]:
-			var c: Vector2 = pipper + corner * b
-			draw_line(c, c - Vector2(corner.x * 4.0, 0), Color(GUN, 0.9), 1.5)
-			draw_line(c, c - Vector2(0, corner.y * 4.0), Color(GUN, 0.9), 1.5)
 
 	func _cross(at: Vector2, r: float, col: Color) -> void:
 		draw_line(at + Vector2(-r, 0), at + Vector2(r, 0), col, 1.0)
@@ -393,16 +375,16 @@ func update_sticks(left_stick: Vector2, right_stick: Vector2) -> void:
 
 
 ## Empty array hides the funnel.
-func update_reticle(style: int, center: Vector2, pipper: Vector2,
-		arc: PackedVector2Array, ticks: Array, lock_radius: float,
+func update_reticle(center: Vector2, pipper: Vector2, arc: PackedVector2Array,
+		ticks: Array, lock_radius: float, hold_radius: float,
 		lockable: bool) -> void:
 	_reticle.active = true
-	_reticle.style = style
 	_reticle.center = center
 	_reticle.pipper = pipper
 	_reticle.arc = arc
 	_reticle.ticks = ticks
 	_reticle.lock_radius = lock_radius
+	_reticle.hold_radius = hold_radius
 	_reticle.lockable = lockable
 	_reticle.queue_redraw()
 
@@ -411,6 +393,7 @@ func update_reticle(style: int, center: Vector2, pipper: Vector2,
 func clear_reticle() -> void:
 	_reticle.active = false
 	_reticle.lock_radius = 0.0
+	_reticle.hold_radius = 0.0
 	_reticle.queue_redraw()
 
 

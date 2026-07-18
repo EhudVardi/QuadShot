@@ -203,7 +203,6 @@ func _ready() -> void:
 	var preset_updater: Callable = _add_preset_row(drone.config)
 	_add_input_profile_row(drone.config)
 	_add_throttle_curve_row(drone.config)
-	_add_reticle_style_row(drone.config)
 	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS, preset_updater)
 	_add_section_header("COMBAT")
 	_add_preset_bar("combat", combat_config)
@@ -547,24 +546,6 @@ func _add_input_profile_row(config: FlightConfig) -> void:
 	option.item_selected.connect(func(index: int) -> void:
 		config.input_profile = index as FlightConfig.InputProfile)
 	_refreshers.append(func() -> void: option.selected = config.input_profile)
-	row.add_child(label)
-	row.add_child(option)
-	_section.add_child(row)
-
-
-func _add_reticle_style_row(config: FlightConfig) -> void:
-	var row := HBoxContainer.new()
-	var label := Label.new()
-	label.text = "reticle_style"
-	label.custom_minimum_size.x = 180.0
-	var option := OptionButton.new()
-	option.focus_mode = Control.FOCUS_NONE
-	for style_name: String in FlightConfig.ReticleStyle.keys():
-		option.add_item(style_name.to_lower())
-	option.selected = config.reticle_style
-	option.item_selected.connect(func(index: int) -> void:
-		config.reticle_style = index as FlightConfig.ReticleStyle)
-	_refreshers.append(func() -> void: option.selected = config.reticle_style)
 	row.add_child(label)
 	row.add_child(option)
 	_section.add_child(row)

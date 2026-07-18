@@ -85,6 +85,15 @@ func integrator() -> Vector3:
 	return _i_term
 
 
+## Drop the accumulated I-term without touching filter state or any gains
+## (GAMEPLAY-DESIGN Iteration 7). On an instant engine repair the trim that
+## built up to fight the damaged motor becomes a phantom, shoving the drone as
+## it slowly unwinds; clearing it makes the repaired quad fly clean immediately.
+## Only runtime state — presets (rate_i etc.) are untouched.
+func clear_integrator() -> void:
+	_i_term = Vector3.ZERO
+
+
 ## Called on disarm (handoff §6.3): integrators and filter state must not
 ## carry across flights.
 func reset() -> void:

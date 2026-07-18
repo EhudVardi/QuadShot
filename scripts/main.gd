@@ -151,14 +151,18 @@ func _update_reticle() -> void:
 	var pip: Variant = _bolt_screen_at_range(camera, origin, velocity, drop, pip_range)
 	var pipper: Vector2 = pip if pip != null else center
 
+	# Lock zone: the acquire cone, and the wider hold cone (1.5x — matching
+	# missile_system.gd's hysteresis) out to which a lock is maintained. Both
+	# scale with lock_cone_mult, so upgrades visibly widen the circle.
 	var cone_deg: float = combat_config.missile_lock_cone_deg \
 			* RunMods.current.lock_cone_mult
 	var lock_radius: float = _cone_screen_radius(camera, cone_deg)
+	var hold_radius: float = _cone_screen_radius(camera, cone_deg * 1.5)
 	var lockable: bool = _missiles.target != null \
 			and is_instance_valid(_missiles.target)
 
-	_hud.update_reticle(int(_drone.config.reticle_style), center, pipper,
-			arc, ticks, lock_radius, lockable)
+	_hud.update_reticle(center, pipper, arc, ticks, lock_radius, hold_radius,
+			lockable)
 
 
 ## Screen position where a bolt is when it has travelled ~r meters (muzzle +
