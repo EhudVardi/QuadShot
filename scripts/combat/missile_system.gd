@@ -13,6 +13,10 @@ const MISSILE_SCENE: PackedScene = preload("res://scenes/combat/missile.tscn")
 ## Test hook (scripts/tests/missile_check.gd): fires as soon as locked.
 var fire_override: bool = false
 
+## Missiles launched since spawn — the delivery benches' denominator
+## (BALANCE.md Layer 2: aim_quality and evasion are hits-per-shot ratios).
+var launches: int = 0
+
 ## Current lock candidate (enemy drone) and progress [0, 1]; 1 = locked.
 var target: Node3D
 var lock_progress: float = 0.0
@@ -138,6 +142,7 @@ func _has_line_of_sight(enemy: Node3D) -> bool:
 
 
 func _launch() -> void:
+	launches += 1
 	var missile: Missile = MISSILE_SCENE.instantiate() as Missile
 	_drone.get_parent().add_child(missile)
 	var direction: Vector3 = -global_basis.z

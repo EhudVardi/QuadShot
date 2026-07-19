@@ -10,6 +10,10 @@ extends Node3D
 ## Test hook (scripts/tests/combat_check.gd): forces the trigger down.
 var fire_override: bool = false
 
+## Bolts fired since spawn — the delivery benches' denominator (BALANCE.md
+## Layer 2: aim_quality and evasion are both hits-per-shot ratios).
+var shots_fired: int = 0
+
 var _cooldown: float = 0.0
 var _drone: FlightController
 var _pool: ProjectilePool
@@ -81,6 +85,7 @@ func _assist_solution() -> bool:
 
 
 func _fire() -> void:
+	shots_fired += 1
 	var direction: Vector3 = -global_basis.z
 	var velocity: Vector3 = direction * combat_config.muzzle_speed \
 			+ _drone.linear_velocity * combat_config.inherit_velocity

@@ -19,6 +19,12 @@ extends Node
 
 signal damaged(amount: float, remaining: float)
 signal died
+## Every hit that ARRIVES, before any shield/hull accounting — the delivery
+## benches' connect counter. Neither `damaged` nor `shield_absorbed` covers a
+## shield-BREAKING hit with no excess (it emits only shield_broken), so
+## counting arrivals from the outcome signals undercounts exactly the hits
+## the aegis exists to demand.
+signal struck(amount: float)
 ## A hit bounced off the shield — the "why isn't my gun working" telegraph.
 signal shield_absorbed(amount: float)
 ## The shield went down; the hull is exposed until regen brings it back.
@@ -67,6 +73,7 @@ func _physics_process(delta: float) -> void:
 func take(amount: float) -> void:
 	if not alive:
 		return
+	struck.emit(amount)
 	if shield > 0.0:
 		_regen_wait = shield_regen_delay
 		# Under the threshold: the shield shrugs it off completely. Deliberately
