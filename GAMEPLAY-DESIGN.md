@@ -1,6 +1,6 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.22 (2026-07-18) — paper phase complete; **the vertical-slice
+> **Status:** v1.23 (2026-07-19) — paper phase complete; **the vertical-slice
 > build is underway, Phases 1–3 landed and steered by playtest.** Done: the
 > matchup harness + reference pilot (P1), P2 — the damage model + the
 > fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
@@ -8,11 +8,14 @@
 > is the unit"), the **Aegis** shielded bomber (threshold-gate shield, a real
 > barrier), the harness banding the measured mini-web against P4.3, and a
 > **watchable harness** (drop `--headless` and see the duels, real HUD included).
-> Major steering (v1.22): **the chip gun's ratings assume the FCS gun director**
-> — confirmed by the human, now stated in the harness rather than hidden; the
-> Blaster×Raider cell is **hand-banded** (H5 division of labor, exercised for
-> real). **Next: Phase 4 — flak + Atlas** completing the mini-web's columns.
-> Design record below.
+> v1.23 is a **balance-model realignment**: the war is arithmetic, kinetics are
+> player-only ("the war shapes your fights; your fights dent the war"), the
+> harness is feel-promise CI — and the **layered balance model** (lethality ×
+> aim × evasion, duel as validation) is adopted. New steering: **allied kinetic
+> presence in player sorties is wanted** (composer-era; the sortie is our
+> bubble). **Next: Phase 3.5 — the instrument refactor** (BALANCE.md +
+> PILOT_VERSION, lethality calculator, aim/evasion benches, one-command
+> report), then Phase 4 — flak + Atlas. Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3641,3 +3644,77 @@ hands-on difficulty calibration is *mine to initiate and lead.*
   - **Next: Phase 4** — the flak pod (3rd weapon column: the gnat answer) +
     Atlas (2nd frame), completing the slice mini-web; then the H.q4 hands-on
     difficulty calibration once the slice is flyable end to end.
+- **2026-07-19 — v1.23. The balance-model realignment — and the sortie becomes
+  the bubble.** A direction-setting discussion (no code this entry; the user's
+  uncommitted `balance-model-handoff.md`, written with Claude chat, was the
+  prompt). Three realignments, one new steering, one design question answered
+  from the record, and the next build step fixed:
+  - **Realignment 1 — what the war is:** reaffirmed F2/P4.7 — the war NEVER
+    fights kinetically; unattended battles resolve by strength arithmetic, and
+    kinetic combat exists only in the player's own sorties. The couplings are
+    stated: `strength_cost` is the exchange rate converting kinetic results to
+    war currency, and the composer/SDI closes the loop downward. Rule of
+    thumb, adopted: **"The war shapes your fights; your fights dent the
+    war."** Precedent check (user question): Falcon 4.0 did the same —
+    aggregated statistical campaign resolution, with a deaggregation *bubble*
+    of full-sim entities near the player; we are stricter (no radius bubble —
+    the sortie is the bubble).
+  - **Realignment 2 — what the matchup harness is:** CI for the design's
+    feel-promises about the PLAYER's fights (guns die on aegis, missiles
+    bankrupt on gnats) — NOT a war oracle, NOT a mux-everything
+    average-outcome pipeline for predicting global battle results. The user
+    had drifted into the latter reading; BALANCE.md (Phase 3.5 deliverable #0)
+    exists to prevent recurrence.
+  - **Realignment 3 — the layered balance model (from the handoff, adopted):**
+    the integrated duel conflates lethality with the bot's delivery, so
+    delivery-limited cells (Blaster×Raider) report the bot, not the weapon —
+    the P3.4 loop, explained structurally. Split: **Layer 1 lethality**
+    (config arithmetic — 25 dmg < 40 threshold = 0 forever — verified by
+    planted-shot benches, no simulation), **Layer 2 delivery** (per-agent
+    `aim_quality` × per-target `evasion`, each benched in isolation), with the
+    existing duel harness demoted from source-of-truth to **validation** —
+    divergence between predicted product and dueled result names an
+    un-modeled factor (survival, deadline, economy) instead of being noise.
+    Mirror agent-vs-agent fights (handoff suggestion): demoted — asymmetric
+    unit layer has nothing to mirror; their real future use is empirically
+    pricing `strength_cost` (P5 era). Pilot AI gets **version-pinned**; human
+    results stay deviation data, never merged (H5, now with a mechanism).
+  - **NEW STEERING (user): allied kinetic presence in player sorties —
+    WANTED.** When the player flies a defense sortie, allied units should
+    FIGHT — kinetically, in the scene — not resolve as tokens: "it would
+    break the feeling of being a part of the war… making the player feel
+    like HE IS THE WAR." Feasibility assessed as MODERATE, not pilot-hard,
+    because of the bestiary's own idiom: enemies are kinematic steering
+    agents ("flying turrets" — the user's exact and correct read), and an
+    allied raider is the same code with `team = "ally"` and team-generalized
+    targeting (projectile plumbing has been team-aware since M1; enemies
+    currently hardcode the player as target — that hardcode is the work).
+    The physics-pilot problem stays quarantined in the harness: the only
+    physically-true aircraft is the player's. The "baked maneuvers" concern
+    is absolved by precedent — P4.q5's "not a cheat, a design statement" is
+    already the shipped and playtest-approved idiom. Scope: NOT slice;
+    composer-era (P2) feature; it is also the substrate commander mode (F3)
+    already needs, so it prepays a decided future. Allied kills/losses
+    convert via `strength_cost` like everything else.
+  - **Equipment muxing (user question) — answered from the record:** the
+    matrix stays weapon × enemy. P4.3 decided it: "FCS is not a column: it's
+    a multiplier on gun/missile columns." Equipment shifts a delivery FACTOR
+    (measured once per gear tier), never multiplies table dimensions. NPCs
+    are statically defined per EnemyConfig (variety = veterancy × biome ×
+    combos, per P4.6/P4.q1); only the player has loadout variability. The
+    user's auto-aiming-cannon idea is the existing FCS ladder: the shipped
+    gun director times the trigger; the off-boresight/turret-pod tier (P3.6)
+    bends the barrel; the layered model's `aim_quality` axis and the FCS gear
+    ladder are the same axis — one measured, one purchased.
+  - **NEXT BUILD STEP — Phase 3.5, the instrument refactor** (before Phase
+    4's flak/Atlas, which must not be measured on the conflated instrument),
+    in independently-committable steps: (1) `BALANCE.md` one-page primer
+    (what each layer measures and is NOT for) + `PILOT_VERSION` pin printed
+    in every report; (2) config-derived lethality calculator + planted-shot
+    verification; (3) aim bench (agent vs static target) + evasion bench
+    (fixed shooter vs moving enemy); (4) banding rewired to
+    prediction-vs-validation + a one-command balance report
+    (`tools/balance_report`). Queued separately: a risk-based review pass of
+    P2-era code (motor_model damage coupling, repair_gate) next session.
+    **To resume after a session cut: "Continue QuadShot — Phase 3.5 per the
+    v1.23 entry."**
