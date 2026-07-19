@@ -129,8 +129,9 @@ func _initialize() -> void:
 	_ticks_max = int(MAX_SECONDS * _pps)
 	for _i: int in MATCHUPS.size():
 		_results.append([])
-	print("[matchup] %d matchups x %d reps, %ds cap"
-			% [MATCHUPS.size(), REPS, int(MAX_SECONDS)])
+	print("[matchup] %d matchups x %d reps, %ds cap  (pilot v%d)"
+			% [MATCHUPS.size(), REPS, int(MAX_SECONDS),
+			ReferencePilot.PILOT_VERSION])
 	if _watching:
 		# Silence. The rig restarts a duel every few seconds, so the drone's
 		# motor tone becomes a stuttering drone with no mixing around it —
@@ -420,7 +421,8 @@ func _report() -> void:
 func _print_banded_matrix() -> void:
 	var pack_size: float = maxf(
 			(load("res://resources/default_enemy_gnat.tres") as EnemyConfig).pack_size, 1.0)
-	print("[matchup] ---- banded matrix (paper -> measured) ----")
+	print("[matchup] ---- banded matrix (paper -> measured), pilot v%d ----"
+			% ReferencePilot.PILOT_VERSION)
 	for i: int in MATCHUPS.size():
 		var matchup: Dictionary = MATCHUPS[i]
 		var paper: String = matchup["paper"]

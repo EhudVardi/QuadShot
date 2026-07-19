@@ -20,6 +20,15 @@ extends RefCounted
 ## The competence datum below (preferred_range, aim, gains) is the ruler the
 ## human calibrates; the fields are deliberately plain knobs, not magic.
 
+## The pinned ruler (GAMEPLAY-DESIGN v1.23, BALANCE.md): one brain flies every
+## measured combatant, so any change to this file's behavior — gains, guards,
+## aim math, trigger policy — moves every cell of the measured table at once.
+## Bump this on ANY behavioral edit, then re-measure deliberately; every
+## report prints it, and numbers from different pilot versions never share a
+## table. v1 = the pilot as of the v1.22 harness banding (director-fired gun,
+## LOS feed-forward, ground guard, tilt-compensated hover).
+const PILOT_VERSION: int = 1
+
 var drone: FlightController
 var weapon: Weapon
 var missile: MissileSystem
