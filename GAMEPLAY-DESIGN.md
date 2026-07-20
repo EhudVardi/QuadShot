@@ -1,6 +1,6 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.24 (2026-07-20) — paper phase complete; **the vertical-slice
+> **Status:** v1.25 (2026-07-20) — paper phase complete; **the vertical-slice
 > build is underway, Phases 1–3 landed and steered by playtest.** Done: the
 > matchup harness + reference pilot (P1), P2 — the damage model + the
 > fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
@@ -19,9 +19,16 @@
 > predicted → validated** behind `tools/balance_report`. It works: the model
 > independently reproduced the human's hand band on the one cell the duel
 > could never measure, and its first run raised four findings — three stale
-> paper bands and a conflated cell — **awaiting the human's call**.
-> **Next: Phase 4** — flak + Atlas, now measurable on an unconflated
-> instrument. Design record below.
+> paper bands and a conflated cell — **awaiting the human's call**. v1.25 acts
+> on that call: the **state split** (a shielded type is two targets in
+> sequence, blaster `--` shielded / `++` cracked) makes **combos derivable**
+> rather than tabulated; the harness **isolation fix** un-conflated
+> `Missile × Aegis` (paper `++` is a combo band, missile-solo is `+`) — which
+> exposed a hidden **pilot defect** (no standoff: it rams the non-evading
+> bomber), left for a deliberate `PILOT_VERSION` bump; and **watch mode is now
+> standing policy** (every bench watchable from its first commit).
+> **Next: Phase 4** — flak + Atlas, now on a state-aware, watchable,
+> unconflated instrument. Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3816,3 +3823,109 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     review of P2-era code (motor_model damage coupling, repair_gate) is still
     open. **To resume after a session cut: "Continue QuadShot — Phase 4 per
     the v1.24 entry."**
+- **2026-07-20 — v1.25. The state split, the isolation fix, and a pilot
+  defect the conflation had been hiding.** A teaching session: the user asked
+  the instrument to explain itself term by term, and two of the answers turned
+  into code. No new design direction — this sharpens the v1.24 instrument and
+  banks two decisions.
+  - **Correction to the v1.24 findings (the user's read, adopted):** the
+    "three stale paper bands" were over-claimed. Our duels are **1v1 in an
+    empty void** — no groups, no cover, no crossfire — so two things that P4.3
+    priced for the real game vanish: the ECONOMY (a 3 s missile cooldown costs
+    nothing against a lone raider, which is *why* `Missile × Raider` reads
+    `++` in the arena but `+` on paper) and the CONTEXT (`Blaster × Turret`
+    reads `++` because our turret dies in 1.3 s before it can punish the hover
+    P4.3's `0` assumes). Only `Blaster × Gnats` `+`→`--` is a real correction
+    candidate — and even there the flak pod is the intended answer, so the
+    band may predate its weapon. Recorded as a **stated limit of the
+    instrument**, not a doc error: the void measures lethality and delivery
+    honestly and says nothing about position or exposure.
+  - **THE STATE SPLIT (user's framing: "the shield IS a target by itself, just
+    like a hull of a ship").** A shielded type is not one cell but **two
+    targets in sequence**, and a weapon's answer can INVERT between them: the
+    blaster is `--` against a shielded aegis (25 < 40 threshold, never) and
+    `++` against a cracked one (4 bolts, 0.3 s). Averaging those into one cell
+    destroys both facts. `Lethality.versus_state` bands each state; the
+    planted-shot bench verifies all ten cells (raider/turret/gnat + aegis ×
+    {shielded, cracked}). This is the genre's standard model, arrived at from
+    first principles and then confirmed against precedent — Halo (plasma
+    strips, bullets kill), Mass Effect (per-layer weapon multipliers), Destiny
+    (match-game shields): each defensive layer is its own target with its own
+    row. **It was already on the books** — H3 line: "P4.3's combos are cells
+    too" — so this activates a decided future, it does not invent one.
+  - **COMBOS BECOME DERIVED, NOT TABULATED.** `Lethality.combo(strip, finish)`
+    chains the two legs (missile strips the 60 shield for zero hull, gun
+    finishes the exposed 80 hull in four bolts ≈ 1.5 s — which matches the
+    2.3 s the old conflated duel measured, mystery dissolved). The rule this
+    protects, and the answer to the user's "how do we do math on a combo
+    cell": **the per-weapon table stays strictly single-weapon** so anything
+    derived from it is clean; a combo is computed by chaining states, never
+    stored as an exception. Writing combo() caught a bug in itself —
+    `missile → missile` reported 3.0 s where the identical solo row says
+    6.0 s, because the inter-leg cadence gap was missing (a same-weapon combo
+    must wait out its own cooldown between legs; a two-weapon one does not).
+    Fixed, and the invariant "a same-weapon combo IS that weapon's solo row"
+    is now an assert.
+  - **`Missile × Aegis` resolved (the user's call): the paper `++` is a COMBO
+    band, the solo cell is `+`.** Missile-alone is good, not excellent —
+    3 launches at a 3 s cadence is a long intercept — and the aegis's `++`
+    answer is *missile-then-gun*, exactly the doc's own "the combo, not the
+    gun alone". The harness no longer arms the gun director in missile cells
+    (it did so **unconditionally** before, which is what conflated this cell);
+    the missile row is held to the solo `+` band, the combo keeps `++` as a
+    derived row.
+  - **THE DEFECT THE CONFLATION HID.** With the director gone, `Missile ×
+    Aegis` flipped from 100% wins to **0% — six timeouts, 1.0 missiles fired
+    per duel**. Not a lethality problem: a probe traced the pilot flying
+    *straight into the bomber* (39.7 m → 0.5 m), unable to lock a target it is
+    touching (cone 82°), grinding down its hull with the gun until the floor
+    guard hauls it out — while the stripped shield regenerates back. The
+    reference pilot **has no standoff**: its aim loop pitches the uptilted gun
+    line onto the target, which drives it forward ("closing range for free" —
+    a documented feature), and every other type maneuvers away so the closure
+    self-limits. The aegis flies straight at you at 7 m/s and never evades, so
+    nothing stops the ram. The gun used to kill it at 2.3 s during the
+    approach, masking this for the whole life of the harness. **This is what
+    Phase 3.5 was for**: removing a contaminant exposed a real pilot defect
+    that had been invisible underneath it. Left unfixed on purpose — a
+    standoff behavior is pilot behavior, so it is a `PILOT_VERSION` bump and a
+    deliberate re-measure of every cell, not a quiet edit (which is precisely
+    the discipline the pin exists to enforce).
+  - **WATCH MODE IS NOW STANDING POLICY (user: "essential, not just a
+    nice-to-have").** `BenchView` extracts the watch-mode boilerplate into one
+    helper every bench calls, so a new headless rig is watchable from its first
+    commit rather than after something goes unexplained. The aegis ram is the
+    argument made concrete: the numbers said "1.0 launches, timeout" for a
+    whole reasoning session; thirty seconds of eyes would have said "it flew
+    into the bomber". The delivery bench now renders under watch mode
+    (`tools/watch_delivery`), announcing each cell.
+  - **The separability caveat, stated for the record (re: the user's
+    dynamic-per-pilot-balance idea).** Swapping the measured aim value does
+    re-derive the whole table for any pilot — two of three factors are
+    pilot-independent — so per-player balance is *mechanically* real. But it
+    rests on three things not yet true: (a) separability is an **assumption**
+    (`aim × evasion`), un-validated — tracking a jinking mover is a different
+    skill than tracking a static one, so real human hit rate on a mover is
+    likely below the product, making per-pilot derivation optimistic; (b) aim
+    is **one axis of a many-axis skill** — `Blaster × Raider` predicts `++` and
+    times out because the bot cannot hold a line *and survive*, which is
+    positioning, not aim; (c) runtime auto-scaling is a **design hazard**
+    (Oblivion) separate from the model. The immediate, safe payoff is
+    **authoring the difficulty curve** knowing what a 0.3-aim vs 0.7-aim player
+    experiences — which is H.q4's actual job.
+  - **PARKED (user, to revisit): the long-cap pack duel.** Pack cells band an
+    *exchange rate at the 10 s cap* (you cannot clear a 9-body cloud in 10 s),
+    which is not commensurable with the predicted *ttk-to-clear*. Keep the
+    10 s cap as the default ruler, but add — someday — an **optional,
+    knowingly-expensive bench** that runs pack duels to completion to answer
+    "who actually wins this," a question the short duel deliberately does not.
+    Noted so it is not rediscovered; not built.
+  - **Also parked (still): the human aim bench (H.q4).** Correct to defer —
+    Phase 4 adds the flak column, so measuring the human's aim now means
+    re-measuring after flak lands. It is the concrete "how the human helps":
+    fly the same static-target drill the bot flew, get a human `aim_quality`,
+    and the whole table re-speaks in human terms.
+  - **Next: unchanged — Phase 4** (flak pod + Atlas), now on an instrument
+    that is not only unconflated but state-aware and watchable. The P2-era
+    risk review is still queued. **To resume after a session cut: "Continue
+    QuadShot — Phase 4 per the v1.24/v1.25 entries."**
