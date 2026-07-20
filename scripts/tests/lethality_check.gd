@@ -53,9 +53,14 @@ func _initialize() -> void:
 	_ticks_cap = int(MAX_SECONDS * float(Engine.physics_ticks_per_second))
 	for enemy_path: String in ENEMIES:
 		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
-		for weapon: String in Lethality.WEAPONS:
-			_cells.append({"enemy": enemy, "weapon": weapon,
-					"predicted": Lethality.versus(weapon, _combat, enemy)})
+		# A shielded type is TWO targets in sequence (v1.25 state split), and
+		# a weapon's answer can invert between them, so each state gets its
+		# own verified row rather than one averaged cell.
+		if enemy.shield_max > 0.0:
+			_add_cells(enemy, "shielded", enemy)
+			_add_cells(Lethality.cracked_config(enemy), "cracked", enemy)
+		else:
+			_add_cells(enemy, "", enemy)
 	print("[lethality] Layer 1 table (config arithmetic, %d cells):"
 			% _cells.size())
 	for cell: Dictionary in _cells:
@@ -63,10 +68,58 @@ func _initialize() -> void:
 		var verdict: String = "NEVER (%s)" % p["why"] if not p["kills"] \
 				else "%d hit%s, ttk %.1fs" % [p["shots"],
 				"" if int(p["shots"]) == 1 else "s", p["ttk"]]
-		print("[lethality]   %-8s x %-7s %s"
-				% [cell["weapon"], (cell["enemy"] as EnemyConfig).type_id, verdict])
+		print("[lethality]   %-8s x %-18s %s"
+				% [cell["weapon"], cell["label"], verdict])
+	_print_combos()
 	_start_cell()
 	physics_frame.connect(_on_physics_frame)
+
+
+## `config` is what the planted shots actually run against (already stripped
+## for a cracked row); `named` supplies the type_id for the label.
+func _add_cells(config: EnemyConfig, state: String, named: EnemyConfig) -> void:
+	var label: String = String(named.type_id)
+	if state != "":
+		label += "(%s)" % state
+	for weapon: String in Lethality.WEAPONS:
+		_cells.append({"enemy": config, "weapon": weapon, "label": label,
+				"predicted": Lethality.versus(weapon, _combat, config)})
+
+
+## The combo rows: what a two-weapon answer costs, computed from the state
+## split rather than tabulated as a special case. Arithmetic only — no duel
+## flies this — but it is what makes "missile strips, gun finishes" a
+## PREDICTION instead of a surprise in the validation column.
+func _print_combos() -> void:
+	for enemy_path: String in ENEMIES:
+		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
+		if enemy.shield_max <= 0.0:
+			continue
+		print("[lethality] combos vs %s (strip -> finish):" % enemy.type_id)
+		for strip: String in Lethality.WEAPONS:
+			for finish: String in Lethality.WEAPONS:
+				var result: Dictionary = Lethality.combo(
+						strip, finish, _combat, enemy)
+				if not bool(result["kills"]):
+					print("[lethality]   %-8s -> %-8s  no: %s"
+							% [strip, finish, result["why"]])
+					continue
+				print("[lethality]   %-8s -> %-8s  %d + %d hits, ttk %.1fs"
+						% [strip, finish, result["strip_shots"],
+						result["finish_shots"], result["ttk"]])
+				# SELF-CONSISTENCY: a combo that uses one weapon for both legs
+				# is not a combo at all — it is that weapon's solo row, split
+				# in two. If the two disagree, the combo's time accounting is
+				# wrong (it was: the inter-leg cadence gap was missing).
+				if strip != finish:
+					continue
+				var solo: Dictionary = Lethality.versus(strip, _combat, enemy)
+				if int(result["shots"]) != int(solo["shots"]) \
+						or absf(float(result["ttk"]) - float(solo["ttk"])) > 0.001:
+					_failures.append(
+							"%s->%s combo (%d hits, %.2fs) != %s solo (%d hits, %.2fs)"
+							% [strip, finish, result["shots"], result["ttk"],
+							strip, solo["shots"], solo["ttk"]])
 
 
 func _start_cell() -> void:
@@ -110,8 +163,7 @@ func _on_physics_frame() -> void:
 func _verify_cell() -> void:
 	var cell: Dictionary = _cells[_cell_i]
 	var predicted: Dictionary = cell["predicted"]
-	var label: String = "%s x %s" % [cell["weapon"],
-			(cell["enemy"] as EnemyConfig).type_id]
+	var label: String = "%s x %s" % [cell["weapon"], cell["label"]]
 	var killed: bool = _death_tick >= 0
 	if killed != bool(predicted["kills"]):
 		_failures.append("%s: predicted %s, planted shots %s (after %d hits)"

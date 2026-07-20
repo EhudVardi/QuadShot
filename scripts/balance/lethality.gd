@@ -45,24 +45,121 @@ const WEAPONS: Array[String] = ["blaster", "missile"]
 ## that, faithfully including the asymmetry.
 static func versus(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		damage_mult: float = 1.0) -> Dictionary:
+	return _fire(weapon, combat, enemy, damage_mult, false)
+
+
+## THE STATE SPLIT (v1.25, from the user's reading: "the shield IS a target by
+## itself, just like a hull of a ship"). A shielded type is not one target —
+## it is two in sequence, and a weapon's answer can INVERT between them: the
+## blaster is `--` against a shielded aegis and `++` against a cracked one.
+## Averaging those into one cell destroys both facts.
+##
+## This is the genre's standard model, not an invention here: Halo's plasma-
+## strips-shield / bullets-kill-flesh sandbox, Mass Effect's per-layer weapon
+## multipliers, Destiny's match-game shields. Each defensive layer is its own
+## target with its own effectiveness row.
+##
+## The payoff is that COMBOS BECOME DERIVABLE instead of exceptional (see
+## `combo` below), which is what keeps them out of the per-weapon table where
+## they would poison any arithmetic drawn from it.
+##
+##   shielded — the type as it arrives, shield up
+##   cracked  — shield down, hull exposed (the window a burst opens)
+##
+## Unshielded types report identically for both states.
+const STATES: Array[String] = ["shielded", "cracked"]
+
+
+static func versus_state(weapon: String, combat: CombatConfig,
+		enemy: EnemyConfig, state: String,
+		damage_mult: float = 1.0) -> Dictionary:
+	if state == "cracked":
+		return versus(weapon, combat, cracked_config(enemy), damage_mult)
+	return versus(weapon, combat, enemy, damage_mult)
+
+
+## The same stat block with its shield spent. Used for the cracked-state row
+## and as the finisher's target in a combo.
+static func cracked_config(enemy: EnemyConfig) -> EnemyConfig:
+	var cracked: EnemyConfig = enemy.duplicate() as EnemyConfig
+	cracked.shield_max = 0.0
+	cracked.shield_break_threshold = 0.0
+	cracked.shield_regen = 0.0
+	return cracked
+
+
+## Hits to bring the shield down (NOT to kill) — the first leg of a combo.
+## An unshielded target reports 0 shots: there is nothing to strip.
+static func strip_shield(weapon: String, combat: CombatConfig,
+		enemy: EnemyConfig, damage_mult: float = 1.0) -> Dictionary:
+	return _fire(weapon, combat, enemy, damage_mult, true)
+
+
+## The two-weapon answer: `strip` brings the shield down, `finish` kills the
+## exposed hull. This is what P4.3 means in prose by "cracking opens a timed
+## window where the gun finally matters — the combo, not the gun alone",
+## expressed as arithmetic so it can be predicted rather than discovered.
+##
+## Assumes the finisher opens IMMEDIATELY once the shield drops. That is the
+## honest reading for a pilot holding both triggers, and it is safe against
+## regen for any shield whose `shield_regen_delay` exceeds the switch gap —
+## but a hesitant follow-up loses the window, which this number does not model.
+static func combo(strip: String, finish: String, combat: CombatConfig,
+		enemy: EnemyConfig, damage_mult: float = 1.0) -> Dictionary:
+	var leg_one: Dictionary = strip_shield(strip, combat, enemy, damage_mult)
+	if not bool(leg_one["kills"]):
+		return _never("cannot strip the shield: %s" % leg_one["why"])
+	var leg_two: Dictionary = versus(finish, combat, cracked_config(enemy),
+			damage_mult)
+	if not bool(leg_two["kills"]):
+		return _never("cannot kill the exposed hull: %s" % leg_two["why"])
+	# The gap between the legs. Switching to a DIFFERENT weapon costs nothing
+	# — separate cooldowns, both triggers already under the pilot's fingers —
+	# but continuing with the SAME weapon must wait out its cadence, exactly
+	# as it would have mid-burst. Without this a same-weapon "combo" reports
+	# a faster kill than the identical solo row, which is how the omission
+	# was caught: missile->missile said 3.0 s where solo says 6.0 s.
+	var gap: float = float(leg_two["interval"]) if strip == finish else 0.0
+	return {
+		"kills": true,
+		"shots": int(leg_one["shots"]) + int(leg_two["shots"]),
+		"ttk": float(leg_one["ttk"]) + gap + float(leg_two["ttk"]),
+		"interval": float(leg_two["interval"]),
+		"strip_shots": int(leg_one["shots"]),
+		"strip_ttk": float(leg_one["ttk"]),
+		"finish_shots": int(leg_two["shots"]),
+		"finish_ttk": float(leg_two["ttk"]),
+		"why": "",
+	}
+
+
+static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
+		damage_mult: float, stop_at_shield_down: bool) -> Dictionary:
 	match weapon:
 		"blaster":
 			return _exchange(combat.projectile_damage * damage_mult,
-					1.0 / maxf(combat.fire_rate, 0.001), enemy)
+					1.0 / maxf(combat.fire_rate, 0.001), enemy,
+					stop_at_shield_down)
 		"missile":
 			# The launcher's cooldown IS the missile's cadence: unlike the
 			# blaster it cannot volley, which is the whole gnat story.
 			return _exchange(combat.missile_damage,
-					maxf(combat.missile_cooldown, 0.001), enemy)
-	push_error("Lethality.versus: unknown weapon '%s'" % weapon)
+					maxf(combat.missile_cooldown, 0.001), enemy,
+					stop_at_shield_down)
+	push_error("Lethality: unknown weapon '%s'" % weapon)
 	return {}
 
 
 ## Replay Health.take at the weapon's cadence: hit at t=0, then every
 ## `interval` seconds, with shield regen credited for the part of each
 ## interval after the regen delay expires.
-static func _exchange(damage: float, interval: float,
-		enemy: EnemyConfig) -> Dictionary:
+##
+## `stop_at_shield_down` ends the replay the moment the shield reaches zero
+## instead of continuing into the hull — the strip leg of a combo. It shares
+## this loop rather than getting its own so the two can never drift apart on
+## the regen rules, which is the whole discipline of this file.
+static func _exchange(damage: float, interval: float, enemy: EnemyConfig,
+		stop_at_shield_down: bool = false) -> Dictionary:
 	if damage <= 0.0:
 		return _never("zero damage", interval)
 	var hull: float = enemy.hull
@@ -89,9 +186,17 @@ static func _exchange(damage: float, interval: float,
 						% [amount, enemy.shield_break_threshold], interval)
 			var excess: float = amount - shield
 			shield = maxf(shield - amount, 0.0)
+			if stop_at_shield_down and shield <= 0.0:
+				return {"kills": true, "shots": hit + 1,
+						"ttk": float(hit) * interval, "interval": interval,
+						"why": ""}
 			if excess <= 0.0:
 				continue
 			amount = excess
+		elif stop_at_shield_down:
+			# Nothing to strip: an unshielded target costs zero shots to open.
+			return {"kills": true, "shots": 0, "ttk": 0.0,
+					"interval": interval, "why": ""}
 		hull -= amount
 		if hull <= 0.0:
 			return {"kills": true, "shots": hit + 1,

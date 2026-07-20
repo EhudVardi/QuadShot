@@ -83,7 +83,15 @@ const MATCHUPS: Array[Dictionary] = [
 			"paper": "--", "mode": "win"},
 	{"name": "Missile x Aegis", "weapon": "missile", "type": "aegis",
 			"enemy": "res://scenes/combat/aegis.tscn",
-			"paper": "++", "mode": "win"},
+			"paper": "++", "mode": "win",
+			# P4.3's `++` here is a COMBO band (v1.25, user's call): the doc's
+			# own prose says "the combo, not the gun alone", and the aegis's
+			# real answer is missile-strips-then-gun-finishes. This cell
+			# measures the MISSILE ALONE, which is `+` — good, not excellent,
+			# because three launches at a 3 s cadence is a long time to hold
+			# an intercept. The combo keeps the `++`, as a derived row
+			# (Lethality.combo) rather than a contaminated cell.
+			"paper_solo": "+"},
 ]
 
 ## H4 banding, fixed stated thresholds (H.q1: a ruler that does not drift).
@@ -188,7 +196,16 @@ func _build_duel() -> void:
 	_drone.arm()
 	_drone.prime_motors(_drone.hover_throttle())
 	var weapon: Weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
-	weapon.combat_config.fire_assist_miss_m = DIRECTOR_MISS_M
+	# ISOLATION (v1.25): the director is armed ONLY for the cell that is
+	# actually measuring the gun. It used to be armed unconditionally, which
+	# meant a "Missile x ..." cell quietly ran missile+gun — and against the
+	# aegis that is not a rounding error but a different fight: the missile
+	# strips the shield for zero hull damage, then the blaster kills an
+	# exposed 80-hull bomber in four bolts. The cell reported 2.3 s for a
+	# weapon that needs 7.7 s alone. A cell must measure what its label says;
+	# the combo is a row of its own (Lethality.combo), not a contaminant.
+	weapon.combat_config.fire_assist_miss_m = \
+			DIRECTOR_MISS_M if matchup["weapon"] == "blaster" else 0.0
 
 	_enemy = (load(matchup["enemy"]) as PackedScene).instantiate()
 	# Per-rep determinism (P4.8): flyers self-randomize in _ready, so the seed
@@ -324,11 +341,21 @@ func _record(outcome: String) -> void:
 		print("[matchup]     %s in %.1fs (kills %d, hull lost %.0f)"
 				% [outcome, float(_duel_ticks) / _pps, _kills,
 				_player_max - _health.current])
+	# Shots SPENT, alongside the outcome. A cell that fails having fired twice
+	# failed for a different reason than one that failed having fired thirty
+	# times — the first is a delivery/acquisition problem, the second a
+	# lethality one, and without this number they look identical in a report.
+	var weapon: Weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
+	var missile: MissileSystem = _drone.get_node("FpvCamera/MissileSystem") \
+			as MissileSystem
+	var spent: int = missile.launches \
+			if MATCHUPS[_matchup_i]["weapon"] == "missile" else weapon.shots_fired
 	_results[_matchup_i].append({
 		"outcome": outcome,
 		"ttk": float(_duel_ticks) / _pps,
 		"damage_taken": _player_max - _health.current,
 		"kills": _kills,
+		"spent": spent,
 	})
 	_phase = RECORD
 
@@ -371,10 +398,10 @@ func _report() -> void:
 				ttk_sum += float(r["ttk"])
 		var win_rate: float = float(wins) / float(runs.size())
 		var mean_ttk: String = "%.1fs" % (ttk_sum / float(wins)) if wins > 0 else "-"
-		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.1f  kills %.1f"
+		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.1f  kills %.1f  spent %.1f"
 				% [MATCHUPS[i]["name"], wins, runs.size(), win_rate * 100.0,
 				mean_ttk, dmg_sum / float(runs.size()),
-				kill_sum / float(runs.size())])
+				kill_sum / float(runs.size()), _mean(i, "spent")])
 		# How a cell FAILS is the diagnosis: timing out (could not finish it),
 		# bombed (ran out of clock), or dead (it finished you) are three
 		# different balance problems wearing the same 0%.
@@ -455,6 +482,12 @@ func _print_banded_matrix() -> void:
 		print("[matchup] Run tools/balance_report (or delivery_bench.gd) to measure them.")
 	print("[matchup] ---- mini-web: paper -> predicted -> validated (pilot v%d) ----"
 			% ReferencePilot.PILOT_VERSION)
+	# Said once, out loud: the last two columns are summaries under DIFFERENT
+	# rulers — predicted bands a modeled ttk, validated bands the H4 outcome
+	# ruler (win rate, or exchange for packs). H.q1 forbids drifting the H4
+	# ruler to make the columns match, so the honest move is to name the
+	# mismatch and compare the NUMBERS underneath, which the model line prints.
+	print("[matchup] (predicted = modeled ttk; validated = H4 outcome ruler — compare the numbers, not just the bands)")
 	for i: int in MATCHUPS.size():
 		var matchup: Dictionary = MATCHUPS[i]
 		var paper: String = matchup["paper"]
@@ -476,11 +509,21 @@ func _print_banded_matrix() -> void:
 				detail = "win %.0f%%" % (_win_rate(i) * 100.0)
 		var prediction: Dictionary = _predict(matchup, factors)
 		var predicted: String = String(prediction.get("band", "?"))
+		# Where P4.3's band covers a COMBO, this cell is held to the solo band
+		# instead — measuring one weapon against a band earned by two would
+		# fail the cell for a promise it was never making.
+		var held_to: String = String(matchup.get("paper_solo", paper))
 		print("[matchup] %-18s %3s -> %-3s -> %-3s  %s"
 				% [matchup["name"], paper, predicted, validated, detail])
+		if matchup.has("paper_solo"):
+			print("[matchup] %-18s   paper %s is a COMBO band; this cell is solo, held to %s"
+					% ["", paper, held_to])
 		if not prediction.is_empty():
 			print("[matchup] %-18s   model: %s" % ["", prediction["note"]])
-			if predicted != paper:
+			var ttk_line: String = _ttk_line(i, prediction)
+			if ttk_line != "":
+				print("[matchup] %-18s   %s" % ["", ttk_line])
+			if predicted != held_to:
 				print("[matchup] %-18s   ^ PAPER vs PREDICTED: shipped numbers disagree with P4.3"
 						% "")
 			if predicted != validated:
@@ -531,6 +574,28 @@ func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
 				" (%d bodies)" % int(bodies) if bodies > 1.0 else "",
 				prediction["cadence"], prediction["ttk"]]
 	return prediction
+
+
+## Predicted ttk vs the ttk the duels actually measured — the like-for-like
+## number the two band columns cannot give (different rulers). The model's
+## clock starts at the FIRST SHOT, so the duel is expected to run longer by
+## roughly one acquisition plus one time-of-flight; that offset is the
+## prediction's stated assumption 4, not a divergence.
+func _ttk_line(matchup_i: int, prediction: Dictionary) -> String:
+	if prediction.is_empty() or String(prediction["why"]) != "":
+		return ""
+	var wins: int = 0
+	var ttk_sum: float = 0.0
+	for r: Dictionary in _results[matchup_i]:
+		if r["outcome"] == "win":
+			wins += 1
+			ttk_sum += float(r["ttk"])
+	if wins == 0:
+		return "ttk: predicted %.1fs, measured — (no win to time)" \
+				% prediction["ttk"]
+	var measured: float = ttk_sum / float(wins)
+	return "ttk: predicted %.1fs, measured %.1fs (%+.1fs = acquisition + flight)" \
+			% [prediction["ttk"], measured, measured - float(prediction["ttk"])]
 
 
 func _band(value: float, bands: Array) -> String:
