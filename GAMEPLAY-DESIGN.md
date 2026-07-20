@@ -1,6 +1,6 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.23 (2026-07-19) — paper phase complete; **the vertical-slice
+> **Status:** v1.24 (2026-07-20) — paper phase complete; **the vertical-slice
 > build is underway, Phases 1–3 landed and steered by playtest.** Done: the
 > matchup harness + reference pilot (P1), P2 — the damage model + the
 > fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
@@ -13,9 +13,15 @@
 > harness is feel-promise CI — and the **layered balance model** (lethality ×
 > aim × evasion, duel as validation) is adopted. New steering: **allied kinetic
 > presence in player sorties is wanted** (composer-era; the sortie is our
-> bubble). **Next: Phase 3.5 — the instrument refactor** (BALANCE.md +
-> PILOT_VERSION, lethality calculator, aim/evasion benches, one-command
-> report), then Phase 4 — flak + Atlas. Design record below.
+> bubble). v1.24 **builds that instrument: Phase 3.5 is DONE** — BALANCE.md +
+> `PILOT_VERSION`, the Layer 1 lethality calculator (planted-shot verified),
+> the Layer 2 aim/evasion benches, and the mini-web rebanded as **paper →
+> predicted → validated** behind `tools/balance_report`. It works: the model
+> independently reproduced the human's hand band on the one cell the duel
+> could never measure, and its first run raised four findings — three stale
+> paper bands and a conflated cell — **awaiting the human's call**.
+> **Next: Phase 4** — flak + Atlas, now measurable on an unconflated
+> instrument. Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3718,3 +3724,95 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     P2-era code (motor_model damage coupling, repair_gate) next session.
     **To resume after a session cut: "Continue QuadShot — Phase 3.5 per the
     v1.23 entry."**
+- **2026-07-20 — v1.24. Phase 3.5 shipped: the instrument, unconflated — and
+  its first four findings.** The v1.23 plan built as specced, in four
+  independently-committable steps, no design changes. What exists now:
+  - **Step 1 — the contract.** `BALANCE.md`: one page stating what each layer
+    measures and, as importantly, what it is NOT for (not a war oracle, not a
+    mux-everything average-outcome pipeline — the v1.23 Realignment 2 drift,
+    now written down where it can be re-read instead of re-derived).
+    `ReferencePilot.PILOT_VERSION = 1` pins the measuring brain; every report
+    header and every table prints it, and the prediction layer **blanks its
+    column rather than mixing rulers** when the measured factors carry a
+    different pilot version. Numbers from two pilots never share a table.
+  - **Step 2 — Layer 1, lethality.** `scripts/balance/lethality.gd` derives
+    kill-or-never / shots-to-kill / cadence-limited ttk from CombatConfig ×
+    EnemyConfig by replaying `Health.take`'s exact rules. Verified by
+    `lethality_check.gd`, which plants hits into a REAL Health node at the
+    weapon's cadence and fails the run if replay and shipped code drift:
+    8/8 cells match, including `blaster × aegis` never (300 absorbed hits —
+    "25 dmg < 40 threshold = 0 forever", now a test) and `missile × aegis`
+    3 hits through the regen window. Mirrors the CODE, not the schema:
+    `EnemyConfig.armor` is declared and overlay-tunable but applied nowhere in
+    the damage pipeline, so it stays out of the arithmetic and BALANCE.md says
+    so under "known-inert fields".
+  - **Step 3 — Layer 2, delivery.** `delivery_bench.gd`, both factors in the
+    isolation that gives them meaning: **aim** = reference pilot vs a static
+    immortal raider (the agent alone); **evasion** = the real drone *frozen in
+    place* as a perfect shooter, its gun re-laid every tick onto the exact
+    ballistic solution at full cadence (the target alone). Static-target
+    control cells fail the run if the perfect shooter itself cannot shoot — so
+    "it evaded" can never be the rig's own bug wearing a target's name.
+    Measured at pilot v1: **aim 0.14 blaster / 1.00 missile; evasion 0.96
+    raider, 0.99 turret, 0.12 gnats, 0.99–1.00 aegis.**
+  - **Step 4 — the join.** `scripts/balance/prediction.gd` multiplies the
+    layers into a predicted band, **with its four assumptions written into the
+    file** so they can be argued with rather than absorbed: separability (aim
+    and evasion multiply), cadence-is-the-economy, nobody-shoots-back (no
+    survival term at all), and clock-starts-at-first-shot (acquisition and
+    time-of-flight are outside the number, so predicted ttk is optimistic by
+    ~one lock + one flight time — a definition, not a balance bug). The
+    delivery factors land in `balance/delivery_factors.json`, a committed
+    artifact stamped with its pilot version. The mini-web is now **paper →
+    predicted → validated**, with the two gaps flagged as different things:
+    paper-vs-predicted = *the shipped numbers disagree with P4.3*;
+    predicted-vs-validated = *an un-modeled factor decided this cell*.
+    `tools/balance_report` runs all three layers in dependency order and stops
+    early when a lower one fails.
+  - **THE VINDICATION — `Blaster × Raider`.** The cell the P3.4 loop died on,
+    which the integrated duel scores 0/6 (six timeouts) and which H5 had to
+    hand-band on the human's word. The layered model, from config arithmetic
+    and two isolated benches with no duel anywhere in it, predicts **`++`
+    (aim 0.14 × evasion 0.96 = 0.13 hit rate, 15 bolts, 1.4 s)** — *the same
+    band the human's hands gave it.* The weapon was never the problem and the
+    raider was never slippery: **the bot's aim was the whole story (0.14),
+    and the old instrument was reporting it as the weapon's.** That is the
+    v1.23 Realignment 3 diagnosis, now measured rather than argued.
+  - **FINDINGS — the human's call, none acted on.** (1) *Three stale paper
+    bands*: `Blaster × Turret` paper `0` but predicted **and** validated
+    `++`; `Missile × Raider` paper `+`, both `++`; `Blaster × Gnats` paper
+    `+`, both `--` (0.02 hit rate → 540 bolts to clear the cloud — though the
+    flak pod is Phase 4's intended gnat answer, so this band may simply have
+    been written for a weapon that does not exist yet). Either the configs
+    move or the promises do. (2) *`Missile × Aegis` is a conflated cell*:
+    predicted `0` (6.0 s), validated `++` (2.3 s) — because the harness arms
+    `fire_assist_miss_m = 1.2` **unconditionally**, so the gun director is
+    live during missile matchups. Verified by arithmetic, not assumed: lock
+    0.9 s + 40 m at 50 m/s puts missile 1 at ~1.7 s where it strips the 60
+    shield for *zero* hull (60 dmg − 60 shield = no excess), and missile 2
+    cannot launch before the 3 s cooldown — a missile-only kill is ~7.9 s, so
+    the 2.3 s kill is the blaster finishing an unshielded 80-hull bomber in
+    four bolts. **This is P4.3's own designed combo** ("cracking opens a timed
+    window where the gun finally matters — the combo, not the gun alone"), so
+    the question is not a bug report but a definition: should that cell
+    measure the missile *alone* (kill the director in missile matchups), or is
+    the combo the honest integrated answer — in which case the paper `++` is a
+    combo band and should say so? (3) *The pack cells are not commensurable*:
+    predicted = ttk to clear the cloud, validated = exchange rate at the 10 s
+    cap. The table now labels that instead of flagging a contradiction.
+    (4) *The reference pilot connects 14% of its bolts on a **stationary**
+    target* — that is the ruler's competence datum, and it is low. Improving
+    it is a `PILOT_VERSION` bump and a deliberate re-measure of every cell
+    (which is exactly what the pin is for), not a quiet edit.
+  - **Also landed:** `Health.struck` — a signal that fires once per arriving
+    hit, added because neither `damaged` nor `shield_absorbed` covers a
+    shield-breaking hit with zero excess, which silently booked every first
+    missile into an aegis as a *miss*. Instrumentation counters
+    (`Weapon.shots_fired`, `MissileSystem.launches`) supply the benches'
+    denominators. All seven headless suites stay green.
+  - **Next: Phase 4** — the flak pod (the gnat answer, 3rd weapon column) +
+    Atlas (2nd frame), measured on the unconflated instrument, per v1.23's
+    "must not be measured on the conflated instrument". The queued risk-based
+    review of P2-era code (motor_model damage coupling, repair_gate) is still
+    open. **To resume after a session cut: "Continue QuadShot — Phase 4 per
+    the v1.24 entry."**
