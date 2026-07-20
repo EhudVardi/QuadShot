@@ -50,6 +50,7 @@ const CONTROL_MIN_RATE: float = 0.9
 const RAIDER_SCENE: String = "res://scenes/combat/enemy_drone.tscn"
 const SWARM_SCENE: String = "res://scenes/combat/gnat_swarm.tscn"
 const AEGIS_SCENE: String = "res://scenes/combat/aegis.tscn"
+const TURRET_SCENE: String = "res://scenes/combat/turret.tscn"
 
 ## kind: aim (pilot flies) | evasion (frozen perfect shooter).
 ## target: static | raider | gnats | aegis. seconds: firing window.
@@ -63,6 +64,10 @@ const CELLS: Array[Dictionary] = [
 			"control": true},
 	{"name": "evasion: blaster x raider", "kind": "evasion",
 			"weapon": "blaster", "target": "raider", "seconds": 20.0},
+	# A turret cannot dodge at all, so this cell is both a real factor and a
+	# second control: anything but ~1.0 means the bench, not the turret.
+	{"name": "evasion: blaster x turret", "kind": "evasion",
+			"weapon": "blaster", "target": "turret", "seconds": 20.0},
 	{"name": "evasion: blaster x gnats", "kind": "evasion",
 			"weapon": "blaster", "target": "gnats", "seconds": 20.0},
 	{"name": "evasion: blaster x aegis", "kind": "evasion",
@@ -72,9 +77,19 @@ const CELLS: Array[Dictionary] = [
 			"control": true},
 	{"name": "evasion: missile x raider", "kind": "evasion",
 			"weapon": "missile", "target": "raider", "seconds": 45.0},
+	{"name": "evasion: missile x gnats", "kind": "evasion",
+			"weapon": "missile", "target": "gnats", "seconds": 45.0},
 	{"name": "evasion: missile x aegis", "kind": "evasion",
 			"weapon": "missile", "target": "aegis", "seconds": 45.0},
 ]
+
+## Bench target name -> EnemyConfig.type_id, so the artifact is keyed by the
+## roster's own vocabulary rather than by this file's cell names. `static` is
+## the bench's own control body, not a roster type, and is written to its own
+## section instead of the evasion table.
+const TYPE_IDS: Dictionary = {
+	"raider": "raider", "turret": "turret", "gnats": "gnat", "aegis": "aegis",
+}
 
 enum { BUILD, FIRE, GRACE, RECORD }
 
@@ -208,6 +223,20 @@ func _build_target(type: String) -> Node:
 			_enemy_config.swarm_pursuit_gain = 0.0
 			_swarm_spawns = 0
 			return _spawn_swarm()
+		"turret":
+			_enemy_config = (load("res://resources/default_enemy_turret.tres")
+					as EnemyConfig).duplicate() as EnemyConfig
+			_enemy_config.hull = IMMORTAL_HULL
+			var turret: Node3D = (load(TURRET_SCENE) as PackedScene).instantiate() \
+					as Node3D
+			turret.set(&"enemy_config", _enemy_config)
+			# Held at the shooter's altitude rather than on a floor the bench
+			# does not build: what is measured is that it cannot dodge, and
+			# height has no bearing on that.
+			turret.position = Vector3(0.0, ALTITUDE, -RANGE_M)
+			_arena.add_child(turret)
+			_count_health_connects(turret.get_node("Health") as Health)
+			return turret
 		"aegis":
 			_enemy_config = (load("res://resources/default_enemy_aegis.tres")
 					as EnemyConfig).duplicate() as EnemyConfig
@@ -381,6 +410,7 @@ func _report() -> void:
 			% ReferencePilot.PILOT_VERSION)
 	for i: int in CELLS.size():
 		print("[delivery] %-28s %.2f" % [CELLS[i]["name"], _results[i]["rate"]])
+	_write_factors()
 	if _failures.is_empty():
 		print("[delivery] PASS")
 		quit(0)
@@ -389,3 +419,41 @@ func _report() -> void:
 			print("[delivery] FAIL: %s" % f)
 		print("[delivery] FAIL")
 		quit(1)
+
+
+## Leave the measured factors where the prediction layer can find them, as a
+## COMMITTED artifact: the delivery table is the pinned pilot's ruler, so it
+## belongs in the repo next to PILOT_VERSION, diffable, with the version it
+## was measured under written inside it. A factors file whose pilot_version
+## does not match the code is stale by construction and says so.
+func _write_factors() -> void:
+	var aim: Dictionary = {}
+	var evasion: Dictionary = {}
+	var control: Dictionary = {}
+	for i: int in CELLS.size():
+		var cell: Dictionary = CELLS[i]
+		var rate: float = snappedf(float(_results[i]["rate"]), 0.01)
+		var weapon: String = cell["weapon"]
+		if cell["kind"] == "aim":
+			aim[weapon] = rate
+		elif cell["target"] == "static":
+			control[BalancePrediction.evasion_key(weapon, "static")] = rate
+		else:
+			evasion[BalancePrediction.evasion_key(weapon,
+					TYPE_IDS[cell["target"]])] = rate
+	var payload: Dictionary = {
+		"pilot_version": ReferencePilot.PILOT_VERSION,
+		"aim": aim,
+		"evasion": evasion,
+		"control": control,
+	}
+	DirAccess.make_dir_recursive_absolute(
+			BalancePrediction.FACTORS_PATH.get_base_dir())
+	var file: FileAccess = FileAccess.open(
+			BalancePrediction.FACTORS_PATH, FileAccess.WRITE)
+	if file == null:
+		_failures.append("could not write %s" % BalancePrediction.FACTORS_PATH)
+		return
+	file.store_string(JSON.stringify(payload, "\t", true) + "\n")
+	file.close()
+	print("[delivery] wrote %s" % BalancePrediction.FACTORS_PATH)

@@ -1,0 +1,20 @@
+{
+	"aim": {
+		"blaster": 0.14,
+		"missile": 1.0
+	},
+	"control": {
+		"blaster:static": 0.99,
+		"missile:static": 1.0
+	},
+	"evasion": {
+		"blaster:aegis": 0.99,
+		"blaster:gnat": 0.12,
+		"blaster:raider": 0.96,
+		"blaster:turret": 0.99,
+		"missile:aegis": 1.0,
+		"missile:gnat": 1.0,
+		"missile:raider": 1.0
+	},
+	"pilot_version": 1
+}

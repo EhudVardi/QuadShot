@@ -36,6 +36,9 @@ const WEAPONS: Array[String] = ["blaster", "missile"]
 ##   shots: int      — hits to kill (NEVER when kills is false)
 ##   ttk: float      — seconds from first hit to kill at the weapon's own
 ##                     cadence, first shot at t=0 (0.0 when kills is false)
+##   interval: float — the weapon's own cadence, seconds between shots. The
+##                     economy term: what makes nine gnats expensive for a
+##                     3 s missile is this, not durability and not delivery.
 ##   why: String     — human-readable note when kills is false
 ## `damage_mult` is the RunMods layer; the baseline table uses 1.0. It applies
 ## to the blaster only — missile.gd reads missile_damage raw, and this mirrors
@@ -47,6 +50,8 @@ static func versus(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 			return _exchange(combat.projectile_damage * damage_mult,
 					1.0 / maxf(combat.fire_rate, 0.001), enemy)
 		"missile":
+			# The launcher's cooldown IS the missile's cadence: unlike the
+			# blaster it cannot volley, which is the whole gnat story.
 			return _exchange(combat.missile_damage,
 					maxf(combat.missile_cooldown, 0.001), enemy)
 	push_error("Lethality.versus: unknown weapon '%s'" % weapon)
@@ -59,7 +64,7 @@ static func versus(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 static func _exchange(damage: float, interval: float,
 		enemy: EnemyConfig) -> Dictionary:
 	if damage <= 0.0:
-		return _never("zero damage")
+		return _never("zero damage", interval)
 	var hull: float = enemy.hull
 	var shield: float = enemy.shield_max
 	# Seconds until regen resumes; only shield-touching hits rewind it.
@@ -81,7 +86,7 @@ static func _exchange(damage: float, interval: float,
 				# shield, no number of them ever will. The P4.3 chip-gun story
 				# in one branch.
 				return _never("%.0f dmg under the %.0f break threshold"
-						% [amount, enemy.shield_break_threshold])
+						% [amount, enemy.shield_break_threshold], interval)
 			var excess: float = amount - shield
 			shield = maxf(shield - amount, 0.0)
 			if excess <= 0.0:
@@ -90,10 +95,12 @@ static func _exchange(damage: float, interval: float,
 		hull -= amount
 		if hull <= 0.0:
 			return {"kills": true, "shots": hit + 1,
-					"ttk": float(hit) * interval, "why": ""}
+					"ttk": float(hit) * interval, "interval": interval,
+					"why": ""}
 	return _never("stalemate: regen outpaces the weapon over %d hits"
-			% MAX_HITS)
+			% MAX_HITS, interval)
 
 
-static func _never(why: String) -> Dictionary:
-	return {"kills": false, "shots": NEVER, "ttk": 0.0, "why": why}
+static func _never(why: String, interval: float = 0.0) -> Dictionary:
+	return {"kills": false, "shots": NEVER, "ttk": 0.0,
+			"interval": interval, "why": why}

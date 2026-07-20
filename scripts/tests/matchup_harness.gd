@@ -58,7 +58,7 @@ const DIRECTOR_MISS_M: float = 1.2
 #   hand — the rig cannot measure this cell; the band is the HUMAN's, per the
 #          H5 division of labor, and the report says so out loud
 const MATCHUPS: Array[Dictionary] = [
-	{"name": "Blaster x Raider", "weapon": "blaster",
+	{"name": "Blaster x Raider", "weapon": "blaster", "type": "raider",
 			"enemy": "res://scenes/combat/enemy_drone.tscn",
 			"paper": "++", "mode": "hand",
 			# User, 2026-07-18: "a tough chance to hit, but the weapon itself
@@ -66,22 +66,22 @@ const MATCHUPS: Array[Dictionary] = [
 			# pilot cannot fly the human's sweep-fire passes (calibration task
 			# #1, parked); the cell keeps its paper band on the human's word.
 			"hand_band": "++"},
-	{"name": "Missile x Raider", "weapon": "missile",
+	{"name": "Missile x Raider", "weapon": "missile", "type": "raider",
 			"enemy": "res://scenes/combat/enemy_drone.tscn",
 			"paper": "+", "mode": "win"},
-	{"name": "Blaster x Turret", "weapon": "blaster",
+	{"name": "Blaster x Turret", "weapon": "blaster", "type": "turret",
 			"enemy": "res://scenes/combat/turret.tscn",
 			"paper": "0", "mode": "win"},
-	{"name": "Blaster x Gnats", "weapon": "blaster",
+	{"name": "Blaster x Gnats", "weapon": "blaster", "type": "gnat",
 			"enemy": "res://scenes/combat/gnat_swarm.tscn",
 			"paper": "+", "mode": "pack"},
-	{"name": "Missile x Gnats", "weapon": "missile",
+	{"name": "Missile x Gnats", "weapon": "missile", "type": "gnat",
 			"enemy": "res://scenes/combat/gnat_swarm.tscn",
 			"paper": "--", "mode": "pack"},
-	{"name": "Blaster x Aegis", "weapon": "blaster",
+	{"name": "Blaster x Aegis", "weapon": "blaster", "type": "aegis",
 			"enemy": "res://scenes/combat/aegis.tscn",
 			"paper": "--", "mode": "win"},
-	{"name": "Missile x Aegis", "weapon": "missile",
+	{"name": "Missile x Aegis", "weapon": "missile", "type": "aegis",
 			"enemy": "res://scenes/combat/aegis.tscn",
 			"paper": "++", "mode": "win"},
 ]
@@ -414,37 +414,123 @@ func _report() -> void:
 		quit(1)
 
 
-## The measured mini-web, banded (H3/H4): paper band vs measured band per
-## cell, divergences flagged. ADVISORY through slice bring-up (H.q6) — the
-## table informs the human, only the rig-sanity and structural asserts fail
-## the run. Hand-mode cells print the human's band and say whose it is.
+## The mini-web in three columns (Phase 3.5 step 4, BALANCE.md):
+##
+##   PAPER      — what P4.3 promised.
+##   PREDICTED  — Layer 1 lethality x Layer 2 delivery, arithmetic only, with
+##                no fight simulated (scripts/balance/prediction.gd).
+##   VALIDATED  — what these duels actually measured, by the H4 rulers.
+##
+## The two gaps mean different things and are flagged separately:
+##   paper vs predicted     — the SHIPPED NUMBERS disagree with the design
+##                            doc. Something has to move: the config or the
+##                            promise.
+##   predicted vs validated — an UN-MODELED FACTOR. The model says the shots
+##                            are lethal and land; the fight disagreed, so
+##                            something outside lethality-and-delivery decided
+##                            the cell (survival pressure, a deadline, the
+##                            economy, or a second weapon the rig left live).
+##                            This gap is the instrument's OUTPUT, not its
+##                            error — per BALANCE.md, it names what to go
+##                            model or knowingly accept.
+##
+## ADVISORY through slice bring-up (H.q6): the table informs the human, only
+## rig-sanity and structural asserts fail the run. Hand-mode cells keep the
+## human's band in the validated column and say whose it is.
 func _print_banded_matrix() -> void:
 	var pack_size: float = maxf(
 			(load("res://resources/default_enemy_gnat.tres") as EnemyConfig).pack_size, 1.0)
-	print("[matchup] ---- banded matrix (paper -> measured), pilot v%d ----"
+	var factors: Dictionary = BalancePrediction.load_factors()
+	if not factors.is_empty() \
+			and int(factors.get("pilot_version", -1)) != ReferencePilot.PILOT_VERSION:
+		# Never quietly mix rulers: factors measured under another pilot
+		# describe another instrument.
+		print("[matchup] STALE FACTORS: measured under pilot v%d, running v%d — predicted column blank."
+				% [int(factors.get("pilot_version", -1)),
+				ReferencePilot.PILOT_VERSION])
+		factors = {}
+	elif factors.is_empty():
+		print("[matchup] NO DELIVERY FACTORS (%s missing) — predicted column blank."
+				% BalancePrediction.FACTORS_PATH)
+		print("[matchup] Run tools/balance_report (or delivery_bench.gd) to measure them.")
+	print("[matchup] ---- mini-web: paper -> predicted -> validated (pilot v%d) ----"
 			% ReferencePilot.PILOT_VERSION)
 	for i: int in MATCHUPS.size():
 		var matchup: Dictionary = MATCHUPS[i]
 		var paper: String = matchup["paper"]
-		var band: String
+		var validated: String
 		var detail: String
 		match matchup["mode"]:
 			"hand":
-				band = matchup["hand_band"]
+				validated = matchup["hand_band"]
 				detail = "hand-calibrated (H5): the rig cannot fly this cell; band is the human's"
 			"pack":
 				var exchange: float = _mean(i, "kills") / pack_size \
 						- _mean(i, "damage_taken") / _player_max
-				band = _band(exchange, PACK_BANDS)
+				validated = _band(exchange, PACK_BANDS)
 				detail = "exchange %+.2f (kills %.1f/%d, hull spent %.0f%%)" % [
 						exchange, _mean(i, "kills"), int(pack_size),
 						_mean(i, "damage_taken")]
 			_:
-				band = _band(_win_rate(i), WIN_BANDS)
+				validated = _band(_win_rate(i), WIN_BANDS)
 				detail = "win %.0f%%" % (_win_rate(i) * 100.0)
-		var flag: String = "" if band == paper else "  <- DIVERGES from paper"
-		print("[matchup] %-18s %3s -> %-3s %s%s"
-				% [matchup["name"], paper, band, detail, flag])
+		var prediction: Dictionary = _predict(matchup, factors)
+		var predicted: String = String(prediction.get("band", "?"))
+		print("[matchup] %-18s %3s -> %-3s -> %-3s  %s"
+				% [matchup["name"], paper, predicted, validated, detail])
+		if not prediction.is_empty():
+			print("[matchup] %-18s   model: %s" % ["", prediction["note"]])
+			if predicted != paper:
+				print("[matchup] %-18s   ^ PAPER vs PREDICTED: shipped numbers disagree with P4.3"
+						% "")
+			if predicted != validated:
+				if matchup["mode"] == "pack":
+					# Not commensurable, and saying so beats implying it: the
+					# predicted band is a TTK for killing the whole cloud,
+					# the validated band is an EXCHANGE rate over a duel that
+					# hits the 10 s cap long before the cloud is finished.
+					# Read these two as one sentence — "slow, and it costs
+					# hull" — not as a contradiction.
+					print("[matchup] %-18s   ^ different rulers: predicted = ttk to clear the pack, validated = exchange at the %ds cap"
+							% ["", int(MAX_SECONDS)])
+				else:
+					print("[matchup] %-18s   ^ PREDICTED vs VALIDATED: an un-modeled factor decided this cell"
+							% "")
+
+
+## Predict one cell from the layered model. Returns {} when the delivery
+## factors for it are unavailable — a blank column, never a guessed one.
+func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
+	if factors.is_empty():
+		return {}
+	var weapon: String = matchup["weapon"]
+	var type_id: String = matchup["type"]
+	var aim_table: Dictionary = factors.get("aim", {})
+	var evasion_table: Dictionary = factors.get("evasion", {})
+	var aim_key: String = BalancePrediction.aim_key(weapon)
+	var evasion_key: String = BalancePrediction.evasion_key(weapon, type_id)
+	if not aim_table.has(aim_key) or not evasion_table.has(evasion_key):
+		return {}
+	var enemy: EnemyConfig = load("res://resources/default_enemy_%s.tres"
+			% type_id) as EnemyConfig
+	var combat: CombatConfig = load("res://resources/default_combat_config.tres") \
+			as CombatConfig
+	var aim: float = float(aim_table[aim_key])
+	var evasion: float = float(evasion_table[evasion_key])
+	# The unit is the CLOUD for distributed types (P4.q5): killing it means
+	# killing every body, which is where the pack's economy bites.
+	var bodies: float = maxf(enemy.pack_size, 1.0)
+	var prediction: Dictionary = BalancePrediction.predict(
+			weapon, combat, enemy, aim, evasion, bodies)
+	if String(prediction["why"]) != "":
+		prediction["note"] = "aim %.2f x evasion %.2f — %s" \
+				% [aim, evasion, prediction["why"]]
+	else:
+		prediction["note"] = "aim %.2f x evasion %.2f = %.2f hit rate, %.0f shots%s @ %.1fs, ttk %.1fs" % [
+				aim, evasion, prediction["hit_rate"], prediction["shots_fired"],
+				" (%d bodies)" % int(bodies) if bodies > 1.0 else "",
+				prediction["cadence"], prediction["ttk"]]
+	return prediction
 
 
 func _band(value: float, bands: Array) -> String:
