@@ -125,7 +125,7 @@ var _bombed: bool = false
 # Aggregates, one array of result dicts per matchup index.
 var _results: Array[Array] = []
 var _failures: PackedStringArray = []
-var _watching: bool = DisplayServer.get_name() != "headless"
+var _watching: bool = BenchView.watching()
 ## Watch mode only: the real game HUD, fed by the same ReticleSolver the game
 ## uses, so what you see over the pilot's shoulder is what you would see over
 ## your own — fall line, pipper, range ticks, lock cone.
@@ -140,13 +140,7 @@ func _initialize() -> void:
 	print("[matchup] %d matchups x %d reps, %ds cap  (pilot v%d)"
 			% [MATCHUPS.size(), REPS, int(MAX_SECONDS),
 			ReferencePilot.PILOT_VERSION])
-	if _watching:
-		# Silence. The rig restarts a duel every few seconds, so the drone's
-		# motor tone becomes a stuttering drone with no mixing around it —
-		# unpleasant enough to make watching a chore. This is a measurement
-		# instrument; the game is where sound belongs.
-		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
-		print("[matchup] WATCH MODE — pilot's FPV camera, audio muted.")
+	BenchView.setup("matchup")
 	physics_frame.connect(_on_physics_frame)
 
 
@@ -179,7 +173,7 @@ func _build_duel() -> void:
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	if _watching:
-		_build_scenery()
+		BenchView.build_scenery(_arena)
 		if _hud == null:
 			_hud = (load("res://scenes/ui/hud.tscn") as PackedScene).instantiate()
 			root.add_child(_hud)
@@ -257,11 +251,7 @@ func _build_duel() -> void:
 	_duel_ticks = 0
 
 	if _watching:
-		# Ride along with the pilot: its own gun camera is the honest view of
-		# what the aim loop is doing.
-		var view: Camera3D = _drone.get_node("FpvCamera") as Camera3D
-		if view != null:
-			view.current = true
+		BenchView.follow(_drone)
 		print("[matchup] --- %s, rep %d/%d ---"
 				% [matchup["name"], _rep + 1, REPS])
 
@@ -284,45 +274,6 @@ func _update_hud() -> void:
 			solution["arc"], solution["ticks"], solution["lock_radius"],
 			solution["hold_radius"], solution["lockable"])
 	_hud.call(&"set_health", _health.current, _player_max)
-
-
-## Watch-mode scenery. The measured arena is deliberately bare — no light, no
-## sky, no ground — because headless rendering costs time and proves nothing.
-## Watching it, though, means staring into a black void with an unlit drone in
-## it. This adds the minimum needed to SEE: a sun, a sky, and a grid floor for
-## motion reference.
-##
-## Visual only, and deliberately so: the floor is a mesh with NO collider, so a
-## watched duel is physically identical to a measured one. The instrument must
-## not read differently when observed.
-func _build_scenery() -> void:
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50.0, -35.0, 0.0)
-	sun.light_energy = 1.1
-	_arena.add_child(sun)
-
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_horizon_color = Color(0.35, 0.38, 0.45)
-	sky_material.ground_horizon_color = Color(0.12, 0.13, 0.16)
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_SKY
-	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.tonemap_mode = Environment.TONE_MAPPER_AGX
-	var world := WorldEnvironment.new()
-	world.environment = environment
-	_arena.add_child(world)
-
-	var floor_mesh := PlaneMesh.new()
-	floor_mesh.size = Vector2(600.0, 600.0)
-	var floor_material := ShaderMaterial.new()
-	floor_material.shader = load("res://resources/checker_ground.gdshader")
-	floor_mesh.material = floor_material
-	var ground := MeshInstance3D.new()
-	ground.mesh = floor_mesh
-	_arena.add_child(ground)
 
 
 ## A distributed enemy has no single position to aim at, so the pilot is fed

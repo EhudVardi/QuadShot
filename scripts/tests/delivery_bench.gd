@@ -23,7 +23,13 @@ extends SceneTree
 ## with Layer 1 lethality into the predicted product that the duel harness
 ## VALIDATES; divergence there names an un-modeled factor.
 ##
-## Run: <godot> --headless -s scripts/tests/delivery_bench.gd --path .
+## Run:   <godot> --headless -s scripts/tests/delivery_bench.gd --path .
+## WATCH: <godot> -s scripts/tests/delivery_bench.gd --path .   (tools/watch_delivery)
+##
+## Drop --headless and the cells render from the rig's own FPV camera. Worth
+## doing before believing any factor: an aim cell shows you WHY 0.14 (is the
+## pilot missing, or is it fighting the aircraft?), and an evasion cell shows
+## you what the target is actually doing to break the solution.
 
 const ALTITUDE: float = 14.0
 const RANGE_M: float = 40.0
@@ -120,6 +126,7 @@ func _initialize() -> void:
 	_combat = load("res://resources/default_combat_config.tres") as CombatConfig
 	print("[delivery] %d cells  (pilot v%d — aim cells depend on it, evasion cells do not)"
 			% [CELLS.size(), ReferencePilot.PILOT_VERSION])
+	BenchView.setup("delivery")
 	physics_frame.connect(_on_physics_frame)
 
 
@@ -152,6 +159,7 @@ func _build_cell() -> void:
 	var cell: Dictionary = CELLS[_cell_i]
 	_arena = Node3D.new()
 	root.add_child(_arena)
+	BenchView.build_scenery(_arena)
 	var pool := ProjectilePool.new()
 	_arena.add_child(pool)
 
@@ -193,6 +201,10 @@ func _build_cell() -> void:
 	_target = _build_target(cell["target"])
 	if _pilot != null:
 		_pilot.target = _target as Node3D
+	BenchView.follow(_drone)
+	if BenchView.watching():
+		print("[delivery] --- %s (%ds window) ---"
+				% [cell["name"], int(float(cell["seconds"]))])
 	_fire_ticks = int(float(cell["seconds"]) * _pps)
 	# Let what is already flying land before scoring, so the last launch of
 	# the window is not booked as a miss it never had time to disprove.
