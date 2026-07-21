@@ -55,6 +55,12 @@ func _ready() -> void:
 		print("[config] loaded %s" % FlightConfig.SAVE_PATH)
 	mass = config.mass
 	if damage_config != null:
+		# Every other config auto-loads its user:// override on boot; this one
+		# did not, so saved damage tuning was silently ignored until the
+		# overlay's Load button was pressed — the one config whose edits
+		# vanished between sessions.
+		if damage_config.load_from_user():
+			print("[config] loaded %s" % damage_config.save_path())
 		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_spawn_transform = global_transform
 	body_entered.connect(_on_body_entered)

@@ -89,8 +89,9 @@ func _has_line_of_sight() -> bool:
 
 ## Aim where the player will be when a straight-line bolt arrives.
 func _lead_position() -> Vector3:
+	# Guarded like the player-side ballistics — see enemy_drone._try_fire().
 	var flight_time: float = _muzzle.global_position.distance_to(_player.global_position) \
-			/ enemy_config.muzzle_speed
+			/ maxf(enemy_config.muzzle_speed, 1.0)
 	return _player.global_position + _player.linear_velocity * flight_time
 
 
@@ -116,7 +117,8 @@ func _aimed_at(point: Vector3) -> bool:
 func _fire() -> void:
 	var direction: Vector3 = -_head.global_basis.z
 	# Zero projectile gravity: the lead solution assumes a straight bolt.
-	var lifetime: float = enemy_config.sight_range / enemy_config.muzzle_speed * 1.6
+	var lifetime: float = enemy_config.sight_range \
+			/ maxf(enemy_config.muzzle_speed, 1.0) * 1.6
 	_pool.fire(_muzzle.global_position + direction * 0.3,
 			direction * enemy_config.muzzle_speed,
 			enemy_config.damage, team, [get_rid()], 0.0, lifetime)

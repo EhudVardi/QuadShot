@@ -125,12 +125,16 @@ func _face_velocity(delta: float) -> void:
 func _try_fire() -> void:
 	if _cooldown > 0.0:
 		return
+	# Guarded like the player-side ballistics: a bestiary .tres shipping
+	# muzzle_speed 0 (every non-shooting type's inert default) would otherwise
+	# put inf/NaN straight into the lead solution and the projectile velocity.
 	var flight_time: float = global_position.distance_to(_player.global_position) \
-			/ enemy_config.muzzle_speed
+			/ maxf(enemy_config.muzzle_speed, 1.0)
 	var lead: Vector3 = _player.global_position + _player.linear_velocity * flight_time
 	var direction: Vector3 = (lead - global_position).normalized()
 	direction = _jitter(direction)
-	var lifetime: float = enemy_config.sight_range / enemy_config.muzzle_speed * 1.6
+	var lifetime: float = enemy_config.sight_range \
+			/ maxf(enemy_config.muzzle_speed, 1.0) * 1.6
 	_pool.fire(global_position + direction * 0.6,
 			direction * enemy_config.muzzle_speed,
 			enemy_config.damage, team, [get_rid()], 0.0, lifetime)
