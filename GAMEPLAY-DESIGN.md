@@ -1,6 +1,6 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.25 (2026-07-20) — paper phase complete; **the vertical-slice
+> **Status:** v1.26 (2026-07-21) — paper phase complete; **the vertical-slice
 > build is underway, Phases 1–3 landed and steered by playtest.** Done: the
 > matchup harness + reference pilot (P1), P2 — the damage model + the
 > fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
@@ -26,9 +26,13 @@
 > `Missile × Aegis` (paper `++` is a combo band, missile-solo is `+`) — which
 > exposed a hidden **pilot defect** (no standoff: it rams the non-evading
 > bomber), left for a deliberate `PILOT_VERSION` bump; and **watch mode is now
-> standing policy** (every bench watchable from its first commit).
-> **Next: Phase 4** — flak + Atlas, now on a state-aware, watchable,
-> unconflated instrument. Design record below.
+> standing policy** (every bench watchable from its first commit). v1.26 fixes
+> the pilot itself (**v2: standoff by orbit**, homing weapons only) — aiming a
+> 44°-uptilted gun IS closing, so range is held in the roll axis by curving,
+> never in pitch; `Missile × Aegis` goes 0/6 timeouts to **6/6 wins spending
+> exactly the 3 missiles Layer 1 predicts**.
+> **Next: Phase 4** — flak + Atlas, on a state-aware, watchable, unconflated
+> instrument flown by a pilot that does not ram. Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -3929,3 +3933,76 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     that is not only unconflated but state-aware and watchable. The P2-era
     risk review is still queued. **To resume after a session cut: "Continue
     QuadShot — Phase 4 per the v1.24/v1.25 entries."**
+- **2026-07-21 — v1.26. Reference pilot v2: standoff by orbit — and the
+  airframe truth underneath it.** The user's call: fix the pilot BEFORE flak,
+  since flak is close-range and measuring it on a ramming pilot would repeat
+  the aegis confusion deliberately. Done, but the road there produced a
+  finding worth more than the fix.
+  - **The airframe truth.** The gun carries a 44° uptilt, so aiming a target
+    at your own altitude requires pitching ~44° nose-DOWN — which tilts thrust
+    forward. **Aiming IS closing.** With a body-fixed gun that must point at
+    the target, the thrust vector's horizontal component always points inward:
+    the drone can never hover while aiming. v1's "closing range for free" was
+    never a feature, it was this constraint, and it only looked benign because
+    every enemy maneuvered away. The aegis — which flies straight at you and
+    never evades — was simply the first target to expose it.
+  - **What failed, measured not guessed.** (1) *Pitch standoff* (a velocity
+    servo holding range in pitch): range control and gun-elevation are the
+    SAME axis, so every correction swung the gun off target — blaster aim
+    0.14 → 0.06, and the aegis still un-lockable. Rejected. (2) *Tight
+    last-second breaks*: by 6 m there is no turning out, so they neither saved
+    the range (still 0.3 m) nor spared the aim. Rejected. A nine-point sweep
+    showed aim and closest-approach trade **strictly monotonically** — orbit
+    off 0.17/0.3 m, engage 18 m 0.06/2.6 m, engage 22 m 0.00/3.6 m, engage
+    45 m 0.00/6.5 m. **No setting does both.** That is the finding: for this
+    airframe, holding standoff and aiming a ballistic gun are mutually
+    exclusive.
+  - **THE FIX — redirect, don't cancel.** Fly TANGENTIALLY and the same
+    aim-driven inward acceleration becomes the centripetal force of a circle
+    (v²/R = a_horizontal). Range is then held in the **roll** axis, leaving
+    pitch free for aim — and it is the idiom the bestiary already flies
+    (enemy_drone orbits its own `preferred_range`). v1's roll law was exactly
+    backwards for this: it NULLED lateral velocity, killing the very
+    tangential component the orbit needs.
+  - **Scoped to homing weapons, from the data.** The ram only BREAKS the
+    missile cells — you cannot lock a target you are touching — while the gun
+    measures fine at 0.17 straight through it. And the orbit's cost is
+    specifically BALLISTIC (circling makes every bolt a deflection shot from a
+    turning platform) while the homing missile held 1.00 throughout. So the
+    orbit goes exactly where the ram hurts and its cost does not apply. Not a
+    fudge: a pilot carrying a homing weapon can afford to maneuver precisely
+    *because* it need not point, and `aim_quality` is already keyed per
+    weapon, so each is measured under the flying its own weapon wants.
+  - **Two controller bugs found on the way.** (a) The roll law commanded a
+    RATE proportional to velocity error with no bank ceiling — an 11 m/s error
+    asked for ~113°/s of sustained roll, the drone banked past its lift budget
+    and **sank 14 m → 3.9 m into the floor guard**. Now a bank-ANGLE loop
+    ceilinged at 32°, and that ceiling is a *thrust budget*, not a taste:
+    aiming already spends cos(44°), leaving cos(44°)·cos(bank) of lift.
+    (b) Engaging the orbit late met the radius with ~13 m/s of inward momentum
+    no swerve could absorb (traced flinging to 57 m); it now engages far out
+    and spirals in. A spiral settles; a swerve does not.
+  - **Result.** `Missile × Aegis`: 0/6 timeouts → **6/6 wins at 8.0 s,
+    spending exactly the 3 missiles Layer 1 predicts.** The +2.0 s over the
+    predicted 6.0 s is acquisition + flight — the prediction model's stated
+    assumption 4, now **confirmed against a real fight rather than asserted**.
+    Blaster aim 0.14 → 0.17 (the bank-angle loop is steadier than the old
+    raw-rate damper). Evasion factors byte-identical by construction, since
+    that bench freezes the drone — a clean proof the layers are isolated.
+    `PILOT_VERSION` 2; `delivery_factors.json` re-measured and pinned to it.
+  - **Harness sharpened:** PREDICTED vs VALIDATED now flags only a real
+    OUTCOME disagreement (model says kill, fight says loss), not a letter
+    mismatch between two different rulers. It had been firing on
+    `Missile × Aegis`, where predicted 6.0 s and measured 8.0 s in fact agree
+    — noise that buried the cells which genuinely diverge.
+  - **Still open, unchanged:** the three paper-vs-predicted findings
+    (`Missile × Raider` `+`→`++`, `Blaster × Turret` `0`→`++`,
+    `Blaster × Gnats` `+`→`--`), all subject to the v1.25 caveat that the
+    1v1 void has no economy and no context. `Missile × Aegis` solo now reads
+    paper `+` vs predicted `0` — the missile alone is slower than "good"
+    implies, which is itself an argument that the aegis's answer is the combo.
+  - **Next: Phase 4** — the flak pod (3rd weapon column, the designed gnat
+    answer) + Atlas, now on an instrument that is unconflated, state-aware,
+    watchable, and flown by a pilot that does not ram. **To resume after a
+    session cut: "Continue QuadShot — Phase 4 per the v1.24/v1.25/v1.26
+    entries."**
