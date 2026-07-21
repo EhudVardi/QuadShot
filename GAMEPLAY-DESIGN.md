@@ -1,6 +1,6 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.26 (2026-07-21) — paper phase complete; **the vertical-slice
+> **Status:** v1.27 (2026-07-21) — paper phase complete; **the vertical-slice
 > build is underway, Phases 1–3 landed and steered by playtest.** Done: the
 > matchup harness + reference pilot (P1), P2 — the damage model + the
 > fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
@@ -31,6 +31,13 @@
 > 44°-uptilted gun IS closing, so range is held in the roll axis by curving,
 > never in pitch; `Missile × Aegis` goes 0/6 timeouts to **6/6 wins spending
 > exactly the 3 missiles Layer 1 predicts**.
+> v1.27 triages an **external read-only review** of the whole tree
+> (`HANDOFF-REPORT-2026-07-21.md`): the instrument is hardened before Phase 4
+> touches the matrix — asserts addressed by name (positional ones would have
+> silently misaimed on the new rows), a **config stamp** so factors rot when
+> the numbers they were measured against change, and the watch-mode HUD finally
+> drawn. Its standing backlog (mission-layer determinism, the slice-four not
+> yet in the live wave loop) is recorded in that entry.
 > **Next: Phase 4** — flak + Atlas, on a state-aware, watchable, unconflated
 > instrument flown by a pilot that does not ram. Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
@@ -4006,3 +4013,76 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     watchable, and flown by a pilot that does not ram. **To resume after a
     session cut: "Continue QuadShot — Phase 4 per the v1.24/v1.25/v1.26
     entries."**
+- **2026-07-21 — v1.27. External review triage: the instrument hardened before
+  Phase 4 touches the matrix.** The user commissioned an independent read-only
+  analysis of the whole tree (`HANDOFF-REPORT-2026-07-21.md`, pinned at
+  `6b2c25b` — i.e. before the v1.26 pilot work). It is a strong document; every
+  finding acted on below was **verified against the source first**, and all
+  six balance-instrument findings were real. Deliberately triaged *now*, while
+  the report still matches the tree, rather than after Phase 4 drifts it.
+  - **FIXED — RISK-H1, the one that was actually blocking.** The rig-sanity and
+    shield-gate asserts addressed cells by POSITION (`_win_rate(1/2/5)`), while
+    the harness header invites new rows as "one list entry". Phase 4's flak and
+    Atlas rows would have silently repointed every assert at the wrong cell —
+    the shield-gate check could have ended up guarding a row with no shield in
+    it, passing forever while proving nothing. Now addressed **by name**, with
+    a missing cell failing loudly instead of passing vacuously. *An assert that
+    can be silently misaimed is worse than no assert.*
+  - **FIXED — RISK-H2, the second ruler.** Delivery factors rotted against
+    `PILOT_VERSION` only, but they are equally measured against muzzle speeds,
+    lock cones and enemy speeds — so retuning any of those left the predicted
+    column quoting measurements taken under different physics, silently. The
+    artifact now carries a **config stamp** (a whitelist of the fields delivery
+    is sensitive to; hull/damage are excluded because they belong to Layer 1,
+    which recomputes live and cannot go stale). Verified by tripping it: a
+    90→85 `muzzle_speed` edit blanks the column, and the restored config is
+    byte-identical. **Phase 4 makes this urgent rather than theoretical — it
+    edits `CombatConfig` to add a weapon column.**
+  - **FIXED — BUG-H2 / SMELL-H1 / BUG-H1.** The delivery bench ceased fire once
+    on entering GRACE, but GRACE keeps running the pilot, which re-arms
+    `missile.fire_override` every tick — late launches booked as misses,
+    biasing `aim:missile` down (invisible only because it reads 1.00). The
+    turret evasion cell's comment called it "a second control" while the
+    `control` flag was missing, so `CONTROL_MIN_RATE` never guarded it — *a
+    control that does not guard is just a comment*. And the watch-mode HUD was
+    built, fed by the shared `ReticleSolver`, and **never drawn** (`_update_hud`
+    had no call site) — now wired, so watching a duel finally shows what the
+    aim loop sees.
+  - **FIXED, and it CORRECTS AN EARLIER FINDING — GAP-H1.** Turret and Aegis
+    expose no `ai_seed`, so all six reps fight the identical duel and the
+    win-rate ruler can only return 0% or 100%. Those cells therefore **cannot
+    read `0` or `+` whatever the balance is.** The report now says so per cell
+    — which means the v1.24 finding "`Blaster × Turret` paper `0` → validated
+    `++`" is **partly a resolution artifact, not purely a stale paper band**.
+    Detected structurally (does the type expose `ai_seed`) rather than by
+    comparing outcomes, since unseeded reps still differ by a tick of float
+    noise. This is the second time the 1v1-void caveat has bitten the same
+    finding; treat that cell as unproven until it is measured in context.
+  - **Also fixed (cheap, verified):** `damage_config` was the one config that
+    never auto-loaded its `user://` override on boot, so saved damage tuning
+    silently vanished between sessions (BUG-5); and `turret`/`enemy_drone`
+    divided by `enemy_config.muzzle_speed` unguarded in their lead solutions
+    while the player side guards with `maxf(…, 1.0)` — every non-shooting type
+    ships `muzzle_speed 0` as its inert default, so this was one steering
+    change away from feeding inf/NaN into a projectile velocity (RISK-9).
+  - **Already resolved before the review landed:** its `REF-DEFECT` (the pilot
+    rams the aegis) is **fixed in v1.26** — the report is pinned at `6b2c25b`
+    and predates that work.
+  - **NOT done, tracked here as the review's standing backlog** (its `file:line`
+    ledger is the detail; this is the priority read): **RISK-1** — the
+    in-mission layer is non-deterministic (`wave_director` `randomize()`,
+    unseeded `ai_seed` on live spawns, `upgrades.shuffle()`, wall-clock combo
+    timing that also misbehaves under slow-mo). *Not* a Phase 4 blocker since
+    the harness seeds its own combatants, but it **blocks the composer and any
+    replay**, and H6's "difficulty is measured, not authored" depends on it —
+    build the run/encounter seed seam before P2. **GAP-A** — Gnat and Aegis are
+    built, tuned and benched but **not in the live wave loop** (`wave_director`
+    still spawns only Raiders), and the Aegis `detonated` → "you failed the
+    intercept" outcome is not wired into scoring. **BUG-2/BUG-3** (war-sim:
+    2 of 7 biomes unreachable; the HQ decapitation gate is bypassable via
+    `_allied_offensive`). **RISK-6/7/8** (two uncoordinated pause mechanisms;
+    gameplay actions firing while typing a preset name; core input setup living
+    in the debug overlay, so any scene without it gets factory bindings).
+    **GAP-H2 / OPPORTUNITY-H** (single-seed `evasion:raider`; the gnat evasion
+    cell measured with pursuit disabled). Plus the war-sim serialization
+    fragilities (RISK-2/3/4/5) and the `WarConfig` promotion (SMELL-1).
