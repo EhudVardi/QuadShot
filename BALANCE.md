@@ -53,6 +53,22 @@ economy) to go model or accept. NOT for: populating the table.
   that deliberate: every report prints the pilot version it was measured
   under; numbers from different pilot versions never share a table. Bump the
   version whenever pilot behavior changes, then re-measure on purpose.
+- **The config stamp** (`BalancePrediction.config_stamp`): the *other* ruler.
+  Delivery factors are measured against specific muzzle speeds, lock cones and
+  enemy speeds, so retuning any of those invalidates them even though the pilot
+  never changed. `balance/delivery_factors.json` carries a hash of every field
+  delivery is sensitive to, and the harness blanks the predicted column when it
+  no longer matches. **A new bestiary type must be added to the bench's stamp
+  list the day it lands**, or its stats can drift without invalidating factors
+  measured under them.
+- **Rig asserts address cells BY NAME, never by index** — a positional assert
+  silently re-aims itself when a matrix row is inserted, and an assert that can
+  be misaimed is worse than none.
+- **Band resolution is limited for unseeded enemies.** A type with no `ai_seed`
+  (turret, aegis) fights an identical duel every rep, so its win rate can only
+  be 0% or 100% and its cell can only read `++` or `--` — it *cannot* report
+  `0` or `+` whatever the balance is. The report says so per cell; don't read
+  that resolution limit as a measurement.
 - **Human results are deviation data** (H5): they tell you how a skilled
   human deviates from the reference datum. Interesting, logged, labeled —
   and never merged into the base table. Hand-banded cells say out loud that

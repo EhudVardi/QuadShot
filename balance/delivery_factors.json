@@ -3,6 +3,7 @@
 		"blaster": 0.17,
 		"missile": 1.0
 	},
+	"config_stamp": "5edf6758f0c4858c3fdf66af58c605adc12b83e751bb560b11452c7c6daf6ebe",
 	"control": {
 		"blaster:static": 0.99,
 		"missile:static": 1.0

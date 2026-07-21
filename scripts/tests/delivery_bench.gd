@@ -71,9 +71,13 @@ const CELLS: Array[Dictionary] = [
 	{"name": "evasion: blaster x raider", "kind": "evasion",
 			"weapon": "blaster", "target": "raider", "seconds": 20.0},
 	# A turret cannot dodge at all, so this cell is both a real factor and a
-	# second control: anything but ~1.0 means the bench, not the turret.
+	# second control: anything but ~1.0 means the bench, not the turret. That
+	# claim went unenforced at first — the comment said "control" while the
+	# flag was missing, so a regression dropping this to 0.5 would have passed
+	# in silence. A control that does not guard is just a comment.
 	{"name": "evasion: blaster x turret", "kind": "evasion",
-			"weapon": "blaster", "target": "turret", "seconds": 20.0},
+			"weapon": "blaster", "target": "turret", "seconds": 20.0,
+			"control": true},
 	{"name": "evasion: blaster x gnats", "kind": "evasion",
 			"weapon": "blaster", "target": "gnats", "seconds": 20.0},
 	{"name": "evasion: blaster x aegis", "kind": "evasion",
@@ -87,6 +91,16 @@ const CELLS: Array[Dictionary] = [
 			"weapon": "missile", "target": "gnats", "seconds": 45.0},
 	{"name": "evasion: missile x aegis", "kind": "evasion",
 			"weapon": "missile", "target": "aegis", "seconds": 45.0},
+]
+
+## Every roster config whose numbers can move a measured delivery factor —
+## the stamp's input set. A new bestiary type belongs here the day it lands,
+## or its stats can drift without invalidating the factors measured under them.
+const ENEMIES_FOR_STAMP: Array[String] = [
+	"res://resources/default_enemy_raider.tres",
+	"res://resources/default_enemy_turret.tres",
+	"res://resources/default_enemy_gnat.tres",
+	"res://resources/default_enemy_aegis.tres",
 ]
 
 ## Bench target name -> EnemyConfig.type_id, so the artifact is keyed by the
@@ -146,6 +160,13 @@ func _on_physics_frame() -> void:
 			# (a crashed rig would eat its own in-flight bolts' geometry), the
 			# perfect shooter keeps tracking, but nobody pulls a trigger.
 			_drive()
+			# _drive() runs the PILOT on aim cells, and the pilot re-arms
+			# `missile.fire_override` every tick — so ceasing fire once at the
+			# start of GRACE does not hold. Late launches then cannot possibly
+			# resolve inside the window and book as pure misses, biasing
+			# aim:missile DOWN. Invisible today only because that cell reads
+			# 1.00; it would quietly tax any harder aim-missile target.
+			_cease_fire()
 			_ticks += 1
 			if _ticks >= _fire_ticks + _grace_ticks:
 				_score_cell()
@@ -453,8 +474,16 @@ func _write_factors() -> void:
 		else:
 			evasion[BalancePrediction.evasion_key(weapon,
 					TYPE_IDS[cell["target"]])] = rate
+	# Stamped with BOTH rulers these factors were measured under: the pilot
+	# that flew them and the config numbers they were flown against. Either
+	# drifting makes the file stale, and the reader refuses it rather than
+	# quoting measurements taken under different physics.
+	var enemies: Array[EnemyConfig] = []
+	for path: String in ENEMIES_FOR_STAMP:
+		enemies.append(load(path) as EnemyConfig)
 	var payload: Dictionary = {
 		"pilot_version": ReferencePilot.PILOT_VERSION,
+		"config_stamp": BalancePrediction.config_stamp(_combat, enemies),
 		"aim": aim,
 		"evasion": evasion,
 		"control": control,

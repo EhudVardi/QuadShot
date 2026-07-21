@@ -124,6 +124,9 @@ var _bombed: bool = false
 
 # Aggregates, one array of result dicts per matchup index.
 var _results: Array[Array] = []
+## Per matchup: does its enemy expose `ai_seed`? Unseeded types fight an
+## identical duel every rep (see _deterministic).
+var _seeded: Array[bool] = []
 var _failures: PackedStringArray = []
 var _watching: bool = BenchView.watching()
 ## Watch mode only: the real game HUD, fed by the same ReticleSolver the game
@@ -154,6 +157,13 @@ func _on_physics_frame() -> void:
 			if _pilot != null:
 				_retarget()
 				_pilot.update(1.0 / _pps)
+			# Watch mode only. This call was missing entirely, so the reticle
+			# this file's header promises ("the same reticle you would see over
+			# your own shoulder") was built, fed by the shared solver — and
+			# never drawn. The point of watching is seeing what the aim loop
+			# sees; without it you watch a drone with no instruments.
+			if _watching:
+				_update_hud()
 			if _won:
 				_record("win")
 			elif _bombed:
@@ -205,8 +215,13 @@ func _build_duel() -> void:
 	# Per-rep determinism (P4.8): flyers self-randomize in _ready, so the seed
 	# must be set before the node enters the tree. Rep index = seed, so rep 3
 	# of a cell is the same fight every run and across balance edits.
-	if _enemy.get(&"ai_seed") != null:
+	var seeded: bool = _enemy.get(&"ai_seed") != null
+	if seeded:
 		_enemy.set(&"ai_seed", _rep)
+	# Whether this cell's reps carry real variation at all (see _deterministic).
+	while _seeded.size() <= _matchup_i:
+		_seeded.append(true)
+	_seeded[_matchup_i] = seeded
 	# Placed BEFORE entering the tree: types read their own position in _ready
 	# (the swarm spawns its pack around it, the raider takes its wander home
 	# from it), so positioning afterwards would build them around the origin.
@@ -368,19 +383,25 @@ func _report() -> void:
 	# flies the real physics, engages, and its two aim paths both land — homing
 	# (Missile x Raider) and gun-line-on-a-static-target (Blaster x Turret).
 	# If either collapses, the harness itself is broken, not the balance.
-	if _win_rate(1) < 0.75:
-		_failures.append("rig broken: Missile x Raider win %.0f%% (< 75%%) — pilot not engaging"
-				% (_win_rate(1) * 100.0))
-	if _win_rate(2) < 0.75:
-		_failures.append("rig broken: Blaster x Turret win %.0f%% (< 75%%) — gun-line aim failing"
-				% (_win_rate(2) * 100.0))
+	#
+	# Addressed BY NAME, never by index. These were positional (`_win_rate(1)`,
+	# `(2)`, `(5)`) — and this file's own header invites new rows as "one list
+	# entry", so Phase 4's flak/Atlas rows would have silently repointed every
+	# assert at the wrong cell: the shield-gate check could have ended up
+	# guarding a row with no shield in it, passing forever while proving
+	# nothing. An assert that can be silently misaimed is worse than no assert.
+	_assert_min_win("Missile x Raider", 0.75, "pilot not engaging")
+	_assert_min_win("Blaster x Turret", 0.75, "gun-line aim failing")
 	# One STRUCTURAL assert: chip fire mathematically cannot crack the aegis
 	# shield (every bolt lands under the break threshold and splashes off).
 	# A single blaster win here means the threshold gate itself broke — a
 	# model regression, not a balance drift, so it fails the run like one.
-	if _win_rate(5) > 0.0:
+	var aegis_gun: int = _matchup_index("Blaster x Aegis")
+	if aegis_gun < 0:
+		_failures.append("rig broken: no 'Blaster x Aegis' cell — the shield-gate assert has nothing to guard")
+	elif _win_rate(aegis_gun) > 0.0:
 		_failures.append("shield gate broken: Blaster x Aegis won %.0f%% — chip fire cracked a shield it cannot"
-				% (_win_rate(5) * 100.0))
+				% (_win_rate(aegis_gun) * 100.0))
 
 	if _failures.is_empty():
 		print("[matchup] PASS")
@@ -427,6 +448,14 @@ func _print_banded_matrix() -> void:
 				% [int(factors.get("pilot_version", -1)),
 				ReferencePilot.PILOT_VERSION])
 		factors = {}
+	elif not factors.is_empty() \
+			and String(factors.get("config_stamp", "")) != _config_stamp():
+		# The other ruler. Factors are measured against specific muzzle speeds,
+		# lock cones and enemy speeds; retuning any of them invalidates the
+		# measurement even though the pilot never changed.
+		print("[matchup] STALE FACTORS: config has changed since they were measured — predicted column blank.")
+		print("[matchup] Re-run tools/balance_report (or delivery_bench.gd) to re-measure.")
+		factors = {}
 	elif factors.is_empty():
 		print("[matchup] NO DELIVERY FACTORS (%s missing) — predicted column blank."
 				% BalancePrediction.FACTORS_PATH)
@@ -458,6 +487,15 @@ func _print_banded_matrix() -> void:
 			_:
 				validated = _band(_win_rate(i), WIN_BANDS)
 				detail = "win %.0f%%" % (_win_rate(i) * 100.0)
+				# A cell whose enemy carries no RNG (turret, aegis — a static
+				# gun and a fixed strike route, deterministic BY DESIGN, not by
+				# oversight) plays the same duel all six times. Its win rate can
+				# then only ever be 0% or 100%, so the ruler can only return
+				# `++` or `--` — this cell CANNOT report `0` or `+` no matter
+				# what the balance is. Say so, or the reader mistakes a
+				# resolution limit for a measurement.
+				if _deterministic(i):
+					detail += " (deterministic enemy: %d identical reps, so this cell can only read ++ or --)" % REPS
 		var prediction: Dictionary = _predict(matchup, factors)
 		var predicted: String = String(prediction.get("band", "?"))
 		# Where P4.3's band covers a COMBO, this cell is held to the solo band
@@ -575,6 +613,57 @@ func _mean(matchup_i: int, key: String) -> float:
 	for r: Dictionary in runs:
 		total += float(r[key])
 	return total / float(runs.size())
+
+
+## True when this cell's enemy exposes no `ai_seed`, so the harness's per-rep
+## seeding does nothing and all REPS fight the same battle (a static turret, a
+## bomber on a fixed route — deterministic BY DESIGN, not by oversight).
+##
+## Detected structurally rather than by comparing outcomes: reps of an unseeded
+## enemy still differ by a tick or two of float noise, which is not variation
+## worth sampling, and reading that noise as "varied" would hide exactly the
+## cells this note exists to qualify. Recorded at build time in `_seeded`.
+func _deterministic(matchup_i: int) -> bool:
+	return matchup_i < _seeded.size() and not _seeded[matchup_i]
+
+
+## The config half of the factors' provenance (see BalancePrediction). Built
+## from the matrix's own types, so a new row's config joins the stamp for free.
+func _config_stamp() -> String:
+	var seen: Dictionary = {}
+	var enemies: Array[EnemyConfig] = []
+	for matchup: Dictionary in MATCHUPS:
+		var type_id: String = matchup["type"]
+		if seen.has(type_id):
+			continue
+		seen[type_id] = true
+		enemies.append(load("res://resources/default_enemy_%s.tres" % type_id)
+				as EnemyConfig)
+	return BalancePrediction.config_stamp(
+			load("res://resources/default_combat_config.tres") as CombatConfig,
+			enemies)
+
+
+## Cell lookup by name — the only way asserts should address a row, so
+## inserting a matrix row can never silently re-aim one. -1 when absent.
+func _matchup_index(name: String) -> int:
+	for i: int in MATCHUPS.size():
+		if MATCHUPS[i]["name"] == name:
+			return i
+	return -1
+
+
+## A named cell must win at least `floor`, or the RIG (not the balance) is
+## broken. A missing cell fails loudly rather than passing vacuously.
+func _assert_min_win(name: String, floor_rate: float, why: String) -> void:
+	var index: int = _matchup_index(name)
+	if index < 0:
+		_failures.append("rig broken: no '%s' cell — a rig-sanity assert has nothing to guard"
+				% name)
+		return
+	if _win_rate(index) < floor_rate:
+		_failures.append("rig broken: %s win %.0f%% (< %.0f%%) — %s"
+				% [name, _win_rate(index) * 100.0, floor_rate * 100.0, why])
 
 
 func _win_rate(matchup_i: int) -> float:

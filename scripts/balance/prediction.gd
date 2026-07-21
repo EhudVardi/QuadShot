@@ -64,6 +64,50 @@ static func load_factors() -> Dictionary:
 	return parsed as Dictionary if parsed is Dictionary else {}
 
 
+## Fields that actually move a measured delivery factor. A change to any of
+## them invalidates balance/delivery_factors.json just as surely as a pilot
+## change does — but the staleness guard used to watch PILOT_VERSION alone, so
+## retuning muzzle_speed or an enemy's speed silently left the predicted column
+## quoting factors measured against different physics. Phase 4 makes that
+## urgent rather than theoretical: adding a weapon column edits CombatConfig.
+##
+## Deliberately a WHITELIST, not every field: hull and damage belong to Layer 1
+## (they change lethality, which is recomputed live from config every run and
+## so is never stale), while these govern whether a shot ARRIVES. Listing them
+## explicitly also documents what delivery actually depends on.
+const DELIVERY_FIELDS_COMBAT: Array[String] = [
+	"muzzle_speed", "projectile_gravity_scale", "projectile_lifetime",
+	"inherit_velocity", "fire_rate", "fire_assist_range",
+	"missile_speed", "missile_turn_rate_deg", "missile_lock_range",
+	"missile_lock_cone_deg", "missile_lock_time", "missile_cooldown",
+	"missile_prox_radius", "missile_lifetime",
+]
+const DELIVERY_FIELDS_ENEMY: Array[String] = [
+	"speed", "accel", "turn_speed_deg", "pack_size", "swarm_spacing",
+	"swarm_separation_gain", "swarm_cohesion_gain", "swarm_jitter",
+	"swarm_sting_radius",
+]
+
+
+## A stamp over every config value the delivery benches are sensitive to.
+## Stored in the artifact and compared on read; a mismatch means the factors
+## were measured against different numbers and must not be quoted.
+static func config_stamp(combat: CombatConfig,
+		enemies: Array[EnemyConfig]) -> String:
+	var parts: PackedStringArray = []
+	for field: String in DELIVERY_FIELDS_COMBAT:
+		parts.append("%s=%.4f" % [field, float(combat.get(field))])
+	# Sorted by type_id so the stamp does not depend on load order.
+	var sorted: Array[EnemyConfig] = enemies.duplicate()
+	sorted.sort_custom(func(a: EnemyConfig, b: EnemyConfig) -> bool:
+			return String(a.type_id) < String(b.type_id))
+	for enemy: EnemyConfig in sorted:
+		for field: String in DELIVERY_FIELDS_ENEMY:
+			parts.append("%s.%s=%.4f"
+					% [enemy.type_id, field, float(enemy.get(field))])
+	return String(", ".join(parts)).sha256_text()
+
+
 ## Delivery factor keys. Aim is per agent+weapon; evasion is per weapon+target
 ## (the same bolt is easy to dodge and the same missile is not, so evasion is
 ## not a property of the target alone — it is measured against the weapon that
