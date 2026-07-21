@@ -27,7 +27,11 @@ extends RefCounted
 ## report prints it, and numbers from different pilot versions never share a
 ## table. v1 = the pilot as of the v1.22 harness banding (director-fired gun,
 ## LOS feed-forward, ground guard, tilt-compensated hover).
-const PILOT_VERSION: int = 1
+## v2 (v1.26) = STANDOFF BY ORBIT: range is held in the roll axis by curving
+## into a circle, leaving pitch free for aim (see standoff_range). Fixes the
+## v1 ram into the non-evading aegis. Every pilot-dependent factor is
+## re-measured under v2; balance/delivery_factors.json carries pilot_version 2.
+const PILOT_VERSION: int = 2
 
 var drone: FlightController
 var weapon: Weapon
@@ -42,9 +46,62 @@ var cruise_altitude: float = 14.0
 var yaw_p: float = 4.0
 ## Pitch P gain (elevating the gun line onto the target).
 var aim_p: float = 5.0
-## Roll damping to kill lateral drift and hold a stable firing line
-## (rad/s of roll rate per m/s of sideways velocity).
+## Roll authority: rad/s of roll rate per m/s of sideways-velocity ERROR.
+## In v1 this only ever damped drift to zero; from v2 it also drives the orbit
+## (see standoff_range), so it is a tracking gain, not just a damper.
 var roll_damp: float = 0.18
+## --- STANDOFF BY ORBIT (PILOT_VERSION 2) ---
+## The radius the pilot circles a target at, meters.
+##
+## v1 had no standoff and relied on every enemy MANEUVERING AWAY to stop the
+## closure. The aegis breaks that — it flies straight at you at walking pace
+## and never evades — so v1 flew into the bomber (traced 39.7 m to 0.5 m),
+## could not lock a target it was touching, and timed out.
+##
+## The fix is NOT to fight the closure in pitch. With a body-fixed gun that
+## must point at the target, the thrust vector's horizontal component always
+## points AT the target, so the drone can never hover while aiming — it is
+## always accelerating inward. Pitching up to hold range just swings the gun
+## off the target, which measured worse (blaster aim 0.14 -> 0.06) and broke
+## the missile lock outright.
+##
+## So the inward acceleration is not cancelled, it is REDIRECTED: fly
+## tangentially and that same aim-driven acceleration becomes the centripetal
+## force of a circle (v^2 / R = a_horizontal). Range is then held in the ROLL
+## axis, leaving pitch free for aim — and it is the idiom the bestiary already
+## flies (enemy_drone orbits its own preferred_range).
+var standoff_range: float = 16.0
+## Tangential speed of that circle, m/s. Sized from the geometry: aiming a
+## level target parks the drone near 44 deg nose-down, giving roughly
+## g*tan(44) ~ 9.5 m/s^2 inward, so a stable 16 m orbit wants
+## sqrt(9.5 * 16) ~ 12 m/s. Set slightly under, and let the range term below
+## trim the rest.
+var orbit_speed: float = 11.0
+## Range at which the pilot starts curving into the orbit. Deliberately far
+## out: the tangential speed must be BUILT during the run-in so the pilot
+## ARRIVES already circling. Engaging late means meeting the radius with
+## ~13 m/s of inward momentum that no swerve absorbs — a spiral settles, a
+## swerve does not.
+var orbit_engage_range: float = 45.0
+## How much harder to orbit when inside the radius (multiplier ceiling on
+## orbit_speed). Faster tangentially = more centrifugal = the circle widens
+## back out, which is how the pilot pushes off a charger without touching
+## pitch. Capped low, because this is the term that flings.
+var orbit_push_max: float = 1.4
+## Which way around. Fixed rather than random: rep-to-rep determinism (P4.8)
+## matters more here than variety, and a coin flip would put two neighbouring
+## reps on different sides of the same fight.
+var orbit_sign: float = 1.0
+## Bank commanded per m/s of tangential-speed error, radians.
+var orbit_bank_per_error: float = 0.10
+## Hard ceiling on that bank, radians. THIS IS A THRUST BUDGET, not a taste:
+## the aim already parks the drone near 44 deg nose-down, so vertical lift is
+## only cos(44)*cos(bank) of thrust. Commanding roll as a raw RATE (the first
+## attempt) had no such ceiling — an 11 m/s error asked for ~113 deg/s of
+## sustained roll, the drone banked past what it could hold altitude at, and
+## it sank from 14 m to 3.9 m into the floor guard. At 32 deg the budget is
+## cos(44)*cos(32) = 0.61 of hover thrust, which the tilt compensation covers.
+var orbit_bank_max: float = 0.56
 ## Fire when the target sits within this cone of the GUN line, degrees.
 ## Only consulted when the pilot is shooting manually (use_director off).
 var fire_cone_deg: float = 6.0
@@ -146,8 +203,49 @@ func update(_delta: float) -> void:
 	var pitch_rate: float = clampf(
 			aim_p * pitch_error + los_rate.dot(right_flat),
 			-max_pitch_rate, max_pitch_rate)
+	# ORBIT (see standoff_range) — HOMING WEAPONS ONLY. Measured, not assumed:
+	# a swept range of orbit settings against a static target traded aim
+	# against closest-approach strictly monotonically, and every setting that
+	# bought standoff cost the gun everything.
+	#
+	#   orbit off (v1)   aim 0.17   closest 0.3 m
+	#   engage 18 m      aim 0.06   closest 2.6 m
+	#   engage 22 m      aim 0.00   closest 3.6 m
+	#   engage 45 m      aim 0.00   closest 6.5 m
+	#
+	# Tight last-second breaks were tried too and are the worst of both: by
+	# 6 m there is no turning out, so they neither saved the range (still
+	# 0.3 m) nor spared the aim. There is no setting that does both.
+	#
+	# But the ram only BREAKS the missile cells — you cannot lock a target you
+	# are touching, which is the whole aegis failure — while the gun measures
+	# fine at 0.17 through the ram. And the orbit's cost is specifically
+	# BALLISTIC: circling makes every bolt a deflection shot from a turning
+	# platform, while the homing missile held 1.00 throughout. So the orbit
+	# goes exactly where the ram hurts and its cost does not apply. That is a
+	# real tactical truth rather than a fudge — a pilot carrying a homing
+	# weapon can afford to maneuver precisely because it need not point — and
+	# aim_quality is already keyed per weapon, so each is measured under the
+	# flying its own weapon wants.
+	var range: float = drone.global_position.distance_to(target.global_position)
+	var orbit_blend: float = 0.0
+	if use_missile:
+		orbit_blend = clampf(
+				(orbit_engage_range - range)
+				/ maxf(orbit_engage_range - standoff_range, 0.1),
+				0.0, orbit_push_max)
+	var desired_lateral: float = orbit_sign * orbit_speed * orbit_blend
 	var lateral_speed: float = drone.linear_velocity.dot(right_flat)
-	var roll_rate: float = clampf(-roll_damp * lateral_speed,
+	# Bank-ANGLE loop, not a raw rate (see orbit_bank_max): ask for a bank
+	# proportional to the tangential-speed error, ceiling it inside the thrust
+	# budget, then rate-control toward that attitude. Banking right (to
+	# accelerate right) is NEGATIVE body roll here, matching the sign the
+	# ground guard levels with.
+	var body_roll: float = asin(clampf(drone.global_basis.x.y, -1.0, 1.0))
+	var desired_bank: float = -clampf(
+			orbit_bank_per_error * (desired_lateral - lateral_speed),
+			-orbit_bank_max, orbit_bank_max)
+	var roll_rate: float = clampf(attitude_p * (body_roll - desired_bank),
 			-max_roll_rate, max_roll_rate)
 
 	# GROUND GUARD, above everything else. Traced flying into a raider's face at
@@ -159,7 +257,6 @@ func update(_delta: float) -> void:
 			+ drone.linear_velocity.y * floor_lookahead_s
 	if predicted_altitude < floor_guard_m:
 		var body_pitch: float = asin(clampf(-drone.global_basis.z.y, -1.0, 1.0))
-		var body_roll: float = asin(clampf(drone.global_basis.x.y, -1.0, 1.0))
 		pitch_rate = clampf(attitude_p * -body_pitch, -max_pitch_rate, max_pitch_rate)
 		roll_rate = clampf(attitude_p * body_roll, -max_roll_rate, max_roll_rate)
 

@@ -1,6 +1,6 @@
 {
 	"aim": {
-		"blaster": 0.14,
+		"blaster": 0.17,
 		"missile": 1.0
 	},
 	"control": {
@@ -16,5 +16,5 @@
 		"missile:gnat": 1.0,
 		"missile:raider": 1.0
 	},
-	"pilot_version": 1
+	"pilot_version": 2
 }

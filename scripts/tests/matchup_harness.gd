@@ -477,6 +477,20 @@ func _print_banded_matrix() -> void:
 			if predicted != held_to:
 				print("[matchup] %-18s   ^ PAPER vs PREDICTED: shipped numbers disagree with P4.3"
 						% "")
+			# Only a real OUTCOME disagreement counts as an un-modeled factor.
+			# The two columns summarise under different rulers (predicted bands
+			# a modeled ttk, validated bands the H4 win/exchange ruler), so
+			# their letters differ routinely without the model being wrong —
+			# missile x aegis predicts 6.0 s and duels 8.0 s, a match, while
+			# the letters read `0` vs `++`. Flagging that taught nothing and
+			# buried the cells that genuinely diverge.
+			var model_kills: bool = String(prediction["why"]) == "" \
+					and float(prediction["ttk"]) <= MAX_SECONDS
+			var fight_wins: bool = _win_rate(i) >= 0.5
+			if matchup["mode"] != "pack" and model_kills != fight_wins:
+				print("[matchup] %-18s   ^ PREDICTED vs VALIDATED: model says %s, the fight says %s — an un-modeled factor decided this cell"
+						% ["", "kill" if model_kills else "no kill",
+						"win" if fight_wins else "loss"])
 			if predicted != validated:
 				if matchup["mode"] == "pack":
 					# Not commensurable, and saying so beats implying it: the
@@ -487,9 +501,6 @@ func _print_banded_matrix() -> void:
 					# hull" — not as a contradiction.
 					print("[matchup] %-18s   ^ different rulers: predicted = ttk to clear the pack, validated = exchange at the %ds cap"
 							% ["", int(MAX_SECONDS)])
-				else:
-					print("[matchup] %-18s   ^ PREDICTED vs VALIDATED: an un-modeled factor decided this cell"
-							% "")
 
 
 ## Predict one cell from the layered model. Returns {} when the delivery
