@@ -4302,3 +4302,159 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     the richer blackbox both wait behind it, by the user's explicit call.
     **To resume after a session cut: "Continue QuadShot — Phase 4b (Atlas) per
     the v1.28/v1.29 entries."**
+- **2026-07-22 — v1.30. Phase 4b: the Atlas lands, the frame axis costs the
+  model nothing — and the ruler turns out to have been reading the human's own
+  config all along.** The 2nd frame, built and measured the way the flak pod
+  was. Two headlines: a P3.3 promise that came true as physics, and an
+  instrument bug that had been quietly inflating every number in the log.
+  - **THE FRAME AXIS FORCED NO NEW FACTOR, and that was the open question.**
+    The flak column had just forced `splash` into existence (v1.28), so the
+    reasonable fear was that every new axis costs a dimension. It does not:
+    `aim_quality` was always per AGENT, and an agent is a pilot flying an
+    airframe — there had simply only ever been one airframe. So a frame is a
+    **re-keying** of aim (`kestrel:blaster`, `atlas:blaster`), not a new factor.
+    Evasion is deliberately NOT frame-keyed, and that is structural rather than
+    thrift: the evasion bench freezes the shooter and lays its gun on the exact
+    ballistic solution every tick, so a frozen Atlas and a frozen Kestrel fire
+    identical shots. **Measured rather than asserted** — all eleven evasion
+    cells and `splash` 3.42 came back byte-identical across the change.
+  - **THE PROMISE THAT CAME TRUE: `aim: atlas/blaster` 0.19 vs
+    `aim: kestrel/blaster` 0.05.** P3.3 wrote the Atlas's gun story as prose —
+    *"a stable gun platform, and honestly so: FCS solutions converge faster on a
+    steady frame because miss-distance jitter shrinks. That's physics, not a
+    stat: the heavy frame is the FCS frame emergently."* The bench measured
+    almost 4x the hit rate with nothing special-cased anywhere: the Atlas has no
+    aim bonus, no FCS advantage, no wider cone. It is heavier and softer, so the
+    same brain holds a line on it. This is the flak pod's `++` repeating in a new
+    axis — a paper claim surviving contact with measurement, unchanged.
+  - **Frame cells are ruled RELATIVELY, against the Kestrel.** A frame does not
+    change whether the weapon kills; it changes what the kill COSTS, and win
+    rate is nearly blind to that (both frames win, one bleeds). So frame cells
+    band the **exchange delta** — fraction of the enemy unit destroyed minus
+    fraction of your own hull spent — against a Kestrel twin flying *the same
+    weapon at the same enemy*, asserted structurally, because a datum differing
+    by loadout would report the loadout and call it the airframe (P4.3's "FCS is
+    not a column", one axis over). The origin is not a convention: P3.3/P3.4
+    define the Kestrel's whole column as zeros on purpose, so the design's own
+    statement is the ruler's zero. It also **rescues** cells the outcome ruler
+    cannot resolve — an unseeded enemy can only read `++` or `--` on win rate,
+    but hull spent is continuous even in a deterministic duel.
+  - **The predicted column cannot express a frame at all, and the report says so
+    on every frame cell.** Prediction has no survival term (assumption 3: nobody
+    shoots back), so it bands an absolute ttk while paper and validated are both
+    deltas. Durability — the entire point of the Atlas — is visible only in the
+    validated column. Not a defect to fix: a stated scope limit, printed rather
+    than left for a reader to trip over.
+  - **THE RULER BUG, and it is the biggest finding in this entry.** The benches
+    instantiated `drone.tscn` directly, which auto-loads `user://` — so **every
+    delivery factor ever committed was measured against whatever the human had
+    last tuned into their own override file** (`rate_p` 0.007 against the repo's
+    0.004, `rate_ff` 0.0008 against 0, `angular_damping` 0.013 against 0.02).
+    The ruler was machine-local, `balance/delivery_factors.json` was not
+    reproducible from a clean checkout, and no stamp could catch it because the
+    drift lived in a file that is not in the repo. Benches now build through
+    `Frames.build` with overrides off, and each frame's FlightConfig joined the
+    config stamp — mass and rate gains were ALWAYS delivery inputs and were
+    never stamped, so retuning the drone's PID silently invalidated every factor
+    while the stamp reported a match. **An instrument measures the numbers that
+    are committed.**
+  - **What that cost, attributed by CONTROL RUN rather than by argument.** The
+    harness was re-run once with overrides deliberately switched back on, and
+    every moved cell returned to its v1.28 value: `Missile x Aegis` bombed 6/6
+    -> win 6/6 at 8.0 s (v1.28: 8.0 s), `Blaster x Turret` 3.9 s -> 1.3 s
+    (v1.28: 1.3 s), `Flak x Raider` 6.3 s -> 2.2 s (v1.28: 2.2 s),
+    `Blaster x Gnats` exchange -0.51 -> -0.27 (v1.28: -0.30). So **100% of the
+    movement is the flight config and none of it is the combat model** — the
+    frame, armor and splash work moved no shipped number. `aim: kestrel/blaster`
+    0.17 -> 0.05 is the same fact stated as a factor.
+  - **A relative ruler has a moving zero, and the control proved that too.**
+    `Atlas x Turret` reads `+` (delta +0.20) against the repo's Kestrel and `0`
+    (delta -0.10) against the human's — **same Atlas, same six seeds, same
+    weapon; only the datum changed.** On a responsive Kestrel the turret dies in
+    1.3 s for zero hull, so the Atlas's armor buys nothing and its slowness
+    costs 10%; on the committed Kestrel the turret lands three shells first and
+    the armor pays. This is the sharpest argument that the frame axis cannot be
+    read until the datum frame is the one people actually fly.
+  - **THE DECISION THIS PUTS TO THE HUMAN (not taken here, per handoff §14).**
+    `default_flight_kestrel.tres` is materially worse to fly than the config the
+    human has had loaded for months, and the instrument had been hiding that by
+    borrowing it. Baking the tuned values into the default would move the
+    Kestrel datum, every aim factor and several validated cells — deliberately,
+    once, with a re-measure. Only the human can say the feel is right, which is
+    exactly what §14 reserves to them.
+  - **Three of the four Atlas cells cannot report their paper band, each for a
+    different and nameable reason — which is the instrument working.**
+    - `Atlas x Gnats` paper `++` -> validated `0`, **because the ruler
+      saturates.** The flak pod already scores a perfect +1.00 exchange on the
+      Kestrel (nine of nine bodies, zero hull spent), and no frame can beat
+      perfect. The gnat row has nothing left for a frame to win. A resolution
+      limit of a relative ruler, mirroring the deterministic-enemy limit v1.27
+      documented for the absolute one.
+    - `Atlas x Aegis` paper `++` -> validated `0`, **because the band is bought
+      with hardpoints and there is no loadout system.** P4.4 prices the heavy's
+      aegis day as "missile racks + burst tonnage"; in the slice both frames
+      carry the same single launcher, so the cell measures two identical
+      loadouts and correctly reports no difference. The strongest concrete
+      argument yet for P3.8's loadout loop being what makes the frame axis real.
+    - `Atlas x Turret` paper `-` -> validated `+`, **sign inverted, because the
+      1v1 rig has no ingress.** P4.4's `-` is bought by exposure — the heavy is
+      slow in the open — and the duel starts at 40 m with the target already in
+      the arena. The v1.25 caveat landing on a frame cell instead of a weapon
+      one. (And subject to the moving-zero finding above.)
+    - `Atlas x Raider` paper `0` -> validated `0` (delta -0.01). **The one row
+      where paper predicts no difference is the one row that measured no
+      difference** — worth stating, because a frame axis that reported a
+      difference everywhere would be reporting noise.
+  - **Armor stopped being schema-only**, which retires BALANCE.md's last
+    known-inert field. Applied in `Health.take` layered UNDER the shield gate
+    (so it never changes whether a weapon can crack a screen, only what gets
+    through) and in the gnat body's own damage path, modeled in `Lethality`,
+    verified by planted-shot **probes** — synthetic armored configs, because
+    every roster type is still `armor = 0.0` and checking the code against zeros
+    verifies nothing. One probe earned its keep immediately: `aegis+armor36`
+    caught a real bug in the calculator's first draft, which verdicted NEVER on
+    a shield carry-through swallowed by plating. The screen is down by then and
+    the next hit lands whole; it kills at 21.0 s, and the bench proved it against
+    the shipped `Health`.
+  - **The Atlas is derived, not fitted.** 1.9x mass, TWR 3.2, soft rates, heavy
+    filtering — P3.3's own words turned into numbers; hull 190 is the Kestrel's
+    100 scaled by that same mass ratio (P3.2's honest-mass doctrine applied to
+    durability); armor 3 is sized against what the slice actually throws (gnat
+    sting 7 -> 4, raider bolt 8 -> 5, turret shell 10 -> 7). Flat reduction is
+    worth most against many small hits and least against few big ones, so ONE
+    number reproduces P4.4's shape for the heavy column with nothing
+    special-cased per enemy. **Its rate PID is the Kestrel's, unchanged**:
+    angular authority scales with TWR, so the same gains on a 1.9x frame give
+    ~0.71x the loop gain and the aircraft plants itself as physics rather than as
+    a tuned number — and the `rate_preset` ladder keeps working on it, which a
+    hand-softened PID would have broken forever.
+  - **GAP-1, half discharged and deliberately so** (the user's call this
+    session): `FrameConfig` landed FIRST, as its own commit, Kestrel-only, with
+    the proof being a re-measure that reproduced every band and every factor
+    byte-identical except the one cell v1.28 had already logged as unstable
+    (`aim: flak` 0.94 -> 0.99, back toward its own mode). Then Atlas. The
+    `WeaponConfig` split waits behind this, under the same discipline — a moved
+    config and new content never share a measurement.
+  - **Also landed:** `FlightConfig` gained `frame_id` and per-frame
+    save/defaults paths (`default_flight_config.tres` ->
+    `default_flight_kestrel.tres`) with a one-time migration, so a pilot's tuned
+    override is not discarded in silence; `TunableConfig.identity_fields()`
+    stops `copy_from` carrying an id between instances, closing a bug the
+    BESTIARY preset bars had always been exposed to; the frame applies its own
+    hull and armor in `FlightController._ready`, which closed a hole where the
+    benches read `Health`'s default while the game read
+    `CombatConfig.player_max_health` (both 100, by luck); `hover_check` now flies
+    every frame in the roster, because the cheapest way to ship a frame that
+    cannot hold the air is to write the `.tres` and never fly it; the overlay
+    grew a FRAME section; `<godot> --path . -- --frame atlas` flies it today, as
+    a dev affordance and explicitly NOT the picker — that is P3.8's briefing
+    chain and P3.9's HANGAR section.
+  - **Open, for the human (nothing acted on):** whether to bake the tuned flight
+    values into `default_flight_kestrel.tres` (above); whether `Atlas x Turret`'s
+    inverted sign should be chased with an ingress phase in the rig or accepted
+    as outside the 1v1 scope; and everything v1.28 left open, all of it now
+    measured under a different — and for the first time reproducible — ruler.
+  - **Next: the raider-pack bench and the richer combat blackbox** (both sized in
+    v1.29, both waiting on the user's word), then H.q4's hands-on calibration,
+    whose case the ruler bug just strengthened again.
+    **To resume after a session cut: "Continue QuadShot per the v1.30 entry."**
