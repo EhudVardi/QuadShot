@@ -29,6 +29,32 @@ extends TunableConfig
 ## Hostiles beyond this range are ignored by the fire assist.
 @export var fire_assist_range: float = 55.0
 
+@export_group("Flak pod")
+## The slice's third weapon (GAMEPLAY-DESIGN P3.1 / P4.10): a proximity-fused
+## burst shell that detonates into a fragment cloud. Its whole reason to exist
+## is the P4.3 flak column — `++` on gnats, `--` on shields — and the shape of
+## that answer lives in these numbers rather than in any special-case code:
+## small per-body damage (under the aegis's 40 break threshold, so it splashes
+## off exactly like the chip gun) delivered to EVERY body in a radius.
+@export var flak_fire_rate: float = 2.5
+@export var flak_muzzle_speed: float = 70.0
+## Heavier, slower shell than a bolt: more drop, which is what keeps flak a
+## short-range weapon without a hard range cutoff.
+@export var flak_shell_gravity_scale: float = 0.4
+## Flight time before the shell airbursts on its own — the effective range.
+@export var flak_shell_lifetime: float = 1.4
+## Travel before the fuse arms, meters. Without it the shell would detonate on
+## a hostile the muzzle is already touching.
+@export var flak_arm_distance: float = 5.0
+## Proximity fuse: burst when a hostile comes within this range of the shell.
+## Deliberately SMALLER than the burst radius so the shell flies INTO a cloud
+## before it goes off — fragments from the middle of the pack, not its face.
+@export var flak_fuse_radius: float = 3.5
+## Everything hostile inside this radius of the burst takes flak_damage.
+@export var flak_burst_radius: float = 6.0
+## Damage per body caught in the burst. Flat, not falloff — see flak_shell.gd.
+@export var flak_damage: float = 10.0
+
 @export_group("Player")
 @export var player_max_health: float = 100.0
 ## Crash impacts below this delta-v (m/s) are free; above it they hurt.

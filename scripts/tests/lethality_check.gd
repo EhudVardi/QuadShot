@@ -139,6 +139,13 @@ func _start_cell() -> void:
 			_damage = _combat.missile_damage
 			_hit_interval_ticks = maxi(
 					int(roundf(pps * _combat.missile_cooldown)), 1)
+		"flak":
+			# One BODY's share of a burst. The pack yield lives in Layer 2, so
+			# what gets planted here is a single fragment cloud's worth of damage
+			# to a single target, at the pod's own cycle.
+			_damage = _combat.flak_damage
+			_hit_interval_ticks = maxi(
+					int(roundf(pps / _combat.flak_fire_rate)), 1)
 	_ticks = 0
 	_hits_planted = 0
 	_death_tick = -1

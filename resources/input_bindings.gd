@@ -14,7 +14,8 @@ extends TunableConfig
 ## momentary arm_toggle; it ships unbound.
 const ACTIONS: Array[StringName] = [
 	&"arm_toggle", &"arm_switch", &"reset_drone", &"flight_mode_toggle",
-	&"camera_toggle", &"fire", &"fire_missile", &"missile_auto_switch",
+	&"camera_toggle", &"fire", &"fire_missile", &"fire_flak",
+	&"missile_auto_switch",
 	&"pause_toggle", &"pause_switch", &"overlay_toggle",
 ]
 
@@ -63,6 +64,10 @@ static func factory_defaults() -> Dictionary:
 		"camera_toggle": [make_key(KEY_C), make_button(JOY_BUTTON_X)],
 		"fire": [make_key(KEY_SPACE), make_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)],
 		"fire_missile": [make_key(KEY_F), make_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)],
+		# Both triggers are already spoken for (gun/missile), so the flak pod
+		# takes the right bumper — it is a held-down auto weapon, not a snap
+		# shot, so a button suits it better than a trigger anyway.
+		"fire_flak": [make_key(KEY_G), make_button(JOY_BUTTON_RIGHT_SHOULDER)],
 		"missile_auto_switch": [],
 		"pause_toggle": [make_key(KEY_P)],
 		"pause_switch": [],
@@ -97,6 +102,7 @@ func apply() -> void:
 		if not old.is_empty() and (bindings.get("missile_auto_switch", []) as Array).is_empty():
 			bindings["missile_auto_switch"] = old
 		bindings.erase("missile_auto")
+	_adopt_new_actions()
 	for action: StringName in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action, 0.5)
@@ -104,6 +110,22 @@ func apply() -> void:
 		for binding: Dictionary in _set_for(action, paused_context_active).get(String(action), []):
 			InputMap.action_add_event(action, _to_event(binding))
 	_sync_stateful_actions()
+
+
+## Actions added to ACTIONS *after* the player last saved their bindings have no
+## key in the saved dictionary, and apply() erases the project.godot events
+## before writing the saved ones — so without this a new action ships silently
+## UNBOUND to everyone who ever pressed Save, while working perfectly on a clean
+## machine. Caught when the flak pod's `fire_flak` landed (v1.28).
+##
+## Only ever fills in a MISSING key. An action the player deliberately cleared is
+## stored as an empty array, which is present, so their choice survives.
+func _adopt_new_actions() -> void:
+	var factory: Dictionary = factory_defaults()
+	for action: StringName in ACTIONS:
+		var name: String = String(action)
+		if not bindings.has(name) and factory.has(name):
+			bindings[name] = (factory[name] as Array).duplicate(true)
 
 
 ## See STATEFUL_ACTIONS: reconcile Godot's event-driven action state with the

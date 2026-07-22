@@ -1,11 +1,13 @@
 {
 	"aim": {
 		"blaster": 0.17,
+		"flak": 0.94,
 		"missile": 1.0
 	},
-	"config_stamp": "5edf6758f0c4858c3fdf66af58c605adc12b83e751bb560b11452c7c6daf6ebe",
+	"config_stamp": "a3debc725a3137ce7142ebd199226236810ac3a4528a2a9a211e97d9d6825155",
 	"control": {
 		"blaster:static": 0.99,
+		"flak:static": 1.0,
 		"missile:static": 1.0
 	},
 	"evasion": {
@@ -13,9 +15,16 @@
 		"blaster:gnat": 0.12,
 		"blaster:raider": 0.96,
 		"blaster:turret": 0.99,
+		"flak:aegis": 0.98,
+		"flak:gnat": 1.0,
+		"flak:raider": 1.0,
+		"flak:turret": 1.0,
 		"missile:aegis": 1.0,
 		"missile:gnat": 1.0,
 		"missile:raider": 1.0
 	},
-	"pilot_version": 2
+	"pilot_version": 3,
+	"splash": {
+		"flak:gnat": 3.42
+	}
 }

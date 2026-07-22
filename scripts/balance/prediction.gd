@@ -7,10 +7,10 @@ extends RefCounted
 ##
 ## The model, stated plainly so it can be argued with:
 ##
-##   shots_fired_per_body = shots_to_kill / (aim_quality * evasion)
-##   engagement_ttk       = (shots_fired_per_body * bodies - 1) * cadence
+##   shots_fired = ceil(shots_to_kill * bodies / (aim * evasion * splash))
+##   engagement_ttk = (shots_fired - 1) * cadence
 ##
-## Three assumptions live in that arithmetic, and naming them is the point:
+## Four assumptions live in that arithmetic, and naming them is the point:
 ##   1. SEPARABILITY — aim and evasion multiply. Measured apart, used
 ##      together. If a target's evasion degrades the agent's aim by MORE than
 ##      the product (a jinking raider is harder to track than a static one by
@@ -24,6 +24,16 @@ extends RefCounted
 ##      player would predictably die in still predicts a clean band, so a
 ##      predicted-good / validated-bad divergence is the instrument working:
 ##      it has just named survival as the missing factor.
+##   3b. SPLASH IS A DIVISOR ON THE PACK BILL, not a multiplier on damage. An
+##      area weapon is paid per BURST while the target is priced per BODY, and
+##      `splash` (bodies covered by one arriving burst, MEASURED against a real
+##      pack) is the exchange rate between the two. It is 1.0 for every
+##      single-target weapon and for every single-body target, so it changes
+##      nothing that existed before flak — but it is the only reason the flak
+##      column can read differently from the chip gun's, since Layer 1 prices
+##      both per body. Un-modeled inside it: a burst's coverage depends on how
+##      tight the cloud happens to be at that instant, so splash is an average
+##      over a measurement window, not a guarantee about any one shell.
 ##   4. THE CLOCK STARTS AT THE FIRST SHOT. Acquisition (a 0.9 s missile lock)
 ##      and time of flight (0.8 s over 40 m) are outside this number, so a
 ##      predicted ttk is systematically OPTIMISTIC by roughly one lock plus
@@ -81,6 +91,13 @@ const DELIVERY_FIELDS_COMBAT: Array[String] = [
 	"missile_speed", "missile_turn_rate_deg", "missile_lock_range",
 	"missile_lock_cone_deg", "missile_lock_time", "missile_cooldown",
 	"missile_prox_radius", "missile_lifetime",
+	# Flak's ballistics AND its two radii: the fuse and the burst decide whether
+	# a shell arrives and how much of a pack it covers, so both are delivery
+	# inputs. flak_damage is deliberately absent — it is Layer 1, recomputed
+	# live, and so can never go stale.
+	"flak_muzzle_speed", "flak_shell_gravity_scale", "flak_shell_lifetime",
+	"flak_fire_rate", "flak_arm_distance", "flak_fuse_radius",
+	"flak_burst_radius",
 ]
 const DELIVERY_FIELDS_ENEMY: Array[String] = [
 	"speed", "accel", "turn_speed_deg", "pack_size", "swarm_spacing",
@@ -120,13 +137,32 @@ static func evasion_key(weapon: String, type_id: String) -> String:
 	return "%s:%s" % [weapon, type_id]
 
 
+## Splash yield — bodies covered per ARRIVING burst, per weapon x target. Keyed
+## like evasion because it is equally a property of the pair: the same fragment
+## cloud swallows three gnats and exactly one aegis.
+static func splash_key(weapon: String, type_id: String) -> String:
+	return "%s:%s" % [weapon, type_id]
+
+
+## A missing splash entry means 1.0, not "unknown". Every weapon before the flak
+## pod damaged exactly one body per connect, so the absence of a measurement IS
+## the measurement for them — unlike aim or evasion, where a missing factor must
+## blank the column rather than be guessed.
+static func splash_for(factors: Dictionary, weapon: String,
+		type_id: String) -> float:
+	var table: Dictionary = factors.get("splash", {})
+	return maxf(float(table.get(splash_key(weapon, type_id), 1.0)), 0.01)
+
+
 ## One predicted cell. `bodies` is the pack size (1 for single-body types) —
 ## the unit is the CLOUD for distributed types (P4.q5), so killing the unit
-## means killing every body.
+## means killing every body. `splash` is the area-weapon divisor (assumption 3b);
+## 1.0 for everything that damages one body per connect.
 ##
 ## Returns: band, ttk, shots_fired, hit_rate, why (when it cannot resolve).
 static func predict(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
-		aim: float, evasion: float, bodies: float) -> Dictionary:
+		aim: float, evasion: float, bodies: float,
+		splash: float = 1.0) -> Dictionary:
 	var lethality: Dictionary = Lethality.versus(weapon, combat, enemy)
 	if lethality.is_empty():
 		return _unresolved("unknown weapon")
@@ -142,17 +178,25 @@ static func predict(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		return {"band": "--", "ttk": INF, "shots_fired": 0.0,
 				"hit_rate": 0.0, "cadence": cadence,
 				"why": "delivery: nothing connects"}
-	var per_body: float = ceilf(float(lethality["shots"]) / hit_rate)
+	var per_body: float = float(lethality["shots"]) / hit_rate
 	if per_body > MAX_SHOTS_PER_BODY:
-		return {"band": "--", "ttk": INF, "shots_fired": per_body,
+		return {"band": "--", "ttk": INF, "shots_fired": ceilf(per_body),
 				"hit_rate": hit_rate, "cadence": cadence,
 				"why": "delivery: %.0f shots per body" % per_body}
-	var shots_fired: float = per_body * maxf(bodies, 1.0)
+	# ONE rounding, on the TOTAL — not one per body. The per-body ceiling this
+	# replaced was pessimistic for packs by up to a shot each: a bolt that misses
+	# gnat 4 is not a shot "wasted on gnat 4" that has to be re-spent, it is one
+	# shot of an aggregate bill. Flak forced the question (its whole economy is
+	# the pack bill) and the aggregate is simply the correct arithmetic. Only one
+	# shipped cell moves: Blaster x Gnats, 450 shots -> 442, band unchanged.
+	var shots_fired: float = ceilf(
+			per_body * maxf(bodies, 1.0) / maxf(splash, 0.01))
 	# First shot at t=0, so the clock spans the gaps between shots, not the
 	# shots themselves.
 	var ttk: float = (shots_fired - 1.0) * cadence
 	return {"band": band_for(ttk), "ttk": ttk, "shots_fired": shots_fired,
-			"hit_rate": hit_rate, "cadence": cadence, "why": ""}
+			"hit_rate": hit_rate, "cadence": cadence, "splash": splash,
+			"why": ""}
 
 
 static func band_for(ttk: float) -> String:

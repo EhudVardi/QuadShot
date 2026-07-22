@@ -28,7 +28,7 @@ const MAX_HITS: int = 1000
 
 
 ## The measured player weapons, in matrix-column order.
-const WEAPONS: Array[String] = ["blaster", "missile"]
+const WEAPONS: Array[String] = ["blaster", "missile", "flak"]
 
 
 ## One cell of the Layer 1 table. Returns:
@@ -41,8 +41,8 @@ const WEAPONS: Array[String] = ["blaster", "missile"]
 ##                     3 s missile is this, not durability and not delivery.
 ##   why: String     — human-readable note when kills is false
 ## `damage_mult` is the RunMods layer; the baseline table uses 1.0. It applies
-## to the blaster only — missile.gd reads missile_damage raw, and this mirrors
-## that, faithfully including the asymmetry.
+## to the two GUN-family weapons only (blaster, flak) — missile.gd reads
+## missile_damage raw, and this mirrors that, faithfully including the asymmetry.
 static func versus(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		damage_mult: float = 1.0) -> Dictionary:
 	return _fire(weapon, combat, enemy, damage_mult, false)
@@ -145,6 +145,22 @@ static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 			# blaster it cannot volley, which is the whole gnat story.
 			return _exchange(combat.missile_damage,
 					maxf(combat.missile_cooldown, 0.001), enemy,
+					stop_at_shield_down)
+		"flak":
+			# PER BODY, exactly like every other column. The fact that one flak
+			# burst pays for several bodies at once is NOT lethality — it is a
+			# delivery yield (`splash`, BalancePrediction), measured against a
+			# real pack rather than asserted here. Layer 1 stays "if this weapon
+			# connects with a target, what happens to THAT target", or the
+			# state-split and combo arithmetic drawn from it stop being clean.
+			#
+			# Note the shape this gives the column for free: 10 damage sits under
+			# the aegis's 40 break threshold, so flak reports NEVER against a
+			# shielded bomber through the same branch that hard-counters the chip
+			# gun. P4.3's "useless tonnage against shields" is not special-cased
+			# anywhere — it falls out of one number being small.
+			return _exchange(combat.flak_damage * damage_mult,
+					1.0 / maxf(combat.flak_fire_rate, 0.001), enemy,
 					stop_at_shield_down)
 	push_error("Lethality: unknown weapon '%s'" % weapon)
 	return {}

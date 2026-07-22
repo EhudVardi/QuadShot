@@ -8,11 +8,11 @@ extends SceneTree
 ## spec; this is the test — divergence is a bug in the numbers or a lie in the
 ## design, caught before anyone flies it.
 ##
-## PHASE 1 SCOPE (the rig, on shipped content): the measured matrix only
-## covers what exists today — Kestrel flying Blaster/Missile against the
-## shipped Raider and Turret. The banded ++..-- matrix and the P4.3 invariants
-## arrive as the roster does (Gnat/Aegis/Flak/Atlas, Phases 3-4): this file is
-## data-driven so a new row/column is one list entry.
+## SCOPE (the rig, on shipped content): the measured matrix covers what exists
+## today — the Kestrel flying Blaster/Missile/Flak against the slice-four
+## bestiary (Raider, Turret, Gnat, Aegis). The frame axis (P3.4, Atlas) is the
+## remaining Phase 4 column. This file is data-driven so a new row is one list
+## entry — and every assert addresses cells BY NAME so that stays true.
 ##
 ## DETERMINISM (P4.8, Phase 3): every rep seeds the enemy's AI RNG with the rep
 ## index, so rep N is the same fight run after run and across balance edits —
@@ -92,6 +92,25 @@ const MATCHUPS: Array[Dictionary] = [
 			# an intercept. The combo keeps the `++`, as a derived row
 			# (Lethality.combo) rather than a contaminated cell.
 			"paper_solo": "+"},
+	# --- The flak column (P4.10 / P3.1, added v1.28). The row the whole weapon
+	# exists for is Flak x Gnats: the chip gun bands `--` there on a 0.02 hit
+	# rate, so if this reads anything less than dominant the gnat row has no
+	# answer in the slice at all.
+	{"name": "Flak x Gnats", "weapon": "flak", "type": "gnat",
+			"enemy": "res://scenes/combat/gnat_swarm.tscn",
+			"paper": "++", "mode": "pack"},
+	{"name": "Flak x Raider", "weapon": "flak", "type": "raider",
+			"enemy": "res://scenes/combat/enemy_drone.tscn",
+			"paper": "0", "mode": "win"},
+	{"name": "Flak x Turret", "weapon": "flak", "type": "turret",
+			"enemy": "res://scenes/combat/turret.tscn",
+			"paper": "-", "mode": "win"},
+	# Paper `--` for the same arithmetic reason the chip gun is: 10 damage under
+	# a 40 break threshold never touches the shield. If this cell ever wins, the
+	# threshold gate broke — see the structural assert in _report().
+	{"name": "Flak x Aegis", "weapon": "flak", "type": "aegis",
+			"enemy": "res://scenes/combat/aegis.tscn",
+			"paper": "--", "mode": "win"},
 ]
 
 ## H4 banding, fixed stated thresholds (H.q1: a ruler that does not drift).
@@ -260,7 +279,8 @@ func _build_duel() -> void:
 	_pilot.drone = _drone
 	_pilot.weapon = weapon
 	_pilot.missile = _drone.get_node("FpvCamera/MissileSystem") as MissileSystem
-	_pilot.use_missile = matchup["weapon"] == "missile"
+	_pilot.flak = _drone.get_node("FpvCamera/FlakPod") as FlakPod
+	_pilot.weapon_id = matchup["weapon"]
 	_pilot.target = _enemy as Node3D
 	_pilot.cruise_altitude = ARENA_ALTITUDE
 	_duel_ticks = 0
@@ -311,11 +331,15 @@ func _record(outcome: String) -> void:
 	# failed for a different reason than one that failed having fired thirty
 	# times — the first is a delivery/acquisition problem, the second a
 	# lethality one, and without this number they look identical in a report.
-	var weapon: Weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
-	var missile: MissileSystem = _drone.get_node("FpvCamera/MissileSystem") \
-			as MissileSystem
-	var spent: int = missile.launches \
-			if MATCHUPS[_matchup_i]["weapon"] == "missile" else weapon.shots_fired
+	var spent: int = 0
+	match MATCHUPS[_matchup_i]["weapon"]:
+		"missile":
+			spent = (_drone.get_node("FpvCamera/MissileSystem") \
+					as MissileSystem).launches
+		"flak":
+			spent = (_drone.get_node("FpvCamera/FlakPod") as FlakPod).shots_fired
+		_:
+			spent = (_drone.get_node("FpvCamera/Weapon") as Weapon).shots_fired
 	_results[_matchup_i].append({
 		"outcome": outcome,
 		"ttk": float(_duel_ticks) / _pps,
@@ -392,16 +416,20 @@ func _report() -> void:
 	# nothing. An assert that can be silently misaimed is worse than no assert.
 	_assert_min_win("Missile x Raider", 0.75, "pilot not engaging")
 	_assert_min_win("Blaster x Turret", 0.75, "gun-line aim failing")
-	# One STRUCTURAL assert: chip fire mathematically cannot crack the aegis
-	# shield (every bolt lands under the break threshold and splashes off).
-	# A single blaster win here means the threshold gate itself broke — a
-	# model regression, not a balance drift, so it fails the run like one.
-	var aegis_gun: int = _matchup_index("Blaster x Aegis")
-	if aegis_gun < 0:
-		_failures.append("rig broken: no 'Blaster x Aegis' cell — the shield-gate assert has nothing to guard")
-	elif _win_rate(aegis_gun) > 0.0:
-		_failures.append("shield gate broken: Blaster x Aegis won %.0f%% — chip fire cracked a shield it cannot"
-				% (_win_rate(aegis_gun) * 100.0))
+	# STRUCTURAL asserts: neither the chip gun (25) nor the flak burst (10) can
+	# reach the aegis's 40 break threshold, so every round splashes off forever.
+	# A single win in either cell means the threshold gate itself broke — a
+	# model regression, not a balance drift, so it fails the run like one. Both
+	# columns are listed because both are hard-countered by the SAME rule, and
+	# an assert that only guards one of them would let the other rot.
+	for name: String in ["Blaster x Aegis", "Flak x Aegis"]:
+		var index: int = _matchup_index(name)
+		if index < 0:
+			_failures.append("rig broken: no '%s' cell — the shield-gate assert has nothing to guard"
+					% name)
+		elif _win_rate(index) > 0.0:
+			_failures.append("shield gate broken: %s won %.0f%% — under-threshold fire cracked a shield it cannot"
+					% [name, _win_rate(index) * 100.0])
 
 	if _failures.is_empty():
 		print("[matchup] PASS")
@@ -560,17 +588,23 @@ func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
 			as CombatConfig
 	var aim: float = float(aim_table[aim_key])
 	var evasion: float = float(evasion_table[evasion_key])
+	# 1.0 for every weapon that damages one body per connect, so this reads as
+	# nothing at all until an AREA weapon is in the cell.
+	var splash: float = BalancePrediction.splash_for(factors, weapon, type_id)
 	# The unit is the CLOUD for distributed types (P4.q5): killing it means
-	# killing every body, which is where the pack's economy bites.
+	# killing every body, which is where the pack's economy bites — and where an
+	# area weapon stops paying it.
 	var bodies: float = maxf(enemy.pack_size, 1.0)
 	var prediction: Dictionary = BalancePrediction.predict(
-			weapon, combat, enemy, aim, evasion, bodies)
+			weapon, combat, enemy, aim, evasion, bodies, splash)
+	var splash_note: String = " x splash %.2f" % splash if splash != 1.0 else ""
 	if String(prediction["why"]) != "":
-		prediction["note"] = "aim %.2f x evasion %.2f — %s" \
-				% [aim, evasion, prediction["why"]]
+		prediction["note"] = "aim %.2f x evasion %.2f%s — %s" \
+				% [aim, evasion, splash_note, prediction["why"]]
 	else:
-		prediction["note"] = "aim %.2f x evasion %.2f = %.2f hit rate, %.0f shots%s @ %.1fs, ttk %.1fs" % [
-				aim, evasion, prediction["hit_rate"], prediction["shots_fired"],
+		prediction["note"] = "aim %.2f x evasion %.2f = %.2f hit rate%s, %.0f shots%s @ %.1fs, ttk %.1fs" % [
+				aim, evasion, prediction["hit_rate"], splash_note,
+				prediction["shots_fired"],
 				" (%d bodies)" % int(bodies) if bodies > 1.0 else "",
 				prediction["cadence"], prediction["ttk"]]
 	return prediction

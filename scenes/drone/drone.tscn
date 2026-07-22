@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/drone/flight_controller.gd" id="1_fc"]
 [ext_resource type="Script" path="res://scripts/drone/motor_model.gd" id="2_mm"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/combat/missile_system.gd" id="11_msys"]
 [ext_resource type="Script" path="res://scripts/drone/blackbox.gd" id="12_bbox"]
 [ext_resource type="Resource" path="res://resources/default_damage_config.tres" id="13_dmg"]
+[ext_resource type="Script" path="res://scripts/combat/flak_pod.gd" id="14_flak"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
 size = Vector3(0.28, 0.08, 0.28)
@@ -60,6 +61,10 @@ combat_config = ExtResource("6_ccfg")
 
 [node name="MissileSystem" type="Node3D" parent="FpvCamera"]
 script = ExtResource("11_msys")
+combat_config = ExtResource("6_ccfg")
+
+[node name="FlakPod" type="Node3D" parent="FpvCamera"]
+script = ExtResource("14_flak")
 combat_config = ExtResource("6_ccfg")
 
 [node name="Health" type="Node" parent="."]

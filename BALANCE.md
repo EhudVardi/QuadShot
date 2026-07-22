@@ -29,8 +29,8 @@ and verified against the shipped `Health` code by planted-shot benches
 25 damage under a 40 break threshold is 0 forever, and no delivery skill
 changes that. NOT for: predicting duels — connecting is the hard part.
 
-**Layer 2 — delivery.** Whether shots actually land, split into two factors
-that belong to different owners:
+**Layer 2 — delivery.** Whether shots actually land, split into factors that
+belong to different owners:
 - `aim_quality` — per AGENT. Measured by the aim bench: the agent vs a
   static target. The FCS gear ladder and this axis are the same axis — one
   measured, one purchased (equipment shifts a delivery factor; it never adds
@@ -39,12 +39,28 @@ that belong to different owners:
   perfect-aim shooter vs the moving enemy. The target's slipperiness is not
   the shooter's skill, and conflating them is how Blaster×Raider spent a
   phase reporting the bot instead of the weapon.
+- `splash` — per WEAPON×TARGET, and it belongs to neither of the above: it
+  is the weapon's burst geometry meeting the target's dispersion. Bodies
+  covered per ARRIVING burst, measured against a real pack. It divides the
+  pack bill (an area weapon is paid per burst while the target is priced per
+  body); it is 1.0 for every weapon that damages one body per connect, so it
+  is inert everywhere except the flak column. NOT a damage multiplier —
+  Layer 1 still prices flak per body, exactly like every other weapon.
+
+**`aim_quality` is hits-per-shot-FIRED, which says nothing about how often a
+shot is taken.** Two weapons with different trigger policies therefore
+produce non-comparable aim numbers: the blaster's trigger is the gun director
+(fires on any arc solution, so it takes many marginal shots — duty ~0.4, aim
+0.17), the flak pod has no director (the pilot fires only inside a 6° cone —
+duty ~0.7, aim 0.99). The delivery bench prints a **duty cycle** beside every
+rate for exactly this reason. Reading 0.99 against 0.17 as "flak aims better"
+is the Blaster×Raider mistake wearing a new column's name.
 
 **Validation — the duel harness** (`matchup_harness.gd`). The integrated
 fight, demoted from source-of-truth to cross-check: predicted product
-(lethality × aim_quality × evasion) vs dueled result. Divergence is not
-noise — it NAMES an un-modeled factor (survival pressure, the deadline, the
-economy) to go model or accept. NOT for: populating the table.
+(lethality × aim_quality × evasion ÷ splash) vs dueled result. Divergence is
+not noise — it NAMES an un-modeled factor (survival pressure, the deadline,
+the economy) to go model or accept. NOT for: populating the table.
 
 ## The rulers
 
@@ -69,6 +85,13 @@ economy) to go model or accept. NOT for: populating the table.
   be 0% or 100% and its cell can only read `++` or `--` — it *cannot* report
   `0` or `+` whatever the balance is. The report says so per cell; don't read
   that resolution limit as a measurement.
+- **The ruler's aim datum decides how weapons rank against each other, not
+  just how fast they kill.** The reference pilot hits 0.17 with the chip gun
+  and 0.99 with the fused flak shell, so any cell comparing the two is partly
+  reporting the BOT. On Layer 1 alone flak is the *slowest* single-target
+  weapon in the game (4 hits / 1.2 s on a raider vs the blaster's 2 / 0.1 s);
+  it only outranks the gun once this pilot's aim is applied. Until the human
+  aim bench (H.q4) lands, read every flak-vs-gun comparison as provisional.
 - **Human results are deviation data** (H5): they tell you how a skilled
   human deviates from the reference datum. Interesting, logged, labeled —
   and never merged into the base table. Hand-banded cells say out loud that

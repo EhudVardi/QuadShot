@@ -31,12 +31,24 @@ extends RefCounted
 ## into a circle, leaving pitch free for aim (see standoff_range). Fixes the
 ## v1 ram into the non-evading aegis. Every pilot-dependent factor is
 ## re-measured under v2; balance/delivery_factors.json carries pilot_version 2.
-const PILOT_VERSION: int = 2
+## v3 (v1.28) = THE FLAK COLUMN. `use_missile` becomes `weapon_id`, and a third
+## branch flies the flak pod: identical aim loop to the blaster (a fused shell
+## still has to be pointed), no orbit (that is homing-only), and a manual
+## trigger — the pod has no gun director, because its fuse IS its assist. The
+## blaster and missile paths are byte-for-byte the flying they were under v2,
+## and the re-measure PROVED it (every v2 factor came back unchanged). The bump
+## is the discipline working, not a claim that anything moved.
+const PILOT_VERSION: int = 3
 
 var drone: FlightController
 var weapon: Weapon
 var missile: MissileSystem
-var use_missile: bool = false
+var flak: FlakPod
+## Which weapon this pilot is being measured with: blaster | missile | flak.
+## Each column is flown the way its own weapon wants (see the orbit note), and
+## aim_quality is keyed per weapon, so that is a measurement choice rather than
+## a favour.
+var weapon_id: String = "blaster"
 var target: Node3D
 
 # --- Competence datum (H5). Calibrated by the human against real skill. ---
@@ -153,11 +165,15 @@ func update(_delta: float) -> void:
 	# Lead a moving target by the bolt's flight time (homing missiles don't
 	# need it — aim at the true position so the lock cone stays centered).
 	var aim_point: Vector3 = target.global_position
-	if not use_missile:
+	if weapon_id != "missile":
 		var raw: Vector3 = target.global_position - drone.global_position
 		var target_vel: Variant = target.get(&"velocity")
-		var flight_time: float = raw.length() \
-				/ maxf(weapon.combat_config.muzzle_speed, 1.0)
+		# Lead by the round's OWN flight time. A flak shell is slower than a bolt
+		# (70 vs 90 m/s), and leading it at the bolt's speed would measure a
+		# defect in this file wearing the flak column's name.
+		var speed: float = weapon.combat_config.flak_muzzle_speed \
+				if weapon_id == "flak" else weapon.combat_config.muzzle_speed
+		var flight_time: float = raw.length() / maxf(speed, 1.0)
 		if target_vel is Vector3:
 			aim_point += (target_vel as Vector3) * flight_time
 	var to_target: Vector3 = aim_point - drone.global_position
@@ -166,6 +182,14 @@ func update(_delta: float) -> void:
 	# The GUN LINE: the weapon sits under the FPV camera and fires along its
 	# -Z, so the uptilt is baked into this basis. Aiming the body would miss
 	# high by the uptilt angle.
+	#
+	# The flak pod is a SIBLING of the weapon under the same camera with the same
+	# identity local transform, so this basis is its gun line too — an equality
+	# by construction, not a coincidence, but one that would break silently if
+	# anything ever rotated the Weapon node in a pilot-driven path. Nothing does
+	# (only the delivery bench's frozen perfect shooter re-lays these nodes, and
+	# the pilot does not run in those cells). Read as: if that ever changes, the
+	# flak branch needs `flak.global_basis` and a re-measure.
 	var gun: Vector3 = -weapon.global_basis.z
 	var gun_flat := Vector3(gun.x, 0.0, gun.z).normalized()
 	var max_roll_rate: float = deg_to_rad(drone.config.max_rate_deg.x)
@@ -229,7 +253,7 @@ func update(_delta: float) -> void:
 	# flying its own weapon wants.
 	var range: float = drone.global_position.distance_to(target.global_position)
 	var orbit_blend: float = 0.0
-	if use_missile:
+	if weapon_id == "missile":
 		orbit_blend = clampf(
 				(orbit_engage_range - range)
 				/ maxf(orbit_engage_range - standoff_range, 0.1),
@@ -265,11 +289,22 @@ func update(_delta: float) -> void:
 
 	# Fire when the GUN line is on the target and it is in reach.
 	var on_target: bool = gun.angle_to(to_target) < deg_to_rad(fire_cone_deg)
-	if use_missile:
+	var in_reach: bool = to_target.length() < fire_range
+	if weapon_id == "missile":
 		# The director launches the instant a lock completes; keeping the
 		# target in the (camera-aligned) lock cone is the aim loop's job.
 		if missile != null:
 			missile.fire_override = true
+		_hold_blaster()
+	elif weapon_id == "flak":
+		# The pod has no gun director to hand the trigger to (flak_pod.gd says
+		# why: the proximity fuse is the assist), so this loop pulls it — under
+		# the SAME cone and range knobs the manual blaster path uses. Widening
+		# the cone "because the fuse forgives" would be tuning the ruler to
+		# flatter the column it is measuring; if the fuse forgives, that must
+		# show up as more BURSTS CONNECTING, not as an easier trigger.
+		if flak != null:
+			flak.fire_override = on_target and in_reach
 		_hold_blaster()
 	elif use_director:
 		# Hands off the trigger: weapon.gd fires itself whenever its own arc
@@ -277,7 +312,7 @@ func update(_delta: float) -> void:
 		# somewhere useful is this loop's entire contribution.
 		_hold_blaster()
 	else:
-		weapon.fire_override = on_target and to_target.length() < fire_range
+		weapon.fire_override = on_target and in_reach
 
 
 func _altitude_throttle(target_alt: float) -> float:
@@ -300,6 +335,8 @@ func _hold_fire() -> void:
 	_hold_blaster()
 	if missile != null:
 		missile.fire_override = false
+	if flak != null:
+		flak.fire_override = false
 
 
 func _hold_blaster() -> void:

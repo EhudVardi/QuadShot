@@ -19,6 +19,15 @@ extends SceneTree
 ## raider, the rig is broken and the run fails, before any mover is blamed
 ## for "evading".
 ##
+## SPLASH — a THIRD delivery factor, and the flak column is why it exists. Aim
+## belongs to the agent and evasion to the target, but "how many bodies does one
+## arriving burst cover" belongs to neither: it is the weapon's geometry meeting
+## the target's dispersion. So the flak cells report two numbers from one
+## measurement — `bursts_connected / shots_fired` (arrival, comparable to every
+## other weapon's rate) and `bodies_struck / bursts_connected` (splash) — and
+## the prediction layer divides the pack bill by the second. For a weapon that
+## damages one body per connect, splash is 1.0 and nothing changes.
+##
 ## What these numbers are NOT (BALANCE.md): win predictions. They multiply
 ## with Layer 1 lethality into the predicted product that the duel harness
 ## VALIDATES; divergence there names an un-modeled factor.
@@ -91,6 +100,38 @@ const CELLS: Array[Dictionary] = [
 			"weapon": "missile", "target": "gnats", "seconds": 45.0},
 	{"name": "evasion: missile x aegis", "kind": "evasion",
 			"weapon": "missile", "target": "aegis", "seconds": 45.0},
+	# 40 s, not the blaster's 20. The pod's cycle is 4x slower AND its trigger is
+	# conditional (no director), so a 20 s window yielded only ~36 shots, and the
+	# cell measured 1.00 in one run and 0.92 in the next on nothing but
+	# cross-process float variance moving three shells across the 6-degree cone
+	# edge.
+	#
+	# The longer window HALVED that spread but did not remove it: three runs at
+	# 40 s read 0.99 / 0.99 / 0.94. More time is not more independent samples
+	# here — the pilot flies one quasi-periodic trajectory, so a longer window
+	# mostly re-measures the same oscillation. Left as measured rather than
+	# chased: the residual spread moves no band (this cell divides into
+	# single-digit shot counts), and it sits inside the contract the harness
+	# header already states — AI-level deterministic, not bit-exact, read
+	# aggregate movement rather than single reps. Recorded so the next reader
+	# does not mistake a 0.94/0.99 difference between runs for a balance change.
+	{"name": "aim: flak", "kind": "aim", "weapon": "flak",
+			"target": "static", "seconds": 40.0},
+	{"name": "evasion: flak x static", "kind": "evasion",
+			"weapon": "flak", "target": "static", "seconds": 20.0,
+			"control": true},
+	{"name": "evasion: flak x raider", "kind": "evasion",
+			"weapon": "flak", "target": "raider", "seconds": 20.0},
+	{"name": "evasion: flak x turret", "kind": "evasion",
+			"weapon": "flak", "target": "turret", "seconds": 20.0,
+			"control": true},
+	# THE CELL THE WHOLE COLUMN EXISTS FOR (P4.3 flak x gnat = `++`). The
+	# blaster reads 0.12 here; if flak does not read dramatically better, the
+	# gnat row has no answer and the paper band is a promise nothing keeps.
+	{"name": "evasion: flak x gnats", "kind": "evasion",
+			"weapon": "flak", "target": "gnats", "seconds": 20.0},
+	{"name": "evasion: flak x aegis", "kind": "evasion",
+			"weapon": "flak", "target": "aegis", "seconds": 20.0},
 ]
 
 ## Every roster config whose numbers can move a measured delivery factor —
@@ -125,6 +166,7 @@ var _arena: Node3D
 var _drone: FlightController
 var _weapon: Weapon
 var _missile: MissileSystem
+var _flak: FlakPod
 var _pilot: ReferencePilot
 var _target: Node
 var _enemy_config: EnemyConfig
@@ -191,17 +233,23 @@ func _build_cell() -> void:
 	_drone.arm()
 	_weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
 	_missile = _drone.get_node("FpvCamera/MissileSystem") as MissileSystem
+	_flak = _drone.get_node("FpvCamera/FlakPod") as FlakPod
 
-	var is_missile: bool = cell["weapon"] == "missile"
+	var weapon_id: String = cell["weapon"]
+	var is_missile: bool = weapon_id == "missile"
 	if cell["kind"] == "aim":
 		_drone.prime_motors(_drone.hover_throttle())
+		# The gun director belongs to the CHIP GUN cell only. The missile has
+		# its own launch logic and the flak pod has none by design, so arming it
+		# anywhere else would put a second weapon in the cell (v1.25's lesson).
 		_weapon.combat_config.fire_assist_miss_m = \
-				DIRECTOR_MISS_M if not is_missile else 0.0
+				DIRECTOR_MISS_M if weapon_id == "blaster" else 0.0
 		_pilot = ReferencePilot.new()
 		_pilot.drone = _drone
 		_pilot.weapon = _weapon
 		_pilot.missile = _missile
-		_pilot.use_missile = is_missile
+		_pilot.flak = _flak
+		_pilot.weapon_id = weapon_id
 		_pilot.cruise_altitude = ALTITUDE
 		if is_missile:
 			_missile.fire_override = true
@@ -214,10 +262,13 @@ func _build_cell() -> void:
 		drone_health.max_health = IMMORTAL_HULL
 		drone_health.revive()
 		_weapon.combat_config.fire_assist_miss_m = 0.0
-		if is_missile:
-			_missile.fire_override = true
-		else:
-			_weapon.fire_override = true
+		match weapon_id:
+			"missile":
+				_missile.fire_override = true
+			"flak":
+				_flak.fire_override = true
+			_:
+				_weapon.fire_override = true
 
 	_target = _build_target(cell["target"])
 	if _pilot != null:
@@ -229,8 +280,12 @@ func _build_cell() -> void:
 	_fire_ticks = int(float(cell["seconds"]) * _pps)
 	# Let what is already flying land before scoring, so the last launch of
 	# the window is not booked as a miss it never had time to disprove.
-	var grace_s: float = _combat.missile_lifetime if is_missile \
-			else _combat.projectile_lifetime
+	var grace_s: float = _combat.projectile_lifetime
+	match weapon_id:
+		"missile":
+			grace_s = _combat.missile_lifetime
+		"flak":
+			grace_s = _combat.flak_shell_lifetime
 	_grace_ticks = int(grace_s * _pps)
 	_ticks = 0
 	_connects = 0
@@ -343,13 +398,21 @@ func _drive() -> void:
 	var aim_at: Node3D = _live_target_body()
 	if aim_at == null:
 		return
-	var gun_point: Vector3 = _ballistic_aim_point(aim_at)
+	var gun_point: Vector3 = _ballistic_aim_point(aim_at,
+			_combat.muzzle_speed, _combat.projectile_gravity_scale)
 	if _weapon.global_position.distance_squared_to(gun_point) > 0.01:
 		_weapon.look_at(gun_point)
 	# The missile homes; the lock cone wants the TRUE bearing, not a lead.
 	if _missile.global_position.distance_squared_to(
 			aim_at.global_position) > 0.01:
 		_missile.look_at(aim_at.global_position)
+	# Flak flies its own, slower, droopier arc, so it gets its own solution.
+	# Aimed at the BODY, not at a fuse standoff: the shell decides when to burst
+	# and that decision is the weapon's, not the shooter's.
+	var flak_point: Vector3 = _ballistic_aim_point(aim_at,
+			_combat.flak_muzzle_speed, _combat.flak_shell_gravity_scale)
+	if _flak.global_position.distance_squared_to(flak_point) > 0.01:
+		_flak.look_at(flak_point)
 	_hold_fire_near_route_end(aim_at)
 
 
@@ -362,10 +425,13 @@ func _hold_fire_near_route_end(aim_at: Node3D) -> void:
 		return
 	var eta: float = ((route as Vector3) - aim_at.global_position).length() \
 			/ maxf(_enemy_config.speed, 0.1)
-	if CELLS[_cell_i]["weapon"] == "missile":
-		_missile.fire_override = eta > ROUTE_HOLD_MISSILE_S
-	else:
-		_weapon.fire_override = eta > ROUTE_HOLD_BOLT_S
+	match CELLS[_cell_i]["weapon"]:
+		"missile":
+			_missile.fire_override = eta > ROUTE_HOLD_MISSILE_S
+		"flak":
+			_flak.fire_override = eta > ROUTE_HOLD_BOLT_S
+		_:
+			_weapon.fire_override = eta > ROUTE_HOLD_BOLT_S
 
 
 func _live_target_body() -> Node3D:
@@ -377,10 +443,13 @@ func _live_target_body() -> Node3D:
 
 
 ## The exact firing solution: iterate flight time against the target's linear
-## prediction, then raise the aim by the bolt's own gravity drop. This is the
+## prediction, then raise the aim by the round's own gravity drop. This is the
 ## bench's definition of "perfect aim" — anything the target does beyond
-## flying straight is, by construction, evasion.
-func _ballistic_aim_point(body: Node3D) -> Vector3:
+## flying straight is, by construction, evasion. Parameterized by muzzle speed
+## and gravity scale so each weapon is measured against ITS OWN perfect shot,
+## not the blaster's.
+func _ballistic_aim_point(body: Node3D, muzzle_speed: float,
+		gravity_scale: float) -> Vector3:
 	var origin: Vector3 = _weapon.global_position
 	var target_velocity: Vector3 = Vector3.ZERO
 	var raw: Variant = body.get(&"velocity")
@@ -389,33 +458,92 @@ func _ballistic_aim_point(body: Node3D) -> Vector3:
 	var predicted: Vector3 = body.global_position
 	var flight_time: float = 0.0
 	for _i: int in 4:
-		flight_time = (predicted - origin).length() \
-				/ maxf(_combat.muzzle_speed, 1.0)
+		flight_time = (predicted - origin).length() / maxf(muzzle_speed, 1.0)
 		predicted = body.global_position + target_velocity * flight_time
 	var drop: float = float(ProjectSettings.get_setting(
-			"physics/3d/default_gravity")) * _combat.projectile_gravity_scale
+			"physics/3d/default_gravity")) * gravity_scale
 	return predicted + Vector3.UP * (0.5 * drop * flight_time * flight_time)
 
 
 func _cease_fire() -> void:
 	_weapon.fire_override = false
 	_missile.fire_override = false
+	_flak.fire_override = false
 	_weapon.combat_config.fire_assist_miss_m = 0.0
 
 
 func _score_cell() -> void:
 	var cell: Dictionary = CELLS[_cell_i]
-	var shots: int = _missile.launches if cell["weapon"] == "missile" \
-			else _weapon.shots_fired
-	var rate: float = float(_connects) / float(shots) if shots > 0 else 0.0
-	_results.append({"shots": shots, "connects": _connects, "rate": rate})
-	print("[delivery] %-28s %4d shots, %4d connects  -> %.2f"
-			% [cell["name"], shots, _connects, rate])
+	var weapon_id: String = cell["weapon"]
+	var shots: int = 0
+	var connects: int = 0
+	# Splash: bodies covered per ARRIVING burst. Exactly 1.0 for every weapon
+	# that damages one body per connect, which is what makes it a free extension
+	# rather than a new dimension (BALANCE.md, assumption 3b).
+	var splash: float = 1.0
+	match weapon_id:
+		"missile":
+			shots = _missile.launches
+			connects = _connects
+		"flak":
+			# Counted weapon-side, because an area weapon needs the two numbers
+			# separated: `bursts_connected` is arrival (comparable with every
+			# other cell's rate) and `bodies_struck` is coverage.
+			shots = _flak.shots_fired
+			connects = _flak.bursts_connected
+			if connects > 0:
+				splash = float(_flak.bodies_struck) / float(connects)
+			# CROSS-CHECK of two independent counters: the pod counts bodies as
+			# it damages them, the TARGET counts arrivals through Health.struck /
+			# the swarm's own kill signal. They must agree, and if they ever
+			# stop, one of the two is lying about a number the whole flak column
+			# is derived from.
+			if _connects != _flak.bodies_struck:
+				_failures.append("%s: target-side connects %d != pod-side bodies struck %d — the two counters disagree"
+						% [cell["name"], _connects, _flak.bodies_struck])
+		_:
+			shots = _weapon.shots_fired
+			connects = _connects
+	var rate: float = float(connects) / float(shots) if shots > 0 else 0.0
+	var duty: float = _duty_cycle(cell, shots)
+	_results.append({"shots": shots, "connects": connects, "rate": rate,
+			"splash": splash, "duty": duty})
+	var splash_note: String = "  splash %.2f bodies/burst" % splash \
+			if weapon_id == "flak" else ""
+	print("[delivery] %-28s %4d shots, %4d connects  -> %.2f  (duty %.2f)%s"
+			% [cell["name"], shots, connects, rate, duty, splash_note])
 	if shots == 0:
 		_failures.append("%s: fired nothing — rig broken" % cell["name"])
 	elif cell.get("control", false) and rate < CONTROL_MIN_RATE:
 		_failures.append("%s: control rate %.2f under %.2f — the perfect shooter cannot shoot; fix the bench before reading evasion"
 				% [cell["name"], rate, CONTROL_MIN_RATE])
+
+
+## Shots taken as a fraction of shots the cadence ALLOWED in the window.
+##
+## Reported because the flak column made an old conflation visible: `aim` is
+## hits-per-shot-FIRED, so it says nothing about how often a shot was taken, and
+## the two aim cells do not pull their triggers the same way. The blaster's is
+## pulled by the gun director, which fires on any arc solution and so takes many
+## marginal shots (duty ~0.4, aim 0.17); the flak pod has no director, so the
+## pilot only fires inside a 6-degree cone and nearly every shell fuses (duty
+## ~0.7, aim 1.00). Reading 1.00 against 0.17 as "flak aims six times better"
+## would be reading two different rulers — the same mistake, in a new column,
+## that Blaster x Raider cost a whole phase.
+##
+## Deliberately NOT folded into the model. Prediction assumes shots arrive at
+## the weapon's full cadence (assumption 2), so a duty under 1.0 is a standing
+## OPTIMISM in every predicted ttk — pre-existing, not new, and it belongs in
+## the report as a named factor rather than in a quiet correction coefficient.
+func _duty_cycle(cell: Dictionary, shots: int) -> float:
+	var cadence: float = 1.0 / maxf(_combat.fire_rate, 0.001)
+	match String(cell["weapon"]):
+		"missile":
+			cadence = maxf(_combat.missile_cooldown, 0.001)
+		"flak":
+			cadence = 1.0 / maxf(_combat.flak_fire_rate, 0.001)
+	var allowed: float = float(cell["seconds"]) / cadence
+	return float(shots) / allowed if allowed > 0.0 else 0.0
 
 
 func _teardown() -> void:
@@ -426,6 +554,7 @@ func _teardown() -> void:
 	_drone = null
 	_weapon = null
 	_missile = null
+	_flak = null
 	_target = null
 	_enemy_config = null
 
@@ -442,7 +571,13 @@ func _report() -> void:
 	print("[delivery] ---- Layer 2 factors (pilot v%d) ----"
 			% ReferencePilot.PILOT_VERSION)
 	for i: int in CELLS.size():
-		print("[delivery] %-28s %.2f" % [CELLS[i]["name"], _results[i]["rate"]])
+		var splash: float = float(_results[i]["splash"])
+		print("[delivery] %-28s %.2f  (duty %.2f)%s" % [CELLS[i]["name"],
+				_results[i]["rate"], _results[i]["duty"],
+				"   x %.2f bodies/burst" % splash if splash != 1.0 else ""])
+	print("[delivery] duty = shots taken / shots the cadence allowed. Aim cells with")
+	print("[delivery] different duty measured under different TRIGGER policies, so their")
+	print("[delivery] hit rates are not directly comparable (see _duty_cycle).")
 	_write_factors()
 	if _failures.is_empty():
 		print("[delivery] PASS")
@@ -463,17 +598,24 @@ func _write_factors() -> void:
 	var aim: Dictionary = {}
 	var evasion: Dictionary = {}
 	var control: Dictionary = {}
+	var splash: Dictionary = {}
 	for i: int in CELLS.size():
 		var cell: Dictionary = CELLS[i]
 		var rate: float = snappedf(float(_results[i]["rate"]), 0.01)
+		var yield_per_burst: float = snappedf(float(_results[i]["splash"]), 0.01)
 		var weapon: String = cell["weapon"]
 		if cell["kind"] == "aim":
 			aim[weapon] = rate
 		elif cell["target"] == "static":
 			control[BalancePrediction.evasion_key(weapon, "static")] = rate
 		else:
-			evasion[BalancePrediction.evasion_key(weapon,
-					TYPE_IDS[cell["target"]])] = rate
+			var type_id: String = TYPE_IDS[cell["target"]]
+			evasion[BalancePrediction.evasion_key(weapon, type_id)] = rate
+			# Only written when it is not the identity, so the artifact stays a
+			# record of what an AREA weapon does rather than a wall of 1.00s.
+			if yield_per_burst != 1.0:
+				splash[BalancePrediction.splash_key(weapon, type_id)] = \
+						yield_per_burst
 	# Stamped with BOTH rulers these factors were measured under: the pilot
 	# that flew them and the config numbers they were flown against. Either
 	# drifting makes the file stale, and the reader refuses it rather than
@@ -486,6 +628,7 @@ func _write_factors() -> void:
 		"config_stamp": BalancePrediction.config_stamp(_combat, enemies),
 		"aim": aim,
 		"evasion": evasion,
+		"splash": splash,
 		"control": control,
 	}
 	DirAccess.make_dir_recursive_absolute(
