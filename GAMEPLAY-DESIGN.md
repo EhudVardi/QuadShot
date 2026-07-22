@@ -1,6 +1,6 @@
 # QuadShot — Gameplay Design (Living Doc)
 
-> **Status:** v1.27 (2026-07-21) — paper phase complete; **the vertical-slice
+> **Status:** v1.29 (2026-07-22) — paper phase complete; **the vertical-slice
 > build is underway, Phases 1–3 landed and steered by playtest.** Done: the
 > matchup harness + reference pilot (P1), P2 — the damage model + the
 > fly-through **repair-gate** wounded-quad loop + the **FCS reticle**, and P3 —
@@ -30,16 +30,22 @@
 > the pilot itself (**v2: standoff by orbit**, homing weapons only) — aiming a
 > 44°-uptilted gun IS closing, so range is held in the roll axis by curving,
 > never in pitch; `Missile × Aegis` goes 0/6 timeouts to **6/6 wins spending
-> exactly the 3 missiles Layer 1 predicts**.
-> v1.27 triages an **external read-only review** of the whole tree
-> (`HANDOFF-REPORT-2026-07-21.md`): the instrument is hardened before Phase 4
-> touches the matrix — asserts addressed by name (positional ones would have
-> silently misaimed on the new rows), a **config stamp** so factors rot when
-> the numbers they were measured against change, and the watch-mode HUD finally
-> drawn. Its standing backlog (mission-layer determinism, the slice-four not
-> yet in the live wave loop) is recorded in that entry.
-> **Next: Phase 4** — flak + Atlas, on a state-aware, watchable, unconflated
-> instrument flown by a pilot that does not ram. Design record below.
+> exactly the 3 missiles Layer 1 predicts**. v1.28 lands **Phase 4's first
+> half: the flak pod** — the 3rd weapon column and the designed gnat answer.
+> The paper `++` HOLDS and is the only cell in the table where paper, predicted
+> and validated all agree: 9/9 gnats cleared for 2.7 shells and zero hull, where
+> the chip gun manages 1.8 kills for half the player's hull. It also cost the
+> model one honest extension (`splash`, a third delivery factor) and surfaced
+> that the ruler's own aim datum — not the weapons — decides the flak-vs-gun
+> single-target cells. v1.29 is the human flying it: positive feel ("flak
+> absolutely destroys the gnats… really helps against groups of raiders"), and
+> the blackbox — read back for the first time as deviation data rather than a
+> debug channel — names a real coverage gap the paper couldn't: every
+> `× Raider` cell, every weapon, is 1v1, while the shipped wave director spawns
+> raiders in growing concurrent groups. Logged, not built — a Raider×N pack
+> bench and a richer combat-event blackbox both queued behind Atlas, by the
+> user's own call.
+> **Next: Phase 4's second half** — Atlas, the 2nd frame. Design record below.
 > Seven iterations closed: five pillars (P1 theater, P4 bestiary, P3 arsenal, P5
 > economy, P2 composition) + Iteration 6 (the balance harness + stated difficulty
 > curve, H1–H9) + Iteration 7 (the damage model — flying the wounded quad, D1–D9)
@@ -4086,3 +4092,213 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     **GAP-H2 / OPPORTUNITY-H** (single-seed `evasion:raider`; the gnat evasion
     cell measured with pursuit disabled). Plus the war-sim serialization
     fragilities (RISK-2/3/4/5) and the `WarConfig` promotion (SMELL-1).
+- **2026-07-21 — v1.28. Phase 4a: the flak pod lands, the paper `++` holds, and
+  the ruler shows itself.** The 3rd weapon column, built and measured on the
+  instrument Phase 3.5 exists to provide. The headline is a rare thing in this
+  log: a paper band that survived contact with measurement, unchanged.
+  - **THE ANSWER TO THE QUESTION ASKED.** `Flak × Gnats` is the only cell in
+    the mini-web where **paper `++` → predicted `++` → validated `++`** all
+    agree. Validated exchange **+1.00: nine of nine bodies shot down, zero hull
+    spent, 2.7 shells, 1.3 s** — against the chip gun's 1.8 kills for 50% of the
+    player's hull over 26 bolts. The gnat row now has an answer, which is what
+    v1.24/v1.25/v1.26 all deferred to this phase to find out. Predicted 0.8 s vs
+    measured 1.3 s is acquisition + flight, the model's stated assumption 4.
+  - **The weapon, per P3.1, with nothing special-cased.** A ballistic shell with
+    a proximity fuse (`flak_fuse_radius` 3.5 m) that bursts into a flat-damage
+    fragment cloud (`flak_burst_radius` 6 m, 10 damage), auto at a slow cycle
+    (2.5/s vs the blaster's 10). **The gap between the two radii IS the weapon**:
+    a fuse tighter than the burst lets the shell get INTO a cloud before it goes
+    off, so fragments come from the middle of the pack rather than its near face.
+    And the P4.3 `--` against shields needs no code at all — 10 damage under the
+    aegis's 40 break threshold reports NEVER through the same branch that
+    hard-counters the chip gun. "Useless tonnage against shields" falls out of
+    one number being small.
+  - **Flat damage inside the burst, deliberately.** A falloff curve would make
+    damage-per-connect a function of geometry — i.e. it would smear a delivery
+    concern into Layer 1 — and the planted-shot bench could no longer check the
+    arithmetic at all. Layer 1 stays "if this connects with a target, what
+    happens to THAT target"; all 15 cells (3 weapons × 5 states) verify against
+    the real `Health`, including 75 flak hits absorbed by a shielded aegis.
+  - **THE MODEL EXTENSION THE COLUMN FORCED: `splash`, a third delivery
+    factor.** An area weapon is paid per BURST while the target is priced per
+    BODY, and nothing in the layered model expressed that. `splash` = bodies
+    covered per ARRIVING burst, **measured** against a real pack (3.42 for
+    flak × gnats), dividing the pack bill. Its owner is neither the agent (aim)
+    nor the target (evasion) but the pair — the weapon's burst geometry meeting
+    the target's dispersion — which is why it is a third factor rather than a
+    fudge inside one of the first two. **It is 1.0 for every weapon that damages
+    one body per connect, so it is inert everywhere except flak.** Layer 1 was
+    NOT touched: flak is still priced per body there, like everything else.
+  - **One shipped number moved, and it was a rounding bug.** Predicted shot
+    counts used to ceil PER BODY and then multiply by pack size; a bolt that
+    misses gnat 4 is not a shot "wasted on gnat 4" to be re-spent, it is one
+    shot of an aggregate bill. Now one ceiling, on the total. Only
+    `Blaster × Gnats` moves — 450 shots → 442, ttk 44.9 s → 44.1 s, band
+    unchanged `--`. Flak forced the question because the pack bill is its whole
+    economy.
+  - **THE FINDING WORTH MORE THAN THE WEAPON: two of the flak column's four
+    cells are reporting the BOT, not the gun.** `Flak × Raider` reads paper `0`
+    → predicted `++` → validated `++`, and `Flak × Turret` reads paper `-` →
+    `++` → `++`. The tempting read is "flak is overtuned against single
+    targets." **The arithmetic says the opposite: on Layer 1 alone flak is the
+    SLOWEST single-target weapon in the game** — 4 hits / 1.2 s on a raider
+    against the blaster's 2 hits / 0.1 s. It only outranks the gun once delivery
+    is applied, and delivery here is `aim: blaster 0.17` vs `aim: flak 0.99` —
+    which is a statement about a pilot that cannot hold a gun line, meeting a
+    fuse that does not require one. **This is the v1.24 `Blaster × Raider`
+    vindication repeating in a new column**: the instrument reporting the ruler's
+    competence as the weapon's property. So: do not tune flak to the paper bands
+    on this evidence. The parked human aim bench (H.q4) just went from "nice to
+    have" to load-bearing — it is now the thing that decides whether the flak
+    column is honest.
+  - **P4.3 INVARIANT 3 IS THE SHARPEST FORM OF THAT FINDING.** "No column
+    dominates another (≥ in every row), or the dominated archetype is dead
+    content walking." On the **measured** table flak now weakly dominates the
+    chip gun: `++`/`++`/`++`/`--` against the gun's `++`(hand)/`++`/`-`/`--` —
+    equal in three rows, better in the gnat row. On the **paper** table it does
+    not, and cannot: P4.3 gives the gun `++` on raiders where flak has `0`, and
+    the gun `+` on gnats where flak has `++`. So the two tables disagree about
+    whether the slice has a dominance problem, and the entire disagreement sits
+    in one number — the ruler's 0.17 blaster aim. **The invariant is not
+    violated by the design; it is unverifiable by this instrument until the
+    pilot can shoot.** That is the strongest argument yet for H.q4, and it is
+    logged rather than acted on.
+  - **`aim_quality` is hits-per-shot-FIRED, and that hid a conflation.** It says
+    nothing about how OFTEN a shot is taken, so two weapons with different
+    trigger policies produce non-comparable aim numbers: the blaster's trigger is
+    the gun director (fires on any arc solution — duty 0.41, aim 0.17), the flak
+    pod has none by design (the pilot fires only inside a 6° cone — duty 0.68,
+    aim 0.99). The delivery bench now prints a **duty cycle** beside every rate.
+    Deliberately NOT folded into the model: prediction assumes shots arrive at
+    full cadence, so a sub-1.0 duty is a standing optimism in every predicted
+    ttk — pre-existing, and it belongs in the report as a named factor rather
+    than in a quiet correction coefficient.
+  - **The pod carries no gun director, on purpose.** A bolt must intersect a
+    body; a fused shell only has to arrive near one, and that forgiveness IS its
+    assist. Giving it a second trigger-puller would hand the column an advantage
+    P4.3 never priced ("FCS is not a column"). The reference pilot therefore
+    pulls the flak trigger under the SAME 6° cone and range knobs the manual
+    blaster path uses — widening them "because the fuse forgives" would be tuning
+    the ruler to flatter the column it measures.
+  - **`PILOT_VERSION` 3, and the bump proved its own point.** `use_missile`
+    became `weapon_id`, plus a third branch (blaster aim loop, no orbit — that is
+    homing-only — manual trigger, and leading by the shell's own 70 m/s rather
+    than the bolt's 90). Behaviourally inert for the existing columns, and the
+    re-measure **proved it rather than asserting it**: every v2 factor came back
+    byte-identical (blaster 0.17, missile 1.00, all seven evasion cells), the
+    file diff purely additive. That is what the pin is for.
+  - **A wobbling factor, reduced but NOT eliminated — stated as measured.**
+    `aim: flak` read 1.00 in one run and 0.92 in the next on identical code:
+    cross-process float variance moving three shells across the 6° cone edge in
+    a 36-shot sample. The cell's window went 20 s → 40 s, which halved the
+    spread — three runs then read **0.99 / 0.99 / 0.94**. It did not fix it, and
+    an earlier draft of this entry claimed it had after only two runs; the third
+    run corrected that, which is the argument for running the report more than
+    once before believing a factor. More time is not more independent samples
+    here: the pilot flies one quasi-periodic trajectory, so a longer window
+    largely re-measures the same oscillation. **Left as measured rather than
+    chased** — the residual moves no band (this cell divides into single-digit
+    shot counts) and sits inside the harness's already-stated contract:
+    AI-level deterministic, not bit-exact. Logged so a future 0.94-vs-0.99
+    diff is not read as a balance change. **This is the flak column's least
+    stable number**; the chip gun's aim (0.17, 81 shots) does not move.
+  - **Also landed:** `flak:*` config fields joined the delivery **config stamp**
+    the day the weapon shipped (the v1.27 rule, honoured on its first test —
+    Phase 4 was the exact scenario that made the stamp urgent); the shield-gate
+    structural assert now guards **both** under-threshold columns by name; a
+    two-counter **cross-check** in the bench fails the run if the pod's own
+    body count and the target's `Health.struck` count ever disagree; the flak
+    pod is wired into `drone.tscn`, the overlay COMBAT section, and the bindings
+    (**RB** / **G**), so the human's hands can judge it. All seven correctness
+    suites and all three balance layers green.
+  - **DEFERRED, named rather than skipped: GAP-1, the `WeaponConfig` split.**
+    The external review called the flak pod the forcing function for promoting a
+    per-weapon resource (P3.9). It was not taken: flak's fields went onto
+    `CombatConfig` beside the missile's, because doing the three-weapon
+    refactor in the same change as the measurement would have meant re-measuring
+    a moved config and a new weapon at once, with no way to tell which moved a
+    number. The migration is mechanical and now has three columns' worth of
+    fields to justify it — the right moment is with Atlas, where `FrameConfig`
+    arrives anyway.
+  - **Open, for the human's call (nothing acted on):** whether `Flak × Raider`
+    `0`→`++` and `Flak × Turret` `-`→`++` are stale paper bands, a real config
+    problem, or — the reading this entry argues for — an artifact of a ruler
+    whose blaster aim is 0.17. Also unchanged from v1.26: `Missile × Raider`
+    `+`→`++`, `Blaster × Turret` `0`→`++` (partly a resolution artifact per
+    v1.27), `Blaster × Gnats` `+`→`--`. All still subject to the v1.25 caveat:
+    the 1v1 void has no economy, no cover and no crossfire.
+  - **Next: Phase 4b — Atlas** (2nd frame, the P3.4 frame axis), then the H.q4
+    hands-on difficulty calibration, whose priority this entry just raised.
+    **To resume after a session cut: "Continue QuadShot — Phase 4b (Atlas) per
+    the v1.28 entry."**
+- **2026-07-22 — v1.29. The human flies the flak pod, and the blackbox names a
+  coverage gap the 1v1 harness cannot see.** Feel checkpoint on v1.28: "the
+  flak is a great addition and it absolutely destroys the gnats. it also
+  really helps destroy groups of raiders... since it does not have auto shot
+  then i dont use it too much against the turrets, but it looks like it works
+  also against the turrets." H5 territory — hands measure feel, logged as
+  deviation data, no band or code changes follow from it.
+  - **The blackbox as a deviation-data source, used for the first time this
+    way.** Asked to look for something the numbers might be missing, the
+    11.6-minute session (`flight_20260722_205136.csv`, 166,503 ticks) was read
+    back. Flight-telemetry-only (position/rates/motor output — no weapon-fired,
+    no hit, no enemy channel), so this is what it can honestly say, no more:
+    almost no hovering (0.5% of the flight under 2 m/s; 67% above 15 m/s, avg
+    17.1 m/s), roll commanded far harder and more often than pitch or yaw (avg
+    80°/s vs 35°/s / 30°/s, p95 roll 281°/s), a path 123x longer than its net
+    displacement (constant circling/weaving, not point-to-point flying), and
+    frequent low passes (8.9% of the flight under 3 m) with a few brief
+    single-point ground skims, speed recovering right after — buzzing, not
+    crashing. **None of this is how the reference pilot flies a gun or the flak
+    pod** — it holds close to wings-level for both (roll only damps drift; the
+    v2 standoff-by-orbit is missile-only per `reference_pilot.gd`). The human is
+    doing continuous evasive banking the instrument's flying style never
+    attempts for these two weapons.
+  - **THE GAP THIS NAMES: every `× Raider` cell in the matrix, every weapon, is
+    1-VS-1.** `wave_director.gd:84-89` spawns `wave_base_enemies +
+    wave_growth×(wave−1) + sortie_enemy_bonus×(sortie−1)` raiders
+    SIMULTANEOUSLY, scaling every wave and sortie — "more and more raiders
+    come up" is the shipped design, not a report of it. But only gnats get
+    pack-mode banding; the raider row has never been measured against more than
+    one body at a time. So "flak helps against groups of raiders" is a real
+    gameplay benefit the instrument has **zero coverage of, for any weapon** —
+    not a ruler artifact like the v1.28 aim-datum finding (where a bad blaster
+    aim was inflating flak's apparent lead in a FAIR 1v1), but an honest scope
+    limit: the thing being praised is not the thing being measured. Consistent
+    with the v1.25 caveat (the duel is a 1v1 void with no crossfire) landing on
+    real evidence rather than staying theoretical.
+  - **Decision (user's call): a Raider×N pack bench, mirroring the gnat pack
+    cells, is wanted — after Atlas, not before.** Logged so it is not
+    rediscovered; not built. Candidate for the same session as, or right
+    before, H.q4's human aim bench, since both are "make the instrument match
+    what is actually played" work.
+  - **A second, DISTINCT ask surfaced in the same conversation: richer
+    per-tick combat instrumentation in the blackbox itself** (shots fired, hits
+    landed, enemy identity/position) so a session can be reviewed for combat
+    detail, not just flight dynamics. Not the same thing as the H.q3 DECIDED
+    item ("blackbox-replay... reserved richer datum once the slice has real
+    maps to record on") — that was about replaying a human's flight as a
+    competence datum for the reference-pilot model; this is about instrumenting
+    ANY session for after-the-fact diagnosis, which is what this very entry
+    just did by hand from flight data alone.
+    - **Sized, not guessed, before answering "will it inflate the files":**
+      this session's file is 128.4 bytes/row at 240 Hz (21.4 MB for 11.6 min).
+      A few sparse per-tick counters (shots fired per weapon, damage taken) are
+      mostly zero and would add perhaps 5-10% — cheap. Logging the FULL enemy
+      roster every tick would not be cheap and does not fit a fixed-width CSV
+      schema anyway (the enemy count varies tick to tick). **The right shape is
+      a sparse companion EVENT log** (one line per weapon-fired / hit-landed /
+      enemy-spawned / enemy-killed, not one line per physics tick) — at
+      real combat tempo that is hundreds to low thousands of lines per session,
+      negligible next to the 21 MB flight recorder, and it is what would have
+      let this entry report an actual hit rate instead of inferring "buzzing,
+      not crashing" from position and contact-count alone.
+    - **Deferred at the user's word** ("if this is planned for later then well
+      done! we'll wait for the right time") — not built, not scheduled; logged
+      here as a scoped, sized proposal so the shape is decided before the day
+      it gets picked up, the same discipline BALANCE.md's config-stamp and
+      pilot-version pins exist to protect elsewhere.
+  - **Next: unchanged — Phase 4b, Atlas** (2nd frame). The raider-pack bench and
+    the richer blackbox both wait behind it, by the user's explicit call.
+    **To resume after a session cut: "Continue QuadShot — Phase 4b (Atlas) per
+    the v1.28/v1.29 entries."**
