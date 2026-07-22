@@ -104,13 +104,33 @@ const DELIVERY_FIELDS_ENEMY: Array[String] = [
 	"swarm_separation_gain", "swarm_cohesion_gain", "swarm_jitter",
 	"swarm_sting_radius",
 ]
+## The AIRFRAME's half of aim (Phase 4b): what the pilot is flying decides how
+## well it can hold a line, so a frame's flight model is a delivery input in the
+## same way a muzzle speed is. Read off each frame's FlightConfig.
+##
+## This list closes the hole the frame axis exposed rather than created — the
+## Kestrel's mass and rate gains were ALWAYS delivery inputs and were never
+## stamped, so retuning the drone's PID silently invalidated every factor while
+## the stamp reported a match. Vector fields are stamped componentwise.
+##
+## FrameConfig.hull and .armor are deliberately absent: no bench that measures a
+## delivery factor can be affected by them (the aim bench's target cannot shoot,
+## the evasion bench's shooter is immortal). They move VALIDATED results, which
+## are re-measured every run and so cannot go stale.
+const DELIVERY_FIELDS_FLIGHT: Array[String] = [
+	"mass", "arm_length", "thrust_to_weight_ratio", "motor_lag_tau",
+	"motor_idle", "yaw_authority", "max_rate_deg", "expo",
+	"gyro_lpf_hz", "dterm_lpf_hz", "rc_smoothing_hz",
+	"rate_p", "rate_i", "rate_d", "rate_ff", "ff_lpf_hz", "integral_limit",
+	"drag_coefficient", "angular_damping", "fpv_uptilt_deg", "fpv_fov_deg",
+]
 
 
 ## A stamp over every config value the delivery benches are sensitive to.
 ## Stored in the artifact and compared on read; a mismatch means the factors
 ## were measured against different numbers and must not be quoted.
-static func config_stamp(combat: CombatConfig,
-		enemies: Array[EnemyConfig]) -> String:
+static func config_stamp(combat: CombatConfig, enemies: Array[EnemyConfig],
+		frames: Array[FrameConfig]) -> String:
 	var parts: PackedStringArray = []
 	for field: String in DELIVERY_FIELDS_COMBAT:
 		parts.append("%s=%.4f" % [field, float(combat.get(field))])
@@ -122,15 +142,48 @@ static func config_stamp(combat: CombatConfig,
 		for field: String in DELIVERY_FIELDS_ENEMY:
 			parts.append("%s.%s=%.4f"
 					% [enemy.type_id, field, float(enemy.get(field))])
+	var frames_sorted: Array[FrameConfig] = frames.duplicate()
+	frames_sorted.sort_custom(func(a: FrameConfig, b: FrameConfig) -> bool:
+			return String(a.frame_id) < String(b.frame_id))
+	for frame: FrameConfig in frames_sorted:
+		for field: String in DELIVERY_FIELDS_FLIGHT:
+			parts.append("%s.%s=%s"
+					% [frame.frame_id, field, _stamp_value(
+					frame.flight_config.get(field))])
 	return String(", ".join(parts)).sha256_text()
+
+
+## Vector fields are stamped componentwise; everything else to four decimals, so
+## the stamp reads the same on any machine and a Vector3 cannot collapse to one
+## number that hides two gains swapping.
+static func _stamp_value(value: Variant) -> String:
+	if value is Vector3:
+		var v: Vector3 = value as Vector3
+		return "(%.5f,%.5f,%.5f)" % [v.x, v.y, v.z]
+	return "%.4f" % float(value)
 
 
 ## Delivery factor keys. Aim is per agent+weapon; evasion is per weapon+target
 ## (the same bolt is easy to dodge and the same missile is not, so evasion is
 ## not a property of the target alone — it is measured against the weapon that
 ## has to arrive).
-static func aim_key(weapon: String) -> String:
-	return weapon
+##
+## THE FRAME AXIS COST THE MODEL NOTHING NEW (Phase 4b). Adding the flak column
+## forced a third factor into existence (`splash`), so the obvious worry about a
+## second frame was which factor it would force next. The answer is none: the
+## agent was always "pilot flying an airframe", there was simply only ever one
+## airframe, so a frame is a RE-KEYING of aim rather than a new dimension. The
+## Atlas's soft rates and 1.9x mass move how well the same brain holds a gun
+## line, which is exactly what aim_quality already meant.
+##
+## Evasion is deliberately NOT frame-keyed, and that is structural rather than
+## an economy: the evasion bench freezes the shooter and lays its gun on the
+## exact ballistic solution every tick, so the airframe is inert BY CONSTRUCTION
+## — a frozen Atlas and a frozen Kestrel fire identical shots. Splash likewise
+## belongs to the weapon meeting the target. So the frame axis doubles the aim
+## cells and nothing else.
+static func aim_key(frame_id: String, weapon: String) -> String:
+	return "%s:%s" % [frame_id, weapon]
 
 
 static func evasion_key(weapon: String, type_id: String) -> String:

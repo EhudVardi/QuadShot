@@ -29,6 +29,7 @@ var _alive: bool = true
 
 func _ready() -> void:
 	_health.max_health = enemy_config.hull
+	_health.configure_defenses(enemy_config)
 	_health.revive()
 	_health.died.connect(_on_died)
 
@@ -73,6 +74,7 @@ func _on_died() -> void:
 
 func _respawn() -> void:
 	_health.max_health = enemy_config.hull
+	_health.configure_defenses(enemy_config)
 	_health.revive()
 	_alive = true
 	visible = true

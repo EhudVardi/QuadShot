@@ -49,14 +49,22 @@ const BOMB_TARGET_Z: float = 20.0
 ## now explicit here rather than hidden.
 const DIRECTOR_MISS_M: float = 1.2
 
-# One entry per measured cell. weapon: blaster|missile; enemy scene; "paper"
-# is the P4.3 spec band this cell is held to; "mode" picks the banding rule:
+# One entry per measured cell. weapon: blaster|missile|flak; enemy scene;
+# "frame" is the airframe flying it (default Kestrel); "paper" is the spec band
+# this cell is held to; "mode" picks the banding rule:
 #   win  — win-rate against the H4 thresholds (the default ruler)
 #   pack — exchange rate (kills vs pack, minus hull spent): a swarm makes
 #          win-rate meaningless, because the pack also "loses" by spending
 #          itself on your hull (P3.2 finding)
 #   hand — the rig cannot measure this cell; the band is the HUMAN's, per the
 #          H5 division of labor, and the report says so out loud
+#   frame — the P3.4 axis. Bands the EXCHANGE DELTA against the named `datum`
+#          cell, which flies the same weapon against the same enemy on the
+#          KESTREL. See FRAME_BANDS for why a frame is ruled relatively.
+#
+# The two axes name their rows differently on purpose: weapon-axis cells read
+# "Weapon x Enemy", frame-axis cells read "Frame x Enemy". A row's name says
+# which variable it is holding still.
 const MATCHUPS: Array[Dictionary] = [
 	{"name": "Blaster x Raider", "weapon": "blaster", "type": "raider",
 			"enemy": "res://scenes/combat/enemy_drone.tscn",
@@ -111,6 +119,29 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Flak x Aegis", "weapon": "flak", "type": "aegis",
 			"enemy": "res://scenes/combat/aegis.tscn",
 			"paper": "--", "mode": "win"},
+	# --- THE FRAME AXIS (Phase 4b, P3.4/P3.7's second dimension). Paper bands are
+	# the Atlas column of P3.4: gnat ++, raider 0, turret -, aegis ++.
+	#
+	# Each row flies the weapon its Kestrel datum already flies, so the ONLY
+	# variable between a frame cell and its datum is the airframe. Choosing the
+	# row's "best" weapon instead would have measured a loadout and called it a
+	# frame — P4.4's cells describe a mix ("tank + spray", "missile racks"), and
+	# a loadout is not a column (P4.3's rule about the FCS, one axis over).
+	#
+	# Blaster x Raider is unavailable as a datum (hand-mode: the rig cannot fly
+	# it), so the raider row is measured with the missile instead.
+	{"name": "Atlas x Gnats", "frame": Frames.ATLAS, "weapon": "flak",
+			"type": "gnat", "enemy": "res://scenes/combat/gnat_swarm.tscn",
+			"paper": "++", "mode": "frame", "datum": "Flak x Gnats"},
+	{"name": "Atlas x Raider", "frame": Frames.ATLAS, "weapon": "missile",
+			"type": "raider", "enemy": "res://scenes/combat/enemy_drone.tscn",
+			"paper": "0", "mode": "frame", "datum": "Missile x Raider"},
+	{"name": "Atlas x Turret", "frame": Frames.ATLAS, "weapon": "blaster",
+			"type": "turret", "enemy": "res://scenes/combat/turret.tscn",
+			"paper": "-", "mode": "frame", "datum": "Blaster x Turret"},
+	{"name": "Atlas x Aegis", "frame": Frames.ATLAS, "weapon": "missile",
+			"type": "aegis", "enemy": "res://scenes/combat/aegis.tscn",
+			"paper": "++", "mode": "frame", "datum": "Missile x Aegis"},
 ]
 
 ## H4 banding, fixed stated thresholds (H.q1: a ruler that does not drift).
@@ -120,6 +151,23 @@ const WIN_BANDS: Array = [[0.85, "++"], [0.70, "+"], [0.50, "0"], [0.25, "-"]]
 ## of the player's hull spent. A perfect rake is +1, absorbing the cloud with
 ## your face is -1. Thresholds stated, like the win ruler.
 const PACK_BANDS: Array = [[0.6, "++"], [0.3, "+"], [0.0, "0"], [-0.3, "-"]]
+## Frame-mode: band the exchange DELTA against the Kestrel flying the same
+## weapon at the same enemy. Stated constants, symmetric, because the origin is
+## a design statement rather than a measurement — P3.3/P3.4 define the Kestrel's
+## whole column as zeros ("the frame you fly when intel is stale"), so a frame is
+## only ever better or worse than the all-rounder HERE.
+##
+## Two reasons the frame axis is ruled on exchange rather than win rate, and
+## neither is convenience:
+##  - A frame does not change whether the weapon kills; it changes what the kill
+##    COSTS. Win rate is nearly blind to that (both frames win, one bleeds), and
+##    the cost is the entire content of P4.4's table.
+##  - It rescues the cells the win ruler cannot resolve at all. An unseeded enemy
+##    (turret, aegis) fights six identical duels, so its win rate is 0% or 100%
+##    and its band can only read `++` or `--` — but hull spent is a continuous
+##    number even in a deterministic duel, so the frame delta resolves where the
+##    outcome ruler is quantized to two values.
+const FRAME_BANDS: Array = [[0.30, "++"], [0.10, "+"], [-0.10, "0"], [-0.30, "-"]]
 
 enum { BUILD, RUN, RECORD }
 
@@ -210,11 +258,13 @@ func _build_duel() -> void:
 	var pool := ProjectilePool.new()
 	_arena.add_child(pool)
 
-	_drone = (load("res://scenes/drone/drone.tscn") as PackedScene).instantiate() \
-			as FlightController
+	_drone = Frames.build(String(matchup.get("frame", Frames.KESTREL)))
 	_arena.add_child(_drone)
 	_drone.global_position = Vector3(0.0, ARENA_ALTITUDE, 0.0)
 	_health = _drone.get_node("Health") as Health
+	# Per duel, not once: the Atlas's 190 and the Kestrel's 100 are different
+	# denominators, and "fraction of your own hull spent" is the only currency in
+	# which the two frames can be compared at all.
 	_player_max = _health.max_health
 	_drone.arm()
 	_drone.prime_motors(_drone.hover_throttle())
@@ -344,6 +394,10 @@ func _record(outcome: String) -> void:
 		"outcome": outcome,
 		"ttk": float(_duel_ticks) / _pps,
 		"damage_taken": _player_max - _health.current,
+		# Recorded per rep because the denominator is the FRAME's hull. Averaging
+		# raw damage and dividing by whichever drone happened to be built last is
+		# how a 190-hull frame would have read as tankier than it is (or less).
+		"hull_frac": (_player_max - _health.current) / maxf(_player_max, 1.0),
 		"kills": _kills,
 		"spent": spent,
 	})
@@ -430,6 +484,26 @@ func _report() -> void:
 		elif _win_rate(index) > 0.0:
 			_failures.append("shield gate broken: %s won %.0f%% — under-threshold fire cracked a shield it cannot"
 					% [name, _win_rate(index) * 100.0])
+	# STRUCTURAL, frame axis: a frame cell is meaningless without the Kestrel
+	# datum it is a delta from, and a missing datum must fail loudly rather than
+	# print "?" in a column someone reads as a measurement. Same discipline as
+	# the by-name asserts above — a relative ruler with no origin is not a ruler.
+	for matchup: Dictionary in MATCHUPS:
+		if matchup["mode"] != "frame":
+			continue
+		var datum: int = _matchup_index(String(matchup["datum"]))
+		if datum < 0:
+			_failures.append("rig broken: %s bands against datum '%s', which is not in the matrix"
+					% [matchup["name"], matchup["datum"]])
+		elif MATCHUPS[datum]["weapon"] != matchup["weapon"] \
+				or MATCHUPS[datum]["type"] != matchup["type"]:
+			# The delta is only "what the frame did" if everything else is held
+			# still. Comparing an Atlas flak cell against a Kestrel missile cell
+			# would report the loadout and label it the airframe.
+			_failures.append("rig broken: %s (%s vs %s) bands against '%s' (%s vs %s) — the datum must differ ONLY by frame"
+					% [matchup["name"], matchup["weapon"], matchup["type"],
+					matchup["datum"], MATCHUPS[datum]["weapon"],
+					MATCHUPS[datum]["type"]])
 
 	if _failures.is_empty():
 		print("[matchup] PASS")
@@ -465,8 +539,6 @@ func _report() -> void:
 ## rig-sanity and structural asserts fail the run. Hand-mode cells keep the
 ## human's band in the validated column and say whose it is.
 func _print_banded_matrix() -> void:
-	var pack_size: float = maxf(
-			(load("res://resources/default_enemy_gnat.tres") as EnemyConfig).pack_size, 1.0)
 	var factors: Dictionary = BalancePrediction.load_factors()
 	if not factors.is_empty() \
 			and int(factors.get("pilot_version", -1)) != ReferencePilot.PILOT_VERSION:
@@ -506,12 +578,23 @@ func _print_banded_matrix() -> void:
 				validated = matchup["hand_band"]
 				detail = "hand-calibrated (H5): the rig cannot fly this cell; band is the human's"
 			"pack":
-				var exchange: float = _mean(i, "kills") / pack_size \
-						- _mean(i, "damage_taken") / _player_max
+				var exchange: float = _exchange(i)
 				validated = _band(exchange, PACK_BANDS)
 				detail = "exchange %+.2f (kills %.1f/%d, hull spent %.0f%%)" % [
-						exchange, _mean(i, "kills"), int(pack_size),
-						_mean(i, "damage_taken")]
+						exchange, _mean(i, "kills"), int(_bodies(i)),
+						_mean(i, "hull_frac") * 100.0]
+			"frame":
+				var datum: int = _matchup_index(String(matchup["datum"]))
+				if datum < 0:
+					validated = "?"
+					detail = "rig broken: no datum cell '%s'" % matchup["datum"]
+				else:
+					var delta: float = _exchange(i) - _exchange(datum)
+					validated = _band(delta, FRAME_BANDS)
+					detail = "vs Kestrel %+.2f (%s: exchange %+.2f / %.0f%% hull vs %+.2f / %.0f%%)" % [
+							delta, matchup["weapon"], _exchange(i),
+							_mean(i, "hull_frac") * 100.0, _exchange(datum),
+							_mean(datum, "hull_frac") * 100.0]
 			_:
 				validated = _band(_win_rate(i), WIN_BANDS)
 				detail = "win %.0f%%" % (_win_rate(i) * 100.0)
@@ -540,7 +623,21 @@ func _print_banded_matrix() -> void:
 			var ttk_line: String = _ttk_line(i, prediction)
 			if ttk_line != "":
 				print("[matchup] %-18s   %s" % ["", ttk_line])
-			if predicted != held_to:
+			# A FRAME cell's three columns are three different things, and only
+			# the outer two are commensurable: paper is P3.4's frame band
+			# (relative to the Kestrel), validated is the measured delta (also
+			# relative), but predicted is an ABSOLUTE ttk — the model has no
+			# survival term at all (BalancePrediction assumption 3), so it
+			# cannot express durability, which is most of what a frame IS.
+			# Comparing them would manufacture a disagreement out of the
+			# model's own stated scope — the frame axis's headline caveat,
+			# printed on every frame cell, every run.
+			if matchup["mode"] == "frame":
+				print("[matchup] %-18s   ^ predicted is ABSOLUTE ttk on this frame; paper and validated are DELTAS vs the Kestrel — not comparable"
+						% "")
+				print("[matchup] %-18s     (no survival term in the model, so a frame's durability can only show in the validated column)"
+						% "")
+			elif predicted != held_to:
 				print("[matchup] %-18s   ^ PAPER vs PREDICTED: shipped numbers disagree with P4.3"
 						% "")
 			# Only a real OUTCOME disagreement counts as an un-modeled factor.
@@ -553,7 +650,11 @@ func _print_banded_matrix() -> void:
 			var model_kills: bool = String(prediction["why"]) == "" \
 					and float(prediction["ttk"]) <= MAX_SECONDS
 			var fight_wins: bool = _win_rate(i) >= 0.5
-			if matchup["mode"] != "pack" and model_kills != fight_wins:
+			# Frame cells are excluded for the same reason: their validated
+			# column is a delta, not an outcome, so "the fight says loss" is
+			# not a sentence about them.
+			var comparable: bool = matchup["mode"] not in ["pack", "frame"]
+			if comparable and model_kills != fight_wins:
 				print("[matchup] %-18s   ^ PREDICTED vs VALIDATED: model says %s, the fight says %s — an un-modeled factor decided this cell"
 						% ["", "kill" if model_kills else "no kill",
 						"win" if fight_wins else "loss"])
@@ -578,7 +679,8 @@ func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
 	var type_id: String = matchup["type"]
 	var aim_table: Dictionary = factors.get("aim", {})
 	var evasion_table: Dictionary = factors.get("evasion", {})
-	var aim_key: String = BalancePrediction.aim_key(weapon)
+	var aim_key: String = BalancePrediction.aim_key(
+			String(matchup.get("frame", Frames.KESTREL)), weapon)
 	var evasion_key: String = BalancePrediction.evasion_key(weapon, type_id)
 	if not aim_table.has(aim_key) or not evasion_table.has(evasion_key):
 		return {}
@@ -632,6 +734,23 @@ func _ttk_line(matchup_i: int, prediction: Dictionary) -> String:
 			% [prediction["ttk"], measured, measured - float(prediction["ttk"])]
 
 
+## Bodies in this cell's enemy UNIT — the pack for a distributed type, 1 for
+## everything else (P4.q5: the cloud is the unit).
+func _bodies(matchup_i: int) -> float:
+	var enemy: EnemyConfig = load("res://resources/default_enemy_%s.tres"
+			% MATCHUPS[matchup_i]["type"]) as EnemyConfig
+	return maxf(enemy.pack_size, 1.0)
+
+
+## Fraction of the enemy unit destroyed, minus fraction of YOUR OWN hull spent.
+## The pack ruler generalized: for a single-body enemy the first term is just the
+## win rate, so one number prices "did you win" and "what did it cost" together —
+## which is exactly what a frame moves and a win rate cannot see.
+func _exchange(matchup_i: int) -> float:
+	return _mean(matchup_i, "kills") / _bodies(matchup_i) \
+			- _mean(matchup_i, "hull_frac")
+
+
 func _band(value: float, bands: Array) -> String:
 	for entry: Array in bands:
 		if value >= float(entry[0]):
@@ -675,7 +794,7 @@ func _config_stamp() -> String:
 				as EnemyConfig)
 	return BalancePrediction.config_stamp(
 			load("res://resources/default_combat_config.tres") as CombatConfig,
-			enemies)
+			enemies, Frames.all_configs())
 
 
 ## Cell lookup by name — the only way asserts should address a row, so

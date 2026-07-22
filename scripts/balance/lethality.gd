@@ -16,9 +16,16 @@ extends RefCounted
 ## BALANCE.md sense: deterministic, instant, and verified against the shipped
 ## Health node by the planted-shot bench (scripts/tests/lethality_check.gd).
 ##
-## Deliberately NOT modeled: EnemyConfig.armor (declared but applied nowhere
-## in the damage pipeline — this file mirrors the CODE, not the schema) and
-## anything about hitting (that is Layer 2, delivery).
+## Deliberately NOT modeled: anything about hitting (that is Layer 2, delivery),
+## and anything about being SHOT AT — the player frame's own armor and hull never
+## appear here, because Layer 1 asks what YOUR weapon does to a target. A frame's
+## durability can only show up in the validated column (BalancePrediction
+## assumption 3: nobody shoots back).
+##
+## EnemyConfig.armor IS modeled as of Phase 4b: it stopped being a schema-only
+## field the day the Atlas needed flat reduction to exist (P3.3), and this file
+## mirrors the CODE, so it appears here the same day. Every roster value is
+## still 0.0, which is why no shipped cell moved when it landed.
 
 ## Sentinel shot count for "this weapon cannot kill this target, ever".
 const NEVER: int = -1
@@ -213,6 +220,22 @@ static func _exchange(damage: float, interval: float, enemy: EnemyConfig,
 			# Nothing to strip: an unshielded target costs zero shots to open.
 			return {"kills": true, "shots": 0, "ttk": 0.0,
 					"interval": interval, "why": ""}
+		# The hull's flat plating, applied to whatever the shield let through —
+		# health.gd's order exactly.
+		amount = maxf(amount - enemy.armor, 0.0)
+		if amount <= 0.0:
+			# NEVER only when the weapon's FULL hit cannot get through the
+			# plating; that is a kill-or-never verdict of the same kind as the
+			# shield threshold, and worth reporting before the loop spends 1000
+			# hits rediscovering it. A shield CARRY-THROUGH eaten by armor is a
+			# different thing entirely — a wasted sliver on the hit that broke
+			# the screen, with the next hit arriving at full damage against a
+			# shield that is now down. Verdicting on `amount` here would have
+			# called that combination unkillable.
+			if damage <= enemy.armor:
+				return _never("%.0f dmg at or under the %.0f armor"
+						% [damage, enemy.armor], interval)
+			continue
 		hull -= amount
 		if hull <= 0.0:
 			return {"kills": true, "shots": hit + 1,

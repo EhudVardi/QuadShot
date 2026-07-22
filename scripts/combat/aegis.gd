@@ -56,7 +56,7 @@ func _ready() -> void:
 	if route_end == Vector3.INF:
 		route_end = global_position - global_basis.z * DEFAULT_ROUTE_LENGTH
 	_health.max_health = enemy_config.hull
-	_health.configure_shield(enemy_config)
+	_health.configure_defenses(enemy_config)
 	_health.revive()
 	_health.died.connect(_on_died)
 	_health.shield_absorbed.connect(_on_shield_absorbed)

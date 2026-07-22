@@ -31,6 +31,16 @@ signal shield_absorbed(amount: float)
 signal shield_broken
 
 @export var max_health: float = 100.0
+## Flat damage subtracted from whatever reaches the HULL (the P4.1 "armored"
+## model; the Atlas's innate durability, P3.3). Layered UNDER the shield, not
+## beside it: the shield gate sees the full incoming hit, so armor never
+## changes whether a weapon can crack a screen — only what gets through after.
+##
+## Flat reduction is the whole character of the stat. It is worth most against
+## many small hits and least against few big ones, which is why one number
+## reproduces the P4.4 frame-pressure story (heavy is ++ against gnat stings,
+## unimpressed by a turret's 10s) without a second knob to tune.
+@export var armor: float = 0.0
 @export var shield_max: float = 0.0
 @export var shield_break_threshold: float = 0.0
 @export var shield_regen: float = 0.0
@@ -49,7 +59,8 @@ func _ready() -> void:
 	set_physics_process(shield_max > 0.0)
 
 
-func configure_shield(config: EnemyConfig) -> void:
+func configure_defenses(config: EnemyConfig) -> void:
+	armor = config.armor
 	shield_max = config.shield_max
 	shield_break_threshold = config.shield_break_threshold
 	shield_regen = config.shield_regen
@@ -93,6 +104,15 @@ func take(amount: float) -> void:
 		if excess <= 0.0:
 			return
 		amount = excess
+	# The hull's own layer. A hit the plating eats entirely is silent past
+	# `struck` (already emitted above, so the delivery benches still count it as
+	# an arrival) — it did nothing, so it announces nothing, and an armor value
+	# at or above a weapon's damage means that weapon NEVER kills this target.
+	# Same shape as the shield's threshold gate, and Lethality reports it the
+	# same way.
+	amount = maxf(amount - armor, 0.0)
+	if amount <= 0.0:
+		return
 	current = maxf(current - amount, 0.0)
 	damaged.emit(amount, current)
 	if current <= 0.0:

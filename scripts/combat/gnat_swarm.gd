@@ -74,7 +74,7 @@ func _spawn_pack() -> void:
 				_rng.randf_range(-SPAWN_SPREAD, SPAWN_SPREAD),
 				_rng.randf_range(-SPAWN_SPREAD * 0.5, SPAWN_SPREAD * 0.5),
 				_rng.randf_range(-SPAWN_SPREAD, SPAWN_SPREAD))
-		gnat.setup(enemy_config.hull)
+		gnat.setup(enemy_config.hull, enemy_config.armor)
 		gnat.killed.connect(_on_gnat_killed)
 		_bodies.append(gnat)
 

@@ -17,6 +17,16 @@ signal crashed(impact_speed: float)
 ## Damage model (GAMEPLAY-DESIGN Iteration 7). Null in the harness/tests, where
 ## motors stay undamaged and flight is the shipped model exactly.
 @export var damage_config: DamageConfig
+## Benches set this false before the node enters the tree (see Frames.build).
+##
+## An instrument must measure the REPO's numbers. Until Phase 4b it did not: the
+## balance benches instantiate drone.tscn, which auto-loaded user://, so every
+## delivery factor in the committed artifact was measured against whatever the
+## human had last tuned into their own override — here, rate_p 0.007 and
+## rate_ff 0.0008 against the repo's 0.004 and 0. The ruler was machine-local
+## and the config stamp could not see it, because the stamp watched CombatConfig
+## and EnemyConfig while the drift sat in FlightConfig.
+@export var load_user_overrides: bool = true
 
 ## This frame's flight model — `frame.flight_config`, resolved in _ready().
 ## Not an @export any more: a frame that could be flown with another frame's
@@ -57,15 +67,42 @@ var _previous_velocity: Vector3 = Vector3.ZERO
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
+## Fly another frame without editing a scene: `<godot> --path . -- --frame atlas`.
+##
+## A dev affordance, NOT the shipped picker — P3.8's briefing chain (intel ->
+## frame -> loadout) and P3.9's HANGAR overlay section are where choosing an
+## airframe actually belongs. This exists so the human's hands can judge a new
+## frame the day it lands, which is the only test that matters for feel.
+##
+## Gated on `load_user_overrides` so the BENCHES never see it: an instrument that
+## can be re-aimed by a command line is not an instrument, and Frames.build
+## already says which frame it means.
+func _frame_from_cmdline() -> FrameConfig:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	var at: int = args.find("--frame")
+	if at < 0 or at + 1 >= args.size():
+		return null
+	var path: String = "res://resources/default_frame_%s.tres" % args[at + 1]
+	if not ResourceLoader.exists(path):
+		push_error("[frame] no such frame '%s' (%s)" % [args[at + 1], path])
+		return null
+	return load(path) as FrameConfig
+
+
 func _ready() -> void:
+	if load_user_overrides:
+		var picked: FrameConfig = _frame_from_cmdline()
+		if picked != null:
+			frame = picked
 	config = frame.flight_config
 	if not frame.flight_config_matches():
 		push_error("[frame] %s carries a flight config for '%s'"
 				% [frame.frame_id, config.frame_id])
-	if frame.load_from_user():
-		print("[config] loaded %s" % frame.loaded_from)
-	if config.load_from_user():
-		print("[config] loaded %s" % config.loaded_from)
+	if load_user_overrides:
+		if frame.load_from_user():
+			print("[config] loaded %s" % frame.loaded_from)
+		if config.load_from_user():
+			print("[config] loaded %s" % config.loaded_from)
 	mass = config.mass
 	# The frame owns the hull, and applies it HERE rather than in main.gd. That
 	# move closes a hole in the instrument: the benches instantiate this scene
@@ -74,6 +111,7 @@ func _ready() -> void:
 	# The two agreed at 100 by luck; tuning one would have silently desynced the
 	# harness's damage-taken column from the game's.
 	($Health as Health).max_health = frame.hull
+	($Health as Health).armor = frame.armor
 	($Health as Health).revive()
 	if damage_config != null:
 		# Every other config auto-loads its user:// override on boot; this one

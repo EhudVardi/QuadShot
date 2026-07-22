@@ -1,0 +1,27 @@
+; The Atlas (GAMEPLAY-DESIGN P3.3): the roster's heavy gunship, and the slice's
+; second frame per P3.10.
+;
+; hull 190 = the Kestrel's 100 scaled by the frame's own mass ratio (1.9x). That
+; is P3.2's honest-mass doctrine applied to durability: a frame twice the tonnage
+; is twice the airframe, and the number is DERIVED rather than fitted to make a
+; P4.4 band come out. If the measurement says it is too much, that is a finding
+; to report, not a number to quietly pre-tune.
+;
+; armor 3 is the frame's innate flat reduction — the trait P3.3 gives to exactly
+; one frame. Sized against what the slice bestiary actually throws: a gnat sting
+; is 7 (-> 4, a 43% cut), a raider bolt 8 (-> 5), a turret shell 10 (-> 7). Flat
+; reduction is worth most against many small hits and least against few big ones,
+; so ONE number reproduces P4.4's shape for the heavy column — great on gnat days,
+; unimpressed by turrets — with nothing special-cased per enemy.
+[gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
+[ext_resource type="Resource" path="res://resources/default_flight_atlas.tres" id="2_flight"]
+
+[resource]
+script = ExtResource("1_frame")
+frame_id = &"atlas"
+display_name = "Atlas"
+flight_config = ExtResource("2_flight")
+hull = 190.0
+armor = 3.0

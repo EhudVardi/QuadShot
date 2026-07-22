@@ -8,7 +8,17 @@ extends SceneTree
 ## drone against a target that cannot move, cannot shoot and cannot die, so
 ## hits-per-shot measures the AGENT alone: `aim_quality`, the per-agent
 ## delivery factor (and the axis the FCS gear ladder purchases). Pilot-
-## version-dependent by definition, hence the pin in the header.
+## version-dependent by definition, hence the pin in the header — and, since
+## Phase 4b, FRAME-dependent too: the agent is a pilot flying an airframe, so
+## these cells are keyed `<frame>:<weapon>`. That is the whole Layer 2 cost of
+## the P3.4 frame axis; nothing else in this file grew.
+##
+## THESE CELLS FLY THE REPO'S NUMBERS. `Frames.build` turns off user:// config
+## loading, because until Phase 4b the benches inherited whatever the human had
+## tuned into their own override and every committed factor was a measurement of
+## one machine. Turning it off moved `aim: kestrel/blaster` from 0.17 to 0.05 —
+## the same pilot and the same weapon, flying the aircraft as it is committed
+## rather than as it is tuned.
 ##
 ## EVASION BENCH — fixed PERFECT shooter vs the moving enemy flying its real
 ## AI. The shooter is the real drone frozen in place, its gun re-laid every
@@ -69,11 +79,14 @@ const TURRET_SCENE: String = "res://scenes/combat/turret.tscn"
 
 ## kind: aim (pilot flies) | evasion (frozen perfect shooter).
 ## target: static | raider | gnats | aegis. seconds: firing window.
+## frame: which airframe flies the cell — AIM cells only. Evasion cells leave it
+## unset because the shooter is frozen and its gun is laid by this bench, so the
+## airframe cannot influence the shot (see BalancePrediction.aim_key).
 const CELLS: Array[Dictionary] = [
-	{"name": "aim: blaster", "kind": "aim", "weapon": "blaster",
-			"target": "static", "seconds": 20.0},
-	{"name": "aim: missile", "kind": "aim", "weapon": "missile",
-			"target": "static", "seconds": 45.0},
+	{"name": "aim: kestrel/blaster", "kind": "aim", "weapon": "blaster",
+			"frame": Frames.KESTREL, "target": "static", "seconds": 20.0},
+	{"name": "aim: kestrel/missile", "kind": "aim", "weapon": "missile",
+			"frame": Frames.KESTREL, "target": "static", "seconds": 45.0},
 	{"name": "evasion: blaster x static", "kind": "evasion",
 			"weapon": "blaster", "target": "static", "seconds": 20.0,
 			"control": true},
@@ -115,8 +128,14 @@ const CELLS: Array[Dictionary] = [
 	# header already states — AI-level deterministic, not bit-exact, read
 	# aggregate movement rather than single reps. Recorded so the next reader
 	# does not mistake a 0.94/0.99 difference between runs for a balance change.
-	{"name": "aim: flak", "kind": "aim", "weapon": "flak",
-			"target": "static", "seconds": 40.0},
+	#
+	# The 0.99/0.99/0.94 spread above was measured on the human's tuned Kestrel,
+	# before the benches were pinned to repo defaults. On the committed config it
+	# reads 1.00 at a duty of 0.28 — fewer shells, all of them fused. Whether the
+	# wobble is gone or merely hiding behind a smaller sample is not yet known;
+	# re-check it before quoting this cell to a decimal place.
+	{"name": "aim: kestrel/flak", "kind": "aim", "weapon": "flak",
+			"frame": Frames.KESTREL, "target": "static", "seconds": 40.0},
 	{"name": "evasion: flak x static", "kind": "evasion",
 			"weapon": "flak", "target": "static", "seconds": 20.0,
 			"control": true},
@@ -132,6 +151,17 @@ const CELLS: Array[Dictionary] = [
 			"weapon": "flak", "target": "gnats", "seconds": 20.0},
 	{"name": "evasion: flak x aegis", "kind": "evasion",
 			"weapon": "flak", "target": "aegis", "seconds": 20.0},
+	# --- The Atlas's aim cells (Phase 4b, P3.4's frame axis). Three cells, not a
+	# second matrix: the frame re-keys aim and touches nothing else, so this is
+	# the ENTIRE Layer 2 cost of a new frame. Same windows as the Kestrel's, or
+	# the two frames would be measured on different rulers — which is the mistake
+	# the duty-cycle line exists to warn about, one axis over.
+	{"name": "aim: atlas/blaster", "kind": "aim", "weapon": "blaster",
+			"frame": Frames.ATLAS, "target": "static", "seconds": 20.0},
+	{"name": "aim: atlas/missile", "kind": "aim", "weapon": "missile",
+			"frame": Frames.ATLAS, "target": "static", "seconds": 45.0},
+	{"name": "aim: atlas/flak", "kind": "aim", "weapon": "flak",
+			"frame": Frames.ATLAS, "target": "static", "seconds": 40.0},
 ]
 
 ## Every roster config whose numbers can move a measured delivery factor —
@@ -226,8 +256,9 @@ func _build_cell() -> void:
 	var pool := ProjectilePool.new()
 	_arena.add_child(pool)
 
-	_drone = (load("res://scenes/drone/drone.tscn") as PackedScene).instantiate() \
-			as FlightController
+	# Evasion cells freeze the shooter, so the airframe cannot reach the result;
+	# they fly the Kestrel to have something concrete to freeze.
+	_drone = Frames.build(String(cell.get("frame", Frames.KESTREL)))
 	_arena.add_child(_drone)
 	_drone.global_position = Vector3(0.0, ALTITUDE, 0.0)
 	_drone.arm()
@@ -605,7 +636,7 @@ func _write_factors() -> void:
 		var yield_per_burst: float = snappedf(float(_results[i]["splash"]), 0.01)
 		var weapon: String = cell["weapon"]
 		if cell["kind"] == "aim":
-			aim[weapon] = rate
+			aim[BalancePrediction.aim_key(String(cell["frame"]), weapon)] = rate
 		elif cell["target"] == "static":
 			control[BalancePrediction.evasion_key(weapon, "static")] = rate
 		else:
@@ -617,15 +648,18 @@ func _write_factors() -> void:
 				splash[BalancePrediction.splash_key(weapon, type_id)] = \
 						yield_per_burst
 	# Stamped with BOTH rulers these factors were measured under: the pilot
-	# that flew them and the config numbers they were flown against. Either
-	# drifting makes the file stale, and the reader refuses it rather than
-	# quoting measurements taken under different physics.
+	# that flew them and the config numbers they were flown against — weapons,
+	# bestiary, and (since Phase 4b) the frames' own flight models, which were
+	# always a delivery input and were never stamped. Either drifting makes the
+	# file stale, and the reader refuses it rather than quoting measurements
+	# taken under different physics.
 	var enemies: Array[EnemyConfig] = []
 	for path: String in ENEMIES_FOR_STAMP:
 		enemies.append(load(path) as EnemyConfig)
 	var payload: Dictionary = {
 		"pilot_version": ReferencePilot.PILOT_VERSION,
-		"config_stamp": BalancePrediction.config_stamp(_combat, enemies),
+		"config_stamp": BalancePrediction.config_stamp(_combat, enemies,
+				Frames.all_configs()),
 		"aim": aim,
 		"evasion": evasion,
 		"splash": splash,

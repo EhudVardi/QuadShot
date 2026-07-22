@@ -1,0 +1,68 @@
+; The Atlas's flight model (GAMEPLAY-DESIGN P3.3, the heavy gunship).
+;
+; Stated against the Kestrel, which is the roster's datum, and derived from the
+; design's own words rather than dialled until a band came out right:
+;   "~1.9x mass"        -> 0.65 -> 1.24 kg
+;   "TWR held modest"   -> 4.5 -> 3.2
+;   "soft rates"        -> 580/580/550 -> 400/400/380 deg/s
+;   "heavy filtering"   -> gyro 90 -> 60 Hz, D-term 70 -> 45 Hz, RC smoothing
+;                          0 -> 20 Hz
+; plus more drag (0.03 -> 0.045): a bigger airframe pushes more air, which is
+; what "slow in the open" costs it on P4.4's SAM row.
+;
+; THE RATE PID IS THE KESTREL'S, UNCHANGED, ON PURPOSE. Angular authority here
+; scales with TWR (motor torque rises with thrust, inertia rises with mass), so
+; the same gains on a 1.9x frame give ~0.71x the loop gain and the aircraft
+; plants itself — P3.2's honest-mass doctrine producing P3.3's "it plants in the
+; air" as physics rather than as a tuned number. It also keeps the rate_preset
+; ladder working on this frame: FlightPresets identifies a preset by rate
+; p/i/d/ff + angular_damping, so a hand-softened PID would read "Custom" forever.
+;
+; NOT differentiated yet: the collision box and motor arm geometry are shared
+; with the Kestrel (drone.tscn owns them), so the Atlas is heavier without being
+; physically bigger. Per-frame geometry arrives with D8's subsystem layout.
+[gd_resource type="Resource" script_class="FlightConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/flight_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+frame_id = &"atlas"
+mass = 1.24
+arm_length = 0.12
+thrust_to_weight_ratio = 3.2
+motor_lag_tau = 0.05
+motor_idle = 0.05
+yaw_authority = 1.5
+reverse_thrust_scale = 0.8
+max_rate_deg = Vector3(400, 400, 380)
+expo = Vector3(0.3, 0.3, 0.3)
+gyro_lpf_hz = 60.0
+dterm_lpf_hz = 45.0
+rc_smoothing_hz = 20.0
+rate_p = Vector3(0.004, 0.004, 0.004)
+rate_i = Vector3(0.002, 0.002, 0.002)
+rate_d = Vector3(3e-05, 3e-05, 3e-05)
+rate_ff = Vector3(0, 0, 0)
+ff_lpf_hz = 20.0
+integral_limit = 0.2
+crash_iterm_decay = 1.0
+iterm_error_gate_deg = 300.0
+iterm_relax_hz = 15.0
+iterm_relax_threshold_deg = 40.0
+input_profile = 0
+stick_deadzone = 0.08
+throttle_curve = 2
+max_angle_deg = 55.0
+angle_p = 6.0
+drag_coefficient = 0.045
+angular_damping = 0.02
+fpv_uptilt_deg = 44.0
+fpv_fov_deg = 94.0
+chase_distance = 3.5
+chase_height = 1.2
+chase_smoothing = 8.0
+pause_time_scale = 0.03
+autopilot_tilt_deg_per_ms = 4.0
+autopilot_climb_gain = 0.08
+arm_throttle_threshold = 0.05

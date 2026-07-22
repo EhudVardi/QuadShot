@@ -28,18 +28,23 @@ var team: StringName = &"enemy"
 var velocity: Vector3 = Vector3.ZERO
 
 var _health: float = 6.0
+## Flat reduction, same rule as Health.armor — a body this cheap has no Health
+## node, but the damage rule must not fork: two damage pipelines with different
+## armor semantics is exactly the drift Lethality exists to catch.
+var _armor: float = 0.0
 var _alive: bool = true
 
 
-func setup(hull: float) -> void:
+func setup(hull: float, armor: float = 0.0) -> void:
 	_health = hull
+	_armor = armor
 	_alive = true
 
 
 func take_hit(damage: float) -> void:
 	if not _alive:
 		return
-	_health -= damage
+	_health -= maxf(damage - _armor, 0.0)
 	if _health <= 0.0:
 		die(true)
 

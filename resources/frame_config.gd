@@ -39,6 +39,10 @@ extends TunableConfig
 ## Hit points. Moved off CombatConfig.player_max_health, which described "the
 ## player" back when there was only one airframe to be.
 @export var hull: float = 100.0
+## Flat damage subtracted from every hit that reaches the hull (P4.1's "armored"
+## grammar, applied to the player's side). The Atlas is the one frame in the P3.3
+## roster that carries any; 0 for everyone else.
+@export var armor: float = 0.0
 
 
 func save_path() -> String:

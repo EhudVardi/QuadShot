@@ -1,10 +1,13 @@
 {
 	"aim": {
-		"blaster": 0.17,
-		"flak": 0.99,
-		"missile": 1.0
+		"atlas:blaster": 0.19,
+		"atlas:flak": 0.9,
+		"atlas:missile": 1.0,
+		"kestrel:blaster": 0.05,
+		"kestrel:flak": 1.0,
+		"kestrel:missile": 1.0
 	},
-	"config_stamp": "a3debc725a3137ce7142ebd199226236810ac3a4528a2a9a211e97d9d6825155",
+	"config_stamp": "f76e0d83244b4bce4ff1c0d860a55856c937c1893b35199a07fa262be47ab883",
 	"control": {
 		"blaster:static": 0.99,
 		"flak:static": 1.0,

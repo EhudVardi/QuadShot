@@ -31,14 +31,22 @@ changes that. NOT for: predicting duels — connecting is the hard part.
 
 **Layer 2 — delivery.** Whether shots actually land, split into factors that
 belong to different owners:
-- `aim_quality` — per AGENT. Measured by the aim bench: the agent vs a
-  static target. The FCS gear ladder and this axis are the same axis — one
-  measured, one purchased (equipment shifts a delivery factor; it never adds
-  a matrix dimension — P4.3: "FCS is not a column").
+- `aim_quality` — per AGENT, and the agent is **pilot × frame**. Measured by
+  the aim bench: the agent vs a static target. The FCS gear ladder and this
+  axis are the same axis — one measured, one purchased (equipment shifts a
+  delivery factor; it never adds a matrix dimension — P4.3: "FCS is not a
+  column"). The **frame** axis works the same way and cost the model nothing
+  new: a second airframe re-keys aim (`kestrel:blaster`, `atlas:blaster`)
+  rather than adding a factor, because "agent" always meant a pilot flying
+  something — there was simply only ever one thing to fly. Contrast the flak
+  pod, which did force a new factor (`splash`).
 - `evasion` — per TARGET. Measured by the evasion bench: a fixed
   perfect-aim shooter vs the moving enemy. The target's slipperiness is not
   the shooter's skill, and conflating them is how Blaster×Raider spent a
-  phase reporting the bot instead of the weapon.
+  phase reporting the bot instead of the weapon. Not frame-keyed, and that is
+  structural rather than an economy: the bench freezes the shooter and lays
+  its gun on the exact solution every tick, so a frozen Atlas and a frozen
+  Kestrel fire identical shots.
 - `splash` — per WEAPON×TARGET, and it belongs to neither of the above: it
   is the weapon's burst geometry meeting the target's dispersion. Bodies
   covered per ARRIVING burst, measured against a real pack. It divides the
@@ -74,9 +82,21 @@ the economy) to go model or accept. NOT for: populating the table.
   enemy speeds, so retuning any of those invalidates them even though the pilot
   never changed. `balance/delivery_factors.json` carries a hash of every field
   delivery is sensitive to, and the harness blanks the predicted column when it
-  no longer matches. **A new bestiary type must be added to the bench's stamp
-  list the day it lands**, or its stats can drift without invalidating factors
-  measured under them.
+  no longer matches. **A new bestiary type or frame must be added to the
+  bench's stamp list the day it lands**, or its stats can drift without
+  invalidating factors measured under them. The stamp covers each frame's
+  FlightConfig too — mass and rate gains were always delivery inputs and went
+  unstamped until Phase 4b, so retuning the drone's PID silently invalidated
+  every factor while the stamp reported a match.
+- **The third ruler is the checkout.** Benches build drones through
+  `Frames.build`, which sets `load_user_overrides = false`. Before Phase 4b
+  they instantiated `drone.tscn` directly, which auto-loads `user://` — so
+  every committed delivery factor had been measured against whatever the human
+  had last tuned into their own override file (here: `rate_p` 0.007 vs the
+  repo's 0.004). The ruler was machine-local and no stamp could see it, because
+  the drift lived in a file that is not in the repo. **An instrument measures
+  the numbers that are committed.** Human tuning is deviation data (H5); it
+  reaches the benches only when it is baked into a `default_*.tres`.
 - **Rig asserts address cells BY NAME, never by index** — a positional assert
   silently re-aims itself when a matrix row is inserted, and an assert that can
   be misaimed is worse than none.
@@ -99,8 +119,39 @@ the economy) to go model or accept. NOT for: populating the table.
 - **Banding thresholds are stated constants** (H.q1), not fitted values — a
   ruler that does not drift when the thing it measures does.
 
+## The frame axis is ruled RELATIVELY, and only the validated column can see it
+
+A weapon cell asks "did it kill, and how fast". A frame cell cannot: a frame
+does not change whether the weapon kills, it changes **what the kill costs**.
+So frame cells (`Atlas × Gnats`, …) band the **exchange delta** — fraction of
+the enemy unit destroyed minus fraction of your own hull spent — against a
+Kestrel twin flying *the same weapon at the same enemy*. Three consequences
+worth knowing before reading one:
+
+- **The Kestrel is the origin by design, not by convention.** P3.3/P3.4 define
+  its whole column as zeros ("the frame you fly when intel is stale"), so the
+  ruler's zero is a design statement rather than a measurement.
+- **A frame cell's datum must differ ONLY by frame.** Picking each row's *best*
+  weapon would measure a loadout and label it an airframe. The harness asserts
+  this structurally.
+- **The predicted column cannot express a frame at all.** Prediction has no
+  survival term (assumption 3: nobody shoots back), so it bands an absolute
+  ttk while paper and validated are both deltas. Those three letters are not
+  comparable, and the report says so on every frame cell rather than inviting
+  the read. Durability — the point of the Atlas — is visible only in the
+  validated column.
+
+Relative banding also *rescues* the cells the win ruler cannot resolve: an
+unseeded enemy (turret, aegis) can only ever read `++` or `--` on win rate,
+but hull spent is continuous even in a deterministic duel.
+
 ## Known-inert fields
 
-`EnemyConfig.armor` is declared and overlay-tunable but applied nowhere in
-the damage pipeline yet; the lethality calculator mirrors the CODE, not the
-schema, so armor does not appear in its arithmetic until it ships for real.
+None. `EnemyConfig.armor` was the last one; it became live in Phase 4b, when
+the Atlas needed flat reduction to exist. It is applied in `Health.take` (and
+the gnat body's own damage path), modeled in `Lethality`, and verified by
+planted-shot **probes** in `lethality_check.gd` — synthetic armored configs,
+because every roster type is still `armor = 0.0` and checking the code against
+zeros would verify nothing. Nothing balances off the probes; they exist so the
+calculator and the damage code cannot drift on a rule the roster does not use
+yet.

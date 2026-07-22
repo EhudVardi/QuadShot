@@ -24,6 +24,30 @@ const ENEMIES: Array[String] = [
 	"res://resources/default_enemy_gnat.tres",
 	"res://resources/default_enemy_aegis.tres",
 ]
+## ARMOR PROBES. Flat armor landed with the Atlas (P3.3), whose armor sits on
+## the PLAYER's frame — and Layer 1 never models being shot at, so no roster row
+## exercises the new branch: every bestiary type is still `armor = 0.0`. Checking
+## the code against those zeros would verify nothing at all, so these synthetic
+## configs drive the three cases deliberately. They are PROBES, not roster
+## members: nothing balances off them, they exist so the calculator and
+## health.gd cannot drift on a rule the roster does not use yet.
+##
+##   raider+armor6   — plating that chips: every weapon still kills, slower.
+##   raider+armor10  — plating at the flak burst's damage: kill-or-never, the
+##                     same verdict shape as the aegis's shield threshold.
+##   aegis+armor36   — armor UNDER a shield, sized so a carry-through is exactly
+##                     swallowed by the plating while the full hit is not. That
+##                     is the one combination where verdicting "never" on the
+##                     carried sliver instead of the weapon's own damage looks
+##                     right and is wrong: the screen is down, and the next hit
+##                     lands whole. It killed at 21 s while an earlier draft of
+##                     the calculator called it unkillable.
+const ARMOR_PROBES: Array[Dictionary] = [
+	{"enemy": "res://resources/default_enemy_raider.tres", "armor": 6.0},
+	{"enemy": "res://resources/default_enemy_raider.tres", "armor": 10.0},
+	{"enemy": "res://resources/default_enemy_aegis.tres", "armor": 36.0},
+]
+
 ## Sim cap per cell. A predicted-never cell must survive this long under
 ## sustained planted fire to count as verified-never; the longest predicted
 ## kill (missile x aegis, 6 s) fits several times over.
@@ -61,6 +85,11 @@ func _initialize() -> void:
 			_add_cells(Lethality.cracked_config(enemy), "cracked", enemy)
 		else:
 			_add_cells(enemy, "", enemy)
+	for probe: Dictionary in ARMOR_PROBES:
+		var base: EnemyConfig = load(probe["enemy"]) as EnemyConfig
+		var armored: EnemyConfig = base.duplicate() as EnemyConfig
+		armored.armor = float(probe["armor"])
+		_add_cells(armored, "armor%.0f" % armored.armor, base)
 	print("[lethality] Layer 1 table (config arithmetic, %d cells):"
 			% _cells.size())
 	for cell: Dictionary in _cells:
@@ -128,7 +157,7 @@ func _start_cell() -> void:
 	_health = Health.new()
 	_health.max_health = enemy.hull
 	root.add_child(_health)
-	_health.configure_shield(enemy)
+	_health.configure_defenses(enemy)
 	_health.died.connect(func() -> void: _death_tick = _ticks)
 	var pps: float = float(Engine.physics_ticks_per_second)
 	match cell["weapon"]:

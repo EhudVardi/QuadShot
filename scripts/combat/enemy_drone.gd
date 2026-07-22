@@ -42,6 +42,7 @@ func _ready() -> void:
 		_rng.randomize()
 	_orbit_sign = 1.0 if _rng.randf() < 0.5 else -1.0
 	_health.max_health = enemy_config.hull
+	_health.configure_defenses(enemy_config)
 	_health.revive()
 	_health.died.connect(_on_died)
 	_pick_wander_target()
