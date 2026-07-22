@@ -56,7 +56,10 @@ extends TunableConfig
 @export var flak_damage: float = 10.0
 
 @export_group("Player")
-@export var player_max_health: float = 100.0
+# player_max_health left with FrameConfig.hull (P3.9): the hull belongs to the
+# airframe you are flying, not to "the player" — a distinction that could not be
+# made while there was one frame. The frame now applies it in
+# FlightController._ready, so the benches see it too.
 ## Crash impacts below this delta-v (m/s) are free; above it they hurt.
 @export var crash_damage_speed: float = 12.0
 ## Damage per m/s of delta-v beyond the free threshold.

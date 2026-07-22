@@ -88,6 +88,10 @@ extends TunableConfig
 @export var strength_cost: float = 1.0
 
 
+func identity_fields() -> PackedStringArray:
+	return PackedStringArray(["type_id"])
+
+
 func save_path() -> String:
 	return "user://enemy_%s.tres" % type_id
 

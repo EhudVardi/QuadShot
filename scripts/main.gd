@@ -52,8 +52,8 @@ func _ready() -> void:
 	_wave_director.run_ended.connect(_on_run_ended)
 	_exit_gate.entered.connect(_on_gate_entered)
 	_draft.picked.connect(_on_upgrade_picked)
-	_drone_health.max_health = combat_config.player_max_health
-	_drone_health.revive()
+	# Hull comes from the FRAME now (P3.9) and the drone applies it to itself in
+	# _ready, so there is nothing to set here — only signals to wire.
 	_drone_health.damaged.connect(_on_player_damaged)
 	_drone_health.died.connect(_on_player_died)
 	_drone.crashed.connect(_on_player_crashed)
@@ -161,7 +161,7 @@ func _start_run() -> void:
 	_hud.hide_title()
 	_exit_gate.deactivate()
 	RunMods.reset()
-	_drone_health.max_health = combat_config.player_max_health
+	_drone_health.max_health = _drone.frame.hull
 	_drone_health.revive()
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_repair_airframe()
@@ -185,7 +185,7 @@ func _on_gate_entered() -> void:
 
 func _on_upgrade_picked(id: StringName) -> void:
 	Upgrades.apply(id, RunMods.current)
-	_drone_health.max_health = combat_config.player_max_health \
+	_drone_health.max_health = _drone.frame.hull \
 			+ RunMods.current.max_health_bonus
 	_drone_health.heal(_drone_health.max_health)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
@@ -319,7 +319,7 @@ func _respawn_player() -> void:
 	_drone.freeze = false
 	_drone.reset_to_spawn()
 	# Re-read max health so live tuning applies from the next life on.
-	_drone_health.max_health = combat_config.player_max_health
+	_drone_health.max_health = _drone.frame.hull
 	_drone_health.revive()
 	_drone.visible = true
 	_hud.show_death(false)

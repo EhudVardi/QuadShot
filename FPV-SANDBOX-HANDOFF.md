@@ -59,7 +59,7 @@ The milestone is complete when ALL of the following are true:
     ui/debug_overlay.gd
 /resources/
     flight_config.gd       # Resource script (class_name FlightConfig)
-    default_flight_config.tres
+    default_flight_kestrel.tres
 ```
 
 Adjust if there's good reason, but explain the reasoning.
@@ -177,4 +177,4 @@ Weapons, enemies, damage, roguelike loop, base/meta progression, sound, VR/OpenX
 
 ## 14. Tuning protocol (human ↔ agent loop)
 
-When feel feedback arrives (e.g., "it oscillates on roll", "yaw feels mushy", "throttle is twitchy"), map it to the model deliberately: oscillation → P too high or D too low on that axis; slow drift correction → I; mushy/laggy response → motor lag too high or P too low; twitchy sticks → expo/deadzone/max-rate; floaty → drag or TWR. Propose specific config changes with reasoning, let the human apply them live in the overlay, and only bake new defaults into `default_flight_config.tres` when the human says the feel is right.
+When feel feedback arrives (e.g., "it oscillates on roll", "yaw feels mushy", "throttle is twitchy"), map it to the model deliberately: oscillation → P too high or D too low on that axis; slow drift correction → I; mushy/laggy response → motor lag too high or P too low; twitchy sticks → expo/deadzone/max-rate; floaty → drag or TWR. Propose specific config changes with reasoning, let the human apply them live in the overlay, and only bake new defaults into the frame's `default_flight_<frame_id>.tres` (`default_flight_kestrel.tres` for the shipped drone) when the human says the feel is right.

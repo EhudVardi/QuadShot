@@ -20,7 +20,6 @@ flak_arm_distance = 5.0
 flak_fuse_radius = 3.5
 flak_burst_radius = 6.0
 flak_damage = 10.0
-player_max_health = 100.0
 crash_damage_speed = 12.0
 crash_damage_scale = 6.0
 respawn_delay = 2.5

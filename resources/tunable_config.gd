@@ -7,6 +7,12 @@ extends Resource
 ## seeing live data. Subclasses override save_path()/defaults_path().
 
 
+## Where the last successful load_from_user() actually read from. Usually
+## save_path(), but FlightConfig can fall back to a legacy path, and a boot log
+## that names the wrong file is worse than no boot log.
+var loaded_from: String = ""
+
+
 func save_path() -> String:
 	return ""
 
@@ -15,10 +21,25 @@ func defaults_path() -> String:
 	return ""
 
 
+## Fields naming WHICH instance this is (EnemyConfig.type_id,
+## FlightConfig/FrameConfig.frame_id) rather than how it behaves. Subclasses
+## with many instances list them here and copy_from skips them.
+##
+## Values travel between instances constantly — that is what the overlay's
+## preset bars are for — and identity must not travel with them: a FLIGHT preset
+## saved on the Kestrel and loaded onto the Atlas would otherwise rename the
+## Atlas, which then saves its tuning over the Kestrel's file. Same exposure the
+## BESTIARY preset bars have always had with type_id.
+func identity_fields() -> PackedStringArray:
+	return PackedStringArray()
+
+
 func copy_from(source: TunableConfig) -> void:
+	var identity: PackedStringArray = identity_fields()
 	for prop: Dictionary in get_property_list():
 		var usage: int = prop["usage"]
-		if (usage & PROPERTY_USAGE_SCRIPT_VARIABLE) and (usage & PROPERTY_USAGE_STORAGE):
+		if (usage & PROPERTY_USAGE_SCRIPT_VARIABLE) and (usage & PROPERTY_USAGE_STORAGE) \
+				and not identity.has(prop["name"]):
 			set(prop["name"], source.get(prop["name"]))
 
 
@@ -34,6 +55,7 @@ func load_from_user() -> bool:
 	if loaded == null:
 		return false
 	copy_from(loaded)
+	loaded_from = save_path()
 	return true
 
 

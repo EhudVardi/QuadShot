@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_cfg")
+frame_id = &"kestrel"
 mass = 0.65
 arm_length = 0.12
 thrust_to_weight_ratio = 4.5

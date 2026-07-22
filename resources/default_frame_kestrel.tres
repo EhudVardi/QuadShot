@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
+[ext_resource type="Resource" path="res://resources/default_flight_kestrel.tres" id="2_flight"]
+
+[resource]
+script = ExtResource("1_frame")
+frame_id = &"kestrel"
+display_name = "Kestrel"
+flight_config = ExtResource("2_flight")
+hull = 100.0

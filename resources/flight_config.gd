@@ -12,6 +12,11 @@ enum ThrottleCurve { RAW, HOVER_CENTERED, THREE_D }
 enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 
 @export_group("Airframe")
+## Which frame's flight model this is (P3.9: frames ARE flight configs). Drives
+## this resource's own save/defaults paths, so two frames tuned in the same
+## session cannot overwrite each other's overrides. Matches the owning
+## FrameConfig's `frame_id`.
+@export var frame_id: StringName = &"kestrel"
 @export var mass: float = 0.65
 @export var arm_length: float = 0.12
 
@@ -135,15 +140,41 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 @export var arm_throttle_threshold: float = 0.05
 
 
-# Persistence machinery lives in TunableConfig; these paths steer it.
+# Persistence machinery lives in TunableConfig; these paths steer it. Derived
+# from frame_id rather than class constants, because there is now one of these
+# per frame (EnemyConfig's precedent, same reason).
 
-const SAVE_PATH: String = "user://flight_config.tres"
-const DEFAULTS_PATH: String = "res://resources/default_flight_config.tres"
+## The single-frame save path from before frames existed. Read once as a
+## fallback, never written — see load_from_user().
+const LEGACY_SAVE_PATH: String = "user://flight_config.tres"
+
+
+func identity_fields() -> PackedStringArray:
+	return PackedStringArray(["frame_id"])
 
 
 func save_path() -> String:
-	return SAVE_PATH
+	return "user://flight_%s.tres" % frame_id
 
 
 func defaults_path() -> String:
-	return DEFAULTS_PATH
+	return "res://resources/default_flight_%s.tres" % frame_id
+
+
+## Migration shim, retiring itself after one Save. A pilot's user:// overrides
+## are months of tuning at the sticks, and the rename to per-frame paths would
+## otherwise discard them in silence — the one failure mode of this change that
+## costs a human real work rather than a re-run. Only the Kestrel looks: it IS
+## the drone that file was tuned for (P3.3).
+func load_from_user() -> bool:
+	if super.load_from_user():
+		return true
+	if frame_id != &"kestrel" or not FileAccess.file_exists(LEGACY_SAVE_PATH):
+		return false
+	var legacy: TunableConfig = ResourceLoader.load(
+			LEGACY_SAVE_PATH, "", ResourceLoader.CACHE_MODE_IGNORE) as TunableConfig
+	if legacy == null:
+		return false
+	copy_from(legacy)
+	loaded_from = "%s (pre-frame override, migrating)" % LEGACY_SAVE_PATH
+	return true

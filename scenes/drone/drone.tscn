@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/drone/flight_controller.gd" id="1_fc"]
 [ext_resource type="Script" path="res://scripts/drone/motor_model.gd" id="2_mm"]
-[ext_resource type="Resource" path="res://resources/default_flight_config.tres" id="3_cfg"]
+[ext_resource type="Resource" path="res://resources/default_frame_kestrel.tres" id="3_frame"]
 [ext_resource type="Script" path="res://scripts/drone/input_handler.gd" id="4_ih"]
 [ext_resource type="Script" path="res://scripts/combat/weapon.gd" id="5_wpn"]
 [ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="6_ccfg"]
@@ -42,7 +42,7 @@ max_contacts_reported = 4
 linear_damp_mode = 1
 angular_damp_mode = 1
 script = ExtResource("1_fc")
-config = ExtResource("3_cfg")
+frame = ExtResource("3_frame")
 damage_config = ExtResource("13_dmg")
 
 [node name="MotorModel" type="Node" parent="."]

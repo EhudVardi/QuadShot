@@ -11,10 +11,17 @@ enum FlightMode { ACRO, ANGLE }
 ## Hard contact; main converts delta-v to crash damage (roadmap M2).
 signal crashed(impact_speed: float)
 
-@export var config: FlightConfig
+## The airframe being flown (GAMEPLAY-DESIGN P3.3/P3.9). Swapping frames is
+## swapping this one resource: it carries the flight model AND the hull.
+@export var frame: FrameConfig
 ## Damage model (GAMEPLAY-DESIGN Iteration 7). Null in the harness/tests, where
 ## motors stay undamaged and flight is the shipped model exactly.
 @export var damage_config: DamageConfig
+
+## This frame's flight model — `frame.flight_config`, resolved in _ready().
+## Not an @export any more: a frame that could be flown with another frame's
+## FlightConfig is not a frame. Everything that read `drone.config` still does.
+var config: FlightConfig
 
 @onready var _motors: MotorModel = $MotorModel
 @onready var _input: InputHandler = $InputHandler
@@ -51,9 +58,23 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
 func _ready() -> void:
+	config = frame.flight_config
+	if not frame.flight_config_matches():
+		push_error("[frame] %s carries a flight config for '%s'"
+				% [frame.frame_id, config.frame_id])
+	if frame.load_from_user():
+		print("[config] loaded %s" % frame.loaded_from)
 	if config.load_from_user():
-		print("[config] loaded %s" % FlightConfig.SAVE_PATH)
+		print("[config] loaded %s" % config.loaded_from)
 	mass = config.mass
+	# The frame owns the hull, and applies it HERE rather than in main.gd. That
+	# move closes a hole in the instrument: the benches instantiate this scene
+	# directly and never ran main's wiring, so they measured whatever default sat
+	# on the Health node while the game measured CombatConfig.player_max_health.
+	# The two agreed at 100 by luck; tuning one would have silently desynced the
+	# harness's damage-taken column from the game's.
+	($Health as Health).max_health = frame.hull
+	($Health as Health).revive()
 	if damage_config != null:
 		# Every other config auto-loads its user:// override on boot; this one
 		# did not, so saved damage tuning was silently ignored until the

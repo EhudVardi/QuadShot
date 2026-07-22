@@ -90,6 +90,10 @@ const _FLIGHT_VECTOR_ROWS: Array[Array] = [
 	["rate_ff", 0.0, 0.003, 0.00005],
 ]
 
+const _FRAME_FLOAT_ROWS: Array[Array] = [
+	["hull", 10.0, 500.0, 10.0],
+]
+
 const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["fire_rate", 1.0, 30.0, 0.5],
 	["muzzle_speed", 20.0, 200.0, 5.0],
@@ -99,7 +103,6 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 	["inherit_velocity", 0.0, 1.0, 0.05],
 	["fire_assist_miss_m", 0.0, 5.0, 0.1],
 	["fire_assist_range", 10.0, 150.0, 5.0],
-	["player_max_health", 10.0, 500.0, 10.0],
 	["crash_damage_speed", 2.0, 40.0, 1.0],
 	["crash_damage_scale", 0.0, 20.0, 0.5],
 	["respawn_delay", 0.0, 10.0, 0.5],
@@ -214,7 +217,7 @@ const _LOOK_FLOAT_ROWS: Array[Array] = [
 
 
 func _ready() -> void:
-	_configs = [drone.config, combat_config, audio_config]
+	_configs = [drone.frame, drone.config, combat_config, audio_config]
 	if damage_config != null:
 		_configs.append(damage_config)
 	if look_config != null:
@@ -227,6 +230,12 @@ func _ready() -> void:
 	_add_input_profile_row(drone.config)
 	_add_throttle_curve_row(drone.config)
 	_add_config_rows(drone.config, _FLIGHT_FLOAT_ROWS, _FLIGHT_VECTOR_ROWS, preset_updater)
+	# FRAME (P3.9): the airframe's own block, next to the flight model it owns.
+	# Its own preset bar and save file, keyed by frame_id, so tuning the Atlas
+	# never writes over the Kestrel.
+	_add_section_header("FRAME: %s" % drone.frame.display_name.to_upper())
+	_add_preset_bar("frame/%s" % drone.frame.frame_id, drone.frame)
+	_add_config_rows(drone.frame, _FRAME_FLOAT_ROWS, [])
 	_add_section_header("COMBAT")
 	_add_preset_bar("combat", combat_config)
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
