@@ -136,6 +136,13 @@ func _open() -> void:
 	_events.store_csv_line(PackedStringArray([
 		"t", "kind", "detail", "value", "x", "y", "z",
 	]))
+	# The session header: WHICH AIRFRAME flew this file. Earned the hard way on
+	# the log's first night (v1.34): the human flew both frames, and the only
+	# ways to tell the sessions apart were inferring hover throttle from motor
+	# medians (fails — this pilot hovers 0.5% of the time, v1.29) and noticing
+	# 194 damage taken exceeds a Kestrel's whole hull. Data should say its name.
+	_write_event(&"session", String(_drone.frame.frame_id), _drone.frame.hull,
+			Vector3.INF)
 
 
 func _write_event(kind: StringName, detail: String, value: float,

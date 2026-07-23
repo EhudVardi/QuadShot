@@ -139,9 +139,14 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Blaster x Raiders", "weapon": "blaster", "type": "raider",
 			"enemy": "res://scenes/combat/raider_pack.tscn",
 			"paper": "0", "mode": "pack", "bodies": 3.0},
+	# Paper `0` is the USER's call (v1.34), replacing this row's proposed `-`
+	# after measurement contradicted it (validated ++ at N=3): "the missiles...
+	# get very effective, persistent raider killer." `0` rather than `+` because
+	# the promise must hold across the row's real range, not just N=3 — the
+	# cadence bill is linear in bodies, so the measured ++ decays as packs grow.
 	{"name": "Missile x Raiders", "weapon": "missile", "type": "raider",
 			"enemy": "res://scenes/combat/raider_pack.tscn",
-			"paper": "-", "mode": "pack", "bodies": 3.0},
+			"paper": "0", "mode": "pack", "bodies": 3.0},
 	{"name": "Flak x Raiders", "weapon": "flak", "type": "raider",
 			"enemy": "res://scenes/combat/raider_pack.tscn",
 			"paper": "+", "mode": "pack", "bodies": 3.0},

@@ -3070,6 +3070,46 @@ to distrust the current table, and not a number to guess.
   WeatherConfig hook, P1.6) — fake it cheaply, sim it, or skip at 1.0?
 
 
+### B steering — first depths (v1.34, 2026-07-23)
+
+Two extensions from the user, hours after the proposal was written; both
+deepen B5/B4 rather than redirect them.
+
+**B5 deepened — the menu tree is FLOWN in depth.** The user's mechanic,
+kept whole: the menu is real-time flight; every window carries its item's
+text above it; flying THROUGH a window selects, and when you exit the floor
+the NEXT menu level stands in front of you — the tree of buildings traversed
+by momentum, no cuts, no cursor. The natural inverses come free: re-thread
+the window you came from to go back up a level, and a selection only COMMITS
+on exiting the far side (a short interior crossing), so a graze at speed is
+a scare rather than a mis-pick. Precedent already in the game: the M4 exit
+gate — fly-through-to-advance is a shipped, proven verb; the menu makes it
+the whole grammar. Constraints owned up front: labels must be large,
+emissive and face-on (readable on approach, B2's lighting); tree depth stays
+shallow (two, at most three levels — which menus are anyway); and an input
+fallback still exists (B.q2 stands).
+
+**B7 (new section seed) — graded windows: difficulty as architecture.** The
+user's mode idea: runs/routes through building series where each facade
+offers SEVERAL windows, each neon-graded by the difficulty of the floor
+behind it — red hard, yellow medium, green easy, blue beginner. What this
+actually is, in the doc's own vocabulary: **P2.7's dares wearing B4's
+enterability telegraph** — risk-priced skill challenges, self-selected in
+real time at speed, no menu anywhere. It is also H6's difficulty curve made
+spatial and per-second: the player states their own challenge level with a
+flight decision, continuously, which is the most organic difficulty selector
+this design has produced. Two consequences fall out for free: the floor
+generator (B3) grows a difficulty dial — which P2.11's organic-difficulty
+harness needs anyway — and the reward economy prices windows (P5: the red
+window pays more), making risk-for-reward a literal doorway.
+
+**B.q5 (new)** — the palette collision, flagged not solved: traffic-light
+difficulty grading overlaps the emissive roles (red = threat, green = pads,
+yellow = player fire, amber = pylons). Red-hard arguably AGREES with
+red-threat (danger is the shared semantic), and green-easy sits near
+green-pads' "safe" family — the collision may be harmony. Decide at B5
+build time with eyes on it, not before.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -4791,3 +4831,54 @@ to distrust the current table, and not a number to guess.
     v1.32 wedge): the drill needs the human's hands, the tower needs nothing
     the harness measures. **To resume after a session cut: "Continue QuadShot
     per the v1.32/v1.33 entries."**
+- **2026-07-23 — v1.34. The event log's first night: the human's own hit rate,
+  read straight off the instrument — and the menu learns to fly in depth.**
+  Same-day follow-up to v1.32/v1.33: the user flew both frames, reacted to the
+  raider-pack row, and sent the flyable menu two levels deeper.
+  - **THE FIRST REAL READ-BACK, and it lands the number v1.29 could only wish
+    for.** Six evening sessions, every one with its `events_*.csv` companion.
+    The combat story of the night, aggregated: **blaster 10–16%
+    hits-per-shot-fired; missile 23/23 = 100%**. The human's real-combat
+    blaster rate sits at almost exactly the reference pilot's much-caveated
+    0.17 static-drill aim — the number three entries have flagged as "reads
+    the bot, not the gun" is, in live combat with return fire, roughly the
+    HUMAN's number too. Different measurements (moving fight vs static drill)
+    so this does not close H.q4 — but it moves the prior hard: the 0.17 datum
+    is not an indictment of the bot, it is what a chip gun's trigger costs
+    against jinking targets. Also readable at last: kills per session (16, 5,
+    15), damage taken per wave, and three sessions that were armed false
+    starts — visible AS false starts now instead of mystery files.
+  - **The log's first night also exposed its own gap, which is the point of
+    first nights**: nothing in either CSV said WHICH FRAME flew the session.
+    Attribution took motor-median inference (fails on this pilot — 0.5% hover
+    time, v1.29) and the arithmetic that 194 damage taken exceeds a Kestrel's
+    entire hull, so that session must be the Atlas. Fixed the same hour: a
+    `session` event now opens every events file with the frame_id and hull.
+    Data should say its name.
+  - **A quiet flak note**: zero flak lines in the evening sessions. If the pod
+    was fired tonight, the log missed it and that is a bug to chase; if it
+    simply was not fired, the log just demonstrated it can prove a negative.
+    Asked, not assumed.
+  - **`Missile x Raiders` paper: the user's react lands it at `0`** (from the
+    contradicted proposed `-`): "the missiles... get very effective,
+    persistent raider killer." Recorded as `0` rather than the measured `++`'s
+    `+` because a paper band is a promise across the row's real range, not a
+    fit to N=3 — the cadence bill is linear in bodies, so the measured `++`
+    decays as packs grow. The row now reads paper `0` → predicted `0` →
+    validated `++` at N=3, gap understood and stated.
+  - **B steering, first depths (folded into Iteration 8 as its steering
+    subsection):** (1) **the menu tree is FLOWN in depth** — fly through a
+    labeled window to select, exit the floor and the next menu level stands in
+    front of you; re-thread backwards to go up a level; commit-on-exit so a
+    graze is a scare, not a mis-pick. The M4 exit gate proved the verb; the
+    menu makes it the grammar. (2) **B7 seeded: graded windows** — facades
+    offering several neon-graded windows (red hard → blue beginner), which is
+    P2.7's dares wearing B4's enterability telegraph, H6's difficulty curve
+    made spatial and self-selected per second, a difficulty dial the B3
+    generator and P2.11 both need, and a doorway P5 can price. (3) **B.q5**:
+    the traffic-light grading vs the emissive palette roles — possibly
+    harmony (red-hard agrees with red-threat), decided when B5 builds.
+  - **Next: unchanged — H.q4's drill and B5's tower, interleaved.** B5 just
+    got richer and better-specified, which is what steering is for. **To
+    resume after a session cut: "Continue QuadShot per the v1.32–v1.34
+    entries."**
