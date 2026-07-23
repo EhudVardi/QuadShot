@@ -4458,3 +4458,65 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     v1.29, both waiting on the user's word), then H.q4's hands-on calibration,
     whose case the ruler bug just strengthened again.
     **To resume after a session cut: "Continue QuadShot per the v1.30 entry."**
+- **2026-07-23 — v1.31. The Kestrel's tuned feel becomes its shipped default,
+  and the frame axis sharpens the moment the datum is the real drone.** The
+  §14 decision v1.30 handed the human, taken: bake the flight config they had
+  flown for months into the repo, so the instrument measures what ships. Small
+  change, large consequence — two Atlas cells that read neutral against a bad
+  datum told the truth against a good one.
+  - **What was baked, and what deliberately was NOT.** Four FEEL fields into
+    `default_flight_kestrel.tres`: `rate_p` 0.004→0.007, `rate_ff` 0→0.0008
+    (feedforward on), `max_angle_deg` 55→56, `angular_damping` 0.02→0.013. The
+    baked set lands *exactly* on the `Cruise` `rate_preset` — months of hand
+    tuning had converged onto a bench-tuned preset, so the overlay now reads
+    `Cruise` rather than `Custom`. **`input_profile` (RADIO_AETR) was NOT
+    baked**: it is the human's hardware, not a feel value, and shipping it as
+    the repo default would break every gamepad player (CLAUDE.md's stated
+    primary controller). Their radio pick is preserved by re-homing the
+    override to the new per-frame path `user://flight_kestrel.tres`, whose feel
+    values now match the default — so it shadows nothing that matters and only
+    carries the controller choice. The legacy `user://flight_config.tres` is
+    retired, which also ends the v1.30 migration shim's job for this profile.
+  - **The re-measure is the proof.** Only the Kestrel cells and the stamp
+    moved: `aim: kestrel/blaster` **0.05 → 0.17** (the drone flies well again),
+    `aim: kestrel/flak` 1.0 → 0.99. Every evasion cell, `splash`, and all three
+    `atlas:*` aim cells came back unchanged — frame-independent by construction,
+    and the Atlas's own config did not move. **The `config_stamp` changed, and
+    it SHOULD have**: the frame's flight config joined the stamp in Phase 4b, so
+    a Kestrel PID edit now correctly invalidates the old factors instead of
+    silently quoting them. This is the staleness guard firing on exactly the
+    kind of change that used to slip past it — the v1.30 fix demonstrating
+    itself on its first real use.
+  - **THE FRAME AXIS TOLD THE TRUTH ONCE THE DATUM WAS REAL — both moving cells
+    are v1.30's predicted "moving zero", now with the sign that matters.**
+    - `Atlas x Turret` `+` → `0`. On the bad default the Kestrel bled 30% hull
+      killing a turret slowly, so the Atlas's patience looked like an advantage.
+      On the real Kestrel the turret dies in **1.3 s for zero hull**, so the
+      Atlas's armor buys nothing and its sluggishness *costs* 10%. The cell
+      moved toward paper's `-`.
+    - `Atlas x Aegis` `0` → `--`, and this is the sharp one. The real Kestrel is
+      fast enough to **catch the aegis bomber and win**; the Atlas is too slow to
+      intercept before it bombs, 6/6. On the bad default BOTH frames bombed, so
+      the cell read a neutral `0` and hid the gap entirely. This is a **third**
+      instance of the 1v1 rig not seeing what a P4.4 band is about — the gnat
+      row saturated the ruler, the aegis row lacked a loadout system, and now
+      the aegis row *also* runs into a pure-intercept deadline where the paper
+      band was about missile-rack tonnage. Logged, not tuned: the Atlas being
+      slow is P3.3's design ("it plants in the air", P4.4's SAM/open-ground
+      `--`), and a bomber on a clock is simply the scenario that prices it. The
+      open question for the human is whether the slice wants the heavy to have a
+      bomber answer that is not "out-fly it" — which is exactly the loadout
+      (missile racks) and the composition (don't take the heavy on a naked
+      intercept) that later phases add.
+  - **The strongest vindication of the v1.30 ruler fix is that it changed a
+    band.** `Atlas x Aegis` was `0` under the machine-local ruler and is `--`
+    under the committed one — the bad datum was not just imprecise, it was
+    hiding a whole-magnitude frame weakness behind a false neutral. A relative
+    ruler is only as honest as its origin, and the origin is now the drone the
+    human actually flies.
+  - **Open / next: unchanged from v1.30.** The raider-pack bench and richer
+    combat blackbox (sized in v1.29) wait on the user's word; H.q4's human aim
+    bench is now unblocked *and* better-founded, since the reference bot and the
+    human will fly the same committed Kestrel. GAP-1's `WeaponConfig` half stays
+    deferred. **To resume after a session cut: "Continue QuadShot per the v1.31
+    entry."**
