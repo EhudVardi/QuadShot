@@ -5080,3 +5080,41 @@ tree is build-order step 4, not a casualty.
     window-line glow, the window size feel, and label readability on
     approach. **To resume after a session cut: "Continue QuadShot B5 per
     v1.37 — checkpoint 1 awaiting/flown."**
+- **2026-07-23 — v1.38. Checkpoint 1 flown ("im excited"), and the verb goes
+  live: fly-through glyphs, escalating windows, commit-on-exit.** The human
+  flew the shell the same day and returned four verdicts; two bake, two build.
+  - **The lighting answers are IN: darkening on ingress "yes please",
+    window-line glow "absolutely."** B2's auto-exposure bet and the
+    enterability telegraph both survive first contact with hands, at their
+    shipped defaults — nothing retuned, nothing to bake beyond leaving the
+    numbers alone.
+  - **Window size verdict is new steering: ESCALATING GAPS.** The user:
+    windows get "smaller and smaller — not too hard at the bottom leafs
+    though." The tower adopts B7's difficulty-as-architecture for its own
+    floors: generous windows low, tightening with altitude, so the menu is
+    also a skill ladder read at a glance. Proposed floor order for step 3,
+    bottom→top: QUIT (ground lobby, trivial), START RUN (big), FLY FREE,
+    DEV ROOM, AIM DRILL (tightest — the drill's doorway is itself a drill).
+    Exact sizes are cut at step 3 and tuned by hands, not asserted.
+  - **The label verdict redesigns it into the game's first world-glyph
+    object.** The user: the text "hovers on the same plane as the warp
+    animation does, you fly through... 3d glowing text built out of
+    primitives." Built: `GlowText3D` (`scripts/menu/glow_text_3d.gd`) — a
+    5x7 dot-matrix font rendered as one MultiMesh of emissive cubes, no font
+    assets, no collision; the Label3D on the facade is gone and START RUN
+    now floats INSIDE the window aperture, read against the dark interior,
+    flown straight through on ingress. Noted out loud: this object is the
+    **B8 enabler** — word chains are exactly strings of these hung in the
+    world.
+  - **Step 2's verb is live on the open floor** (`scripts/menu/menu_floor.gd`,
+    an Area3D spanning the interior): entering through the window announces
+    the leaf on the kill feed; exiting the FAR side commits (logged +
+    announced — step 3 swaps the log line for the actual launch); re-threading
+    the entry window cancels. A crash respawn outside reads as cancel — the
+    honest verdict for dying mid-decision. The exit-side test is the drone's
+    local z against the room's half-depth, so the verdict comes from geometry,
+    not from bookkeeping that could desync.
+  - **Checkpoint 2 is OPEN: the human flies the threshold feel** — does
+    commit-on-exit feel deliberate, does the graze-scare read as designed,
+    do the fly-through glyphs land? **To resume after a session cut:
+    "Continue QuadShot B5 per v1.38 — checkpoint 2 awaiting/flown."**

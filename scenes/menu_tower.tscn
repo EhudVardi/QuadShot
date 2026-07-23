@@ -1,4 +1,4 @@
-[gd_scene load_steps=39 format=3]
+[gd_scene load_steps=42 format=3]
 
 [ext_resource type="Script" path="res://scripts/menu_tower.gd" id="1_menu"]
 [ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
@@ -14,6 +14,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="12_hud"]
 [ext_resource type="Script" path="res://scripts/chase_camera.gd" id="13_chase"]
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="14_overlay"]
+[ext_resource type="Script" path="res://scripts/menu/glow_text_3d.gd" id="15_gtext"]
+[ext_resource type="Script" path="res://scripts/menu/menu_floor.gd" id="16_mfloor"]
 
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("4_checker")
@@ -126,6 +128,9 @@ size = Vector3(3.36, 0.12, 0.12)
 [sub_resource type="BoxMesh" id="mesh_bar_v"]
 material = SubResource("mat_window_line")
 size = Vector3(0.12, 2.2, 0.12)
+
+[sub_resource type="BoxShape3D" id="shape_room"]
+size = Vector3(11.2, 3.6, 11.2)
 
 [node name="MenuTower" type="Node3D"]
 script = ExtResource("1_menu")
@@ -316,14 +321,18 @@ mesh = SubResource("mesh_bar_v")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.62, 10.5, 6.08)
 mesh = SubResource("mesh_bar_v")
 
-[node name="Label" type="Label3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.4, 6.45)
-modulate = Color(0.5, 1.6, 2.2, 1)
-outline_modulate = Color(0, 0.06, 0.1, 1)
-text = "START RUN"
-font_size = 160
-outline_size = 40
-pixel_size = 0.01
+[node name="WindowText" type="Node3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.5, 5.8)
+script = ExtResource("15_gtext")
+text = "START\nRUN"
+
+[node name="RoomZone" type="Area3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.2, 0)
+script = ExtResource("16_mfloor")
+leaf_id = &"start_run"
+
+[node name="RoomShape" type="CollisionShape3D" parent="Tower/RoomZone"]
+shape = SubResource("shape_room")
 
 [node name="InteriorLight" type="OmniLight3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.4, 0)
