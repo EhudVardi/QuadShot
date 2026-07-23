@@ -59,9 +59,16 @@ const FONT: Dictionary = {
 			_rebuild()
 @export var pixel_size: float = 0.1
 @export var glow_color: Color = Color(0.2, 0.7, 1.0)
-@export var glow_energy: float = 3.5
+## Live-settable without a rebuild — the side-view selection highlight
+## breathes through this.
+@export var glow_energy: float = 3.5:
+	set(value):
+		glow_energy = value
+		if _material != null:
+			_material.emission_energy_multiplier = value
 
 var _instance: MultiMeshInstance3D
+var _material: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -75,14 +82,14 @@ func _rebuild() -> void:
 	var offsets: PackedVector3Array = _pixel_offsets()
 	if offsets.is_empty():
 		return
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.02, 0.05, 0.08)
-	material.emission_enabled = true
-	material.emission = glow_color
-	material.emission_energy_multiplier = glow_energy
+	_material = StandardMaterial3D.new()
+	_material.albedo_color = Color(0.02, 0.05, 0.08)
+	_material.emission_enabled = true
+	_material.emission = glow_color
+	_material.emission_energy_multiplier = glow_energy
 	var cube: BoxMesh = BoxMesh.new()
 	cube.size = Vector3.ONE * pixel_size * CUBE_FILL
-	cube.material = material
+	cube.material = _material
 	var multimesh: MultiMesh = MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.mesh = cube

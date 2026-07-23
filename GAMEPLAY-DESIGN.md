@@ -5118,3 +5118,54 @@ tree is build-order step 4, not a casualty.
     commit-on-exit feel deliberate, does the graze-scare read as designed,
     do the fly-through glyphs land? **To resume after a session cut:
     "Continue QuadShot B5 per v1.38 — checkpoint 2 awaiting/flown."**
+- **2026-07-23 — v1.39. Checkpoint 2 flown; step 3 lands whole: five floors,
+  five launches, the side view, and the game now OPENS at the tower.** The
+  human's verdicts: verb "ok", glyphs "great for now, serves the purpose",
+  plus two asks — an exit-vector arrow after a graze, and "more dramatic"
+  darkness ("the hdr... not very noticeable"); windows "can be larger — it's
+  the main menu... very wide easy and inviting."
+  - **The drama diagnosis, owned**: the weak effect was only half the eye —
+    the interior itself was never truly dark (light-gray walls eating flat
+    ambient + a bright omni). Fixed at both ends: interior surfaces go
+    near-black (`MenuFloorFrame.INTERIOR_ALBEDO`), the interior omni drops to
+    an accent, and the adaptation defaults deepen — speed 0.5→0.35 (the eye
+    adapts as a visible process) and min_sensitivity 0→10 (a floor that stops
+    the eye from fully compensating, so interiors reveal but STAY dark).
+    Caveat stated: if the human saved LOOK after v1.37, the stale
+    auto-exposure numbers in `user://look_config.tres` override these
+    defaults — one press of LOOK Defaults reconciles.
+  - **The exit vector**: three flat cyan chevrons march the interior floor
+    toward the far window — runway markings in the navigation palette, the
+    checkpoint-2 ask verbatim.
+  - **Five floors, ESCALATING GAPS from a wider baseline** (both v1.38
+    steering and the new "wide easy inviting" verdict): bottom→top QUIT
+    (ground lobby door 4.0×2.8, sill 0), START RUN (5.0×2.8 — the widest,
+    the front door), FLY FREE (4.0×2.6), DEV ROOM (3.2×2.2), AIM DRILL
+    (2.4×1.8 — the drill's doorway is itself a drill). Built by
+    `MenuFloorFrame` (`scripts/menu/menu_floor_frame.gd`), a parametric
+    enclosure — explicitly NOT the B3 generator (no seeds, no rooms; five
+    hand-chosen parameter sets in a .tscn that stays diff-readable where
+    five copies of box-soup would not). The sealed dark-glass bands are
+    gone; five lit windows stacked ARE the menu, readable as a column.
+  - **Five launches**: committed floors change scene — START RUN → main,
+    FLY FREE → main with `MenuLaunch.free_fly` (a new static-layer flag,
+    RunMods' pattern, since change_scene carries no arguments; main.gd arms
+    without starting the run: no waves, no score, no summary — B.q2's
+    priced leaf, paid), DEV ROOM → dev_map, AIM DRILL → aim_drill, QUIT →
+    quit. A directly-booted scene sees default flags and behaves exactly as
+    before the menu existed.
+  - **The side view ships** (the v1.37 two-cameras design, single-tower
+    form): no controller → an outside camera frames the tower, ↑/↓ walk the
+    selection floor to floor (the floor's glyphs flare and its interior
+    wakes), Enter launches, Esc quits; a controller appearing at any moment
+    drops the menu into flight. `Input.joy_connection_changed` drives the
+    swap live.
+  - **The game now opens at the tower**: `run/main_scene` flips to
+    `menu_tower.tscn` — the fantasy from second zero (B5's own words), and
+    CLAUDE.md's run instructions follow. `scenes/main.tscn` stays directly
+    bootable for dev muscle memory.
+  - **Checkpoint 3 is OPEN: the human flies the whole menu** — the darker
+    dark, the chevrons, all five thresholds at their sizes, a real launch of
+    each leaf, and the keyboard side view (unplug the controller). **To
+    resume after a session cut: "Continue QuadShot B5 per v1.39 —
+    checkpoint 3 awaiting/flown."**

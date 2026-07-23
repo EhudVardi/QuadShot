@@ -1,4 +1,4 @@
-[gd_scene load_steps=42 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://scripts/menu_tower.gd" id="1_menu"]
 [ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
@@ -14,8 +14,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="12_hud"]
 [ext_resource type="Script" path="res://scripts/chase_camera.gd" id="13_chase"]
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="14_overlay"]
-[ext_resource type="Script" path="res://scripts/menu/glow_text_3d.gd" id="15_gtext"]
-[ext_resource type="Script" path="res://scripts/menu/menu_floor.gd" id="16_mfloor"]
+[ext_resource type="Script" path="res://scripts/menu/menu_floor_frame.gd" id="15_frame"]
 
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("4_checker")
@@ -64,73 +63,12 @@ adjustment_saturation = 1.12
 [sub_resource type="ShaderMaterial" id="mat_structure"]
 shader = ExtResource("5_neon")
 
-[sub_resource type="StandardMaterial3D" id="mat_sealed"]
-albedo_color = Color(0.05, 0.06, 0.08, 1)
-metallic = 0.7
-roughness = 0.25
-
-[sub_resource type="StandardMaterial3D" id="mat_dark"]
-albedo_color = Color(0.1, 0.11, 0.13, 1)
-roughness = 0.9
-
-[sub_resource type="StandardMaterial3D" id="mat_window_line"]
-albedo_color = Color(0.05, 0.15, 0.25, 1)
-emission_enabled = true
-emission = Color(0.2, 0.7, 1, 1)
-emission_energy_multiplier = 3.5
-
-[sub_resource type="BoxMesh" id="mesh_band"]
-material = SubResource("mat_sealed")
-size = Vector3(12, 7.6, 12)
-
-[sub_resource type="BoxShape3D" id="shape_band"]
-size = Vector3(12, 7.6, 12)
-
 [sub_resource type="BoxMesh" id="mesh_slab"]
 material = SubResource("mat_structure")
 size = Vector3(12.6, 0.4, 12.6)
 
 [sub_resource type="BoxShape3D" id="shape_slab"]
 size = Vector3(12.6, 0.4, 12.6)
-
-[sub_resource type="BoxMesh" id="mesh_wall_piece"]
-material = SubResource("mat_dark")
-size = Vector3(4.5, 3.6, 0.4)
-
-[sub_resource type="BoxShape3D" id="shape_wall_piece"]
-size = Vector3(4.5, 3.6, 0.4)
-
-[sub_resource type="BoxMesh" id="mesh_sill"]
-material = SubResource("mat_dark")
-size = Vector3(3, 1, 0.4)
-
-[sub_resource type="BoxShape3D" id="shape_sill"]
-size = Vector3(3, 1, 0.4)
-
-[sub_resource type="BoxMesh" id="mesh_header"]
-material = SubResource("mat_dark")
-size = Vector3(3, 0.4, 0.4)
-
-[sub_resource type="BoxShape3D" id="shape_header"]
-size = Vector3(3, 0.4, 0.4)
-
-[sub_resource type="BoxMesh" id="mesh_side_wall"]
-material = SubResource("mat_dark")
-size = Vector3(0.4, 3.6, 11.2)
-
-[sub_resource type="BoxShape3D" id="shape_side_wall"]
-size = Vector3(0.4, 3.6, 11.2)
-
-[sub_resource type="BoxMesh" id="mesh_bar_h"]
-material = SubResource("mat_window_line")
-size = Vector3(3.36, 0.12, 0.12)
-
-[sub_resource type="BoxMesh" id="mesh_bar_v"]
-material = SubResource("mat_window_line")
-size = Vector3(0.12, 2.2, 0.12)
-
-[sub_resource type="BoxShape3D" id="shape_room"]
-size = Vector3(11.2, 3.6, 11.2)
 
 [node name="MenuTower" type="Node3D"]
 script = ExtResource("1_menu")
@@ -160,22 +98,6 @@ shape = SubResource("shape_ground")
 
 [node name="Tower" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -36)
-
-[node name="BandLower" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
-mesh = SubResource("mesh_band")
-
-[node name="BandLowerCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
-shape = SubResource("shape_band")
-
-[node name="BandUpper" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
-mesh = SubResource("mesh_band")
-
-[node name="BandUpperCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
-shape = SubResource("shape_band")
 
 [node name="Slab0" type="MeshInstance3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
@@ -225,120 +147,52 @@ mesh = SubResource("mesh_slab")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.2, 0)
 shape = SubResource("shape_slab")
 
-[node name="FrontLeft" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, 5.8)
-mesh = SubResource("mesh_wall_piece")
+[node name="Quit" type="StaticBody3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+script = ExtResource("15_frame")
+leaf_id = &"quit"
+label = "QUIT"
+window_size = Vector2(4, 2.8)
+sill = 0.0
+text_pixel = 0.14
 
-[node name="FrontLeftCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, 5.8)
-shape = SubResource("shape_wall_piece")
-
-[node name="FrontRight" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, 5.8)
-mesh = SubResource("mesh_wall_piece")
-
-[node name="FrontRightCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, 5.8)
-shape = SubResource("shape_wall_piece")
-
-[node name="FrontSill" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, 5.8)
-mesh = SubResource("mesh_sill")
-
-[node name="FrontSillCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, 5.8)
-shape = SubResource("shape_sill")
-
-[node name="FrontHeader" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, 5.8)
-mesh = SubResource("mesh_header")
-
-[node name="FrontHeaderCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, 5.8)
-shape = SubResource("shape_header")
-
-[node name="BackLeft" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, -5.8)
-mesh = SubResource("mesh_wall_piece")
-
-[node name="BackLeftCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, -5.8)
-shape = SubResource("shape_wall_piece")
-
-[node name="BackRight" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, -5.8)
-mesh = SubResource("mesh_wall_piece")
-
-[node name="BackRightCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, -5.8)
-shape = SubResource("shape_wall_piece")
-
-[node name="BackSill" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, -5.8)
-mesh = SubResource("mesh_sill")
-
-[node name="BackSillCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, -5.8)
-shape = SubResource("shape_sill")
-
-[node name="BackHeader" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, -5.8)
-mesh = SubResource("mesh_header")
-
-[node name="BackHeaderCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, -5.8)
-shape = SubResource("shape_header")
-
-[node name="SideLeft" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.8, 10.2, 0)
-mesh = SubResource("mesh_side_wall")
-
-[node name="SideLeftCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.8, 10.2, 0)
-shape = SubResource("shape_side_wall")
-
-[node name="SideRight" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.8, 10.2, 0)
-mesh = SubResource("mesh_side_wall")
-
-[node name="SideRightCol" type="CollisionShape3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.8, 10.2, 0)
-shape = SubResource("shape_side_wall")
-
-[node name="BarTop" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.66, 6.08)
-mesh = SubResource("mesh_bar_h")
-
-[node name="BarBottom" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.34, 6.08)
-mesh = SubResource("mesh_bar_h")
-
-[node name="BarLeft" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.62, 10.5, 6.08)
-mesh = SubResource("mesh_bar_v")
-
-[node name="BarRight" type="MeshInstance3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.62, 10.5, 6.08)
-mesh = SubResource("mesh_bar_v")
-
-[node name="WindowText" type="Node3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.5, 5.8)
-script = ExtResource("15_gtext")
-text = "START\nRUN"
-
-[node name="RoomZone" type="Area3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.2, 0)
-script = ExtResource("16_mfloor")
+[node name="StartRun" type="StaticBody3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.4, 0)
+script = ExtResource("15_frame")
 leaf_id = &"start_run"
+label = "START\nRUN"
+window_size = Vector2(5, 2.8)
+sill = 0.4
+text_pixel = 0.14
 
-[node name="RoomShape" type="CollisionShape3D" parent="Tower/RoomZone"]
-shape = SubResource("shape_room")
+[node name="FlyFree" type="StaticBody3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.4, 0)
+script = ExtResource("15_frame")
+leaf_id = &"fly_free"
+label = "FLY\nFREE"
+window_size = Vector2(4, 2.6)
+sill = 0.5
+text_pixel = 0.13
 
-[node name="InteriorLight" type="OmniLight3D" parent="Tower"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.4, 0)
-light_color = Color(0.35, 0.8, 1, 1)
-light_energy = 1.2
-omni_range = 9.0
+[node name="DevRoom" type="StaticBody3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.4, 0)
+script = ExtResource("15_frame")
+leaf_id = &"dev_room"
+label = "DEV\nROOM"
+window_size = Vector2(3.2, 2.2)
+sill = 0.7
+text_pixel = 0.11
+
+[node name="AimDrill" type="StaticBody3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.4, 0)
+script = ExtResource("15_frame")
+leaf_id = &"aim_drill"
+label = "AIM\nDRILL"
+window_size = Vector2(2.4, 1.8)
+sill = 0.9
+text_pixel = 0.075
+
+[node name="SideCamera" type="Camera3D" parent="."]
 
 [node name="Drone" parent="." instance=ExtResource("8_drone")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)

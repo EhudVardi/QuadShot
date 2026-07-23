@@ -34,6 +34,8 @@ var _combo: float = 1.0
 var _last_kill_time: float = -1000.0
 var _paused_mode: bool = false
 var _pause_switch_was: bool = false
+## FLY FREE (B5): armed sandbox flight announced once, never a run.
+var _free_fly_started: bool = false
 ## Decaying FPV-breakup spike from the last hit (GAMEPLAY-DESIGN Iteration 7).
 var _video_glitch_spike: float = 0.0
 
@@ -74,9 +76,17 @@ func _process(delta: float) -> void:
 			_chase_camera.make_current()
 		else:
 			_fpv_camera.make_current()
-	# Arming starts (or restarts) a run — the summary stays readable until then.
+	# Arming starts (or restarts) a run — the summary stays readable until
+	# then. Under the menu's FLY FREE leaf the run never starts: no waves, no
+	# score, just the map (MenuLaunch.free_fly, B5/B.q2).
 	if not _wave_director.running and _drone.armed and _drone_health.alive:
-		_start_run()
+		if MenuLaunch.free_fly:
+			if not _free_fly_started:
+				_free_fly_started = true
+				_hud.hide_title()
+				_hud.add_kill_feed("free flight — no waves, no score")
+		else:
+			_start_run()
 	_update_lock_indicator()
 	_update_gate_marker()
 	_update_reticle()
@@ -306,7 +316,8 @@ func _incoming_fire_side() -> StringName:
 
 
 func _on_player_died() -> void:
-	_wave_director.end_run()
+	if not MenuLaunch.free_fly:
+		_wave_director.end_run()
 	Effects.explosion(get_tree().root, _drone.global_position, 1.6)
 	_drone.disarm()
 	_drone.visible = false

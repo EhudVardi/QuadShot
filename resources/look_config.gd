@@ -20,8 +20,12 @@ extends TunableConfig
 ## preset system only speak float, and a half-on eye means nothing.
 @export var auto_exposure: float = 1.0
 @export var auto_exposure_scale: float = 0.4
-@export var auto_exposure_speed: float = 0.5
-@export var auto_exposure_min_sensitivity: float = 0.0
+## Slower than Godot's default so the adaptation reads as a process — the
+## v1.38 "more dramatic" verdict.
+@export var auto_exposure_speed: float = 0.35
+## A non-zero floor stops the eye from fully compensating indoors: interiors
+## reveal, but stay genuinely dark (drama over correctness).
+@export var auto_exposure_min_sensitivity: float = 10.0
 @export var auto_exposure_max_sensitivity: float = 800.0
 
 @export_group("Glow")
