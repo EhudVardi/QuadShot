@@ -3,11 +3,11 @@
 		"atlas:blaster": 0.19,
 		"atlas:flak": 0.9,
 		"atlas:missile": 1.0,
-		"kestrel:blaster": 0.05,
-		"kestrel:flak": 1.0,
+		"kestrel:blaster": 0.17,
+		"kestrel:flak": 0.99,
 		"kestrel:missile": 1.0
 	},
-	"config_stamp": "f76e0d83244b4bce4ff1c0d860a55856c937c1893b35199a07fa262be47ab883",
+	"config_stamp": "b5d0cd2b499c6e6a00068dadbefc4023efda1e6de330b03460b2722e0298607a",
 	"control": {
 		"blaster:static": 0.99,
 		"flak:static": 1.0,
