@@ -115,7 +115,9 @@ the economy) to go model or accept. NOT for: populating the table.
 - **Human results are deviation data** (H5): they tell you how a skilled
   human deviates from the reference datum. Interesting, logged, labeled —
   and never merged into the base table. Hand-banded cells say out loud that
-  the band is the human's.
+  the band is the human's. Measured by the interactive drill
+  (`scenes/aim_drill.tscn` — the bot aim bench's exact ruler, flown by
+  hands); artifacts land in `user://blackbox/aim_drill_*.json`.
 - **Banding thresholds are stated constants** (H.q1), not fitted values — a
   ruler that does not drift when the thing it measures does.
 

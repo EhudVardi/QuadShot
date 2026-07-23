@@ -4963,3 +4963,44 @@ weather to be simulated so the swap changes play?
     which flak_switch just made true (pending one radio-side channel setup).
     **To resume after a session cut: "Continue QuadShot per the v1.32–v1.35
     entries."**
+- **2026-07-23 — v1.36. H.q4 built: the aim drill, where the human flies the
+  bot's own ruler.** The user's call on order: drill first, flak_switch on
+  their own time, "i want to get to the towers" — B5 is next.
+  - **The drill is the bot's aim bench, flown by hands** (`scenes/aim_drill.tscn`,
+    `scripts/tests/aim_drill.gd` — interactive, not headless). Same static
+    immortal raider with the real hitbox, same 40 m spawn, same windows
+    (blaster 20 s / missile 45 s / flak 40 s), same definition: hits per shot
+    FIRED, the window opening at each weapon's own first shot. The human flies
+    THEIR config (user overrides, their fire_assist setting, their frame —
+    `--frame atlas` works here too), because the question is how THIS pilot
+    deviates from the pinned datum, not how they'd fly a stranger's drone.
+  - **Protocol, HUD-narrated**: arm and shoot; each weapon's window opens on
+    its first shot and announces itself in the kill feed; at window end the
+    HUD calls HOLD FIRE and counts stragglers through a grace sized to the
+    round's own lifetime; each completed cell announces its rate and rewrites
+    the artifact, so a partial drill still records what it measured. Death
+    (crashing — nothing in the drill shoots back) respawns in place with
+    windows running.
+  - **Attribution without phases**: all three weapons are live at once — the
+    human is not marched through stations — and connects are told apart by
+    their damage numbers read from the live config (25 bolt / 60 missile / 10
+    fragment), with a warning if any two are tuned equal and the flak count
+    cross-checked against the pod's own counter (the two-counter discipline,
+    third appearance).
+  - **The artifact is labeled deviation data in its own first field**
+    (`"pilot": "human (H5 ... never merged into the base table)"`), lands in
+    `user://blackbox/aim_drill_<stamp>.json` beside the session logs, and
+    records the frame flown and `fire_assist_miss_m` — the v1.34 lesson (data
+    says its name) applied at birth. BALANCE.md's H5 bullet now points at the
+    drill.
+  - **What the first flight will answer**: whether the bot's 0.17 blaster
+    datum — flagged provisional in four entries — is an indictment of the bot
+    or the price of a chip gun, on the exact ruler where the bot scored it.
+    v1.34's live-combat read (human 10–16% under return fire) predicts the
+    drill lands NEAR the bot; a big static-drill gap the other way would
+    instead say the bot wastes its static aim in combat. Either answer
+    recalibrates every flak-vs-gun comparison in the log.
+  - **Next: B5, the menu tower** — the user's own priority ("i want to get to
+    the towers"), and the drill needs nothing more from the build side, only
+    their hands. **To resume after a session cut: "Continue QuadShot per the
+    v1.32–v1.36 entries."**

@@ -1,0 +1,95 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/tests/aim_drill.gd" id="1_drill"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
+[ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="3_bind"]
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="4_checker"]
+[ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="5_look"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="6_lookcfg"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="7_drone"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="9_sfx"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="10_acfg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="11_hud"]
+
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("4_checker")
+
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(500, 500)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.1, 0.13, 0.22, 1)
+sky_horizon_color = Color(0.5, 0.42, 0.42, 1)
+sky_curve = 0.12
+ground_horizon_color = Color(0.4, 0.34, 0.32, 1)
+ground_bottom_color = Color(0.08, 0.07, 0.09, 1)
+sun_angle_max = 20.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.5
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.62, 0.56, 0.66, 1)
+fog_sun_scatter = 0.2
+fog_density = 0.006
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.4
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.12
+
+[node name="AimDrill" type="Node3D"]
+script = ExtResource("1_drill")
+combat_config = ExtResource("2_ccfg")
+input_bindings = ExtResource("3_bind")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.4
+shadow_enabled = true
+
+[node name="LookController" type="Node" parent="."]
+script = ExtResource("5_look")
+look_config = ExtResource("6_lookcfg")
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+[node name="Drone" parent="." instance=ExtResource("7_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("8_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("9_sfx")
+audio_config = ExtResource("10_acfg")
+
+[node name="Hud" parent="." instance=ExtResource("11_hud")]
