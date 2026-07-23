@@ -11,6 +11,12 @@ const TONEMAP_AGX: int = 4  # Environment.TONE_MAPPER_AGX
 
 @export var look_config: LookConfig
 
+## Auto-exposure lives on the WorldEnvironment's camera attributes rather than
+## a specific Camera3D, so FPV and chase cameras share one adapting eye (B2).
+## With auto_exposure off the attributes stay assigned but inert — without
+## physical light units a disabled CameraAttributesPractical changes nothing.
+var _cam_attrs: CameraAttributesPractical = CameraAttributesPractical.new()
+
 @onready var _world_env: WorldEnvironment = get_node_or_null(^"../WorldEnvironment")
 @onready var _sun: DirectionalLight3D = get_node_or_null(^"../Sun")
 
@@ -38,11 +44,17 @@ func _enable_features() -> void:
 	env.ssao_enabled = true
 	env.fog_enabled = true
 	env.adjustment_enabled = true
+	_world_env.camera_attributes = _cam_attrs
 
 
 func _apply() -> void:
 	var env: Environment = _world_env.environment
 	env.tonemap_exposure = look_config.exposure
+	_cam_attrs.auto_exposure_enabled = look_config.auto_exposure >= 0.5
+	_cam_attrs.auto_exposure_scale = look_config.auto_exposure_scale
+	_cam_attrs.auto_exposure_speed = look_config.auto_exposure_speed
+	_cam_attrs.auto_exposure_min_sensitivity = look_config.auto_exposure_min_sensitivity
+	_cam_attrs.auto_exposure_max_sensitivity = look_config.auto_exposure_max_sensitivity
 	env.glow_intensity = look_config.glow_intensity
 	env.glow_strength = look_config.glow_strength
 	env.glow_bloom = look_config.glow_bloom

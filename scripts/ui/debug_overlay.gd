@@ -197,6 +197,11 @@ const _WEATHER_FLOAT_ROWS: Array[Array] = [
 
 const _LOOK_FLOAT_ROWS: Array[Array] = [
 	["exposure", 0.2, 3.0, 0.05],
+	["auto_exposure", 0.0, 1.0, 1.0],
+	["auto_exposure_scale", 0.05, 2.0, 0.05],
+	["auto_exposure_speed", 0.1, 10.0, 0.1],
+	["auto_exposure_min_sensitivity", 0.0, 3200.0, 50.0],
+	["auto_exposure_max_sensitivity", 0.0, 6400.0, 50.0],
 	["glow_intensity", 0.0, 2.0, 0.05],
 	["glow_strength", 0.0, 2.0, 0.05],
 	["glow_bloom", 0.0, 1.0, 0.01],

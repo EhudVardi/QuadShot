@@ -12,6 +12,18 @@ extends TunableConfig
 @export_group("Exposure")
 @export var exposure: float = 1.0
 
+@export_group("Auto Exposure")
+## The "darker inside" moment (GAMEPLAY-DESIGN B2): the camera's eye adapting,
+## not the world changing. Scene luminance drives exposure between the min/max
+## sensitivity clamps at adapt speed; scale biases the metered target.
+## auto_exposure is a 0/1 switch kept as a float — the overlay rows and the
+## preset system only speak float, and a half-on eye means nothing.
+@export var auto_exposure: float = 1.0
+@export var auto_exposure_scale: float = 0.4
+@export var auto_exposure_speed: float = 0.5
+@export var auto_exposure_min_sensitivity: float = 0.0
+@export var auto_exposure_max_sensitivity: float = 800.0
+
 @export_group("Glow")
 ## Only pixels brighter than glow_hdr_threshold bloom, so emissive/neon and
 ## the sun glow while flat surfaces stay crisp. glow_bloom adds a little

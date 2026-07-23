@@ -3144,6 +3144,42 @@ telegraph doctrine, extended from enterability to destination). B.q6: does
 the portal ship as menu/dev-room magic first (aesthetic), or wait for
 weather to be simulated so the swap changes play?
 
+### B steering — the tower answered (v1.37, 2026-07-23)
+
+The B5 build session opened by putting B.q2/B.q3 and the first-build scope to
+the user directly; every answer landed, and one grew a design.
+
+**B.q2 RESOLVED — the leaf set is ALL of them:** START RUN / FLY FREE /
+DEV ROOM / AIM DRILL / QUIT, five floors. AIM DRILL gives H.q4's drill a
+doorway (it is CLI-only today, and the human is about to need to fly it
+repeatedly). FLY FREE is the one leaf with no scene behind it — arming in
+main always starts the run — so it needs a small no-waves flag on main;
+priced, accepted. QUIT is a floor like any other: flying out is leaving.
+
+**B.q2's fallback RESOLVED — keyboard forever — and the answer grew a
+design: THE SIDE VIEW.** The user's mechanic, kept whole: with no controller
+detected, the menu shows the buildings *from the side* — center is the
+current menu item, one to the left is the root menu, one to the right is the
+current item's selected leaf (its sub-menu), maybe two more on both sides;
+arrow keys move the selection, and the moment a controller is detected the
+view drops into flight mode and the drone flies the same floors. What this
+actually is: the menu has **two cameras onto one architecture** — the
+fallback is not a second menu bolted on, it is the same tower(s) seen from
+outside, so nothing is built twice and nothing can drift apart. And when the
+depth tree exists, the side view IS the breadcrumb trail: your path through
+the buildings, laid out left-to-right. A menu that needs a working radio to
+quit is a bug; this makes the no-radio path a feature instead of an apology.
+
+**B.q3 RESOLVED — pure menu, home-ready.** The doc's own "pinned and
+resisted" stance, confirmed: no briefing/hangar floors until P2/P5 ask;
+floors are additive by construction so the tower can become the campaign's
+home address without a rebuild.
+
+**Scope: single-level first.** One tower, every floor a leaf; the
+commit-on-exit / re-thread-to-cancel verb ships (it IS the menu's grammar),
+but sub-levels wait until the verb is proven in the human's hands. The depth
+tree is build-order step 4, not a casualty.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -5004,3 +5040,43 @@ weather to be simulated so the swap changes play?
     the towers"), and the drill needs nothing more from the build side, only
     their hands. **To resume after a session cut: "Continue QuadShot per the
     v1.32–v1.36 entries."**
+- **2026-07-23 — v1.37. B5 begins: the steering answered, and the tower's
+  shell stands (checkpoint 1, unflown).** The build opened by resolving
+  B.q2/B.q3 and scope with the user before any scene work — feel work gets
+  steered first, built second.
+  - **The steering, all answered** (folded into Iteration 8 as "the tower
+    answered"): the leaf set is ALL FIVE (START RUN / FLY FREE / DEV ROOM /
+    AIM DRILL / QUIT — the drill leaf gives H.q4 a doorway; FLY FREE needs a
+    small no-waves flag on main, the one leaf without a scene today); the
+    keyboard fallback is FOREVER and grew a design — **the side view**: with
+    no controller, the menu shows the buildings from the side (center =
+    current item, left = root, right = the selected leaf; arrows move, a
+    detected controller drops into flight) — two cameras onto one
+    architecture, nothing built twice, and the future depth tree's breadcrumb
+    trail for free; B.q3 lands pure-menu-home-ready; scope is single-level
+    first, the depth tree waiting on the verb proven in hands.
+  - **Auto-exposure grown into the look pass, exactly as B2 promised — no new
+    architecture.** LookConfig gains an "Auto Exposure" group (a 0/1 float
+    switch in the all-float tunable idiom, plus scale / speed / min / max
+    sensitivity); LookController owns a `CameraAttributesPractical` assigned
+    to the WorldEnvironment, so the FPV and chase cameras share one adapting
+    eye and every scene with a LookController gets it. Five new LOOK rows in
+    the overlay. **On by default, game-wide — flagged out loud: the baked
+    outdoor look may shift slightly on next boot; the off switch is the first
+    new row.** The "darker inside" moment now exists for the human to tune.
+  - **The shell stands** (`scenes/menu_tower.tscn` + `scripts/menu_tower.gd`,
+    build-order step 1): a five-band tower 30 m ahead of spawn — sealed bands
+    in dark glass, slab lips in `neon_structure` seams — with ONE open floor
+    ~10 m up: a 3.0×2.2 m window opening (no glass, B2), cyan window-line
+    emissive bars, a START RUN Label3D above it, a genuinely dark interior
+    (thick walls, shadow-casting sun, one cyan omni), and the far-side
+    opening already cut so step 2's commit-on-exit has somewhere to exit.
+    The real drone arms in front of it; crashing respawns in place — the
+    menu never punishes, it only waits. No selection logic yet: that is
+    step 2's verb, after the human flies the room.
+  - **Checkpoint 1 is OPEN: the human flies the shell** (`<exe> --path .
+    scenes/menu_tower.tscn`) and hand-tunes the four questions this room was
+    built to ask — the darkening on ingress (the auto-exposure moment), the
+    window-line glow, the window size feel, and label readability on
+    approach. **To resume after a session cut: "Continue QuadShot B5 per
+    v1.37 — checkpoint 1 awaiting/flown."**

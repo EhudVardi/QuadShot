@@ -1,0 +1,356 @@
+[gd_scene load_steps=39 format=3]
+
+[ext_resource type="Script" path="res://scripts/menu_tower.gd" id="1_menu"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
+[ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="3_bind"]
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="4_checker"]
+[ext_resource type="Shader" path="res://resources/neon_structure.gdshader" id="5_neon"]
+[ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="6_look"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="7_lookcfg"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="8_drone"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="9_pool"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="10_sfx"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="11_acfg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="12_hud"]
+[ext_resource type="Script" path="res://scripts/chase_camera.gd" id="13_chase"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="14_overlay"]
+
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("4_checker")
+
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(500, 500)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.1, 0.13, 0.22, 1)
+sky_horizon_color = Color(0.5, 0.42, 0.42, 1)
+sky_curve = 0.12
+ground_horizon_color = Color(0.4, 0.34, 0.32, 1)
+ground_bottom_color = Color(0.08, 0.07, 0.09, 1)
+sun_angle_max = 20.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.5
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.62, 0.56, 0.66, 1)
+fog_sun_scatter = 0.2
+fog_density = 0.006
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.4
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.12
+
+[sub_resource type="ShaderMaterial" id="mat_structure"]
+shader = ExtResource("5_neon")
+
+[sub_resource type="StandardMaterial3D" id="mat_sealed"]
+albedo_color = Color(0.05, 0.06, 0.08, 1)
+metallic = 0.7
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="mat_dark"]
+albedo_color = Color(0.1, 0.11, 0.13, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_window_line"]
+albedo_color = Color(0.05, 0.15, 0.25, 1)
+emission_enabled = true
+emission = Color(0.2, 0.7, 1, 1)
+emission_energy_multiplier = 3.5
+
+[sub_resource type="BoxMesh" id="mesh_band"]
+material = SubResource("mat_sealed")
+size = Vector3(12, 7.6, 12)
+
+[sub_resource type="BoxShape3D" id="shape_band"]
+size = Vector3(12, 7.6, 12)
+
+[sub_resource type="BoxMesh" id="mesh_slab"]
+material = SubResource("mat_structure")
+size = Vector3(12.6, 0.4, 12.6)
+
+[sub_resource type="BoxShape3D" id="shape_slab"]
+size = Vector3(12.6, 0.4, 12.6)
+
+[sub_resource type="BoxMesh" id="mesh_wall_piece"]
+material = SubResource("mat_dark")
+size = Vector3(4.5, 3.6, 0.4)
+
+[sub_resource type="BoxShape3D" id="shape_wall_piece"]
+size = Vector3(4.5, 3.6, 0.4)
+
+[sub_resource type="BoxMesh" id="mesh_sill"]
+material = SubResource("mat_dark")
+size = Vector3(3, 1, 0.4)
+
+[sub_resource type="BoxShape3D" id="shape_sill"]
+size = Vector3(3, 1, 0.4)
+
+[sub_resource type="BoxMesh" id="mesh_header"]
+material = SubResource("mat_dark")
+size = Vector3(3, 0.4, 0.4)
+
+[sub_resource type="BoxShape3D" id="shape_header"]
+size = Vector3(3, 0.4, 0.4)
+
+[sub_resource type="BoxMesh" id="mesh_side_wall"]
+material = SubResource("mat_dark")
+size = Vector3(0.4, 3.6, 11.2)
+
+[sub_resource type="BoxShape3D" id="shape_side_wall"]
+size = Vector3(0.4, 3.6, 11.2)
+
+[sub_resource type="BoxMesh" id="mesh_bar_h"]
+material = SubResource("mat_window_line")
+size = Vector3(3.36, 0.12, 0.12)
+
+[sub_resource type="BoxMesh" id="mesh_bar_v"]
+material = SubResource("mat_window_line")
+size = Vector3(0.12, 2.2, 0.12)
+
+[node name="MenuTower" type="Node3D"]
+script = ExtResource("1_menu")
+combat_config = ExtResource("2_ccfg")
+input_bindings = ExtResource("3_bind")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.4
+shadow_enabled = true
+
+[node name="LookController" type="Node" parent="."]
+script = ExtResource("6_look")
+look_config = ExtResource("7_lookcfg")
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+[node name="Tower" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -36)
+
+[node name="BandLower" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
+mesh = SubResource("mesh_band")
+
+[node name="BandLowerCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
+shape = SubResource("shape_band")
+
+[node name="BandUpper" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
+mesh = SubResource("mesh_band")
+
+[node name="BandUpperCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
+shape = SubResource("shape_band")
+
+[node name="Slab0" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("mesh_slab")
+
+[node name="Slab0Col" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+shape = SubResource("shape_slab")
+
+[node name="Slab1" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
+mesh = SubResource("mesh_slab")
+
+[node name="Slab1Col" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
+shape = SubResource("shape_slab")
+
+[node name="Slab2" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.2, 0)
+mesh = SubResource("mesh_slab")
+
+[node name="Slab2Col" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.2, 0)
+shape = SubResource("shape_slab")
+
+[node name="Slab3" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.2, 0)
+mesh = SubResource("mesh_slab")
+
+[node name="Slab3Col" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.2, 0)
+shape = SubResource("shape_slab")
+
+[node name="Slab4" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
+mesh = SubResource("mesh_slab")
+
+[node name="Slab4Col" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
+shape = SubResource("shape_slab")
+
+[node name="Slab5" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.2, 0)
+mesh = SubResource("mesh_slab")
+
+[node name="Slab5Col" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.2, 0)
+shape = SubResource("shape_slab")
+
+[node name="FrontLeft" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, 5.8)
+mesh = SubResource("mesh_wall_piece")
+
+[node name="FrontLeftCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, 5.8)
+shape = SubResource("shape_wall_piece")
+
+[node name="FrontRight" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, 5.8)
+mesh = SubResource("mesh_wall_piece")
+
+[node name="FrontRightCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, 5.8)
+shape = SubResource("shape_wall_piece")
+
+[node name="FrontSill" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, 5.8)
+mesh = SubResource("mesh_sill")
+
+[node name="FrontSillCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, 5.8)
+shape = SubResource("shape_sill")
+
+[node name="FrontHeader" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, 5.8)
+mesh = SubResource("mesh_header")
+
+[node name="FrontHeaderCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, 5.8)
+shape = SubResource("shape_header")
+
+[node name="BackLeft" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, -5.8)
+mesh = SubResource("mesh_wall_piece")
+
+[node name="BackLeftCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 10.2, -5.8)
+shape = SubResource("shape_wall_piece")
+
+[node name="BackRight" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, -5.8)
+mesh = SubResource("mesh_wall_piece")
+
+[node name="BackRightCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 10.2, -5.8)
+shape = SubResource("shape_wall_piece")
+
+[node name="BackSill" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, -5.8)
+mesh = SubResource("mesh_sill")
+
+[node name="BackSillCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.9, -5.8)
+shape = SubResource("shape_sill")
+
+[node name="BackHeader" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, -5.8)
+mesh = SubResource("mesh_header")
+
+[node name="BackHeaderCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.8, -5.8)
+shape = SubResource("shape_header")
+
+[node name="SideLeft" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.8, 10.2, 0)
+mesh = SubResource("mesh_side_wall")
+
+[node name="SideLeftCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.8, 10.2, 0)
+shape = SubResource("shape_side_wall")
+
+[node name="SideRight" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.8, 10.2, 0)
+mesh = SubResource("mesh_side_wall")
+
+[node name="SideRightCol" type="CollisionShape3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.8, 10.2, 0)
+shape = SubResource("shape_side_wall")
+
+[node name="BarTop" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.66, 6.08)
+mesh = SubResource("mesh_bar_h")
+
+[node name="BarBottom" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.34, 6.08)
+mesh = SubResource("mesh_bar_h")
+
+[node name="BarLeft" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.62, 10.5, 6.08)
+mesh = SubResource("mesh_bar_v")
+
+[node name="BarRight" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.62, 10.5, 6.08)
+mesh = SubResource("mesh_bar_v")
+
+[node name="Label" type="Label3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.4, 6.45)
+modulate = Color(0.5, 1.6, 2.2, 1)
+outline_modulate = Color(0, 0.06, 0.1, 1)
+text = "START RUN"
+font_size = 160
+outline_size = 40
+pixel_size = 0.01
+
+[node name="InteriorLight" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.4, 0)
+light_color = Color(0.35, 0.8, 1, 1)
+light_energy = 1.2
+omni_range = 9.0
+
+[node name="Drone" parent="." instance=ExtResource("8_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("9_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("10_sfx")
+audio_config = ExtResource("11_acfg")
+
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
+script = ExtResource("13_chase")
+target = NodePath("../Drone")
+
+[node name="DebugOverlay" parent="." instance=ExtResource("14_overlay") node_paths=PackedStringArray("drone")]
+drone = NodePath("../Drone")
+combat_config = ExtResource("2_ccfg")
+audio_config = ExtResource("11_acfg")
+look_config = ExtResource("7_lookcfg")
+input_bindings = ExtResource("3_bind")
+
+[node name="Hud" parent="." instance=ExtResource("12_hud")]
