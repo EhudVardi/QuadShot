@@ -2906,6 +2906,170 @@ hands-on difficulty calibration is *mine to initiate and lead.*
 
 ---
 
+## Iteration 8 — B: Buildings, Indoors & the Flyable Menu (PROPOSED, 2026-07-23 — user-initiated)
+
+> Origin: user steering after a Tryp FPV session, verbatim — "indoors is such
+> a game changer... some have windows, can fly into, the environment get
+> darker (hdr?)... small simple frame shapes like walls, desks, chairs...
+> varied enough to generate rich interesting floors. some floors can simply
+> lack windows and cannot be flying into, maybe floors under construction so
+> blocked." And the image that names the menu: "a tree of buildings each
+> offer the leaf options in the form of floors." Follow-up, same session:
+> "neon lighted floors open fly through darker env hdr and cool neon lights
+> shine the way." Sections are **B1–B6**; react by ID.
+
+### B1 — The thesis: a building is a dungeon you fly
+
+Indoors is FPV's dungeon crawl. Every knob the outdoor game tunes inverts
+when a wall is two meters from each wingtip: sightlines collapse, speed
+becomes risk instead of safety, and the 240 Hz flight model gets a second
+form of expression — precision where the open sky rewards velocity. The
+cyberpunk-city slice already promises towers (D9); this iteration makes some
+of them *enterable*, which is the single cheapest way to multiply what one
+city block is worth flying.
+
+Ties, by ID: P2.4 (biome geometry — buildings stop being extruded rectangles
+and become stacked volumes), P2.5 (cover economics — an interior is the
+densest cover in the game, the terrain coefficient at its extreme), D4
+(readability in the dark — the emissive palette was built for exactly this),
+P1.6/P2.8 (weather stops at the window, which makes indoors a tactical
+weather answer for free).
+
+### B2 — The lighting answer: Godot supports this, and half of it already ships
+
+Verified against the project, not guessed:
+
+- The project runs **Forward+** (`project.godot`), so the full lighting
+  toolbox is available — clustered omni lights, shadow-casting sun, SSAO
+  (already in LOOK), SDFGI if ever wanted.
+- **The "gets darker inside" moment is auto-exposure** — the user's "hdr?"
+  guess is exactly right in spirit: it is the camera's eye adapting, not the
+  world changing. Godot 4 does this with `CameraAttributesPractical`
+  auto-exposure on the Environment/camera. `LookConfig` already owns
+  `exposure`, `ambient_energy`, and the glow block; it grows an auto-exposure
+  group and `LookController` applies it — **no new architecture**, the look
+  pass was accidentally built for this.
+- **True interior darkness is mostly free**: a shadow-casting
+  DirectionalLight cannot reach inside a floor plate, so with ambient held
+  low an interior is genuinely dark the moment you cross the window line.
+  The neon-emissive look (bloom threshold 1.0, accents above it) reads
+  *better* in the dark, not worse.
+- **"Neon lights shine the way" (user's line) is the design key: LIGHT IS
+  THE ENTERABILITY TELEGRAPH.** Open floors are lit — emissive strips at the
+  window line, interior neon — and sealed floors are dark glass. The palette
+  already assigns cyan/blue to *navigation*; interior wayfinding joins that
+  family. The skyline becomes its own map: you read what is flyable from
+  three blocks away, at speed, with no UI. Readability doctrine applied to
+  architecture.
+- Per-floor interior lights are sparse OmniLights (flickering fluorescent,
+  exit signs, the odd desk lamp) — cheap in Forward+, in-palette.
+- **Optional, later, not load-bearing**: SDFGI for real bounce light — it is
+  bake-free, so it is the only GI that fits *generated* floors (VoxelGI and
+  lightmaps want static scenes); its known weakness is light leaking through
+  thin walls, and greybox walls can simply be built thick. Occlusion culling
+  (`OccluderInstance3D`) when city-plus-interiors perf asks for it. Neither
+  is needed for the first ship.
+- Windows ship as **openings**, not glass — no transparency sorting, no
+  refraction cost. Glass later as an emissive rim material if the look wants
+  it.
+
+### B3 — The interior kit (greybox furniture, generated floors)
+
+- A kit of primitives, all in-doctrine (BoxMesh/CSG + the `neon_structure`
+  shader family, zero external assets): wall segments, doorway frames,
+  window frames, pillars, desks, chairs, shelving, crates, counters,
+  half-walls. Variety comes from combination, not asset count — the P4.q1
+  logic applied to furniture.
+- **A floor generator: seeded and deterministic**, the same discipline as
+  `theater_generator` — rooms, corridors, furniture placement all derived
+  from a seed, so the same seed is the same floor forever. F4's
+  portable-save doctrine extends to geometry with no extra machinery: a save
+  that names a seed names a building.
+- Openings sized for the fantasy: doorways ~1.5 m, windows generous. Tryp's
+  lesson — tight enough to feel skillful, wide enough to feel possible. The
+  drone is a 0.28 m box; the gap between "fits" and "feels good" is the
+  whole tuning surface, and it is a config, not a constant.
+
+### B4 — Buildings as floor stacks (enterability as a dial)
+
+- A building is a stack of generated floors. Per-floor enterability states:
+  **open** (windowed, lit, flyable), **sealed** (windowless dark glass —
+  flown past, never into), **under construction** (blocked: scaffolding,
+  bare slab, no entry — reads as texture for the city and honesty about
+  budget). The mix per building is a generator dial the composer can
+  eventually own (P2.3: garrison placement gets "which floors are open" as a
+  defensive choice).
+- Combat indoors is **deliberately not decided here** (B.q1). Traversal
+  ships first. The counter-web implications are rich — gnats in a corridor
+  are a horror film, turrets guard lobbies, the flak pod is suicide at
+  point-blank — but the 1v1 void harness cannot price a corridor, and
+  pretending it can is the exact conflation BALANCE.md exists to prevent.
+  Interiors get priced by the sortie harness (P2.11) when composition
+  arrives. Known scope limit, stated on day one.
+
+### B5 — The flyable menu (the tech probe that ships as a feature)
+
+The user's image, kept whole: a small cluster — a *tree* — of buildings,
+where each floor is a leaf option. The main menu is a tiny hand-built **menu
+tower**: each open floor is one leaf (FLY FREE / START RUN / DEV ROOM /
+QUIT...), lit per B2 so the options literally shine the way; fly in through
+the window to pick one. Why this is the right FIRST bite of the whole
+iteration:
+
+- **It is tiny.** One hand-built scene, no generator, three or four floors.
+  Every B2 lighting question (auto-exposure feel, ambient floor, interior
+  neon, window-line emissive) gets answered in a controlled room before the
+  generator exists.
+- **The menu is the tutorial.** Window ingress is the skill indoors runs on,
+  and the game teaches it before the first sortie without a single tutorial
+  prompt.
+- **The fantasy from second zero**: the game about flying starts by flying.
+  (An input fallback stays — a menu that needs a working radio to quit is a
+  bug, B.q2.)
+- **Pinned, not designed**: the briefing room (F2's "battle command room")
+  and the hangar (P3.9's HANGAR section) want to be *floors of the same
+  tower* one day — menu tower grows into the campaign's home address. That
+  gravity is noted and resisted until P2/P5 need it.
+
+### B6 — Sequencing: the wedge, placed
+
+Where this sits relative to the live plan, decided deliberately (v1.32):
+
+1. **Instrument pair first** (raider-pack bench + combat-event blackbox,
+   v1.29's sized queue) — measuring what is already played outranks new
+   content, and both are in flight.
+2. **H.q4's human aim drill** whenever the human's hands are next free — it
+   needs them, nothing else does.
+3. **B5 menu tower** — the first content bite. Crucially it touches nothing
+   the harness measures (no configs, no combat, no bestiary), so it can
+   START the moment the instrument pair lands and INTERLEAVE with H.q4
+   rather than queue behind it.
+4. **B3+B4 kit and one generated specimen building in the dev room**
+   (dev-room doctrine: every element gets a specimen the human can fly
+   today).
+5. **P2-era**: buildings enter sortie composition; interiors get priced by
+   the sortie harness; enterability becomes a composer dial.
+
+Balance note, restated so it cannot be lost: interiors will move *delivery*
+in ways the 1v1 void cannot see (corridors kill standoff, windows are
+chokepoints, crossfire dies at the wall line). That is the v1.25/v1.29
+caveat family growing one member, priced at the sortie layer — not a reason
+to distrust the current table, and not a number to guess.
+
+### B open questions (react by ID)
+
+- **B.q1** — Combat indoors in the vertical slice, or traversal-only first
+  (fights stay outside, interiors are approach/escape/loot routes)?
+- **B.q2** — First-ship menu leaf set? (FLY / DEV ROOM / QUIT is the
+  minimum; START RUN implies the run flow boots from the tower.) And the
+  input fallback: keyboard menu forever, or only until the tower is proven?
+- **B.q3** — Does the menu tower become the campaign home (briefing +
+  hangar as floors, P3.9/F2), or stay a pure menu and let the campaign build
+  its own home later?
+- **B.q4** — Indoor air feel: prop-wash/turbulence near walls (a
+  WeatherConfig hook, P1.6) — fake it cheaply, sim it, or skip at 1.0?
+
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -4520,3 +4684,58 @@ hands-on difficulty calibration is *mine to initiate and lead.*
     human will fly the same committed Kestrel. GAP-1's `WeaponConfig` half stays
     deferred. **To resume after a session cut: "Continue QuadShot per the v1.31
     entry."**
+- **2026-07-23 — v1.32. The indoor dream arrives from a Tryp FPV session, and
+  Iteration 8 is written: buildings you fly into, and a menu you fly.** User
+  steering, their words kept: "indoors is such a game changer", "a tree of
+  buildings each offer the leaf options in the form of floors", "neon lighted
+  floors open fly through darker env hdr and cool neon lights shine the way" —
+  and the sentence that belongs in this log permanently: **"yes, it is a game
+  my friend. we've built this together, and its great already!"**
+  - **Feasibility answered against the project, not from memory.** The
+    renderer is Forward+ (checked in `project.godot`), so the whole toolbox is
+    real: the "gets darker inside" moment is auto-exposure (the user's "hdr?"
+    guess is right — it is the camera's eye adapting), which Godot 4 does via
+    CameraAttributes; true interior darkness is mostly free (a shadow-casting
+    sun cannot reach past a floor plate, and the neon-emissive look reads
+    better in the dark); SDFGI and occlusion culling exist as later options,
+    neither load-bearing. `LookConfig` already owns `exposure`,
+    `ambient_energy` and the glow block, so the architecture is half-shipped:
+    the look pass was accidentally built for indoors.
+  - **The design key came from the user's follow-up line: light IS the
+    enterability telegraph.** Open floors are lit (window-line emissive,
+    interior neon — joining cyan/navigation in the palette), sealed floors are
+    dark. The skyline reads as its own map at speed with no UI. Readability
+    doctrine applied to architecture.
+  - **Iteration 8 written (B1–B6, B.q1–q4), status PROPOSED.** Thesis: a
+    building is a dungeon you fly — indoors inverts every outdoor knob and
+    gives the 240 Hz model its second expression, precision. Kit: greybox
+    furniture primitives + a SEEDED deterministic floor generator
+    (theater_generator's discipline extended to geometry — a save that names a
+    seed names a building). Buildings are floor stacks with enterability as a
+    dial (open / sealed / under-construction). Combat indoors deliberately
+    undecided (B.q1): the 1v1 void cannot price a corridor, so interiors are
+    priced by the sortie harness when P2 arrives — the v1.25/v1.29 caveat
+    family growing one member, stated on day one.
+  - **The flyable menu (B5) is the first bite, chosen because it is a tech
+    probe that ships as a feature**: one tiny hand-built tower, each open floor
+    a menu leaf, fly in the window to pick. It answers every lighting question
+    in a controlled room before the generator exists, and it teaches window
+    ingress — the menu is the tutorial. Pinned but resisted: the briefing room
+    (F2) and hangar (P3.9) want to be floors of this tower someday.
+  - **The wedge, placed (B6)**: instrument pair (raider-pack bench + combat
+    blackbox, already sized) → H.q4 when the human's hands are free → B5 menu
+    tower — which touches nothing the harness measures, so it interleaves with
+    H.q4 rather than queuing behind it → dev-room specimen building → P2-era
+    composition. The user's "add another slice in between", honored as the
+    next content phase after the instrument debt clears.
+  - **Also this session (housekeeping):** the drone now prints its frame at
+    boot (`[frame] flying Atlas (mass 1.24 kg, hull 190, armor 3)`) after the
+    user flew the "Atlas" with a missing `--` separator and correctly felt
+    nothing — the airframe you fly is never again a guess. Their Atlas
+    verdict once it actually loaded: "way way sluggish, as i believe it
+    should be... it does feel way different, very cool!" — P3.3's plant,
+    confirmed by hands.
+  - **Next: the instrument pair, user's go-ahead received** ("i trust your
+    decision on what's next, go ahead") — raider-pack bench and the combat
+    event blackbox, then H.q4 + B5 interleaved. **To resume after a session
+    cut: "Continue QuadShot per the v1.32 entry."**
