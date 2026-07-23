@@ -44,8 +44,15 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
+	# flak_switch is the stateful radio trigger (switch position = trigger
+	# held), created at runtime by InputBindings — hence the has_action guard,
+	# which also keeps headless benches (no bindings applied) silent. It adds
+	# no aim logic: the v1.28 no-director decision stands, this is just a
+	# trigger a hand on the sticks can leave on.
 	var trigger_down: bool = fire_override \
-			or Input.is_action_pressed(&"fire_flak")
+			or Input.is_action_pressed(&"fire_flak") \
+			or (InputMap.has_action(&"flak_switch")
+					and Input.is_action_pressed(&"flak_switch"))
 	if _drone.armed and _cooldown <= 0.0 and trigger_down:
 		_fire()
 		_cooldown = 1.0 / maxf(

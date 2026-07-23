@@ -3110,6 +3110,40 @@ red-threat (danger is the shared semantic), and green-easy sits near
 green-pads' "safe" family — the collision may be harmony. Decide at B5
 build time with eyes on it, not before.
 
+### B steering — second ripple (v1.35, 2026-07-23)
+
+Two more from the user, same day; both garnish the B7 grammar rather than
+change it.
+
+**B8 seed — meaning chains: routes that SAY something.** The user: "a chain
+of words that make a meaningful sentence, say a famous line from a song...
+or even more abstractly, any CHAIN of THINGS that have meaning together."
+The window grammar (B7) already makes a route a sequence of choices; this
+makes some sequences MEAN something — fly the line word by word, and the
+route is the sentence. Strongest forms: memory-chain dares (the next word is
+only findable if you know the line), collectible routes (the city hides
+sentences), and composed chains (your flight WRITES one). One hard flag,
+raised now so it never bites later: famous song lines are COPYRIGHTED —
+shipping them as content is a licensing problem, so the chains ship as
+public-domain lines, original writing, or the player's own text. The idea is
+the CHAIN, not the quotation; it survives the flag intact.
+
+**B9 seed — the building as a time/weather portal.** The user: "the time of
+day and weather can change from entering a building and exiting it." The
+implementation insight that makes this elegant rather than gimmicky: **the
+interior masks the sky**, so the whole swap (sun angle, fog, ambient,
+weather state) happens while nothing outdoor is visible — a scene transition
+with no cut, no fade, no popping, hidden inside the one place the player
+cannot see the sky. The machinery is already owned: LookController drives
+Environment/Sun per frame from LookConfig (sun pitch/yaw, fog, ambient all
+live there), and WeatherConfig (P1.6 stub) is the state that would swap.
+Later gravity, pinned not designed: P2.8 puts weather in the sortie — a
+building that exits into night is a STEALTH decision (Shade-era), and a
+window could telegraph its destination sky by the tint of its glow (the B2
+telegraph doctrine, extended from enterability to destination). B.q6: does
+the portal ship as menu/dev-room magic first (aesthetic), or wait for
+weather to be simulated so the swap changes play?
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -4881,4 +4915,51 @@ build time with eyes on it, not before.
   - **Next: unchanged — H.q4's drill and B5's tower, interleaved.** B5 just
     got richer and better-specified, which is what steering is for. **To
     resume after a session cut: "Continue QuadShot per the v1.32–v1.34
+    entries."**
+- **2026-07-23 — v1.35. The zero explained: the slice's third weapon was
+  unreachable on the primary controller — plus meaning chains and weather
+  portals.** Closing the question v1.34 asked out loud.
+  - **THE FLAK ZERO WAS REAL, AND IT WAS AN ERGONOMICS BUG, not a preference.**
+    The user's answer, verbatim: "its true i didnt shoot any flak, there's no
+    autofire. i simply flew with the radio, with which i dont try to do any
+    manual firing, and i cannot move my hand to the keyboard." On the radio the
+    blaster fires itself (the gun director), the missile launches itself
+    (missile_auto_switch) — and the flak pod, directorless BY DESIGN (v1.28),
+    had no path to the trigger at all. G needs a keyboard hand; RB does not
+    exist on a TX16S. The event log's very first negative found a real hole:
+    the weapon the human praised in v1.29 has been unusable on the controller
+    they actually fly since the day it shipped — every flak feel report so far
+    was flown on the gamepad.
+  - **Fixed with a switch, not a director: `flak_switch`.** A fourth stateful
+    binding (arm_switch's family — switch position = trigger held; the pod
+    cycles at its own rate). Ships unbound; bound via the overlay BINDINGS
+    press-to-bind like every switch. Deliberately NOT an autofire/director:
+    the v1.28 purity decision stands — no aim logic, no solution computation,
+    nothing the P4.3 column did not price. A hand that cannot leave the sticks
+    can leave a switch on; that is the entire feature. The measured column is
+    untouched (the reference pilot does not use it), so no re-measure.
+  - **The radio confusion, named so it stops costing weapons:** "this radio
+    has way more buttons and switches that the driver sees." Correct, and by
+    design — in USB joystick mode a radio exposes CHANNELS, not switches. A
+    switch the driver "cannot see" is a switch not mixed onto a channel. The
+    path: on the radio, put the switch on a spare channel (CH5–CH8 in the
+    AETR profile's world); it then arrives as an axis, which the BINDINGS
+    press-to-bind already captures as a switch (that is exactly how
+    arm_switch got bound). The M6 radio scope was "basic capabilities only";
+    the slice now has more weapons than the radio has configured channels,
+    and a short radio-side setup session is the actual fix. Queued for the
+    user's bench time, with flak_switch waiting to be bound.
+  - **B steering, second ripple (folded into Iteration 8):** **B8 — meaning
+    chains** (routes that SAY something: fly a line word by window; memory
+    dares, collectible sentences; flagged hard: famous lyrics are copyrighted,
+    so chains ship public-domain/original — the idea is the chain, not the
+    quotation). **B9 — the building as a time/weather portal** (enter at noon,
+    exit at dusk: the interior MASKS the sky, so the whole sun/fog/weather
+    swap happens where no one can see it — a scene transition with no cut,
+    and LookController/WeatherConfig already own every knob it needs). B.q6:
+    portal ships as menu magic first, or waits for simulated weather.
+  - **Next: H.q4's drill + B5's tower, interleaved — unchanged, and now
+    unblocked**: the drill needs all three weapons reachable from the radio,
+    which flak_switch just made true (pending one radio-side channel setup).
+    **To resume after a session cut: "Continue QuadShot per the v1.32–v1.35
     entries."**

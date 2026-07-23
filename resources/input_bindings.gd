@@ -15,7 +15,7 @@ extends TunableConfig
 const ACTIONS: Array[StringName] = [
 	&"arm_toggle", &"arm_switch", &"reset_drone", &"flight_mode_toggle",
 	&"camera_toggle", &"fire", &"fire_missile", &"fire_flak",
-	&"missile_auto_switch",
+	&"flak_switch", &"missile_auto_switch",
 	&"pause_toggle", &"pause_switch", &"overlay_toggle",
 ]
 
@@ -31,7 +31,7 @@ const SYSTEM_ACTIONS: Array[StringName] = [
 ## read as released — which disarmed the drone on unpause. Momentary actions
 ## are deliberately NOT synced (that would fabricate just-pressed edges).
 const STATEFUL_ACTIONS: Array[StringName] = [
-	&"arm_switch", &"pause_switch", &"missile_auto_switch",
+	&"arm_switch", &"pause_switch", &"missile_auto_switch", &"flak_switch",
 ]
 
 enum Kind { KEY, JOY_BUTTON, JOY_AXIS }
@@ -69,6 +69,13 @@ static func factory_defaults() -> Dictionary:
 		# shot, so a button suits it better than a trigger anyway.
 		"fire_flak": [make_key(KEY_G), make_button(JOY_BUTTON_RIGHT_SHOULDER)],
 		"missile_auto_switch": [],
+		# Stateful flak trigger: switch on = trigger held (the pod cycles at its
+		# own rate). Ships unbound. Exists because the log's first night (v1.34)
+		# showed ZERO flak fired: on the radio the human cannot reach G, RB does
+		# not exist, and the pod has no director by design — the slice's third
+		# weapon was unreachable on the primary controller. This is ergonomics,
+		# not FCS: no aim logic, just a trigger a switch can hold.
+		"flak_switch": [],
 		"pause_toggle": [make_key(KEY_P)],
 		"pause_switch": [],
 		"overlay_toggle": [make_key(KEY_TAB), make_button(JOY_BUTTON_START)],
