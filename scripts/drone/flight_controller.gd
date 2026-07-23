@@ -95,6 +95,8 @@ func _ready() -> void:
 		if picked != null:
 			frame = picked
 	config = frame.flight_config
+	print("[frame] flying %s (mass %.2f kg, hull %.0f, armor %.0f)"
+			% [frame.display_name, config.mass, frame.hull, frame.armor])
 	if not frame.flight_config_matches():
 		push_error("[frame] %s carries a flight config for '%s'"
 				% [frame.frame_id, config.frame_id])
