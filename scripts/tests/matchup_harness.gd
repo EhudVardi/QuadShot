@@ -119,6 +119,32 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Flak x Aegis", "weapon": "flak", "type": "aegis",
 			"enemy": "res://scenes/combat/aegis.tscn",
 			"paper": "--", "mode": "win"},
+	# --- The raider PACK row (v1.29's named coverage gap, discharged). The
+	# shipped game spawns raiders in simultaneous groups (wave_director's count
+	# formula), but every `x Raider` cell above is 1v1 — so "flak really helps
+	# destroy groups of raiders" (the human, v1.29) had zero coverage for ANY
+	# weapon. 3 bodies = wave 2 of sortie 1, the first group moment of a run.
+	#
+	# PAPER BANDS ARE PROPOSED HERE, not inherited — P4.3 has no raider-pack
+	# row (v1.33; react if wrong). Blaster `0`: strong per body, but chip time
+	# triples under tripled return fire. Missile `-`: three 3 s locks is the
+	# gnat bankruptcy in miniature. Flak `+`: the human's observed group
+	# benefit, priced below the gnat `++` because raiders fly far looser than
+	# a swarm, so the splash divisor is smaller.
+	#
+	# The Blaster cell inherits the single-raider cell's bot limitation (that
+	# one is hand-mode): its validated column reads a 0.17-aim pilot under 3x
+	# return fire, not the weapon. H.q4's human bench is the fix for the
+	# whole family; until then read the blaster pack row as bot-bounded.
+	{"name": "Blaster x Raiders", "weapon": "blaster", "type": "raider",
+			"enemy": "res://scenes/combat/raider_pack.tscn",
+			"paper": "0", "mode": "pack", "bodies": 3.0},
+	{"name": "Missile x Raiders", "weapon": "missile", "type": "raider",
+			"enemy": "res://scenes/combat/raider_pack.tscn",
+			"paper": "-", "mode": "pack", "bodies": 3.0},
+	{"name": "Flak x Raiders", "weapon": "flak", "type": "raider",
+			"enemy": "res://scenes/combat/raider_pack.tscn",
+			"paper": "+", "mode": "pack", "bodies": 3.0},
 	# --- THE FRAME AXIS (Phase 4b, P3.4/P3.7's second dimension). Paper bands are
 	# the Atlas column of P3.4: gnat ++, raider 0, turret -, aegis ++.
 	#
@@ -696,7 +722,8 @@ func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
 	# The unit is the CLOUD for distributed types (P4.q5): killing it means
 	# killing every body, which is where the pack's economy bites — and where an
 	# area weapon stops paying it.
-	var bodies: float = maxf(enemy.pack_size, 1.0)
+	var bodies: float = maxf(float(matchup["bodies"]), 1.0) \
+			if matchup.has("bodies") else maxf(enemy.pack_size, 1.0)
 	var prediction: Dictionary = BalancePrediction.predict(
 			weapon, combat, enemy, aim, evasion, bodies, splash)
 	var splash_note: String = " x splash %.2f" % splash if splash != 1.0 else ""
@@ -735,10 +762,16 @@ func _ttk_line(matchup_i: int, prediction: Dictionary) -> String:
 
 
 ## Bodies in this cell's enemy UNIT — the pack for a distributed type, 1 for
-## everything else (P4.q5: the cloud is the unit).
+## everything else (P4.q5: the cloud is the unit). A cell can override with a
+## "bodies" key: the raider-pack row groups a type whose CONFIG pack_size is 0
+## (raiders are solo entities the game happens to spawn several of), so the
+## unit size is the cell's statement, not the roster's.
 func _bodies(matchup_i: int) -> float:
+	var matchup: Dictionary = MATCHUPS[matchup_i]
+	if matchup.has("bodies"):
+		return maxf(float(matchup["bodies"]), 1.0)
 	var enemy: EnemyConfig = load("res://resources/default_enemy_%s.tres"
-			% MATCHUPS[matchup_i]["type"]) as EnemyConfig
+			% matchup["type"]) as EnemyConfig
 	return maxf(enemy.pack_size, 1.0)
 
 

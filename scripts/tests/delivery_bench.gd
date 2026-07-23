@@ -151,6 +151,17 @@ const CELLS: Array[Dictionary] = [
 			"weapon": "flak", "target": "gnats", "seconds": 20.0},
 	{"name": "evasion: flak x aegis", "kind": "evasion",
 			"weapon": "flak", "target": "aegis", "seconds": 20.0},
+	# SPLASH vs a raider GROUP (v1.33). The flak column's splash was only ever
+	# measured against the gnat cloud (3.42); raiders orbit far looser, so the
+	# pack-bill divisor for the row the human actually praised ("really helps
+	# destroy groups of raiders", v1.29) was an unmeasured 1.0. splash_only:
+	# the single-raider cell above stays the evasion authority — this cell
+	# exists for the one number only a group can produce, and writing its
+	# arrival rate over the single cell's would conflate two different
+	# measurements under one key.
+	{"name": "splash: flak x raiders", "kind": "evasion",
+			"weapon": "flak", "target": "raiderpack", "seconds": 20.0,
+			"splash_only": true},
 	# --- The Atlas's aim cells (Phase 4b, P3.4's frame axis). Three cells, not a
 	# second matrix: the frame re-keys aim and touches nothing else, so this is
 	# the ENTIRE Layer 2 cost of a new frame. Same windows as the Kestrel's, or
@@ -180,6 +191,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 ## section instead of the evasion table.
 const TYPE_IDS: Dictionary = {
 	"raider": "raider", "turret": "turret", "gnats": "gnat", "aegis": "aegis",
+	"raiderpack": "raider",
 }
 
 enum { BUILD, FIRE, GRACE, RECORD }
@@ -356,6 +368,23 @@ func _build_target(type: String) -> Node:
 			_arena.add_child(turret)
 			_count_health_connects(turret.get_node("Health") as Health)
 			return turret
+		"raiderpack":
+			# The group the splash cell needs: three immortal raiders flying
+			# their real AI at the frozen shooter. They orbit at their own
+			# preferred_range, so splash is measured at the range raiders
+			# actually fight, not at a staged distance.
+			_enemy_config = (load("res://resources/default_enemy_raider.tres")
+					as EnemyConfig).duplicate() as EnemyConfig
+			_enemy_config.hull = IMMORTAL_HULL
+			var pack: RaiderPack = (load("res://scenes/combat/raider_pack.tscn")
+					as PackedScene).instantiate() as RaiderPack
+			pack.enemy_config = _enemy_config
+			pack.ai_seed = 0
+			pack.position = Vector3(0.0, ALTITUDE, -RANGE_M)
+			_arena.add_child(pack)
+			for body: Node3D in pack.bodies:
+				_count_health_connects(body.get_node("Health") as Health)
+			return pack
 		"aegis":
 			_enemy_config = (load("res://resources/default_enemy_aegis.tres")
 					as EnemyConfig).duplicate() as EnemyConfig
@@ -637,6 +666,14 @@ func _write_factors() -> void:
 		var weapon: String = cell["weapon"]
 		if cell["kind"] == "aim":
 			aim[BalancePrediction.aim_key(String(cell["frame"]), weapon)] = rate
+		elif cell.get("splash_only", false):
+			# This cell contributes ONLY its splash yield; its arrival rate is
+			# measured under different geometry (a converging group) than the
+			# single-target evasion cell that owns the evasion key, and letting
+			# it overwrite that key would mix two rulers under one name.
+			if yield_per_burst != 1.0:
+				splash[BalancePrediction.splash_key(weapon,
+						TYPE_IDS[cell["target"]])] = yield_per_burst
 		elif cell["target"] == "static":
 			control[BalancePrediction.evasion_key(weapon, "static")] = rate
 		else:

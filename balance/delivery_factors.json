@@ -1,7 +1,7 @@
 {
 	"aim": {
 		"atlas:blaster": 0.19,
-		"atlas:flak": 0.9,
+		"atlas:flak": 1.0,
 		"atlas:missile": 1.0,
 		"kestrel:blaster": 0.17,
 		"kestrel:flak": 0.99,
@@ -28,6 +28,7 @@
 	},
 	"pilot_version": 3,
 	"splash": {
-		"flak:gnat": 3.42
+		"flak:gnat": 3.42,
+		"flak:raider": 1.9
 	}
 }

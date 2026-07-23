@@ -65,6 +65,7 @@ func report_burst(bodies: int) -> void:
 
 func _fire() -> void:
 	shots_fired += 1
+	Blackbox.log_event(&"fired", "flak")
 	var direction: Vector3 = -global_basis.z
 	var velocity: Vector3 = direction * combat_config.flak_muzzle_speed \
 			+ _drone.linear_velocity * combat_config.inherit_velocity

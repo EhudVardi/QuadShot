@@ -87,6 +87,7 @@ func _next_wave() -> void:
 	_remaining = count
 	for i: int in count:
 		_spawn_enemy()
+	Blackbox.log_event(&"wave", "s%d w%d" % [sortie, wave], float(_remaining))
 	wave_changed.emit(sortie, wave, _remaining)
 
 
@@ -100,6 +101,7 @@ func _spawn_enemy() -> void:
 			_rng.randf_range(SPAWN_HEIGHT_MIN, SPAWN_HEIGHT_MAX),
 			sin(angle) * radius)
 	enemy.destroyed.connect(_on_enemy_destroyed)
+	Blackbox.log_event(&"spawn", "raider", 0.0, enemy.global_position)
 
 
 func _on_enemy_destroyed(points: float) -> void:

@@ -127,6 +127,8 @@ func _burst() -> void:
 				continue
 			body.call("take_hit", _damage)
 			bodies += 1
+			if _team == &"player":
+				Blackbox.log_event(&"hit", "flak", _damage, body.global_position)
 	if is_instance_valid(_pod):
 		_pod.report_burst(bodies)
 	Effects.explosion(get_tree().root, global_position,

@@ -194,6 +194,7 @@ func _on_upgrade_picked(id: StringName) -> void:
 
 
 func _on_scorer_destroyed(points: float) -> void:
+	Blackbox.log_event(&"kill", "", points)
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if now - _last_kill_time <= combat_config.combo_window:
 		_combo = minf(_combo + 1.0, combat_config.combo_max)
@@ -232,6 +233,7 @@ func _on_player_crashed(impact_speed: float) -> void:
 
 
 func _on_player_damaged(amount: float, remaining: float) -> void:
+	Blackbox.log_event(&"player_hit", "", amount)
 	# Damage is a flight-model event (D1): degrade the motor on the struck side
 	# BEFORE the direction is consumed below, and spike the video feed (D4).
 	_drone.apply_hit_to_motors(amount)

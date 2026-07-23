@@ -65,6 +65,9 @@ func _steer(delta: float) -> void:
 func _detonate(victim: Object) -> void:
 	if victim != null and victim.get("team") != _team and victim.has_method("take_hit"):
 		victim.call("take_hit", _config.missile_damage)
+		if _team == &"player":
+			Blackbox.log_event(&"hit", "missile", _config.missile_damage,
+					global_position)
 	Effects.explosion(get_tree().root, global_position, 0.9)
 	queue_free()
 

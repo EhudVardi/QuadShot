@@ -70,6 +70,8 @@ func _resolve_hit(hit: Dictionary) -> void:
 	# already prevent self-hits; this covers e.g. turret-on-turret fire).
 	if collider.get("team") != _team and collider.has_method("take_hit"):
 		collider.call("take_hit", _damage)
+		if _team == &"player":
+			Blackbox.log_event(&"hit", "blaster", _damage, global_position)
 	Effects.impact(get_tree().root, hit["position"])
 	_deactivate()
 

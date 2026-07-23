@@ -86,6 +86,7 @@ func _assist_solution() -> bool:
 
 func _fire() -> void:
 	shots_fired += 1
+	Blackbox.log_event(&"fired", "blaster")
 	var direction: Vector3 = -global_basis.z
 	var velocity: Vector3 = direction * combat_config.muzzle_speed \
 			+ _drone.linear_velocity * combat_config.inherit_velocity

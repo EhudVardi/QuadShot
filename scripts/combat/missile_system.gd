@@ -143,6 +143,7 @@ func _has_line_of_sight(enemy: Node3D) -> bool:
 
 func _launch() -> void:
 	launches += 1
+	Blackbox.log_event(&"fired", "missile")
 	var missile: Missile = MISSILE_SCENE.instantiate() as Missile
 	_drone.get_parent().add_child(missile)
 	var direction: Vector3 = -global_basis.z
