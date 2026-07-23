@@ -4739,3 +4739,55 @@ to distrust the current table, and not a number to guess.
     decision on what's next, go ahead") — raider-pack bench and the combat
     event blackbox, then H.q4 + B5 interleaved. **To resume after a session
     cut: "Continue QuadShot per the v1.32 entry."**
+- **2026-07-23 — v1.33. The v1.29 queue discharged: the raider-pack bench
+  measures the group fight, and the blackbox learns to see combat.** Both
+  instruments built to their v1.29 sizing, at the user's go-ahead, in the
+  same session as Iteration 8's writing.
+  - **THE RAIDER-PACK ROW EXISTS, and the human's feel report survives
+    measurement.** New `RaiderPack` fixture (gnat_swarm's interface exactly —
+    destroyed/cleared/nearest_body/ai_seed — 3 bodies = wave 2 of sortie 1, a
+    measurement grouping and not a game entity), three pack-mode matchup
+    cells, and a `splash_only` delivery cell so the group's one new number
+    cannot overwrite the single-raider evasion key. Measured: **`splash
+    flak:raider` = 1.90** — one arriving burst covers ~2 of 3 raiders,
+    sitting between the single-target 1.0 and the gnat cloud's 3.42 exactly
+    where "raiders orbit looser than a swarm boils" predicts. And
+    `Flak x Raiders` validates `++` (exchange +0.71, 2.3/3 bodies for 7%
+    hull): **"flak really helps destroy groups of raiders" (v1.29) is now a
+    number, and the number agrees with the hands.**
+  - **A proposed paper band died on first contact, which is the system
+    working in the embarrassing direction too.** The row's paper bands are
+    PROPOSED here (P4.3 has no raider-pack row): blaster `0`, missile `-`,
+    flak `+`. The missile proposal was contradicted the same hour it was
+    written — `Missile x Raiders` validated `++` (three launches sweep the
+    pack in 8.1 s for 9% hull, six of six). A 3-raider group is NOT the gnat
+    bankruptcy in miniature: nine gnat bodies at a 3 s cadence is 24 s of
+    exposure, but three raider bodies is 9 s and every launch is a
+    one-hit kill. The proposal-to-measurement gap is logged rather than
+    silently corrected; **react-by-ID: should the missile pack band be `0` or
+    `+`?** (The measured evidence says `+` at N=3; the band would degrade as
+    N grows — the cadence bill is linear in bodies.)
+  - **`Blaster x Raiders` validated `-`, and the cell says out loud that it
+    is bot-bounded** — the 0.17-aim reference pilot under tripled return fire
+    kills zero raiders in six reps. Same limitation as the single-raider cell
+    (hand-mode `++` there), inherited and stated in the cell comment. H.q4's
+    human aim bench gains its fourth client.
+  - **The blackbox now sees combat** (v1.29's second ask, built to its
+    sizing): a sparse `events_<stamp>.csv` beside each `flight_<stamp>.csv` —
+    one line per fired / hit / player_hit / spawn / kill / wave, with the
+    event's own position where it has one (impact point, spawn point — the
+    datum the flight file cannot carry). Emitters call the null-safe static
+    `Blackbox.log_event` (the SoundBank precedent), so combat code holds no
+    references and headless bench runs drop events for free — all suites pass
+    with the hooks live. Hit events are player-team only; the enemy's side of
+    the story is the `player_hit` line. **The next session read-back reports
+    an actual hit rate instead of inferring "buzzing, not crashing" from
+    position alone** — the exact limit the v1.29 read-back stated. First real
+    file lands on the human's next flight.
+  - **Also:** `aim: atlas/flak` wobbled 0.90 → 1.00 across the re-measure —
+    the documented least-stable cell family (single-digit shells crossing the
+    6° cone edge), no band moved, logged so it is not read as a change.
+  - **Next: H.q4's human aim drill and B5's menu tower, interleaved** (the
+    v1.32 wedge): the drill needs the human's hands, the tower needs nothing
+    the harness measures. **To resume after a session cut: "Continue QuadShot
+    per the v1.32/v1.33 entries."**
