@@ -19,8 +19,14 @@ signal floor_committed(frame: MenuFloorFrame)
 signal floor_canceled(frame: MenuFloorFrame)
 
 const FLOOR_PITCH: float = 4.0
-const SLAB_SIZE: Vector3 = Vector3(12.6, 0.4, 12.6)
-const LINER_SIZE: Vector3 = Vector3(12.4, 0.1, 12.4)
+const SLAB_THICK: float = 0.4
+const LINER_THICK: float = 0.1
+## The slab plate overhangs its floor footprint by this lip; the void liner
+## sits just inside the plate. Per-floor footprints (B3 variety) size each
+## slab, so a narrower floor above a wider one leaves a setback ledge.
+const SLAB_LIP: float = 0.6
+const LINER_LIP: float = 0.4
+const DEFAULT_FOOTPRINT: float = 12.0
 
 ## Bottom→top, filled at _ready; the side view walks this.
 var frames: Array[MenuFloorFrame] = []
@@ -47,7 +53,8 @@ func _ready() -> void:
 	var body: StaticBody3D = StaticBody3D.new()
 	add_child(body)
 	for k: int in _floors.size() + 1:
-		_add_slab(body, k * FLOOR_PITCH + 0.2, slab_material, void_material)
+		_add_slab(body, k * FLOOR_PITCH + 0.2, _slab_footprint(k),
+				slab_material, void_material)
 	for k: int in _floors.size():
 		var spec: Dictionary = _floors[k]
 		var frame: MenuFloorFrame = MenuFloorFrame.new()
@@ -57,6 +64,8 @@ func _ready() -> void:
 		frame.window_size = spec.get("window", Vector2(3.0, 2.2))
 		frame.sill = spec.get("sill", 0.6)
 		frame.text_pixel = spec.get("pixel", 0.1)
+		frame.footprint = spec.get("footprint", DEFAULT_FOOTPRINT)
+		frame.cross_windows = spec.get("cross_windows", false)
 		frame.position = Vector3(0.0, k * FLOOR_PITCH + 0.4, 0.0)
 		add_child(frame)
 		frames.append(frame)
@@ -68,18 +77,31 @@ func _ready() -> void:
 				floor_canceled.emit(frame))
 
 
-func _add_slab(body: StaticBody3D, at_y: float, slab_material: Material,
-		void_material: Material) -> void:
+## Slab k sits below floor k; size it to the WIDER of the floors it touches so
+## a setback (a narrower floor above) leaves a ledge on the roof of the wider
+## floor below. The bottom plate and roof clamp to the end floors.
+func _slab_footprint(k: int) -> float:
+	return maxf(_floor_footprint(k - 1), _floor_footprint(k))
+
+
+func _floor_footprint(k: int) -> float:
+	var idx: int = clampi(k, 0, _floors.size() - 1)
+	return _floors[idx].get("footprint", DEFAULT_FOOTPRINT)
+
+
+func _add_slab(body: StaticBody3D, at_y: float, fp: float,
+		slab_material: Material, void_material: Material) -> void:
+	var slab_size: Vector3 = Vector3(fp + SLAB_LIP, SLAB_THICK, fp + SLAB_LIP)
 	var slab: MeshInstance3D = MeshInstance3D.new()
 	var slab_mesh: BoxMesh = BoxMesh.new()
-	slab_mesh.size = SLAB_SIZE
+	slab_mesh.size = slab_size
 	slab_mesh.material = slab_material
 	slab.mesh = slab_mesh
 	slab.position = Vector3(0.0, at_y, 0.0)
 	body.add_child(slab)
 	var collision: CollisionShape3D = CollisionShape3D.new()
 	var shape: BoxShape3D = BoxShape3D.new()
-	shape.size = SLAB_SIZE
+	shape.size = slab_size
 	collision.shape = shape
 	collision.position = Vector3(0.0, at_y, 0.0)
 	body.add_child(collision)
@@ -87,7 +109,7 @@ func _add_slab(body: StaticBody3D, at_y: float, slab_material: Material,
 	# camera clipping the slab surface sees darkness, never the next floor.
 	var liner: MeshInstance3D = MeshInstance3D.new()
 	var liner_mesh: BoxMesh = BoxMesh.new()
-	liner_mesh.size = LINER_SIZE
+	liner_mesh.size = Vector3(fp + LINER_LIP, LINER_THICK, fp + LINER_LIP)
 	liner_mesh.material = void_material
 	liner.mesh = liner_mesh
 	liner.position = Vector3(0.0, at_y, 0.0)

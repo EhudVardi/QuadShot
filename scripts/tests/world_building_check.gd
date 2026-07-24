@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_building.building_seed = 16
 	_building.target_floors = 11
 	_building.open_floors = 4
+	_building.footprint = 10.0
 	root.add_child(_building)
 	process_frame.connect(_run_once)
 
@@ -46,12 +47,17 @@ func _check() -> void:
 
 	var open: int = 0
 	for frame: MenuFloorFrame in building.frames:
+		# Footprint plumbing: WorldBuilding stamps it onto every floor.
+		if not is_equal_approx(frame.footprint, 10.0):
+			return _fail("floor footprint should be 10.0, got %f" % frame.footprint)
 		if frame.state != MenuFloorFrame.STATE_OPEN:
 			continue
 		open += 1
 		if frame.leaf_id != &"":
 			return _fail("world open floor should be leafless, got '%s'"
 					% frame.leaf_id)
+		if not frame.cross_windows:
+			return _fail("world open floor should have crossed (4-side) windows")
 		if not frame.find_children("*", "MenuFloor", false, false).is_empty():
 			return _fail("world open floor must not build a MenuFloor commit zone")
 		if not frame.find_children("*", "GlowText3D", false, false).is_empty():

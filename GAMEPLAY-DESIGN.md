@@ -5630,3 +5630,31 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     scatter, buildings stay box-shaped) then 3b-ii (setbacks). **To resume
     after a session cut: "Continue QuadShot per v1.48 — the generator is in the
     world (dev-room specimen); building variety (3b) is next."**
+
+- **2026-07-24 — v1.49. B3/B4 step 3b-i flown and approved: buildings vary in
+  size, open from every side, and stand as a small skyline.** The user: "feels
+  great." Three follow-ups — two handled here, one deferred as its own step.
+  - **Per-floor footprint** (MenuFloorFrame + MenuBuilding): buildings take any
+    width; slab plates size to the wider of each floor's neighbors, so the
+    setback-ledge plumbing is already in (a plain box when every floor matches).
+    Window width auto-clamps so a narrow tower still frames its opening.
+  - **Crossed windows** (the user's ask): a world building's open floors carry
+    openings + neon frames on ALL FOUR sides — enter from any direction — while
+    the menu keeps front-entry / back-commit (`cross_windows` defaults off). One
+    axis-helper refactor serves both; menu geometry unchanged, verified.
+  - **The dev room is now a 6-building `GeneratedCity`** — varied footprint
+    (8–16) and height (6–18 floors) — beside the solid placeholder boxes it will
+    replace. WorldBuilding grew `footprint` + `cross_windows` exports; spacing
+    widened per feedback.
+  - **Fixed: a generated building clipped a placeholder box** (B3 over TowerM2 —
+    "a fun mistake" but reined in): the cluster now stays clear of the +X
+    placeholder lane.
+  - **DEFERRED as its own step — SCALE (the user's call): "the world doesn't
+    feel large enough."** The open floors read as too airy because the windows
+    are too easy AND the buildings are too small in width and height. Next is a
+    scale / difficulty pass: bigger footprints and heights, a larger sense of
+    world, and tighter windows so floors read as solid architecture, not flimsy
+    pavilions. Setbacks / tiers (3b-ii) remain queued behind it. **To resume
+    after a session cut: "Continue QuadShot per v1.49 — building variety flown;
+    the SCALE pass (bigger buildings + world + tighter windows) is next, then
+    setbacks."**

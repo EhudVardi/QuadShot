@@ -18,6 +18,9 @@ extends Node3D
 ## Generous by design (B3: "windows generous") — you fly straight through.
 @export var window_size: Vector2 = Vector2(4.5, 2.8)
 @export var sill: float = 0.5
+## Building width (B3 variety, v1.48). Uniform across this building's floors
+## for now; setbacks (per-floor footprint) arrive in the next step.
+@export var footprint: float = 12.0
 
 
 func _ready() -> void:
@@ -28,4 +31,10 @@ func _ready() -> void:
 		open_specs.append({"window": window_size, "sill": sill})
 	var floors: Array = BuildingGenerator.generate(
 			building_seed, open_specs, target_floors)
+	# Stamp world-building geometry onto every floor (open + filler): the
+	# footprint sizes walls and slabs, and crossed windows make open floors
+	# enterable from any direction (not just front/back like the menu).
+	for spec: Dictionary in floors:
+		spec["footprint"] = footprint
+		spec["cross_windows"] = true
 	add_child(MenuBuilding.create(floors))

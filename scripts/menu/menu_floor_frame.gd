@@ -22,10 +22,12 @@ signal entered(leaf_id: StringName)
 signal committed(leaf_id: StringName)
 signal canceled(leaf_id: StringName)
 
-const FOOTPRINT: float = 12.0
 const INTERIOR_HEIGHT: float = 3.6
 const WALL: float = 0.4
 const BAR: float = 0.12
+## Minimum wall pier beside a window; the window width is clamped so even a
+## narrow footprint still frames its opening (B3 variety — footprints vary).
+const MIN_PIER: float = 0.4
 ## Interior surfaces sit near-black so the flat ambient term cannot wash out
 ## the dark — the "genuinely dark inside" half of B2's drama (v1.38 verdict:
 ## more dramatic).
@@ -61,6 +63,13 @@ const WORK_LIGHT_ENERGY: float = 0.35
 ## Window bottom above the interior floor; 0 makes it a door (no bottom bar).
 @export var sill: float = 0.6
 @export var text_pixel: float = 0.1
+## Per-floor footprint (B3 variety, v1.48): MenuBuilding sets it from the floor
+## spec so buildings vary in width and can set back. Default matches the menu.
+@export var footprint: float = 12.0
+## Openings on all four sides, not just front/back (v1.48). A world building
+## floor is enterable from any direction; the menu keeps front-entry /
+## back-commit with solid sides (false).
+@export var cross_windows: bool = false
 
 var _mat_dark: StandardMaterial3D
 var _mat_line: StandardMaterial3D
@@ -97,6 +106,9 @@ func _build_open() -> void:
 	_mat_line.emission_enabled = true
 	_mat_line.emission = LINE_COLOR
 	_mat_line.emission_energy_multiplier = LINE_ENERGY
+	# A narrow footprint can't fit a wide window and still leave piers — clamp
+	# the width so the opening always has a wall either side.
+	window_size.x = minf(window_size.x, footprint - 2.0 * (WALL + MIN_PIER))
 	_build_walls()
 	_build_window_line()
 	_build_light()
@@ -118,14 +130,14 @@ func _build_sealed() -> void:
 	glass.metallic = 0.35
 	glass.roughness = 0.45
 	var mid_y: float = INTERIOR_HEIGHT * 0.5
-	var z_wall: float = FOOTPRINT * 0.5 - WALL * 0.5
+	var z_wall: float = footprint * 0.5 - WALL * 0.5
 	for side: float in [1.0, -1.0]:
-		_add_box(Vector3(FOOTPRINT, INTERIOR_HEIGHT, WALL),
+		_add_box(Vector3(footprint, INTERIOR_HEIGHT, WALL),
 				Vector3(0.0, mid_y, z_wall * side), glass, true)
-	var side_len: float = FOOTPRINT - 2.0 * WALL
+	var side_len: float = footprint - 2.0 * WALL
 	for side: float in [1.0, -1.0]:
 		_add_box(Vector3(WALL, INTERIOR_HEIGHT, side_len),
-				Vector3((FOOTPRINT * 0.5 - WALL * 0.5) * side, mid_y, 0.0),
+				Vector3((footprint * 0.5 - WALL * 0.5) * side, mid_y, 0.0),
 				_mat_dark, true)
 
 
@@ -138,7 +150,7 @@ func _build_under_construction() -> void:
 	mat.emission_enabled = true
 	mat.emission = SCAFFOLD_COLOR
 	mat.emission_energy_multiplier = SCAFFOLD_ENERGY
-	var px: float = FOOTPRINT * 0.5 - WALL
+	var px: float = footprint * 0.5 - WALL
 	var mid_y: float = INTERIOR_HEIGHT * 0.5
 	# Corner posts are the blockers; the ring beams are visual only.
 	for sx: float in [1.0, -1.0]:
@@ -162,46 +174,80 @@ func _build_under_construction() -> void:
 
 
 func _build_walls() -> void:
+	# Front and back always open (the menu's entry + commit crossing). A world
+	# building opens the crossed sides too — enter from any direction — while
+	# the menu keeps them solid.
+	_build_opened_wall(true, 1.0)
+	_build_opened_wall(true, -1.0)
+	if cross_windows:
+		_build_opened_wall(false, 1.0)
+		_build_opened_wall(false, -1.0)
+	else:
+		var side_len: float = footprint - 2.0 * WALL
+		for side: float in [1.0, -1.0]:
+			_add_box(Vector3(WALL, INTERIOR_HEIGHT, side_len),
+					Vector3((footprint * 0.5 - WALL * 0.5) * side,
+					INTERIOR_HEIGHT * 0.5, 0.0), _mat_dark, true)
+
+
+## One wall with a centered window opening: two flanking piers, a sill below
+## and a header above. `along_z` walls run along X (their face is ±Z); else
+## they run along Z (face ±X). `side` is which of the two faces.
+func _build_opened_wall(along_z: bool, side: float) -> void:
 	var w: float = window_size.x
 	var h: float = window_size.y
-	var pier_w: float = (FOOTPRINT - w) * 0.5
-	var z_wall: float = FOOTPRINT * 0.5 - WALL * 0.5
+	var pier_w: float = (footprint - w) * 0.5
+	var depth: float = (footprint * 0.5 - WALL * 0.5) * side
 	var mid_y: float = INTERIOR_HEIGHT * 0.5
-	# Front and back walls carry the same opening — the far side is the
-	# commit exit, crossed at full size.
-	for side: float in [1.0, -1.0]:
-		var z: float = z_wall * side
-		_add_box(Vector3(pier_w, INTERIOR_HEIGHT, WALL),
-				Vector3(-(w * 0.5 + pier_w * 0.5), mid_y, z), _mat_dark, true)
-		_add_box(Vector3(pier_w, INTERIOR_HEIGHT, WALL),
-				Vector3(w * 0.5 + pier_w * 0.5, mid_y, z), _mat_dark, true)
-		if sill > 0.01:
-			_add_box(Vector3(w, sill, WALL),
-					Vector3(0.0, sill * 0.5, z), _mat_dark, true)
-		var header_h: float = INTERIOR_HEIGHT - sill - h
-		if header_h > 0.01:
-			_add_box(Vector3(w, header_h, WALL),
-					Vector3(0.0, sill + h + header_h * 0.5, z), _mat_dark, true)
-	var side_len: float = FOOTPRINT - 2.0 * WALL
-	for side: float in [1.0, -1.0]:
-		_add_box(Vector3(WALL, INTERIOR_HEIGHT, side_len),
-				Vector3((FOOTPRINT * 0.5 - WALL * 0.5) * side, mid_y, 0.0),
+	for pier: float in [1.0, -1.0]:
+		_add_box(_axis_size(along_z, pier_w, INTERIOR_HEIGHT, WALL),
+				_axis_pos(along_z, (w * 0.5 + pier_w * 0.5) * pier, mid_y, depth),
+				_mat_dark, true)
+	if sill > 0.01:
+		_add_box(_axis_size(along_z, w, sill, WALL),
+				_axis_pos(along_z, 0.0, sill * 0.5, depth), _mat_dark, true)
+	var header_h: float = INTERIOR_HEIGHT - sill - h
+	if header_h > 0.01:
+		_add_box(_axis_size(along_z, w, header_h, WALL),
+				_axis_pos(along_z, 0.0, sill + h + header_h * 0.5, depth),
 				_mat_dark, true)
 
 
 func _build_window_line() -> void:
+	# Front always framed; a world building frames all four openings.
+	_build_window_line_side(true, 1.0)
+	if cross_windows:
+		_build_window_line_side(true, -1.0)
+		_build_window_line_side(false, 1.0)
+		_build_window_line_side(false, -1.0)
+
+
+func _build_window_line_side(along_z: bool, side: float) -> void:
 	var w: float = window_size.x
 	var h: float = window_size.y
-	var z: float = FOOTPRINT * 0.5 + 0.08
+	var depth: float = (footprint * 0.5 + 0.08) * side
 	var center_y: float = sill + h * 0.5
-	_add_box(Vector3(w + 2.0 * BAR, BAR, BAR),
-			Vector3(0.0, sill + h + BAR * 0.5, z), _mat_line, false)
+	_add_box(_axis_size(along_z, w + 2.0 * BAR, BAR, BAR),
+			_axis_pos(along_z, 0.0, sill + h + BAR * 0.5, depth), _mat_line, false)
 	if sill > 0.01:
-		_add_box(Vector3(w + 2.0 * BAR, BAR, BAR),
-				Vector3(0.0, sill - BAR * 0.5, z), _mat_line, false)
-	for side: float in [1.0, -1.0]:
-		_add_box(Vector3(BAR, h, BAR),
-				Vector3((w * 0.5 + BAR * 0.5) * side, center_y, z), _mat_line, false)
+		_add_box(_axis_size(along_z, w + 2.0 * BAR, BAR, BAR),
+				_axis_pos(along_z, 0.0, sill - BAR * 0.5, depth), _mat_line, false)
+	for bar: float in [1.0, -1.0]:
+		_add_box(_axis_size(along_z, BAR, h, BAR),
+				_axis_pos(along_z, (w * 0.5 + BAR * 0.5) * bar, center_y, depth),
+				_mat_line, false)
+
+
+## Box size for a wall-aligned member: `span` runs along the wall, `height` is
+## vertical, `thick` is the depth through the wall. Swaps X/Z by orientation.
+func _axis_size(along_z: bool, span: float, height: float, thick: float) -> Vector3:
+	return Vector3(span, height, thick) if along_z else Vector3(thick, height, span)
+
+
+## Position for a wall-aligned member: `along` is the offset down the wall, `y`
+## vertical, `depth` the placement on the wall's outward axis.
+func _axis_pos(along_z: bool, along: float, y: float, depth: float) -> Vector3:
+	return Vector3(along, y, depth) if along_z else Vector3(depth, y, along)
 
 
 ## Chevrons marching toward the far window on the floor AND the ceiling
@@ -234,7 +280,7 @@ func _build_label() -> void:
 	_text.text = label
 	_text.pixel_size = text_pixel
 	_text.position = Vector3(0.0, sill + window_size.y * 0.5,
-			FOOTPRINT * 0.5 - WALL * 0.5)
+			footprint * 0.5 - WALL * 0.5)
 	add_child(_text)
 
 
@@ -243,7 +289,7 @@ func _build_zone() -> void:
 	zone.leaf_id = leaf_id
 	zone.position = Vector3(0.0, INTERIOR_HEIGHT * 0.5, 0.0)
 	var shape: BoxShape3D = BoxShape3D.new()
-	var side_len: float = FOOTPRINT - 2.0 * WALL
+	var side_len: float = footprint - 2.0 * WALL
 	shape.size = Vector3(side_len, INTERIOR_HEIGHT, side_len)
 	var collision: CollisionShape3D = CollisionShape3D.new()
 	collision.shape = shape
