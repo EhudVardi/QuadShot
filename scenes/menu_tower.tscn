@@ -152,7 +152,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 script = ExtResource("15_frame")
 leaf_id = &"quit"
 label = "QUIT"
-window_size = Vector2(4, 2.8)
+window_size = Vector2(4.5, 2.8)
 sill = 0.0
 text_pixel = 0.14
 
@@ -170,27 +170,27 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.4, 0)
 script = ExtResource("15_frame")
 leaf_id = &"fly_free"
 label = "FLY\nFREE"
-window_size = Vector2(4, 2.6)
-sill = 0.5
-text_pixel = 0.13
+window_size = Vector2(5, 2.8)
+sill = 0.4
+text_pixel = 0.14
 
 [node name="DevRoom" type="StaticBody3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.4, 0)
 script = ExtResource("15_frame")
 leaf_id = &"dev_room"
 label = "DEV\nROOM"
-window_size = Vector2(3.2, 2.2)
-sill = 0.7
-text_pixel = 0.11
+window_size = Vector2(4.5, 2.6)
+sill = 0.5
+text_pixel = 0.13
 
 [node name="AimDrill" type="StaticBody3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.4, 0)
 script = ExtResource("15_frame")
 leaf_id = &"aim_drill"
 label = "AIM\nDRILL"
-window_size = Vector2(2.4, 1.8)
-sill = 0.9
-text_pixel = 0.075
+window_size = Vector2(4.5, 2.6)
+sill = 0.5
+text_pixel = 0.12
 
 [node name="SideCamera" type="Camera3D" parent="."]
 

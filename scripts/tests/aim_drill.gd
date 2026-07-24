@@ -30,6 +30,13 @@ const TARGET_ALTITUDE: float = 14.0
 ## Per-weapon windows, seconds — the delivery bench's own, verbatim.
 const WINDOWS: Dictionary = {"blaster": 20.0, "missile": 45.0, "flak": 40.0}
 
+## Signal leash (B5, v1.40) — same contract as main.gd: stray past WARN and
+## the HUD nags, past LOST and the menu tower catches you.
+const RANGE_WARN_M: float = 220.0
+const RANGE_LOST_M: float = 300.0
+const RANGE_WARN_PERIOD_S: float = 1.5
+const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
+
 @export var combat_config: CombatConfig
 @export var input_bindings: InputBindings
 
@@ -47,6 +54,8 @@ var _cells: Dictionary = {}
 var _clock: float = 0.0
 var _artifact_path: String = ""
 var _titled: bool = true
+var _range_warn_timer: float = 0.0
+var _signal_lost: bool = false
 
 
 func _ready() -> void:
@@ -129,11 +138,30 @@ func _physics_process(delta: float) -> void:
 	_update_cell("flak", _flak.shots_fired)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_update_reticle()
 	_update_lock()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
+	_update_signal_leash(delta)
+
+
+func _update_signal_leash(delta: float) -> void:
+	if _signal_lost:
+		return
+	var distance: float = _drone.global_position.length()
+	if distance <= RANGE_WARN_M:
+		_range_warn_timer = 0.0
+		return
+	if distance >= RANGE_LOST_M:
+		_signal_lost = true
+		_hud.add_kill_feed("SIGNAL LOST — returning to menu")
+		get_tree().call_deferred(&"change_scene_to_file", MENU_SCENE)
+		return
+	_range_warn_timer -= delta
+	if _range_warn_timer <= 0.0:
+		_range_warn_timer = RANGE_WARN_PERIOD_S
+		_hud.add_kill_feed("SIGNAL WEAK — %d m — turn back" % int(distance))
 
 
 func _update_cell(weapon: String, fired_total: int) -> void:

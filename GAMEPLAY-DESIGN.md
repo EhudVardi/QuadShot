@@ -3180,6 +3180,56 @@ commit-on-exit / re-thread-to-cancel verb ships (it IS the menu's grammar),
 but sub-levels wait until the verb is proven in the human's hands. The depth
 tree is build-order step 4, not a casualty.
 
+### B steering — the depth answered (v1.40, 2026-07-24)
+
+Checkpoint 3's verdicts, and the clarifications that reshape step 4.
+
+**Escalation is PER-BUILDING, not per-floor — the v1.39 reading was wrong
+and is corrected.** The user: ALL windows on the first building are easy;
+the next building — a chosen item's submenu, which is ANOTHER building —
+gets somewhat smaller windows, and so on down the tree. Difficulty grades
+with menu DEPTH: the deeper you choose, the tighter the flying, which is
+exactly right — deep menu items are committed choices made by pilots who
+know what they want. The first tower's windows flatten to a uniform easy
+baseline accordingly.
+
+**Step 4's mechanic, concretized: the next building is DYNAMICALLY CREATED
+in front of the player when a selection commits.** The tree is built as it
+is flown — no pre-built city of menus, buildings materialize ahead. This is
+squarely within Godot's runtime powers (everything is a mutable scene tree;
+`MenuFloorFrame` and `GlowText3D` already build geometry in code), and it
+is the reason the parametric-frame bet was made in v1.39. The B3 generator
+inherits this shape: a building spawned from parameters at commit time is
+the menu-sized rehearsal of generated floors.
+
+**The exit guide is VOLUMETRIC — an arrow floating in the air, flown
+through.** The user's design, kept whole: a 3D arrow hovering mid-room on
+the entry-exit axis at window height, pointing at the far window — readable
+from OUTSIDE before ingress so the pilot sets the attack angle early, and
+crossed on the way through. The floor chevrons stay as secondary markings.
+
+**The drama dream, recorded in full and deferred as nice-to-have (the
+user's own call).** The real-world referent: sunlit exteriors blind you to
+interiors (windows read black from outside); entering, darkness first, then
+the pupils open; from inside, windows go blinding white; exiting, the world
+overexposes then settles. Godot's honest limits, stated: auto-exposure is
+full-frame average-metered (no local/retina model), so the fantasy is
+staged, not switched on — a much brighter sun/sky against much darker
+interiors and a wide sensitivity range would approximate it. Deferred; the
+user notes the night/neon cyberpunk environment (D9/B9) may deliver the
+same drama cheaper — dark outside makes lit interiors the bright side for
+free.
+
+**The way back is the SIGNAL LEASH, not a gate.** The user's simpler-better
+idea: every game environment warns as the pilot strays (SIGNAL WEAK — and
+static on the feed, the same glitch overlay, so the warning is diegetic
+before it is text) and drops the link past range, returning to the menu
+tower. An FPV drone flying out of video range IS the menu binding — no
+button, no gate, no UI.
+
+**Approved as-is:** the launches ("works perfect"), the side view ("works
+like a charm, just like i wanted").
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -5169,3 +5219,40 @@ tree is build-order step 4, not a casualty.
     each leaf, and the keyboard side view (unplug the controller). **To
     resume after a session cut: "Continue QuadShot B5 per v1.39 —
     checkpoint 3 awaiting/flown."**
+- **2026-07-24 — v1.40. Checkpoint 3 flown ("you are amazing my dear
+  friend"): the depth clarified, the arrow goes volumetric, the leash
+  replaces the gate, and the wounded feed learns to stutter.** Verdicts:
+  launches "works perfect", side view "works like a charm"; three
+  corrections and one new ask, all folded into Iteration 8 as "the depth
+  answered."
+  - **Escalation corrected to PER-BUILDING** (the v1.39 per-floor reading
+    was wrong): the first tower's windows flatten to a uniform easy
+    baseline (4.5–5.0 wide, all floors); difficulty tightens per DEPTH
+    level, on the submenu buildings that step 4 will **dynamically create
+    in front of the player at commit** — the tree built as it is flown,
+    the parametric-frame bet paying out.
+  - **The volumetric exit arrow ships**: a pulsing 3D arrow (box shaft +
+    cone head, primitives) floating mid-room on the entry-exit axis at
+    window height — visible through the entry window BEFORE ingress, so
+    the attack angle is set early; flown through on the crossing. Chevrons
+    stay as floor markings.
+  - **The signal leash ships in every game environment** (main/dev via
+    main.gd, the drill in its own script): past 220 m the feed gains
+    static (the glitch overlay — diegetic before textual) and the HUD nags
+    SIGNAL WEAK; past 300 m the link drops and the menu tower catches you.
+    The user's own simpler-better idea, replacing the return-gate notion.
+  - **The wounded feed flickers** (D4 grown per the user's ask): random
+    breakup bursts between hits, odds AND strength scaling with missing
+    integrity — a scratched feed stutters, a dying feed crackles. Two new
+    DamageConfig tunables (`video_flicker_rate` / `video_flicker_strength`),
+    overlay rows included; bursts decay through the existing pipeline.
+  - **The full-drama eye is recorded and deferred** (nice-to-have, the
+    user's call): sun-blind windows, darkness-then-reveal, blinding
+    white on exit — approximable by staging (brighter sun, darker rooms,
+    wider sensitivity range), not by a switch; the night/neon environment
+    may buy the fantasy cheaper. No build.
+  - **Checkpoint 4 is OPEN: the human flies v1.40** — the floating arrow
+    (does the pre-entry read work?), the flattened easy windows, the leash
+    from any environment (fly away until the static wins), and the flicker
+    while wounded. **To resume after a session cut: "Continue QuadShot B5
+    per v1.40 — checkpoint 4 awaiting/flown."**

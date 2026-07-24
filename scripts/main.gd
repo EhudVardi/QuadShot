@@ -15,6 +15,14 @@ extends Node3D
 ## Ranges (m) sampled for the FCS reticle: the fall-line arc, and the labelled
 ## range ticks. The pipper sits where the bolts pass at the target's range.
 
+## Signal leash (B5, v1.40): the FPV link has a range. Past WARN the feed
+## degrades and the HUD nags; past LOST the link drops and the menu tower
+## catches you — the diegetic way back, no gate, no button.
+const RANGE_WARN_M: float = 220.0
+const RANGE_LOST_M: float = 300.0
+const RANGE_WARN_PERIOD_S: float = 1.5
+const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
+
 @onready var _drone: FlightController = $Drone
 @onready var _drone_health: Health = $Drone/Health
 @onready var _fpv_camera: Camera3D = $Drone/FpvCamera
@@ -38,6 +46,11 @@ var _pause_switch_was: bool = false
 var _free_fly_started: bool = false
 ## Decaying FPV-breakup spike from the last hit (GAMEPLAY-DESIGN Iteration 7).
 var _video_glitch_spike: float = 0.0
+## Static from straying toward the edge of link range (0..1) — feeds the same
+## glitch overlay, so the warning is diegetic before it is text.
+var _range_wash: float = 0.0
+var _range_warn_timer: float = 0.0
+var _signal_lost: bool = false
 
 
 func _ready() -> void:
@@ -92,6 +105,7 @@ func _process(delta: float) -> void:
 	_update_reticle()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
+	_update_signal_leash(delta)
 	_update_damage_feedback(delta)
 
 
@@ -275,9 +289,35 @@ func _on_engines_restored() -> void:
 	_hud.flash_engines_restored()
 
 
+## The FPV link's range (v1.40): drifting past RANGE_WARN_M puts static on
+## the feed and SIGNAL WEAK on the HUD; past RANGE_LOST_M the link drops and
+## the menu tower catches you. The simplest way home, and diegetic for free.
+func _update_signal_leash(delta: float) -> void:
+	if _signal_lost or not _drone_health.alive:
+		return
+	var distance: float = _drone.global_position.length()
+	_range_wash = clampf((distance - RANGE_WARN_M) / (RANGE_LOST_M - RANGE_WARN_M),
+			0.0, 1.0) * 0.8
+	if distance <= RANGE_WARN_M:
+		_range_warn_timer = 0.0
+		return
+	if distance >= RANGE_LOST_M:
+		_signal_lost = true
+		_hud.add_kill_feed("SIGNAL LOST — returning to menu")
+		print("[range] signal lost at %.0f m — back to the tower" % distance)
+		get_tree().call_deferred(&"change_scene_to_file", MENU_SCENE)
+		return
+	_range_warn_timer -= delta
+	if _range_warn_timer <= 0.0:
+		_range_warn_timer = RANGE_WARN_PERIOD_S
+		_hud.add_kill_feed("SIGNAL WEAK — %d m — turn back" % int(distance))
+
+
 ## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by a
-## sustained wash that grows as integrity falls (D4). Off entirely when dead —
-## the death banner owns the screen then.
+## sustained wash that grows as integrity falls (D4), plus random wound
+## flicker (v1.40) — burst odds and strength both scale with missing
+## integrity, so damage is felt between hits, not only at them. Off entirely
+## when dead — the death banner owns the screen then.
 func _update_damage_feedback(delta: float) -> void:
 	var dc: DamageConfig = _drone.damage_config
 	if dc == null:
@@ -286,8 +326,13 @@ func _update_damage_feedback(delta: float) -> void:
 	var sustained: float = 0.0
 	if _drone_health.alive and _drone_health.max_health > 0.0:
 		var integrity_frac: float = _drone_health.current / _drone_health.max_health
-		sustained = dc.video_glitch_sustained * (1.0 - integrity_frac) * dc.severity
-	_hud.set_video_glitch(maxf(_video_glitch_spike, sustained))
+		var wound: float = 1.0 - integrity_frac
+		sustained = dc.video_glitch_sustained * wound * dc.severity
+		if wound > 0.0 and randf() < dc.video_flicker_rate * wound * delta:
+			var burst: float = dc.video_flicker_strength * wound * dc.severity \
+					* randf_range(0.6, 1.0)
+			_video_glitch_spike = clampf(maxf(_video_glitch_spike, burst), 0.0, 1.0)
+	_hud.set_video_glitch(maxf(maxf(_video_glitch_spike, sustained), _range_wash))
 
 
 ## Field patch (D5): pads/gate/respawn restore the airframe's flight and clear

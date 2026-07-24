@@ -32,6 +32,11 @@ const TEXT_ENERGY_IDLE: float = 3.5
 const TEXT_ENERGY_SELECTED: float = 7.0
 const LIGHT_ENERGY_IDLE: float = 0.4
 const LIGHT_ENERGY_SELECTED: float = 1.4
+## The volumetric exit arrow's gentle pulse — a guide reads as light, not
+## as a solid you might clip.
+const ARROW_ENERGY_BASE: float = 2.6
+const ARROW_ENERGY_SWING: float = 0.8
+const ARROW_PULSE_HZ: float = 0.6
 
 @export var leaf_id: StringName = &""
 @export var label: String = ""
@@ -42,8 +47,10 @@ const LIGHT_ENERGY_SELECTED: float = 1.4
 
 var _mat_dark: StandardMaterial3D
 var _mat_line: StandardMaterial3D
+var _mat_arrow: StandardMaterial3D
 var _text: GlowText3D
 var _light: OmniLight3D
+var _pulse_t: float = 0.0
 
 
 func _ready() -> void:
@@ -58,8 +65,15 @@ func _ready() -> void:
 	_build_walls()
 	_build_window_line()
 	_build_chevrons()
+	_build_arrow()
 	_build_text_and_light()
 	_build_zone()
+
+
+func _process(delta: float) -> void:
+	_pulse_t += delta
+	_mat_arrow.emission_energy_multiplier = ARROW_ENERGY_BASE \
+			+ ARROW_ENERGY_SWING * sin(_pulse_t * TAU * ARROW_PULSE_HZ)
 
 
 ## The side-view keyboard mode highlights the floor under the cursor: the
@@ -121,6 +135,39 @@ func _build_chevrons() -> void:
 			_add_box(Vector3(BAR, 0.04, 1.2),
 					Vector3(0.42 * arm, 0.05, tip_z + 0.42), _mat_line, false,
 					arm * deg_to_rad(45.0))
+
+
+## The volumetric exit arrow (v1.40, the user's design): a 3D arrow FLOATING
+## mid-room on the entry-exit axis at window height, pointing at the far
+## window — readable from OUTSIDE through the entry glass-line, so the pilot
+## lines up the attack angle before ingress, and flown straight through on
+## the crossing. No collision; it pulses so it reads as light, not a solid.
+func _build_arrow() -> void:
+	_mat_arrow = StandardMaterial3D.new()
+	_mat_arrow.albedo_color = Color(0.04, 0.1, 0.16)
+	_mat_arrow.emission_enabled = true
+	_mat_arrow.emission = LINE_COLOR
+	_mat_arrow.emission_energy_multiplier = ARROW_ENERGY_BASE
+	var arrow_y: float = sill + window_size.y * 0.5
+	var shaft: MeshInstance3D = MeshInstance3D.new()
+	var shaft_mesh: BoxMesh = BoxMesh.new()
+	shaft_mesh.size = Vector3(0.22, 0.22, 2.2)
+	shaft_mesh.material = _mat_arrow
+	shaft.mesh = shaft_mesh
+	shaft.position = Vector3(0.0, arrow_y, 1.0)
+	add_child(shaft)
+	var head: MeshInstance3D = MeshInstance3D.new()
+	var head_mesh: CylinderMesh = CylinderMesh.new()
+	head_mesh.top_radius = 0.0
+	head_mesh.bottom_radius = 0.55
+	head_mesh.height = 0.9
+	head_mesh.material = _mat_arrow
+	head.mesh = head_mesh
+	# Cylinder axis is +Y; -90 deg about X points the tip down local -Z, the
+	# exit direction.
+	head.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+	head.position = Vector3(0.0, arrow_y, -0.55)
+	add_child(head)
 
 
 func _build_text_and_light() -> void:

@@ -41,6 +41,13 @@ extends TunableConfig
 ## Sustained breakup floor as integrity falls (scaled by damage and severity):
 ## a badly hurt feed stays noisy. Kept modest — the wound informs, never blinds.
 @export var video_glitch_sustained: float = 0.45
+## Random breakup bursts between hits (v1.40): burst odds per second scale
+## with missing integrity, so a scratched feed stutters occasionally and a
+## dying feed crackles constantly. This is the rate at full wound.
+@export var video_flicker_rate: float = 3.0
+## Burst strength at full wound (scaled by severity and per-burst
+## randomness); each burst decays through video_glitch_decay like a hit.
+@export var video_flicker_strength: float = 0.6
 
 
 const SAVE_PATH: String = "user://damage_config.tres"
