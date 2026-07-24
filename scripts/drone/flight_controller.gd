@@ -251,11 +251,6 @@ func repair_motors() -> void:
 	_rate_controller.clear_integrator()
 
 
-## Progressive field repair (the repair pad, D5): nurse engines toward full.
-func repair_motors_by(amount: float) -> void:
-	_motors.repair_by(amount)
-
-
 ## Throttle fraction at which total thrust equals weight. With the linear
 ## thrust model this is exactly 1/TWR; computed honestly so it stays correct
 ## if the thrust model gains a curve later.
