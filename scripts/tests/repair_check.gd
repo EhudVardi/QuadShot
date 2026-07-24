@@ -1,8 +1,11 @@
 extends SceneTree
 
 ## Repair-gate regression (GAMEPLAY-DESIGN P2.6 / D5): boots main, breaks the
-## drone's engines, then drives it THROUGH the green repair gate and asserts the
-## engines come back — the fly-through recovery half of the wounded-quad loop.
+## drone's engines AND wrecks the video transmitter, then drives it THROUGH the
+## green repair gate and asserts BOTH come back — the fly-through recovery half
+## of the wounded-quad loop. The VTX half guards the v1.44 bug: the feed lives
+## in main while the motors live on the drone, so a repair path can heal one
+## and forget the other (the gate did, exactly).
 ##
 ## Run: <godot> --headless -s scripts/tests/repair_check.gd --path .
 
@@ -44,6 +47,8 @@ func _on_frame() -> void:
 			if _broken_health > 0.5:
 				_fail("could not break the test engine")
 				return
+			# Wreck the transmitter too (it lives in main, not on the drone).
+			_main.set("_video_damage", 0.8)
 			# Coast the drone THROUGH the gate opening (Area needs real motion).
 			_drone.global_position = _gate.global_position + Vector3(0, 0, 7)
 			_drone.linear_velocity = Vector3(0, 0, -13)
@@ -52,7 +57,12 @@ func _on_frame() -> void:
 		1:
 			var repaired: float = _drone.motor_health(1)
 			if repaired > 0.98:
-				print("[repair_check] engine1: broke to %.2f, flew gate -> %.2f"
+				var vtx: float = _main.get("_video_damage")
+				if vtx > 0.001:
+					_fail("gate restored engines but not the transmitter (video_damage %.2f)"
+							% vtx)
+					return
+				print("[repair_check] engine1: broke to %.2f, flew gate -> %.2f; VTX -> healed"
 						% [_broken_health, repaired])
 				print("[repair_check] PASS")
 				quit(0)

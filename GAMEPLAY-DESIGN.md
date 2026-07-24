@@ -3230,6 +3230,58 @@ button, no gate, no UI.
 **Approved as-is:** the launches ("works perfect"), the side view ("works
 like a charm, just like i wanted").
 
+### B steering — the silhouette and the generator (v1.44, 2026-07-24)
+
+Checkpoint 6 flown and approved (depth "way better and cooler", correct
+frame selected, backwards cancels, ceiling chevrons "make it feel like a
+room", clipping "100% solved", spacing fine "as long as it's easy — it
+shouldn't be a challenge"). The one design thread it opened is the answer
+to the shorter-silhouette flag, and it is the doorway to B3.
+
+**The stubby sub-building is solved by FILLING it, not shrinking the gap.**
+The user's design: a submenu building with only two options should still be
+full-height — five floors, say — with just two OPEN (one per option) and
+the rest SEALED or UNDER CONSTRUCTION. The silhouette fills, the skyline
+reads as real architecture, and every option is still guaranteed its own
+lit window. This is exactly B4's enterability states (open / sealed / under
+construction) meeting the menu, and it is the natural FIRST CLIENT of B3's
+seeded generator. Depth navigation stays easy (the user's spacing note):
+the closed floors are texture, never a harder flight.
+
+**The generator framework, sketched — a PLAN for later, at the user's
+request ("just a thought"), not a build:**
+
+- **Signature**: `generate_building(seed, required_leaves, target_floors)
+  -> floor_list`. Given a seed, the leaves that MUST be reachable, and a
+  height, it emits the SAME floor-spec list `MenuBuilding` already consumes.
+  The generator is a pure function producing data the existing runtime
+  builder turns into geometry — no new rendering path, the v1.43 bet paying
+  out a second time.
+- **Enterability as a per-floor state**: `MenuFloorFrame` grows a `state`
+  (open / sealed / under_construction). Sealed = dark glass, no window
+  opening, no `MenuFloor` zone (flown past, never into — B4). Under
+  construction = scaffolding / bare slab, also no entry. Only OPEN floors
+  carry a window, a `GlowText3D` label, and a commit zone. The frame is
+  already parametric; this is one more parameter and two "skip the opening"
+  branches.
+- **Placement rule**: the required leaves are assigned to open floors; the
+  remaining floors are filled sealed / under-construction by the seed —
+  each leaf guaranteed exactly one open floor (the user's constraint,
+  encoded).
+- **Determinism**: seed-driven, `theater_generator`'s discipline extended
+  to geometry — same seed = same building forever. F4's portable-save
+  doctrine reaches menu geometry for free (a save naming a seed names a
+  building). B7's graded windows and the B3 difficulty dial both hang off
+  this same seed.
+- **It is ALSO the game-world building generator** (B3/B4 proper): the menu
+  is the tiny rehearsal, city blocks are the same function at scale. The
+  menu proved the runtime builder; the generator is what fills a skyline.
+
+Scope discipline: the menu ships HAND-AUTHORED floor lists until the
+generator earns its place — likely when P2-era city composition needs
+enterable buildings for real. The frame tower stays two floors until then;
+the silhouette flag is logged, not yet patched, by the user's own call.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -5370,3 +5422,42 @@ like a charm, just like i wanted").
     controller and walk the same tree with arrows. **To resume after a
     session cut: "Continue QuadShot B5 per v1.43 — checkpoint 6
     awaiting/flown."**
+- **2026-07-24 — v1.44. Checkpoint 6 flown and approved; the VTX heals at the
+  gate now; the procgen framework is planned.** The user returned from the
+  autonomy block and flew the depth tree.
+  - **The whole B5 flown menu is APPROVED**: depth "way better and cooler",
+    the correct frame selected, backwards cancels as described, the ceiling
+    chevrons "make the rooms feel like rooms", the void fix "100% solved —
+    sticking to the edges feels way better, like a real floor/ceiling", the
+    depth spacing fine ("as long as it's easy — it shouldn't be a
+    challenge", logged as a constraint on any future depth mechanic).
+  - **The VTX-at-gate bug, fixed and GUARDED.** The transmitter did not heal
+    at the green repair gate though the motors did — because the gate calls
+    `drone.repair_motors()` directly (motors live on the drone) while
+    `_video_damage` lives in main, and the gate's `_on_engines_restored`
+    callback refreshed the HUD without clearing the feed. Fixed by extracting
+    `_repair_video()` so every field-patch path (full repair, gate, respawn)
+    heals the feed through ONE helper; `repair_check` now wrecks the
+    transmitter before the gate transit and asserts it comes back, so the
+    two-paths-one-forgets bug cannot silently return. (This is the
+    main.gd/drone damage-ownership split the queued review flagged — the fix
+    is local; the split itself is still worth the review.)
+  - **The procgen framework is PLANNED, not built** (folded into Iteration 8
+    as "the silhouette and the generator"): the shorter sub-building is
+    solved by FILLING it — full height, most floors sealed / under
+    construction, each option guaranteed one open floor — which is B4's
+    enterability meeting the menu and B3's first client. The generator is a
+    pure `generate_building(seed, required_leaves, target_floors) ->
+    floor_list` feeding the existing `MenuBuilding`; seed-driven like
+    `theater_generator`; the same function that will fill a game skyline.
+    The menu ships hand-authored floor lists until P2-era composition needs
+    real enterable buildings.
+  - **B5 is COMPLETE as a vertical slice**: the flyable menu ships, flown in
+    depth, with its keyboard side view, and touches nothing the harness
+    measures. **Next is a fork the human chooses** (see the session's
+    what's-next): (a) the human's H.q4 aim-drill data run — the drill has
+    waited for hands since v1.36; (b) begin B3/B4 the generator per this
+    plan; or (c) the deferred motor_model/repair_gate damage-ownership
+    review, now that Opus is driving and the repair_gate was just in hand.
+    **To resume after a session cut: "Continue QuadShot per v1.44 — B5
+    complete, awaiting the next-fork choice."**

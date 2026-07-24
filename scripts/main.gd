@@ -292,9 +292,13 @@ func _refresh_motor_hud() -> void:
 	_hud.set_motor_health(healths, 1.0 - _video_damage)
 
 
-## Flew through a repair gate (D5): engines back, hull topped up — refresh the
-## HUD and flash the confirmation.
+## Flew through a repair gate (D5): engines back, hull topped up — and the
+## transmitter with them (v1.44). The gate repairs motors on the drone
+## directly, so this callback is the ONLY place the gate can heal the feed;
+## before it did not, and the VTX stayed wrecked through a green gate that
+## fixed everything else. _repair_video keeps every repair path honest.
 func _on_engines_restored() -> void:
+	_repair_video()
 	_refresh_motor_hud()
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_hud.flash_engines_restored()
@@ -350,9 +354,17 @@ func _update_damage_feedback(delta: float) -> void:
 ## The transmitter is part of the airframe (v1.41): it heals here too.
 func _repair_airframe() -> void:
 	_drone.repair_motors()
-	_video_glitch_spike = 0.0
-	_video_damage = 0.0
+	_repair_video()
 	_refresh_motor_hud()
+
+
+## Restore the video transmitter (v1.44). Its own repair step, shared by every
+## field-patch path (full repair, gate, respawn), because the feed lives in
+## main while the motors live on the drone — the split is exactly what let the
+## repair gate heal the props and forget the feed. One helper, no third miss.
+func _repair_video() -> void:
+	_video_damage = 0.0
+	_video_glitch_spike = 0.0
 	_hud.set_video_glitch(0.0)
 
 
