@@ -5461,3 +5461,88 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     review, now that Opus is driving and the repair_gate was just in hand.
     **To resume after a session cut: "Continue QuadShot per v1.44 — B5
     complete, awaiting the next-fork choice."**
+- **2026-07-24 — v1.45. The aim drill flown on BOTH inputs (H5 lands), the
+  damage review's findings acted on, and the HUD learns to scale.** The user
+  chose the aim-drill run and the review; this entry closes both and does a
+  round of HUD work.
+  - **H5 DEVIATION DATA, both inputs — the bot ruler is validated by hands.**
+    Two drill runs on the Kestrel, same 1.2 m assist the bench uses, so the
+    blaster cell is apples-to-apples with the reference pilot (v3):
+    - **Radio, focused blaster: 0.21** (17/81) vs bot **0.17** — the human is
+      marginally better on the identical static drill. The 0.17 was never an
+      indictment of the bot; ~0.2 hits-per-shot is just what a ballistic chip
+      gun costs against a small hitbox, and hands confirm it. Four entries of
+      doubt closed.
+    - **Controller blaster: 0.07** (4/54) — NOT a clean aim sample and flagged
+      as such: the user flew this run one-handed to spam flak, divided
+      attention off the gun. It measures focus, not the controller. The radio
+      0.21 is the usable blaster datum.
+    - **Flak: 1.03** (39/38, controller) vs bot **0.99** — the v1.44 "too thin
+      at 7 bursts" cell is now resolved at 38 bursts: human flak delivery
+      matches the bot almost exactly.
+    - **Missile: ~1.0** both runs (every launch lands on a static target),
+      same as the bot.
+    - Conclusion: **the human's delivery matches the reference pilot on all
+      three weapons when measured cleanly.** This is H5 data — it stays in
+      `user://blackbox/aim_drill_*.json`, never merged into the base table
+      (BALANCE.md). The drill's purpose is discharged: the ruler is trusted.
+  - **The damage-ownership review's findings, ACTED ON.** motor_model.gd came
+    back clean. The two findings:
+    - **The landmine is DEFUSED by deletion** (the user's call): the pad will
+      never exist — "hovering is very difficult both with flying and with
+      being exposed to damage; the healing gate is very good for now" — so the
+      dead, motors-only `FlightController.repair_motors_by` /
+      `MotorModel.repair_by` are gone. The would-be next incarnation of the
+      gate bug is removed with them.
+    - **The root cause (three-owner split) becomes a PLANNED refactor** — the
+      user's own richer framing, recorded below.
+  - **THE EQUIPMENT MODEL (planned, not built — the user's design, refined).**
+    The user: the drone should OWN its equipment (VTX, weapons) as separate
+    things that take their own damage; the drone is hit and reflects damage to
+    what it owns; maybe the props are equipment too; unsure about props/frame.
+    Assessment — it is sound and it is where the code already leans:
+    - **`MotorModel` is already a proto-equipment** (owns per-motor health,
+      turns damage into a capability loss). The VTX is the odd one out — a
+      float in main.gd. The user's instinct correctly makes the VTX a peer of
+      the motors instead of a special case in the orchestrator, which is
+      exactly D2 ("the damage surfaces") growing a proper home, and the
+      structural fix the review's Finding 2 asked for.
+    - **The clean shape:** an `Equipment` interface — owns health 0..1, a
+      `take_damage(hit)` that decides how much of a hit reaches it, a repair,
+      and a capability readout. The drone holds a list and a small DAMAGE
+      ROUTER: a hit routes consequences by location (which motor),
+      probability (the VTX), or type. This generalizes today's
+      `apply_hit_to_motors` and folds in the ad-hoc `_video_damage`, so
+      main.gd stops owning the feed and every repair path calls one
+      `repair_equipment()` — the three-owner split collapses, the gate-bug
+      class cannot recur.
+    - **Props/frame, resolved:** the FRAME is NOT equipment — it is the
+      chassis/hull, the `Health` node, the HP that is your LIFE. Motors, VTX,
+      (later) weapons ARE equipment — health that degrades a CAPABILITY, not
+      survival, healed at the field patch. Frame = life, equipment = function.
+      That line is the whole model and it is SIMPLER than today's three
+      owners, not more complex. Not overcomplicated: it pays down existing
+      debt.
+    - **Refinement / caution:** keep it data-driven, no speculative class
+      tower. Motors stay `MotorModel` (a specialized equipment with four
+      sub-units sharing a mixer); `VtxTransmitter` is the second
+      implementation; weapons implement `Equipment` only when they need
+      damage (a jammed/degraded weapon). **Trigger: do the refactor when a
+      SECOND equipment type needs damage** (weapons, or D2's other surfaces),
+      so it lands against several subsystems at once — not now.
+  - **HUD work (built this session):** (1) **window-relative scaling** —
+    `display/window/stretch/mode = canvas_items` (base 1920×1080), so the whole
+    UI now scales with the window instead of staying pixel-fixed when
+    maximized (the core complaint). (2) **The motor pips + VTX bar moved to
+    the bottom-left**, grouped with the stick indicators, out from under the
+    score / kill-feed text they overlapped at the top-left. (3) **A `ui_scale`
+    knob** on the HUD → the window's `content_scale_factor`, the native
+    UI-zoom that respects anchors and the reference frame (scales all Control
+    UI consistently). Open question left for the user: whether `ui_scale`
+    should become a live overlay slider and a saved preference, or stay an
+    exported default.
+  - **Next: the user's call.** Options on the table: wire `ui_scale` live;
+    begin the B3/B4 generator (v1.44 plan); or start the equipment refactor
+    when a second damaged subsystem justifies it. **To resume after a session
+    cut: "Continue QuadShot per v1.45 — B5 done, aim ruler validated,
+    equipment model planned."**

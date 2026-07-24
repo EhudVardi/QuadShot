@@ -9,6 +9,13 @@ extends CanvasLayer
 const KILL_FEED_MAX: int = 5
 const KILL_FEED_SECONDS: float = 3.0
 
+## UI scale (v1.45): the "how much of the screen the HUD takes" knob. Multiplies
+## the whole UI on top of the window-relative canvas_items stretch, applied via
+## the window's content_scale_factor so it respects every anchor and the
+## 1920x1080 reference frame. Scales all Control UI (HUD, overlay, menu)
+## consistently — a bigger-UI preference is a bigger-UI preference everywhere.
+@export var ui_scale: float = 1.0
+
 @onready var _score_label: Label = $ScoreLabel
 @onready var _combo_label: Label = $ComboLabel
 @onready var _wave_label: Label = $WaveLabel
@@ -57,7 +64,11 @@ class MotorStatus:
 		return red.lerp(yellow, h / 0.6)
 
 	func _draw() -> void:
-		var origin := Vector2(30.0, 94.0)
+		# Bottom-left, grouped with the input indicators (v1.45): out from under
+		# the score / kill-feed text it used to overlap at the top-left. size is
+		# the reference frame (full-rect control under canvas_items stretch), so
+		# this rides the window like the stick display does.
+		var origin := Vector2(30.0, size.y - 150.0)
 		var pip := 20.0
 		var gap := 7.0
 		var offsets: Array[Vector2] = [
@@ -243,6 +254,8 @@ class GateMarker:
 
 
 func _ready() -> void:
+	if ui_scale > 0.0:
+		get_window().content_scale_factor = ui_scale
 	# Video-breakup overlay sits at the bottom of the layer so the crisp HUD
 	# draws on top of it (the feed degrades, the instruments do not).
 	_video_glitch = ColorRect.new()
