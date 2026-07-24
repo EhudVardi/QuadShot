@@ -46,6 +46,9 @@ var _pause_switch_was: bool = false
 var _free_fly_started: bool = false
 ## Decaying FPV-breakup spike from the last hit (GAMEPLAY-DESIGN Iteration 7).
 var _video_glitch_spike: float = 0.0
+## Accumulated video-transmitter damage 0..1 (v1.41): the feed is equipment.
+## Grows with every hit like the motors do, heals with the field patch.
+var _video_damage: float = 0.0
 ## Static from straying toward the edge of link range (0..1) — feeds the same
 ## glitch overlay, so the warning is diegetic before it is text.
 var _range_wash: float = 0.0
@@ -269,6 +272,12 @@ func _on_player_damaged(amount: float, remaining: float) -> void:
 				0.0, 1.0)
 		var spike: float = dc.video_glitch_on_hit * dc.severity * (0.7 + 0.6 * bite)
 		_video_glitch_spike = clampf(maxf(_video_glitch_spike, spike), 0.0, 1.0)
+		# And the transmitter takes permanent equipment damage (v1.41), the
+		# motors' pattern applied to the feed: worse with every hit, healed
+		# only by the field patch.
+		_video_damage = clampf(_video_damage
+				+ amount / maxf(_drone_health.max_health, 1.0) * dc.video_damage_scale,
+				0.0, 1.0)
 	_refresh_motor_hud()
 	_hud.set_health(remaining, _drone_health.max_health)
 	_hud.flash_damage(_incoming_fire_side())
@@ -313,23 +322,21 @@ func _update_signal_leash(delta: float) -> void:
 		_hud.add_kill_feed("SIGNAL WEAK — %d m — turn back" % int(distance))
 
 
-## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by a
-## sustained wash that grows as integrity falls (D4), plus random wound
-## flicker (v1.40) — burst odds and strength both scale with missing
-## integrity, so damage is felt between hits, not only at them. Off entirely
-## when dead — the death banner owns the screen then.
+## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by
+## the damaged transmitter's permanent noise plus its random flicker bursts
+## (v1.41 — the feed is equipment: every knob keys off accumulated
+## _video_damage, not current integrity). Off entirely when dead — the death
+## banner owns the screen then.
 func _update_damage_feedback(delta: float) -> void:
 	var dc: DamageConfig = _drone.damage_config
 	if dc == null:
 		return
 	_video_glitch_spike = maxf(_video_glitch_spike - dc.video_glitch_decay * delta, 0.0)
 	var sustained: float = 0.0
-	if _drone_health.alive and _drone_health.max_health > 0.0:
-		var integrity_frac: float = _drone_health.current / _drone_health.max_health
-		var wound: float = 1.0 - integrity_frac
-		sustained = dc.video_glitch_sustained * wound * dc.severity
-		if wound > 0.0 and randf() < dc.video_flicker_rate * wound * delta:
-			var burst: float = dc.video_flicker_strength * wound * dc.severity \
+	if _drone_health.alive and _video_damage > 0.0:
+		sustained = dc.video_glitch_sustained * _video_damage * dc.severity
+		if randf() < dc.video_flicker_rate * _video_damage * delta:
+			var burst: float = dc.video_flicker_strength * _video_damage * dc.severity \
 					* randf_range(0.6, 1.0)
 			_video_glitch_spike = clampf(maxf(_video_glitch_spike, burst), 0.0, 1.0)
 	_hud.set_video_glitch(maxf(maxf(_video_glitch_spike, sustained), _range_wash))
@@ -337,9 +344,11 @@ func _update_damage_feedback(delta: float) -> void:
 
 ## Field patch (D5): pads/gate/respawn restore the airframe's flight and clear
 ## the feed — the wound is sortie-scoped, healed at the reset, not carried.
+## The transmitter is part of the airframe (v1.41): it heals here too.
 func _repair_airframe() -> void:
 	_drone.repair_motors()
 	_video_glitch_spike = 0.0
+	_video_damage = 0.0
 	_refresh_motor_hud()
 	_hud.set_video_glitch(0.0)
 

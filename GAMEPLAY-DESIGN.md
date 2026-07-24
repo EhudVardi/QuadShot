@@ -5256,3 +5256,45 @@ like a charm, just like i wanted").
     from any environment (fly away until the static wins), and the flicker
     while wounded. **To resume after a session cut: "Continue QuadShot B5
     per v1.40 — checkpoint 4 awaiting/flown."**
+- **2026-07-24 — v1.41. Checkpoint 4 flown ("again, amazing job!"): the arrow
+  moves into the window, the feed becomes EQUIPMENT, and tuning survives the
+  scene change.** Leash approved ("works great"); two corrections and a
+  quality-of-life ask.
+  - **The arrow hangs IN the window now** (the user's clarification, and the
+    reason finally lands: just LOOKING at a window from outside must name the
+    trajectory to fly once inside — the read happens before ingress, not
+    after). Tail at the aperture plane, body reaching inward along the exit
+    line, sized up; the label glyphs float in front at the plane; both are
+    flown through. When step 4 bends a floor's exit sideways, this arrow is
+    what says so from the street.
+  - **The video feed is EQUIPMENT (D2 grows a third subsystem).** The user's
+    model, now understood and honored: the transmitter degrades per hit like
+    the motors — a PERMANENT glitch floor plus flicker bursts whose odds and
+    strength all key off accumulated `_video_damage`, not current integrity —
+    and it heals with the airframe at the field patch (pads / gate /
+    respawn), exactly where the motors heal. New DamageConfig knob
+    `video_damage_scale` (equipment damage per relative hit size), overlay
+    row included. The v1.40 integrity-keyed flicker was the right texture on
+    the wrong variable; re-keyed, not re-invented.
+  - **Live tuning now survives scene changes** (the config-continuity ask):
+    `TunableConfig.load_from_user` gains a session guard — every scene's
+    _ready still asks, but only the FIRST ask per save path actually reads
+    the file; the shared instances persist in the resource cache, so what
+    the overlay tuned in the menu is what flies in the map. The overlay's
+    LOAD button forces a real re-read; FlightConfig's legacy-migration shim
+    is fenced by the same guard. Save still persists across sessions.
+  - **Preferred settings, baked where safe**: `motor_volume` 0.05 becomes
+    the repo default (the "motor mute" preference is a product opinion,
+    audio is balance-inert) with the empty user audio file retired
+    (bake-then-delete). The "easy" combat preset was NOT baked into repo
+    defaults — it moves measured ground (muzzle speed, assists, wave size;
+    the harness pins repo configs) — but its values were copied user-side
+    into `user://combat_config.tres`, so every boot now starts where the
+    user's per-boot ritual used to end. Flight sport/cruise stays a manual
+    pick per controller; auto-selecting rate preset by detected input
+    profile is noted as a possible later nicety.
+  - **Checkpoint 5 is OPEN: the human flies v1.41** — the in-window arrow
+    read from outside, the permanent feed degradation across a fight and
+    its heal at the gate, tuning surviving a menu→map→menu round trip, and
+    the quiet motors on a fresh boot. **To resume after a session cut:
+    "Continue QuadShot B5 per v1.41 — checkpoint 5 awaiting/flown."**

@@ -174,6 +174,7 @@ const _DAMAGE_FLOAT_ROWS: Array[Array] = [
 	["crash_motor_scale", 0.0, 1.0, 0.05],
 	["video_glitch_on_hit", 0.0, 1.0, 0.05],
 	["video_glitch_decay", 0.5, 6.0, 0.1],
+	["video_damage_scale", 0.0, 3.0, 0.05],
 	["video_glitch_sustained", 0.0, 1.0, 0.05],
 	["video_flicker_rate", 0.0, 10.0, 0.5],
 	["video_flicker_strength", 0.0, 1.0, 0.05],
@@ -670,7 +671,7 @@ func _on_save() -> void:
 
 func _on_load() -> void:
 	for config: TunableConfig in _configs:
-		if config.load_from_user():
+		if config.load_from_user(true):
 			print("[config] loaded %s" % config.save_path())
 		else:
 			print("[config] no saved config at %s" % config.save_path())

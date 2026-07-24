@@ -166,8 +166,12 @@ func defaults_path() -> String:
 ## otherwise discard them in silence — the one failure mode of this change that
 ## costs a human real work rather than a re-run. Only the Kestrel looks: it IS
 ## the drone that file was tuned for (P3.3).
-func load_from_user() -> bool:
-	if super.load_from_user():
+func load_from_user(force: bool = false) -> bool:
+	# The session guard must fence the legacy branch too, or a scene change
+	# would re-migrate the old file over live tuning (v1.41).
+	if not force and session_loaded():
+		return false
+	if super.load_from_user(force):
 		return true
 	if frame_id != &"kestrel" or not FileAccess.file_exists(LEGACY_SAVE_PATH):
 		return false
@@ -177,4 +181,5 @@ func load_from_user() -> bool:
 		return false
 	copy_from(legacy)
 	loaded_from = "%s (pre-frame override, migrating)" % LEGACY_SAVE_PATH
+	_mark_session_loaded()
 	return true

@@ -137,11 +137,12 @@ func _build_chevrons() -> void:
 					arm * deg_to_rad(45.0))
 
 
-## The volumetric exit arrow (v1.40, the user's design): a 3D arrow FLOATING
-## mid-room on the entry-exit axis at window height, pointing at the far
-## window — readable from OUTSIDE through the entry glass-line, so the pilot
-## lines up the attack angle before ingress, and flown straight through on
-## the crossing. No collision; it pulses so it reads as light, not a solid.
+## The volumetric exit arrow (v1.40, moved INTO the window at v1.41 — the
+## user's correction): it hangs in the aperture itself, tail at the window
+## plane, body reaching inward along the exit trajectory — so just LOOKING
+## at the window from outside names the line to fly, before ingress. The
+## label glyphs float in front of it at the plane; both are flown through.
+## No collision; it pulses so it reads as light, not a solid.
 func _build_arrow() -> void:
 	_mat_arrow = StandardMaterial3D.new()
 	_mat_arrow.albedo_color = Color(0.04, 0.1, 0.16)
@@ -149,24 +150,25 @@ func _build_arrow() -> void:
 	_mat_arrow.emission = LINE_COLOR
 	_mat_arrow.emission_energy_multiplier = ARROW_ENERGY_BASE
 	var arrow_y: float = sill + window_size.y * 0.5
+	var plane_z: float = FOOTPRINT * 0.5 - WALL
 	var shaft: MeshInstance3D = MeshInstance3D.new()
 	var shaft_mesh: BoxMesh = BoxMesh.new()
-	shaft_mesh.size = Vector3(0.22, 0.22, 2.2)
+	shaft_mesh.size = Vector3(0.3, 0.3, 2.2)
 	shaft_mesh.material = _mat_arrow
 	shaft.mesh = shaft_mesh
-	shaft.position = Vector3(0.0, arrow_y, 1.0)
+	shaft.position = Vector3(0.0, arrow_y, plane_z - 1.1)
 	add_child(shaft)
 	var head: MeshInstance3D = MeshInstance3D.new()
 	var head_mesh: CylinderMesh = CylinderMesh.new()
 	head_mesh.top_radius = 0.0
-	head_mesh.bottom_radius = 0.55
-	head_mesh.height = 0.9
+	head_mesh.bottom_radius = 0.7
+	head_mesh.height = 1.0
 	head_mesh.material = _mat_arrow
 	head.mesh = head_mesh
 	# Cylinder axis is +Y; -90 deg about X points the tip down local -Z, the
 	# exit direction.
 	head.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-	head.position = Vector3(0.0, arrow_y, -0.55)
+	head.position = Vector3(0.0, arrow_y, plane_z - 2.2 - 0.5)
 	add_child(head)
 
 

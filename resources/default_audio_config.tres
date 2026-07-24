@@ -7,5 +7,5 @@ script = ExtResource("1_acfg")
 master_volume = 0.1
 pause_muffle_hz = 600.0
 sfx_volume = 1.0
-motor_volume = 1.0
+motor_volume = 0.05
 wind_volume = 1.0

@@ -38,15 +38,21 @@ extends TunableConfig
 @export var video_glitch_on_hit: float = 0.85
 ## Per-second decay of the on-hit glitch spike — high, so it snaps then clears.
 @export var video_glitch_decay: float = 2.8
-## Sustained breakup floor as integrity falls (scaled by damage and severity):
-## a badly hurt feed stays noisy. Kept modest — the wound informs, never blinds.
+## The video transmitter is EQUIPMENT (v1.41, the user's model): each hit
+## degrades it alongside the motors, the degradation is permanent until the
+## field patch (pads / gate / respawn) heals it with the rest of the
+## airframe. This is the equipment damage taken per unit of relative hit
+## size (hit / max hull), accumulating toward 1 = wrecked transmitter.
+@export var video_damage_scale: float = 0.8
+## Permanent breakup floor at full transmitter damage (scaled by severity):
+## a damaged feed IS noisy, always. The wound informs, never blinds.
 @export var video_glitch_sustained: float = 0.45
-## Random breakup bursts between hits (v1.40): burst odds per second scale
-## with missing integrity, so a scratched feed stutters occasionally and a
-## dying feed crackles constantly. This is the rate at full wound.
+## Random breakup bursts between hits: burst odds per second scale with
+## transmitter damage, so a scratched feed stutters occasionally and a
+## wrecked feed crackles constantly. This is the rate at full damage.
 @export var video_flicker_rate: float = 3.0
-## Burst strength at full wound (scaled by severity and per-burst
-## randomness); each burst decays through video_glitch_decay like a hit.
+## Burst strength at full transmitter damage (scaled by severity and
+## per-burst randomness); bursts decay through video_glitch_decay.
 @export var video_flicker_strength: float = 0.6
 
 

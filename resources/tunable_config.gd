@@ -12,6 +12,13 @@ extends Resource
 ## that names the wrong file is worse than no boot log.
 var loaded_from: String = ""
 
+## Save paths already loaded once this session (v1.41). Every scene's _ready
+## calls load_from_user, and before this guard each scene change stomped live
+## tuning with stale disk state — the shared instances persist in the resource
+## cache, so only the FIRST ask per path actually reads the file. The
+## overlay's LOAD button passes force to genuinely re-read.
+static var _session_loaded: Dictionary = {}
+
 
 func save_path() -> String:
 	return ""
@@ -47,7 +54,17 @@ func save_to_user() -> Error:
 	return ResourceSaver.save(self, save_path())
 
 
-func load_from_user() -> bool:
+func session_loaded() -> bool:
+	return _session_loaded.has(save_path())
+
+
+func _mark_session_loaded() -> void:
+	_session_loaded[save_path()] = true
+
+
+func load_from_user(force: bool = false) -> bool:
+	if not force and session_loaded():
+		return false
 	if not FileAccess.file_exists(save_path()):
 		return false
 	var loaded: TunableConfig = ResourceLoader.load(
@@ -56,6 +73,7 @@ func load_from_user() -> bool:
 		return false
 	copy_from(loaded)
 	loaded_from = save_path()
+	_mark_session_loaded()
 	return true
 
 
