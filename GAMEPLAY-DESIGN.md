@@ -5579,3 +5579,31 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     `FRAME_FLOORS` literal with a seeded call that emits this same mixed list.
     **To resume after a session cut: "Continue QuadShot per v1.46 — B3/B4
     step 1 flown, the generator (step 2) is next."**
+
+- **2026-07-24 — v1.47. B3/B4 step 2 flown and approved: the generator is
+  LIVE, and the menu's frame tower is seeded, not hand-drawn.** The user
+  approved the generated tower ("all good for now") and steered the arc
+  forward: "see how far we can go with procedural generation."
+  - **`BuildingGenerator.generate(seed, required_leaves, target_floors) ->
+    floor_list`** (building_generator.gd) — pure, deterministic,
+    `theater_generator`'s discipline. Each required leaf owns one vertical
+    BAND (options spread up the tower, never clump); the seed places its open
+    floor inside the band and fills every other floor sealed /
+    under-construction. Every leaf is GUARANTEED exactly one open floor. Same
+    seed = same building forever, so a save naming a seed names a building (F4
+    reaches menu geometry). Invariants covered by tests/building_gen_check.gd.
+  - **menu_tower.gd**: the hand-authored `FRAME_FLOORS` literal is gone;
+    `FRAME_LEAVES` + `FRAME_SEED` (5) + `FRAME_TARGET_FLOORS` (5) feed the
+    generator at runtime, injected into the START RUN / FLY FREE submenus (one
+    shared seeded building). Seed 5 reproduces the approved step-1 stack
+    (sealed · KESTREL · under-construction · ATLAS · sealed) — the same read,
+    now generated.
+  - **Next: push procgen (the user's steer).** Options on the table, all
+    standalone (they touch nothing the balance harness measures): a game-world
+    SPECIMEN building in the dev room — the bridge from menu-building to
+    world-building, where "open" becomes a windowed/enterable floor WITHOUT a
+    menu commit zone — plus generator VARIETY (footprints, heights, shapes);
+    a procedural CITY block / skyline; or interiors (the B3 room / furniture
+    kit). **To resume after a session cut: "Continue QuadShot per v1.47 — the
+    B3/B4 generator is live in the menu; pushing procgen into the game world
+    next."**

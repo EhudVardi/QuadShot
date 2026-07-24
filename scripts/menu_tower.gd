@@ -12,7 +12,9 @@ extends Node3D
 ## it. Escalation is PER-BUILDING: the root tower is all-easy, the frame
 ## tower's windows are cut smaller. START RUN and FLY FREE open the frame
 ## tower (KESTREL / ATLAS); the pick rides MenuLaunch.frame_id and is
-## sticky across launches.
+## sticky across launches. The frame tower is SEEDED (B3, v1.46 step 2):
+## building_generator.gd fills it to full height with the two options as open
+## floors among sealed / under-construction ones.
 ##
 ## THE SIDE VIEW (B.q2's forever-fallback): with no controller the camera
 ## stands outside; ↑/↓ walk a building's floors, → dives into a submenu
@@ -23,29 +25,39 @@ extends Node3D
 ## hands each to a MenuFloorFrame. "submenu" marks a parent floor; its value
 ## is the next building's floor list. A floor may instead carry only "state"
 ## (&"sealed" / &"under_construction"): a closed floor with no window, label
-## or commit zone that fills the silhouette (B3/B4 enterability). FRAME_FLOORS
-## is a full-height MIXED stack — the two OPEN option floors among closed ones
-## so a two-option submenu reads as real architecture (v1.44, "fill it, don't
-## shrink the gap"). Hand-authored here as the step-1 rehearsal; the B3
-## generator (step 2) will emit this same list from a seed.
-const FRAME_FLOORS: Array = [
-	{"state": &"sealed"},
+## or commit zone that fills the silhouette (B3/B4 enterability).
+##
+## The frame tower's floor list is no longer hand-authored: building_generator
+## seeds it (v1.46 step 2). FRAME_LEAVES are the two options — each GUARANTEED
+## its own open floor — and the generator fills the rest of FRAME_TARGET_FLOORS
+## with sealed / under-construction floors. Per-building escalation (the
+## smaller window cut) still lives in the leaf data here.
+const FRAME_LEAVES: Array = [
 	{"leaf": &"frame_kestrel", "label": "KESTREL",
 			"window": Vector2(4.0, 2.4), "sill": 0.6, "pixel": 0.09},
-	{"state": &"under_construction"},
 	{"leaf": &"frame_atlas", "label": "ATLAS",
 			"window": Vector2(4.0, 2.4), "sill": 0.6, "pixel": 0.09},
-	{"state": &"sealed"},
 ]
-const MENU_TREE: Array = [
+## Stable seed + height: the same frame tower every boot (F4 — a seed names a
+## building). Seed 5 was picked for a good read — sealed · KESTREL ·
+## under-construction · ATLAS · sealed, showing both closed states with the
+## options at flyable heights (it happens to match the hand-authored step-1
+## stack the human approved). Any seed still honors the placement guarantees.
+const FRAME_SEED: int = 5
+const FRAME_TARGET_FLOORS: int = 5
+
+## Root menu floors. start_run / fly_free open the frame tower — flagged with
+## "frame_submenu"; their generated floor list is injected at runtime (a const
+## can't hold generator output). The root tower stays all-easy (v1.44 spacing).
+const ROOT_FLOORS: Array = [
 	{"leaf": &"quit", "label": "QUIT",
 			"window": Vector2(4.5, 2.8), "sill": 0.0, "pixel": 0.14},
 	{"leaf": &"start_run", "label": "START\nRUN",
 			"window": Vector2(5.0, 2.8), "sill": 0.4, "pixel": 0.14,
-			"submenu": FRAME_FLOORS},
+			"frame_submenu": true},
 	{"leaf": &"fly_free", "label": "FLY\nFREE",
 			"window": Vector2(5.0, 2.8), "sill": 0.4, "pixel": 0.14,
-			"submenu": FRAME_FLOORS},
+			"frame_submenu": true},
 	{"leaf": &"dev_room", "label": "DEV\nROOM",
 			"window": Vector2(4.5, 2.6), "sill": 0.5, "pixel": 0.13},
 	{"leaf": &"aim_drill", "label": "AIM\nDRILL",
@@ -73,6 +85,10 @@ const LEAF_SCENES: Dictionary = {
 @onready var _side_camera: Camera3D = $SideCamera
 @onready var _hud: GameHud = $Hud
 
+## The root floor list, assembled in _ready with the seeded frame tower
+## injected into its submenu parents (ROOT_FLOORS is a const, generator
+## output is not).
+var _menu_tree: Array = []
 ## Buildings by depth; index 0 is the root tower.
 var _buildings: Array[MenuBuilding] = []
 ## leaf_id -> submenu floor list, for parents at any depth.
@@ -95,8 +111,9 @@ func _ready() -> void:
 		input_bindings.apply()
 	# Menu flight is plain flight: no run, no draft multipliers.
 	RunMods.reset()
-	_index_submenus(MENU_TREE)
-	_spawn_building(0, MENU_TREE)
+	_menu_tree = _build_menu_tree()
+	_index_submenus(_menu_tree)
+	_spawn_building(0, _menu_tree)
 	_drone_health.damaged.connect(func(_amount: float, remaining: float) -> void:
 			_hud.set_health(remaining, _drone_health.max_health))
 	_drone_health.died.connect(_on_died)
@@ -105,6 +122,22 @@ func _ready() -> void:
 			func(_device: int, _connected: bool) -> void: _update_input_mode())
 	_kb_mode = not Input.get_connected_joypads().is_empty()  # force first apply
 	_update_input_mode()
+
+
+## Assemble the root floor list, generating the frame tower for its submenu
+## parents. start_run and fly_free share ONE seeded building (same seed = same
+## frame tower), so the pick is the same architecture whichever door you take.
+func _build_menu_tree() -> Array:
+	var frame_floors: Array = BuildingGenerator.generate(
+			FRAME_SEED, FRAME_LEAVES, FRAME_TARGET_FLOORS)
+	var tree: Array = []
+	for source: Dictionary in ROOT_FLOORS:
+		var spec: Dictionary = source.duplicate()
+		if spec.get("frame_submenu", false):
+			spec.erase("frame_submenu")
+			spec["submenu"] = frame_floors
+		tree.append(spec)
+	return tree
 
 
 func _index_submenus(floors: Array) -> void:
