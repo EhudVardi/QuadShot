@@ -1,10 +1,11 @@
-[gd_scene load_steps=35 format=3]
+[gd_scene load_steps=36 format=3]
 
 [ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
 [ext_resource type="PackedScene" path="res://scenes/environment/gate.tscn" id="2_gate"]
 [ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="3_look"]
 [ext_resource type="Resource" path="res://resources/default_look_config.tres" id="4_lookcfg"]
 [ext_resource type="Shader" path="res://resources/neon_structure.gdshader" id="5_struct"]
+[ext_resource type="Script" path="res://scripts/environment/world_building.gd" id="6_wbld"]
 
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("1_checker")
@@ -246,6 +247,11 @@ mesh = SubResource("mesh_tower_m")
 
 [node name="Collision" type="CollisionShape3D" parent="CityBlock/TowerM3"]
 shape = SubResource("shape_tower_m")
+
+[node name="GeneratedBuilding" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -60)
+script = ExtResource("6_wbld")
+building_seed = 16
 
 [node name="CrashWall" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -120)

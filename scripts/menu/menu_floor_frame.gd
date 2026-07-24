@@ -1,14 +1,16 @@
 class_name MenuFloorFrame
 extends StaticBody3D
 
-## One floor of a menu building, built parametrically at _ready
-## (GAMEPLAY-DESIGN B5 step 3; enterability states added for B3/B4). The
-## `state` picks the geometry: OPEN carries a fly-through window, neon
-## window-line, label and a MenuFloor commit zone; SEALED is a solid glazed
-## facade (no opening, no zone — flown past, never into); UNDER_CONSTRUCTION
-## is a bare amber scaffold frame (no facade, no entry). Closed floors fill a
-## building's silhouette so a two-option submenu still reads as real
-## architecture (v1.44). GlowText3D set the precedent for code-built meshes.
+## One floor of a building, built parametrically at _ready (GAMEPLAY-DESIGN
+## B5 step 3; enterability states added for B3/B4). The `state` picks the
+## geometry: OPEN is a fly-through window with a neon window-line — a menu
+## leaf adds the label, exit chevrons and a MenuFloor commit zone, while a
+## world building's leafless open floor stays just windowed and enterable
+## (v1.47, the menu→world bridge); SEALED is a solid glazed facade (no
+## opening, no zone — flown past, never into); UNDER_CONSTRUCTION is a bare
+## amber scaffold frame (no facade, no entry). Closed floors fill a building's
+## silhouette so a two-option submenu still reads as real architecture
+## (v1.44). GlowText3D set the precedent for code-built meshes.
 ##
 ## Origin sits at the interior floor's top center; the interior spans local
 ## y 0..3.6 inside a 12x12 footprint with 0.4-thick walls. The entry window
@@ -97,9 +99,14 @@ func _build_open() -> void:
 	_mat_line.emission_energy_multiplier = LINE_ENERGY
 	_build_walls()
 	_build_window_line()
-	_build_chevrons()
-	_build_text_and_light()
-	_build_zone()
+	_build_light()
+	# Menu furniture — only on a real menu leaf. A world building's open floor
+	# (no leaf) is a plain windowed, enterable floor: no label, commit zone or
+	# exit chevrons, just an opening lit for ingress.
+	if leaf_id != &"":
+		_build_chevrons()
+		_build_label()
+		_build_zone()
 
 
 ## SEALED (B4): a full glazed facade with no opening. The silhouette stays
@@ -210,19 +217,25 @@ func _build_chevrons() -> void:
 						arm * deg_to_rad(45.0))
 
 
-func _build_text_and_light() -> void:
-	_text = GlowText3D.new()
-	_text.text = label
-	_text.pixel_size = text_pixel
-	_text.position = Vector3(0.0, sill + window_size.y * 0.5,
-			FOOTPRINT * 0.5 - WALL * 0.5)
-	add_child(_text)
+## The interior light — every open floor gets one so the window reads as lit
+## ingress. Cyan (navigation palette); flares when a menu floor is selected.
+func _build_light() -> void:
 	_light = OmniLight3D.new()
 	_light.position = Vector3(0.0, 2.8, 0.0)
 	_light.light_color = Color(0.35, 0.8, 1.0)
 	_light.light_energy = LIGHT_ENERGY_IDLE
 	_light.omni_range = 8.0
 	add_child(_light)
+
+
+## The neon fly-through label above the window — menu floors only.
+func _build_label() -> void:
+	_text = GlowText3D.new()
+	_text.text = label
+	_text.pixel_size = text_pixel
+	_text.position = Vector3(0.0, sill + window_size.y * 0.5,
+			FOOTPRINT * 0.5 - WALL * 0.5)
+	add_child(_text)
 
 
 func _build_zone() -> void:

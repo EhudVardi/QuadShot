@@ -5607,3 +5607,26 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     kit). **To resume after a session cut: "Continue QuadShot per v1.47 — the
     B3/B4 generator is live in the menu; pushing procgen into the game world
     next."**
+
+- **2026-07-24 — v1.48. B3/B4 step 3a flown and approved: the generator
+  crosses from the menu into the game world.** The user approved the dev-room
+  specimen ("yes yes and yes") and continues the arc toward variety.
+  - **The menu→world bridge**: MenuFloorFrame's menu furniture (label, exit
+    chevrons, MenuFloor commit zone) now renders only on a floor with an
+    actual menu leaf. A LEAFLESS open floor is just a lit, windowed, enterable
+    opening — a world building's floor. One class, both roles; menu floors
+    unchanged, verified.
+  - **WorldBuilding** (scripts/environment/world_building.gd): a reusable node
+    — exported seed / height / open-floor count → the generator's floor list →
+    the runtime MenuBuilding builder. The dev room places ONE specimen at
+    (0,0,-60) (seed 16, 11 floors, 4 enterable) standing beside the old solid
+    placeholder city boxes it will replace; the city (later) places many.
+    Guarded by tests/world_building_check.gd (world floors stay leafless, no
+    menu furniture leaks in).
+  - **Next: 3b — generator / geometry VARIETY.** Per-floor footprint, height
+    and setbacks/tiers so buildings stop being identical 12×12 boxes, plus a
+    scatter of WorldBuildings to preview a generated skyline against the
+    placeholder one. Split into 3b-i (footprint + height variety across a
+    scatter, buildings stay box-shaped) then 3b-ii (setbacks). **To resume
+    after a session cut: "Continue QuadShot per v1.48 — the generator is in the
+    world (dev-room specimen); building variety (3b) is next."**
