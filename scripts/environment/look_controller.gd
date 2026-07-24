@@ -16,6 +16,9 @@ const TONEMAP_AGX: int = 4  # Environment.TONE_MAPPER_AGX
 ## With auto_exposure off the attributes stay assigned but inert — without
 ## physical light units a disabled CameraAttributesPractical changes nothing.
 var _cam_attrs: CameraAttributesPractical = CameraAttributesPractical.new()
+## Last content_scale_factor pushed to the window; -1 forces a first apply.
+## Guards the re-layout so ui_scale is free every frame it is unchanged.
+var _applied_ui_scale: float = -1.0
 
 @onready var _world_env: WorldEnvironment = get_node_or_null(^"../WorldEnvironment")
 @onready var _sun: DirectionalLight3D = get_node_or_null(^"../Sun")
@@ -48,6 +51,12 @@ func _enable_features() -> void:
 
 
 func _apply() -> void:
+	# UI scale: pushed to the window only when it changes, so a moved slider
+	# re-lays-out the UI once and a static value costs nothing.
+	if look_config.ui_scale > 0.0 \
+			and not is_equal_approx(look_config.ui_scale, _applied_ui_scale):
+		_applied_ui_scale = look_config.ui_scale
+		get_window().content_scale_factor = look_config.ui_scale
 	var env: Environment = _world_env.environment
 	env.tonemap_exposure = look_config.exposure
 	_cam_attrs.auto_exposure_enabled = look_config.auto_exposure >= 0.5

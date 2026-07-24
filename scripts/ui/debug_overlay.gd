@@ -199,6 +199,7 @@ const _WEATHER_FLOAT_ROWS: Array[Array] = [
 ]
 
 const _LOOK_FLOAT_ROWS: Array[Array] = [
+	["ui_scale", 0.5, 2.0, 0.05],
 	["exposure", 0.2, 3.0, 0.05],
 	["auto_exposure", 0.0, 1.0, 1.0],
 	["auto_exposure_scale", 0.05, 2.0, 0.05],

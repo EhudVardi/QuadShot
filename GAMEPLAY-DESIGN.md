@@ -5538,9 +5538,11 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     score / kill-feed text they overlapped at the top-left. (3) **A `ui_scale`
     knob** on the HUD → the window's `content_scale_factor`, the native
     UI-zoom that respects anchors and the reference frame (scales all Control
-    UI consistently). Open question left for the user: whether `ui_scale`
-    should become a live overlay slider and a saved preference, or stay an
-    exported default.
+    UI consistently). **Now LIVE-tunable** (the user's ask, done): `ui_scale`
+    moved onto `LookConfig`, so the overlay's LOOK section tunes it with a
+    slider and it saves/loads with the look presets; `LookController` applies
+    it to `content_scale_factor` guarded (re-layout only on change, free when
+    static — no per-frame render cost, which was the user's condition).
   - **Next: the user's call.** Options on the table: wire `ui_scale` live;
     begin the B3/B4 generator (v1.44 plan); or start the equipment refactor
     when a second damaged subsystem justifies it. **To resume after a session

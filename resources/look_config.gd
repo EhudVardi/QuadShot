@@ -9,6 +9,14 @@ extends TunableConfig
 ## rest are the knobs. Defaults are already dialed for a dusk mood, not
 ## neutral — the point of the pass is that it looks good on open.
 
+@export_group("Interface")
+## UI/HUD scale (v1.45): multiplies the whole UI on top of the window-relative
+## canvas_items stretch — the "how much of the screen the HUD takes" knob,
+## applied to the window's content_scale_factor. Lives on LookConfig so the
+## overlay's LOOK section tunes it live; LookController applies it guarded, so
+## it only re-lays-out the UI when the value actually changes (free otherwise).
+@export var ui_scale: float = 1.0
+
 @export_group("Exposure")
 @export var exposure: float = 1.0
 
