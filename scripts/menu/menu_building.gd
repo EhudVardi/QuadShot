@@ -9,7 +9,10 @@ extends Node3D
 ## floor list is authored data handed in by the tower script.
 ##
 ## Floor spec dictionaries: leaf (StringName), label (String),
-## window (Vector2), sill (float), pixel (float).
+## window (Vector2), sill (float), pixel (float), state (StringName). Every
+## key is optional — a closed floor (B4 enterability) is just {"state":
+## &"sealed"} or {"state": &"under_construction"}, and the open-floor fields
+## default to a sensible window when absent.
 
 signal floor_entered(frame: MenuFloorFrame)
 signal floor_committed(frame: MenuFloorFrame)
@@ -48,11 +51,12 @@ func _ready() -> void:
 	for k: int in _floors.size():
 		var spec: Dictionary = _floors[k]
 		var frame: MenuFloorFrame = MenuFloorFrame.new()
-		frame.leaf_id = spec["leaf"]
-		frame.label = spec["label"]
-		frame.window_size = spec["window"]
-		frame.sill = spec["sill"]
-		frame.text_pixel = spec["pixel"]
+		frame.state = spec.get("state", MenuFloorFrame.STATE_OPEN)
+		frame.leaf_id = spec.get("leaf", &"")
+		frame.label = spec.get("label", "")
+		frame.window_size = spec.get("window", Vector2(3.0, 2.2))
+		frame.sill = spec.get("sill", 0.6)
+		frame.text_pixel = spec.get("pixel", 0.1)
 		frame.position = Vector3(0.0, k * FLOOR_PITCH + 0.4, 0.0)
 		add_child(frame)
 		frames.append(frame)

@@ -62,9 +62,17 @@ func _check() -> void:
 		return _fail("committing a parent should spawn a sub-building (got %d)"
 				% _buildings().size())
 	var frame_tower: MenuBuilding = _buildings()[1]
-	if frame_tower.frames.size() != 2:
-		return _fail("frame tower should have 2 floors, got %d"
+	# Full-height mixed stack (v1.44): closed floors fill the silhouette, so
+	# the two options are OPEN floors among sealed/under-construction ones.
+	if frame_tower.frames.size() != 5:
+		return _fail("frame tower should have 5 floors, got %d"
 				% frame_tower.frames.size())
+	var open_count: int = 0
+	for frame: MenuFloorFrame in frame_tower.frames:
+		if frame.state == MenuFloorFrame.STATE_OPEN:
+			open_count += 1
+	if open_count != 2:
+		return _fail("frame tower should have 2 OPEN floors, got %d" % open_count)
 	# The sub-building stands ahead of the root (deeper into -Z).
 	if frame_tower.position.z >= root_building.position.z:
 		return _fail("sub-building should stand ahead of the root")

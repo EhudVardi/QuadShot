@@ -20,14 +20,22 @@ extends Node3D
 ## cameras, one architecture. Run: <godot> --path .   (the boot scene)
 
 ## Floor specs: leaf, label, window (Vector2), sill, pixel — MenuBuilding
-## hands each to a MenuFloorFrame. "submenu" marks a parent floor; its
-## value is the next building's floor list. Per-building escalation lives
-## right here in the data: the frame tower's windows are the smaller cut.
+## hands each to a MenuFloorFrame. "submenu" marks a parent floor; its value
+## is the next building's floor list. A floor may instead carry only "state"
+## (&"sealed" / &"under_construction"): a closed floor with no window, label
+## or commit zone that fills the silhouette (B3/B4 enterability). FRAME_FLOORS
+## is a full-height MIXED stack — the two OPEN option floors among closed ones
+## so a two-option submenu reads as real architecture (v1.44, "fill it, don't
+## shrink the gap"). Hand-authored here as the step-1 rehearsal; the B3
+## generator (step 2) will emit this same list from a seed.
 const FRAME_FLOORS: Array = [
+	{"state": &"sealed"},
 	{"leaf": &"frame_kestrel", "label": "KESTREL",
 			"window": Vector2(4.0, 2.4), "sill": 0.6, "pixel": 0.09},
+	{"state": &"under_construction"},
 	{"leaf": &"frame_atlas", "label": "ATLAS",
 			"window": Vector2(4.0, 2.4), "sill": 0.6, "pixel": 0.09},
+	{"state": &"sealed"},
 ]
 const MENU_TREE: Array = [
 	{"leaf": &"quit", "label": "QUIT",
@@ -206,12 +214,10 @@ func _change_scene(leaf_id: StringName) -> void:
 
 func _process_keyboard_menu() -> void:
 	if Input.is_action_just_pressed(&"ui_up"):
-		_kb_floor = clampi(_kb_floor + 1, 0,
-				_buildings[_kb_depth].frames.size() - 1)
+		_kb_floor = _step_to_open(_kb_depth, _kb_floor, 1)
 		_apply_selection()
 	if Input.is_action_just_pressed(&"ui_down"):
-		_kb_floor = clampi(_kb_floor - 1, 0,
-				_buildings[_kb_depth].frames.size() - 1)
+		_kb_floor = _step_to_open(_kb_depth, _kb_floor, -1)
 		_apply_selection()
 	if Input.is_action_just_pressed(&"ui_right"):
 		_kb_dive()
@@ -237,7 +243,7 @@ func _kb_dive() -> void:
 	_pending = leaf
 	_spawn_building(_kb_depth + 1, _submenu_of[leaf])
 	_kb_depth += 1
-	_kb_floor = 0
+	_kb_floor = _first_open_floor(_kb_depth)
 	_apply_selection()
 	_focus_side_camera()
 
@@ -249,8 +255,30 @@ func _kb_back() -> void:
 	_pending = &""
 	_despawn_below(_kb_depth)
 	_kb_floor = clampi(_kb_floor, 0, _buildings[_kb_depth].frames.size() - 1)
+	if _buildings[_kb_depth].frames[_kb_floor].state != MenuFloorFrame.STATE_OPEN:
+		_kb_floor = _first_open_floor(_kb_depth)
 	_apply_selection()
 	_focus_side_camera()
+
+
+## Enterability: only OPEN floors are selectable in the side view; closed
+## floors are texture the walker steps over.
+func _first_open_floor(depth: int) -> int:
+	var floors: Array[MenuFloorFrame] = _buildings[depth].frames
+	for i: int in floors.size():
+		if floors[i].state == MenuFloorFrame.STATE_OPEN:
+			return i
+	return 0
+
+
+func _step_to_open(depth: int, from: int, dir: int) -> int:
+	var floors: Array[MenuFloorFrame] = _buildings[depth].frames
+	var i: int = from + dir
+	while i >= 0 and i < floors.size():
+		if floors[i].state == MenuFloorFrame.STATE_OPEN:
+			return i
+		i += dir
+	return from
 
 
 func _apply_selection() -> void:

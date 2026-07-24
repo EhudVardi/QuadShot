@@ -5548,3 +5548,34 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     when a second damaged subsystem justifies it. **To resume after a session
     cut: "Continue QuadShot per v1.45 — B5 done, aim ruler validated,
     equipment model planned."**
+
+- **2026-07-24 — v1.46. B3/B4 step 1 flown and approved: enterability states,
+  and the sub-building silhouette FILLED.** The user chose the generator over
+  the equipment refactor; this entry is its first checkpoint — the states plus
+  a hand-authored mixed stack, the seeded generator itself deferred to step 2.
+  - **`MenuFloorFrame` grows a `state` (open / sealed / under_construction).**
+    Open is unchanged. SEALED = a solid glazed facade, no opening / label /
+    zone — flown past, never into. UNDER_CONSTRUCTION = a bare amber scaffold
+    (corner posts + two perimeter rings) over the slab, no facade, no entry.
+    A closed floor carries no window, so its spec collapses to `{"state":
+    &"sealed"}` — the exact minimal shape the generator will emit;
+    `MenuBuilding` reads every spec key with a default, and the keyboard
+    side-view walker steps over closed floors.
+  - **The frame tower is now a full-height MIXED stack** (hand-authored bottom
+    to top: sealed · KESTREL · under-construction · ATLAS · sealed) — the
+    v1.44 "fill it, don't shrink the gap" silhouette fix, proven where we fly.
+  - **The user's verdict, flown:** the silhouette "way better… reads as real
+    architecture… easy to fly" — the fix LANDS, the stubby-sub-building flag is
+    cleared. Sealed "simply a block, good for now." Under-construction
+    "hollow, easy to fly through — OK for now," with a NAMED gap: real
+    scaffolding is DENSE, noticeable, and OBSTRUCTS. That density is
+    **deferred to the building-content enrichment pass** (B3's interior /
+    furniture kit — the same primitive-combination kit that grows walls /
+    pillars / crates). Today's sparse frame is a placeholder STATE; the
+    obstruction is content, not plumbing, and lands when the kit does.
+  - **Next: step 2 — the generator.** `generate_building(seed,
+    required_leaves, target_floors) -> floor_list`, pure and deterministic
+    (`theater_generator`'s discipline), replacing the hand-authored
+    `FRAME_FLOORS` literal with a seeded call that emits this same mixed list.
+    **To resume after a session cut: "Continue QuadShot per v1.46 — B3/B4
+    step 1 flown, the generator (step 2) is next."**
