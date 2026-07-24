@@ -38,21 +38,24 @@ extends TunableConfig
 @export var video_glitch_on_hit: float = 0.85
 ## Per-second decay of the on-hit glitch spike — high, so it snaps then clears.
 @export var video_glitch_decay: float = 2.8
-## The video transmitter is EQUIPMENT (v1.41, the user's model): each hit
-## degrades it alongside the motors, the degradation is permanent until the
-## field patch (pads / gate / respawn) heals it with the rest of the
-## airframe. This is the equipment damage taken per unit of relative hit
-## size (hit / max hull), accumulating toward 1 = wrecked transmitter.
-@export var video_damage_scale: float = 0.8
-## Permanent breakup floor at full transmitter damage (scaled by severity):
-## a damaged feed IS noisy, always. The wound informs, never blinds.
+## The video transmitter is EQUIPMENT with its own health (v1.41/v1.42, the
+## user's model): each hit chips it alongside the motors — severity scales
+## the CHIPPING, exactly as it scales motor damage — and the field patch
+## (pads / gate / respawn) heals it with the rest of the airframe. This is
+## the transmitter health lost per unit of relative hit size (hit / max
+## hull), before severity. At 3.0 and severity 0.6, a raider bolt on a
+## Kestrel costs ~14% of the transmitter.
+@export var video_damage_scale: float = 3.0
+## The two knobs below define how NOTICEABLE the effect is globally; the
+## transmitter's health is the knob over the knobs — every one of them is
+## multiplied by how wrecked the equipment is.
+## Permanent breakup floor at a fully wrecked transmitter.
 @export var video_glitch_sustained: float = 0.45
-## Random breakup bursts between hits: burst odds per second scale with
-## transmitter damage, so a scratched feed stutters occasionally and a
-## wrecked feed crackles constantly. This is the rate at full damage.
+## Random breakup bursts between hits, per second, at a fully wrecked
+## transmitter: a scratched feed stutters, a wrecked feed crackles.
 @export var video_flicker_rate: float = 3.0
-## Burst strength at full transmitter damage (scaled by severity and
-## per-burst randomness); bursts decay through video_glitch_decay.
+## Burst strength at a fully wrecked transmitter (with per-burst
+## randomness); bursts decay through video_glitch_decay.
 @export var video_flicker_strength: float = 0.6
 
 

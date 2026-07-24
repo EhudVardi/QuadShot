@@ -42,6 +42,9 @@ class MotorStatus:
 
 	## FL, FR, BL, BR — matches MotorModel's order.
 	var healths: PackedFloat32Array = PackedFloat32Array([1.0, 1.0, 1.0, 1.0])
+	## Video-transmitter equipment health (v1.42): the fifth gauge — the feed
+	## is equipment too, and equipment is only real when it is readable.
+	var vtx_health: float = 1.0
 
 	## Sharp green->yellow->red ramp: a motor at 0.6 must read as clearly hurt,
 	## not near-green (the old lerp's flaw).
@@ -74,6 +77,19 @@ class MotorStatus:
 			var hurt: bool = h < 0.95
 			draw_rect(box, Color(1, 1, 1, 0.85) if hurt else Color(0, 0, 0, 0.6),
 					false, 2.0 if hurt else 1.0)
+		# VTX bar under the quad: drains left-to-right, same ramp, so a frying
+		# transmitter reads exactly like a frying motor.
+		var bar_top: float = origin.y + 2.0 * pip + gap + 8.0
+		var bar_width: float = 2.0 * pip + gap
+		draw_string(get_theme_default_font(), Vector2(origin.x, bar_top - 3.0),
+				"VTX", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
+		var bar := Rect2(Vector2(origin.x, bar_top), Vector2(bar_width, 8.0))
+		draw_rect(bar, Color(0, 0, 0, 0.55))
+		draw_rect(Rect2(bar.position, Vector2(bar_width * vtx_health, 8.0)),
+				ramp(vtx_health))
+		var vtx_hurt: bool = vtx_health < 0.95
+		draw_rect(bar, Color(1, 1, 1, 0.85) if vtx_hurt else Color(0, 0, 0, 0.6),
+				false, 2.0 if vtx_hurt else 1.0)
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -322,8 +338,9 @@ func set_health(current: float, maximum: float) -> void:
 	_health_bar.value = current
 
 
-func set_motor_health(healths: PackedFloat32Array) -> void:
+func set_motor_health(healths: PackedFloat32Array, vtx_health: float = 1.0) -> void:
 	_motor_status.healths = healths
+	_motor_status.vtx_health = vtx_health
 	_motor_status.queue_redraw()
 
 

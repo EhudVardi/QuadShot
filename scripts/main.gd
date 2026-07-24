@@ -272,12 +272,12 @@ func _on_player_damaged(amount: float, remaining: float) -> void:
 				0.0, 1.0)
 		var spike: float = dc.video_glitch_on_hit * dc.severity * (0.7 + 0.6 * bite)
 		_video_glitch_spike = clampf(maxf(_video_glitch_spike, spike), 0.0, 1.0)
-		# And the transmitter takes permanent equipment damage (v1.41), the
-		# motors' pattern applied to the feed: worse with every hit, healed
-		# only by the field patch.
+		# And the transmitter takes permanent equipment damage (v1.41/v1.42),
+		# the motors' pattern applied to the feed: severity scales the chip
+		# (as it does for motors), the wound stays until the field patch.
 		_video_damage = clampf(_video_damage
-				+ amount / maxf(_drone_health.max_health, 1.0) * dc.video_damage_scale,
-				0.0, 1.0)
+				+ amount / maxf(_drone_health.max_health, 1.0)
+				* dc.video_damage_scale * dc.severity, 0.0, 1.0)
 	_refresh_motor_hud()
 	_hud.set_health(remaining, _drone_health.max_health)
 	_hud.flash_damage(_incoming_fire_side())
@@ -287,7 +287,9 @@ func _refresh_motor_hud() -> void:
 	var healths := PackedFloat32Array()
 	for i: int in MotorModel.MOTOR_COUNT:
 		healths.append(_drone.motor_health(i))
-	_hud.set_motor_health(healths)
+	# The transmitter rides the same gauge (v1.42): equipment health is only
+	# real to the pilot if it is READABLE, like the motor pips made the wound.
+	_hud.set_motor_health(healths, 1.0 - _video_damage)
 
 
 ## Flew through a repair gate (D5): engines back, hull topped up — refresh the
@@ -324,9 +326,10 @@ func _update_signal_leash(delta: float) -> void:
 
 ## Drive the FPV-breakup overlay: the last hit's decaying spike, floored by
 ## the damaged transmitter's permanent noise plus its random flicker bursts
-## (v1.41 — the feed is equipment: every knob keys off accumulated
-## _video_damage, not current integrity). Off entirely when dead — the death
-## banner owns the screen then.
+## (v1.41/v1.42 — the feed is equipment: the settings say how loud a wrecked
+## transmitter gets, the transmitter's own health scales every one of them;
+## severity already priced the damage when it was taken). Off entirely when
+## dead — the death banner owns the screen then.
 func _update_damage_feedback(delta: float) -> void:
 	var dc: DamageConfig = _drone.damage_config
 	if dc == null:
@@ -334,9 +337,9 @@ func _update_damage_feedback(delta: float) -> void:
 	_video_glitch_spike = maxf(_video_glitch_spike - dc.video_glitch_decay * delta, 0.0)
 	var sustained: float = 0.0
 	if _drone_health.alive and _video_damage > 0.0:
-		sustained = dc.video_glitch_sustained * _video_damage * dc.severity
+		sustained = dc.video_glitch_sustained * _video_damage
 		if randf() < dc.video_flicker_rate * _video_damage * delta:
-			var burst: float = dc.video_flicker_strength * _video_damage * dc.severity \
+			var burst: float = dc.video_flicker_strength * _video_damage \
 					* randf_range(0.6, 1.0)
 			_video_glitch_spike = clampf(maxf(_video_glitch_spike, burst), 0.0, 1.0)
 	_hud.set_video_glitch(maxf(maxf(_video_glitch_spike, sustained), _range_wash))

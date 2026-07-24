@@ -5298,3 +5298,34 @@ like a charm, just like i wanted").
     its heal at the gate, tuning surviving a menu→map→menu round trip, and
     the quiet motors on a fresh boot. **To resume after a session cut:
     "Continue QuadShot B5 per v1.41 — checkpoint 5 awaiting/flown."**
+- **2026-07-24 — v1.42. Checkpoint 5 flown; the arrow retires, the void
+  between floors, and the transmitter gets a real health bar.** The user's
+  verdicts: config continuity "survives well, enough to stop being
+  annoying"; the in-window arrow "sluggish... its head looks like a sphere"
+  — retired at their call ("not your fault, its mine" — an experiment the
+  build cycle was FOR); the feed model still not felt as equipment. Also:
+  autonomy granted for a working block ("freedom to do as much work as you
+  want... multiple commits"), reviewed incrementally on their return.
+  - **The arrow is gone; chevrons rule, now on floor AND ceiling** (their
+    suggestion): the exit vector reads whichever surface the pilot's eye
+    hugs.
+  - **The see-through-floors clip is fixed with geometry, not physics**
+    (their constraint: "avoid messing with the collision physics logic at
+    all cost"). Cause named: when the camera's near plane crosses a slab
+    surface, backface culling makes the whole slab invisible — the camera
+    sees straight into the neighbor floor. Fix: a VOID LINER — a thin
+    near-black unshaded box nested inside every slab. Clipping through the
+    slab surface now reveals the liner's dark face: at most, void. Zero
+    collision changes, zero visual change when not clipping.
+  - **The transmitter has HEALTH now, and it is READABLE.** The v1.41
+    accumulator was the right model at imperceptible strength (one bolt =
+    ~2% noise — arithmetic nobody could feel), which is why it read as
+    "settings only." Reshaped to the user's spec: the settings define how
+    loud a WRECKED transmitter gets; the equipment's own health is the knob
+    over the knobs. Severity now scales the CHIPPING (exactly as it scales
+    motor damage) instead of triple-damping the visuals;
+    `video_damage_scale` default rises to 3.0 (a raider bolt ≈ 14% of the
+    transmitter at severity 0.6); and the HUD's motor pips gain a fifth
+    gauge — a VTX bar that drains and reddens on the same ramp, so a frying
+    transmitter reads exactly like a frying motor. Field patch heals it,
+    as before.

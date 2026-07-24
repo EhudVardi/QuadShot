@@ -32,11 +32,6 @@ const TEXT_ENERGY_IDLE: float = 3.5
 const TEXT_ENERGY_SELECTED: float = 7.0
 const LIGHT_ENERGY_IDLE: float = 0.4
 const LIGHT_ENERGY_SELECTED: float = 1.4
-## The volumetric exit arrow's gentle pulse — a guide reads as light, not
-## as a solid you might clip.
-const ARROW_ENERGY_BASE: float = 2.6
-const ARROW_ENERGY_SWING: float = 0.8
-const ARROW_PULSE_HZ: float = 0.6
 
 @export var leaf_id: StringName = &""
 @export var label: String = ""
@@ -47,10 +42,8 @@ const ARROW_PULSE_HZ: float = 0.6
 
 var _mat_dark: StandardMaterial3D
 var _mat_line: StandardMaterial3D
-var _mat_arrow: StandardMaterial3D
 var _text: GlowText3D
 var _light: OmniLight3D
-var _pulse_t: float = 0.0
 
 
 func _ready() -> void:
@@ -65,15 +58,8 @@ func _ready() -> void:
 	_build_walls()
 	_build_window_line()
 	_build_chevrons()
-	_build_arrow()
 	_build_text_and_light()
 	_build_zone()
-
-
-func _process(delta: float) -> void:
-	_pulse_t += delta
-	_mat_arrow.emission_energy_multiplier = ARROW_ENERGY_BASE \
-			+ ARROW_ENERGY_SWING * sin(_pulse_t * TAU * ARROW_PULSE_HZ)
 
 
 ## The side-view keyboard mode highlights the floor under the cursor: the
@@ -126,50 +112,17 @@ func _build_window_line() -> void:
 				Vector3((w * 0.5 + BAR * 0.5) * side, center_y, z), _mat_line, false)
 
 
-## Floor chevrons marching toward the far window — the exit-vector hint the
-## checkpoint 2 flight asked for. In the navigation palette, low and flat so
-## they read as runway markings, not obstacles.
+## Chevrons marching toward the far window on the floor AND the ceiling
+## (v1.42 — the arrow experiment retired at the user's call): the exit
+## vector is readable whichever surface the pilot's eye hugs. Runway
+## markings in the navigation palette, flat, never obstacles.
 func _build_chevrons() -> void:
-	for tip_z: float in [2.0, 0.0, -2.0]:
-		for arm: float in [1.0, -1.0]:
-			_add_box(Vector3(BAR, 0.04, 1.2),
-					Vector3(0.42 * arm, 0.05, tip_z + 0.42), _mat_line, false,
-					arm * deg_to_rad(45.0))
-
-
-## The volumetric exit arrow (v1.40, moved INTO the window at v1.41 — the
-## user's correction): it hangs in the aperture itself, tail at the window
-## plane, body reaching inward along the exit trajectory — so just LOOKING
-## at the window from outside names the line to fly, before ingress. The
-## label glyphs float in front of it at the plane; both are flown through.
-## No collision; it pulses so it reads as light, not a solid.
-func _build_arrow() -> void:
-	_mat_arrow = StandardMaterial3D.new()
-	_mat_arrow.albedo_color = Color(0.04, 0.1, 0.16)
-	_mat_arrow.emission_enabled = true
-	_mat_arrow.emission = LINE_COLOR
-	_mat_arrow.emission_energy_multiplier = ARROW_ENERGY_BASE
-	var arrow_y: float = sill + window_size.y * 0.5
-	var plane_z: float = FOOTPRINT * 0.5 - WALL
-	var shaft: MeshInstance3D = MeshInstance3D.new()
-	var shaft_mesh: BoxMesh = BoxMesh.new()
-	shaft_mesh.size = Vector3(0.3, 0.3, 2.2)
-	shaft_mesh.material = _mat_arrow
-	shaft.mesh = shaft_mesh
-	shaft.position = Vector3(0.0, arrow_y, plane_z - 1.1)
-	add_child(shaft)
-	var head: MeshInstance3D = MeshInstance3D.new()
-	var head_mesh: CylinderMesh = CylinderMesh.new()
-	head_mesh.top_radius = 0.0
-	head_mesh.bottom_radius = 0.7
-	head_mesh.height = 1.0
-	head_mesh.material = _mat_arrow
-	head.mesh = head_mesh
-	# Cylinder axis is +Y; -90 deg about X points the tip down local -Z, the
-	# exit direction.
-	head.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-	head.position = Vector3(0.0, arrow_y, plane_z - 2.2 - 0.5)
-	add_child(head)
+	for surface_y: float in [0.05, INTERIOR_HEIGHT - 0.05]:
+		for tip_z: float in [2.0, 0.0, -2.0]:
+			for arm: float in [1.0, -1.0]:
+				_add_box(Vector3(BAR, 0.04, 1.2),
+						Vector3(0.42 * arm, surface_y, tip_z + 0.42), _mat_line, false,
+						arm * deg_to_rad(45.0))
 
 
 func _build_text_and_light() -> void:

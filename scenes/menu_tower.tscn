@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scripts/menu_tower.gd" id="1_menu"]
 [ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="2_ccfg"]
@@ -69,6 +69,14 @@ size = Vector3(12.6, 0.4, 12.6)
 
 [sub_resource type="BoxShape3D" id="shape_slab"]
 size = Vector3(12.6, 0.4, 12.6)
+
+[sub_resource type="StandardMaterial3D" id="mat_void"]
+shading_mode = 0
+albedo_color = Color(0.008, 0.01, 0.015, 1)
+
+[sub_resource type="BoxMesh" id="mesh_liner"]
+material = SubResource("mat_void")
+size = Vector3(12.4, 0.1, 12.4)
 
 [node name="MenuTower" type="Node3D"]
 script = ExtResource("1_menu")
@@ -146,6 +154,30 @@ mesh = SubResource("mesh_slab")
 [node name="Slab5Col" type="CollisionShape3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.2, 0)
 shape = SubResource("shape_slab")
+
+[node name="Liner0" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("mesh_liner")
+
+[node name="Liner1" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, 0)
+mesh = SubResource("mesh_liner")
+
+[node name="Liner2" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.2, 0)
+mesh = SubResource("mesh_liner")
+
+[node name="Liner3" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.2, 0)
+mesh = SubResource("mesh_liner")
+
+[node name="Liner4" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 0)
+mesh = SubResource("mesh_liner")
+
+[node name="Liner5" type="MeshInstance3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.2, 0)
+mesh = SubResource("mesh_liner")
 
 [node name="Quit" type="StaticBody3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
