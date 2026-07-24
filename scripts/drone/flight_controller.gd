@@ -89,9 +89,25 @@ func _frame_from_cmdline() -> FrameConfig:
 	return load(path) as FrameConfig
 
 
+## The menu tower's frame pick (B5 step 4, MenuLaunch.frame_id). Outranks
+## the CLI flag — a menu choice is newer intent than the launch command —
+## and sits behind the same load_user_overrides gate, so the BENCHES see
+## neither: Frames.build already says which frame an instrument means.
+func _frame_from_menu() -> FrameConfig:
+	if MenuLaunch.frame_id == &"":
+		return null
+	var path: String = "res://resources/default_frame_%s.tres" % MenuLaunch.frame_id
+	if not ResourceLoader.exists(path):
+		push_error("[frame] menu picked unknown frame '%s'" % MenuLaunch.frame_id)
+		return null
+	return load(path) as FrameConfig
+
+
 func _ready() -> void:
 	if load_user_overrides:
-		var picked: FrameConfig = _frame_from_cmdline()
+		var picked: FrameConfig = _frame_from_menu()
+		if picked == null:
+			picked = _frame_from_cmdline()
 		if picked != null:
 			frame = picked
 	config = frame.flight_config

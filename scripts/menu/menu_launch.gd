@@ -9,3 +9,9 @@ class_name MenuLaunch
 ## FLY FREE (B.q2): main.tscn arms without starting the run — no waves, no
 ## score, no summary; pure sandbox flight in the game map.
 static var free_fly: bool = false
+
+## Airframe picked in the menu's frame tower (step 4); &"" = scene default.
+## Sticky across launches on purpose — your frame follows you until
+## re-picked. Outranks the --frame CLI flag inside FlightController's
+## user-overrides gate, so benches never see either.
+static var frame_id: StringName = &""

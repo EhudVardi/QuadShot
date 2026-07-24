@@ -64,6 +64,11 @@ func _setup() -> void:
 	raider.damage = 0.0
 	turret.sight_range = 0.0
 	config.wave_base_enemies = 1.0
+	# The gun director must stay out of this fight: with a user config that
+	# enables fire assist, the blaster auto-fires on the dead-center plant
+	# and kills it before the lock ever builds (found the day the user's
+	# "easy" preset became the boot state, v1.43).
+	config.fire_assist_miss_m = 0.0
 
 	_drone.arm()
 	_drone.throttle_override = _drone.hover_throttle()

@@ -5329,3 +5329,44 @@ like a charm, just like i wanted").
     gauge — a VTX bar that drains and reddens on the same ramp, so a frying
     transmitter reads exactly like a frying motor. Field patch heals it,
     as before.
+- **2026-07-24 — v1.43. STEP 4 STANDS: the menu is a tree of buildings,
+  flown in depth — the next tower materializes when you commit.** Built in
+  the user's autonomy block, same day as v1.42.
+  - **One construction, every building**: `MenuBuilding`
+    (`scripts/menu/menu_building.gd`) assembles a building at runtime —
+    slab lips, void liners, roof, a `MenuFloorFrame` per floor — and the
+    ROOT TOWER now builds through it too (menu_tower.tscn shrinks to
+    environment + drone + cameras; the tower is data). One code path, so
+    the root and every spawned sub-building can never drift apart.
+  - **The tree, as authored data** (`MENU_TREE` in menu_tower.gd): START
+    RUN and FLY FREE are now PARENTS — committing one spawns the FRAME
+    TOWER 55 m ahead (the v1.40 mechanic verbatim: dynamically created in
+    front of the player), a two-floor building offering KESTREL and ATLAS.
+    Committing a frame launches the pending parent's scene with that
+    airframe; re-threading the parent floor backwards despawns the
+    sub-tower and clears the choice. Per-building escalation lives in the
+    data: the root is all-easy (4.5–5.0 windows), the frame tower cuts to
+    4.0×2.4 — depth costs precision, exactly the v1.40 steering.
+  - **The frame pick is real**: `MenuLaunch.frame_id`, sticky across
+    launches (your frame follows you until re-picked), honored by
+    FlightController INSIDE the load_user_overrides gate and outranking
+    the `--frame` CLI flag — benches see neither, Frames.build still names
+    its own airframe. The dev CLI keeps working.
+  - **The side view walks the tree** (the v1.37 design, now with its
+    left/right axis): ↑/↓ floors, → dives into a submenu (spawning its
+    building — the side view and the flown path share ALL machinery),
+    ← backs out and despawns, Enter launches (or dives on a parent), Esc
+    backs out then quits. The camera refocuses per building, eye level
+    scaled to its height.
+  - **A test hole found by the user's own preset** (the v1.41 user-side
+    bake): missile_check loads user configs, and `fire_assist_miss_m 1.2`
+    made the gun director auto-kill the dead-center plant before lock ever
+    built. The check now pins fire assist to zero — game-side checks that
+    load user configs must pin every field they depend on; the "easy"
+    preset becoming the boot state is what exposed it.
+  - **Checkpoint 6 is OPEN: the human flies the depth** — commit START
+    RUN, watch the frame tower stand up ahead, thread ATLAS, feel the run
+    start on the heavy frame; re-thread backwards to cancel; unplug the
+    controller and walk the same tree with arrows. **To resume after a
+    session cut: "Continue QuadShot B5 per v1.43 — checkpoint 6
+    awaiting/flown."**
