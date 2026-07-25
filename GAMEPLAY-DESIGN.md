@@ -5986,3 +5986,26 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     the user is about to fly + range the look presets. Next: greenery/props for
     plaza identity (ASK the neon-vs-natural aesthetic first), the entrance-aware
     streetlight refinement, maybe the measurement mode, then B3 interiors."**
+
+- **2026-07-25 — v1.61. CITY menu leaf + entrance-aware lighting (built +
+  headless-verified, pending flight).** Two confirmations from the AFK-return.
+  - **CITY on the boot menu:** a new root leaf (QUIT / START RUN / FLY FREE /
+    **CITY** / DEV ROOM / AIM DRILL) launches `city_map.tscn` as free-fly — fly
+    the city from the menu, no CLI. `_change_scene` sets free_fly for `city` as
+    well as `fly_free` (the subtlety flagged last turn); `menu_check` updated to
+    6 root floors.
+  - **Entrance-aware lighting (user's rule — "the less central a side, the less
+    lit"):** each block-corner streetlight is placed only if that corner faces
+    the downtown core (dot of corner-dir vs core-dir > `STREETLIGHT_CENTRALITY_CUT`);
+    blocks within `STREETLIGHT_CORE_RADIUS` of the core light all corners. The
+    core glows; outward sides fade to dark blind alleys toward the rim. Still 2
+    draw calls (gating just drops poles from the batch). **Coupled next step:**
+    the building-side — actual entrances/windows facing the core, sealed
+    outward — needs per-side opening control in `MenuFloorFrame` (today's
+    `cross_windows` is all-4-or-nothing).
+  - `menu_check` + `city_layout_check` PASS; menu_tower + city_map boot clean.
+  - **To resume: "Continue QuadShot per v1.61 — CITY is a boot-menu leaf (free-
+    fly) and streetlights gate by core-facing centrality; the user is about to
+    fly. Next: the building-side of the centrality rule (core-facing entrances),
+    then greenery/props starting with NATURAL (then cyberpunk-centre /
+    urban-edge by zone), then B3 interiors."**

@@ -45,12 +45,13 @@ func _find_frame(building: MenuBuilding, leaf: StringName) -> MenuFloorFrame:
 
 
 func _check() -> void:
-	# Root tower stands with all five leaves.
+	# Root tower stands with all six leaves (QUIT / START RUN / FLY FREE / CITY /
+	# DEV ROOM / AIM DRILL).
 	var root_building: MenuBuilding = _buildings()[0]
 	if _buildings().size() != 1:
 		return _fail("expected 1 building at start, got %d" % _buildings().size())
-	if root_building.frames.size() != 5:
-		return _fail("root tower should have 5 floors, got %d"
+	if root_building.frames.size() != 6:
+		return _fail("root tower should have 6 floors, got %d"
 				% root_building.frames.size())
 
 	# Committing a parent (START RUN) spawns the frame tower.

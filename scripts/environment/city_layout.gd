@@ -94,6 +94,13 @@ const STREETLIGHT_INSET: float = 1.0
 const STREETLIGHT_POLE_COLOR: Color = Color(0.09, 0.1, 0.12)
 const STREETLIGHT_LAMP_COLOR: Color = Color(1.0, 0.72, 0.32)
 const STREETLIGHT_LAMP_ENERGY: float = 2.5
+## Entrance-aware lighting (user's rule): a corner is lit only if it faces the
+## downtown core by more than this (dot of corner-dir vs core-dir). The two
+## outward corners of an edge building stay dark — blind alleys toward the rim.
+const STREETLIGHT_CENTRALITY_CUT: float = -0.15
+## Blocks within this of the core are lit on all corners (direction to core is
+## ill-defined at the centre — downtown is fully lit).
+const STREETLIGHT_CORE_RADIUS: float = 24.0
 
 ## A block is either built on, a raised empty plaza, or a sunken marked lot.
 enum Lot { OCCUPIED, PLAZA, SUNKEN }
@@ -106,6 +113,7 @@ var _row_d: Array[float] = []       ## block depth of each row
 var _avenue_street: int = -1        ## interior street index that is the avenue
 var _core_c: float = 0.0            ## downtown core, in column-index space
 var _core_r: float = 0.0            ## downtown core, in row-index space
+var _core_world: Vector2 = Vector2.ZERO  ## the core's world XZ (streetlight gating)
 var _max_zone_dist: float = 1.0     ## core→farthest-corner distance (normaliser)
 
 
@@ -212,6 +220,11 @@ func _lay_grid(rng: RandomNumberGenerator) -> void:
 	for cc: int in [0, cols - 1]:
 		for rr: int in [0, rows - 1]:
 			_max_zone_dist = maxf(_max_zone_dist, _raw_zone_dist(cc, rr))
+	# The core's world position — streetlights gate on how much each block corner
+	# faces it, so lighting falls off toward the edges (the user's rule).
+	var core_col: int = clampi(int(round(_core_c)), 0, cols - 1)
+	var core_row: int = clampi(int(round(_core_r)), 0, rows - 1)
+	_core_world = Vector2(_col_x[core_col], _row_z[core_row])
 
 
 ## A varied block dimension (column width or row depth), floored so it always
@@ -363,12 +376,12 @@ func _emissive_mat(color: Color, energy: float) -> StandardMaterial3D:
 	return mat
 
 
-## Amber lamp-posts at each block's four CORNERS (v1.59 → v1.60), inset onto the
-## sidewalk — so a light flanks the windows rather than blocking a centered
-## opening (the user's placement rule). Pole + emissive head only, all batched
-## into 2 meshes for the whole grid; corners of adjacent blocks light every
-## street intersection. (Entrance-aware placement / darker blind alleys is a
-## deeper follow-up — it needs each building's ground-floor opening data.)
+## Amber lamp-posts at each block's four CORNERS, inset onto the sidewalk — a
+## light flanks the windows rather than blocking a centered opening (v1.60). Each
+## corner is lit only if it faces the downtown core (v1.61, the user's rule: the
+## less central a side, the less lit) — so the core glows and the outward sides
+## fade to dark blind alleys toward the rim. Pole + emissive head only, batched
+## into 2 meshes for the whole grid.
 func _build_streetlights() -> void:
 	var pole_mat := StandardMaterial3D.new()
 	pole_mat.albedo_color = STREETLIGHT_POLE_COLOR
@@ -381,10 +394,13 @@ func _build_streetlights() -> void:
 			var iz: float = _row_d[r] * 0.5 - STREETLIGHT_INSET
 			var x: float = _col_x[c]
 			var z: float = _row_z[r]
-			_add_streetlight(batch, x - ix, z - iz, pole_mat, lamp_mat)
-			_add_streetlight(batch, x + ix, z - iz, pole_mat, lamp_mat)
-			_add_streetlight(batch, x - ix, z + iz, pole_mat, lamp_mat)
-			_add_streetlight(batch, x + ix, z + iz, pole_mat, lamp_mat)
+			var to_core: Vector2 = _core_world - Vector2(x, z)
+			var central: bool = to_core.length() < STREETLIGHT_CORE_RADIUS
+			var dir: Vector2 = to_core.normalized()
+			for sx: float in [-1.0, 1.0]:
+				for sz: float in [-1.0, 1.0]:
+					if central or dir.dot(Vector2(sx, sz).normalized()) > STREETLIGHT_CENTRALITY_CUT:
+						_add_streetlight(batch, x + sx * ix, z + sz * iz, pole_mat, lamp_mat)
 	batch.commit_into(self)
 
 

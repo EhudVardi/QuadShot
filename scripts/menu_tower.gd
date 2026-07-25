@@ -58,6 +58,8 @@ const ROOT_FLOORS: Array = [
 	{"leaf": &"fly_free", "label": "FLY\nFREE",
 			"window": Vector2(5.0, 2.8), "sill": 0.4, "pixel": 0.14,
 			"frame_submenu": true},
+	{"leaf": &"city", "label": "CITY",
+			"window": Vector2(4.5, 2.6), "sill": 0.5, "pixel": 0.14},
 	{"leaf": &"dev_room", "label": "DEV\nROOM",
 			"window": Vector2(4.5, 2.6), "sill": 0.5, "pixel": 0.13},
 	{"leaf": &"aim_drill", "label": "AIM\nDRILL",
@@ -72,6 +74,7 @@ const BUILDING_SPACING: float = 55.0
 const LEAF_SCENES: Dictionary = {
 	&"start_run": "res://scenes/main.tscn",
 	&"fly_free": "res://scenes/main.tscn",
+	&"city": "res://scenes/city_map.tscn",
 	&"dev_room": "res://scenes/dev_map.tscn",
 	&"aim_drill": "res://scenes/aim_drill.tscn",
 }
@@ -238,7 +241,7 @@ func _change_scene(leaf_id: StringName) -> void:
 	if not LEAF_SCENES.has(leaf_id):
 		push_warning("[menu] unknown leaf %s" % leaf_id)
 		return
-	MenuLaunch.free_fly = leaf_id == &"fly_free"
+	MenuLaunch.free_fly = leaf_id == &"fly_free" or leaf_id == &"city"
 	# Commit fires from a physics callback; the swap waits for the flush.
 	get_tree().call_deferred(&"change_scene_to_file", LEAF_SCENES[leaf_id])
 
