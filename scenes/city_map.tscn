@@ -31,6 +31,7 @@
 script = ExtResource("4_main")
 combat_config = ExtResource("7_ccfg")
 input_bindings = ExtResource("18_bind")
+signal_lost_m = 0.0
 
 [node name="CityEnvironment" parent="." instance=ExtResource("1_devroom")]
 

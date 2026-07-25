@@ -17,9 +17,12 @@ extends Node3D
 
 ## Signal leash (B5, v1.40): the FPV link has a range. Past WARN the feed
 ## degrades and the HUD nags; past LOST the link drops and the menu tower
-## catches you — the diegetic way back, no gate, no button.
-const RANGE_WARN_M: float = 220.0
-const RANGE_LOST_M: float = 300.0
+## catches you — the diegetic way back, no gate, no button. It's a combat-arena
+## mechanic; the exploration scenes (city map, dev room) set signal_lost_m = 0
+## to disable it, since a big city sprawls far past 300 m from origin.
+@export var signal_warn_m: float = 220.0
+## 0 disables the leash entirely (free exploration, no menu yank).
+@export var signal_lost_m: float = 300.0
 const RANGE_WARN_PERIOD_S: float = 1.5
 const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
 
@@ -304,19 +307,20 @@ func _on_engines_restored() -> void:
 	_hud.flash_engines_restored()
 
 
-## The FPV link's range (v1.40): drifting past RANGE_WARN_M puts static on
-## the feed and SIGNAL WEAK on the HUD; past RANGE_LOST_M the link drops and
+## The FPV link's range (v1.40): drifting past signal_warn_m puts static on
+## the feed and SIGNAL WEAK on the HUD; past signal_lost_m the link drops and
 ## the menu tower catches you. The simplest way home, and diegetic for free.
+## Disabled when signal_lost_m <= 0 (the exploration scenes).
 func _update_signal_leash(delta: float) -> void:
-	if _signal_lost or not _drone_health.alive:
+	if _signal_lost or not _drone_health.alive or signal_lost_m <= 0.0:
 		return
 	var distance: float = _drone.global_position.length()
-	_range_wash = clampf((distance - RANGE_WARN_M) / (RANGE_LOST_M - RANGE_WARN_M),
+	_range_wash = clampf((distance - signal_warn_m) / (signal_lost_m - signal_warn_m),
 			0.0, 1.0) * 0.8
-	if distance <= RANGE_WARN_M:
+	if distance <= signal_warn_m:
 		_range_warn_timer = 0.0
 		return
-	if distance >= RANGE_LOST_M:
+	if distance >= signal_lost_m:
 		_signal_lost = true
 		_hud.add_kill_feed("SIGNAL LOST — returning to menu")
 		print("[range] signal lost at %.0f m — back to the tower" % distance)
