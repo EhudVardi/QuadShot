@@ -51,12 +51,13 @@ const SEALED_ALBEDO: Color = Color(0.05, 0.08, 0.13)
 const SCAFFOLD_ALBEDO: Color = Color(0.08, 0.06, 0.04)
 const SCAFFOLD_COLOR: Color = Color(1.0, 0.55, 0.1)
 const SCAFFOLD_ENERGY: float = 2.0
-const SCAFFOLD_POST: float = 0.15
+## Structural columns carry the load; beams are the belts/joists between them.
+const SCAFFOLD_COLUMN: float = 0.3
 const SCAFFOLD_BEAM: float = 0.12
 const WORK_LIGHT_ENERGY: float = 0.35
-## Scaffold posts step around the perimeter roughly this far apart; big
-## footprints get a denser cage (the user's "support beams at the edges").
-const SCAFFOLD_POST_SPACING: float = 7.0
+## Load-bearing columns stand on a grid roughly this far apart (perimeter AND
+## interior), so the slab above is visibly supported — nothing floats.
+const SCAFFOLD_COLUMN_SPACING: float = 8.0
 const SCAFFOLD_RINGS: int = 4
 ## Faint mullion grid on sealed glass so a closed floor reads as a glazed
 ## curtain wall, not a blank slab. Dim (energy <1 → no bloom), grid ~4 m.
@@ -177,9 +178,11 @@ func _build_facade_grid(along_z: bool, side: float, span: float,
 			_axis_pos(along_z, 0.0, interior_height * 0.5, depth), mat, false)
 
 
-## UNDER CONSTRUCTION (B4): a bare amber scaffold cage over the slab — posts
-## stepping around the whole perimeter (dense at the edges, scaled to the
-## footprint) with several ring beams up the height. No facade, no entry.
+## UNDER CONSTRUCTION (B4): an amber structural skeleton over the slab. A full
+## GRID of floor-to-ceiling columns (perimeter AND interior) carries the slab
+## above, with ring beams up the height and a joist grid just under the ceiling
+## where that slab lands — so the mass above is visibly SUPPORTED, never
+## floating (the user's ask). No facade, no entry.
 func _build_under_construction() -> void:
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
 	mat.albedo_color = SCAFFOLD_ALBEDO
@@ -188,16 +191,16 @@ func _build_under_construction() -> void:
 	mat.emission_energy_multiplier = SCAFFOLD_ENERGY
 	var px: float = footprint * 0.5 - WALL
 	var mid_y: float = interior_height * 0.5
-	var segments: int = maxi(1, int(round(2.0 * px / SCAFFOLD_POST_SPACING)))
-	# Posts step along all four edges (corners shared) — the blockers.
-	for i: int in segments + 1:
-		var t: float = -px + 2.0 * px * float(i) / float(segments)
-		for side: float in [1.0, -1.0]:
-			_add_box(Vector3(SCAFFOLD_POST, interior_height, SCAFFOLD_POST),
-					Vector3(t, mid_y, px * side), mat, true)
-			_add_box(Vector3(SCAFFOLD_POST, interior_height, SCAFFOLD_POST),
-					Vector3(px * side, mid_y, t), mat, true)
-	# Perimeter ring beams up the height — visual, the cage's belts.
+	var segments: int = maxi(2, int(round(2.0 * px / SCAFFOLD_COLUMN_SPACING)))
+	# Load-bearing columns on a full grid — the vertical load path, and the
+	# blockers (nothing enters a floor under construction).
+	for ix: int in segments + 1:
+		var gx: float = -px + 2.0 * px * float(ix) / float(segments)
+		for iz: int in segments + 1:
+			var gz: float = -px + 2.0 * px * float(iz) / float(segments)
+			_add_box(Vector3(SCAFFOLD_COLUMN, interior_height, SCAFFOLD_COLUMN),
+					Vector3(gx, mid_y, gz), mat, true)
+	# Perimeter ring beams (belts) up the height.
 	for level: int in range(1, SCAFFOLD_RINGS + 1):
 		var ry: float = interior_height * float(level) / float(SCAFFOLD_RINGS)
 		for side: float in [1.0, -1.0]:
@@ -205,6 +208,15 @@ func _build_under_construction() -> void:
 					Vector3(0.0, ry, px * side), mat, false)
 			_add_box(Vector3(SCAFFOLD_BEAM, SCAFFOLD_BEAM, 2.0 * px),
 					Vector3(px * side, ry, 0.0), mat, false)
+	# Joists across the column grid just under the ceiling, where the slab above
+	# lands — the load path made legible.
+	var top_y: float = interior_height - SCAFFOLD_BEAM
+	for ix: int in segments + 1:
+		var g: float = -px + 2.0 * px * float(ix) / float(segments)
+		_add_box(Vector3(SCAFFOLD_BEAM, SCAFFOLD_BEAM, 2.0 * px),
+				Vector3(g, top_y, 0.0), mat, false)
+		_add_box(Vector3(2.0 * px, SCAFFOLD_BEAM, SCAFFOLD_BEAM),
+				Vector3(0.0, top_y, g), mat, false)
 	# A dim amber work-light so the skeleton reads at night.
 	var work: OmniLight3D = OmniLight3D.new()
 	work.position = Vector3(0.0, mid_y, 0.0)

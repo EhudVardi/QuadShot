@@ -5734,3 +5734,24 @@ the silhouette flag is logged, not yet patched, by the user's own call.
   - **To resume: "Continue QuadShot per v1.52 — crown + setbacks + a block-grid
     city are in (headless-verified); the user is about to fly them and pick the
     next path."**
+
+- **2026-07-25 — v1.53. Correction: the under-construction "floating" flag was
+  the WRONG fix; the real one is visible SUPPORT.** The user clarified: the
+  problem was never WHERE the scaffold floors sit (mid-building is fine) — it was
+  that a skeletal floor had no columns / rebar carrying the load, so the mass
+  ABOVE looked unsupported. The v1.52a crown was a misread.
+  - **Fix:** under-construction floors now build a full GRID of floor-to-ceiling
+    columns (perimeter AND interior) plus a joist grid under the ceiling where
+    the slab above lands — the load path made legible. World buildings stopped
+    using `crown_at_top` (uc sprinkles mid-stack again, as the user prefers); the
+    generator's crown mode stays available for a future topping-out type.
+  - **User verdicts this round:** setbacks "actually nice, I like it"; the
+    block-grid city "looks better"; replacing the hand cluster + keeping the
+    placeholder boxes both fine.
+  - **Roadmap set by the user:** deepen the city (breadth) → go indoors (B3
+    interiors) → gameplay + tuning later. Plus a standing wish (saved to agent
+    memory): a dedicated future conversation to deeply design procedural
+    generation.
+  - **Immediate direction (the user's):** move OUT of the dev room into a
+    dedicated CITY MAP — fly the procedural city at scale and build toward
+    interior generation. "Let's make the city feel real."

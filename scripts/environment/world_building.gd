@@ -49,10 +49,12 @@ func _ready() -> void:
 	var open_specs: Array = []
 	for _i: int in open_floors:
 		open_specs.append({"window": window_size, "sill": sill})
-	# crown_at_top: scaffold floors cluster at the top (the crown being built),
-	# so a world building never appears to float over open air.
+	# Under-construction floors sprinkle among the sealed ones (the user is fine
+	# with them mid-building — they now carry a full column grid, so nothing
+	# floats). The generator's crown_at_top mode stays available for a future
+	# "topping-out" building type.
 	var floors: Array = BuildingGenerator.generate(
-			building_seed, open_specs, target_floors, true)
+			building_seed, open_specs, target_floors)
 	# Stamp world-building geometry onto every floor (open + filler): a tapered
 	# footprint sizes walls and slabs (setbacks), crossed windows make open
 	# floors enterable from any direction, and the interior height sets the pitch.
