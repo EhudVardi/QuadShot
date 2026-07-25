@@ -22,7 +22,6 @@ signal entered(leaf_id: StringName)
 signal committed(leaf_id: StringName)
 signal canceled(leaf_id: StringName)
 
-const INTERIOR_HEIGHT: float = 3.6
 const WALL: float = 0.4
 const BAR: float = 0.12
 ## Minimum wall pier beside a window; the window width is clamped so even a
@@ -80,6 +79,10 @@ const MULLION_SPACING: float = 4.0
 ## floor is enterable from any direction; the menu keeps front-entry /
 ## back-commit with solid sides (false).
 @export var cross_windows: bool = false
+## Interior (floor-to-ceiling) height (v1.50): MenuBuilding sets it per floor
+## and derives the floor pitch from it, so buildings vary in floor height.
+## Default matches the menu.
+@export var interior_height: float = 3.6
 
 var _mat_dark: StandardMaterial3D
 var _mat_line: StandardMaterial3D
@@ -147,14 +150,14 @@ func _build_sealed() -> void:
 	grid.emission_enabled = true
 	grid.emission = MULLION_COLOR
 	grid.emission_energy_multiplier = MULLION_ENERGY
-	var mid_y: float = INTERIOR_HEIGHT * 0.5
+	var mid_y: float = interior_height * 0.5
 	var wall: float = footprint * 0.5 - WALL * 0.5
 	var side_len: float = footprint - 2.0 * WALL
 	# Front / back span the full width; sides fit between them.
 	for side: float in [1.0, -1.0]:
-		_add_box(_axis_size(true, footprint, INTERIOR_HEIGHT, WALL),
+		_add_box(_axis_size(true, footprint, interior_height, WALL),
 				_axis_pos(true, 0.0, mid_y, wall * side), glass, true)
-		_add_box(_axis_size(false, side_len, INTERIOR_HEIGHT, WALL),
+		_add_box(_axis_size(false, side_len, interior_height, WALL),
 				_axis_pos(false, 0.0, mid_y, wall * side), glass, true)
 		_build_facade_grid(true, side, footprint, grid)
 		_build_facade_grid(false, side, side_len, grid)
@@ -168,10 +171,10 @@ func _build_facade_grid(along_z: bool, side: float, span: float,
 	var divisions: int = maxi(2, int(round(span / MULLION_SPACING)))
 	for i: int in range(1, divisions):
 		var a: float = -span * 0.5 + span * float(i) / float(divisions)
-		_add_box(_axis_size(along_z, MULLION, INTERIOR_HEIGHT, MULLION),
-				_axis_pos(along_z, a, INTERIOR_HEIGHT * 0.5, depth), mat, false)
+		_add_box(_axis_size(along_z, MULLION, interior_height, MULLION),
+				_axis_pos(along_z, a, interior_height * 0.5, depth), mat, false)
 	_add_box(_axis_size(along_z, span, MULLION, MULLION),
-			_axis_pos(along_z, 0.0, INTERIOR_HEIGHT * 0.5, depth), mat, false)
+			_axis_pos(along_z, 0.0, interior_height * 0.5, depth), mat, false)
 
 
 ## UNDER CONSTRUCTION (B4): a bare amber scaffold cage over the slab — posts
@@ -184,19 +187,19 @@ func _build_under_construction() -> void:
 	mat.emission = SCAFFOLD_COLOR
 	mat.emission_energy_multiplier = SCAFFOLD_ENERGY
 	var px: float = footprint * 0.5 - WALL
-	var mid_y: float = INTERIOR_HEIGHT * 0.5
+	var mid_y: float = interior_height * 0.5
 	var segments: int = maxi(1, int(round(2.0 * px / SCAFFOLD_POST_SPACING)))
 	# Posts step along all four edges (corners shared) — the blockers.
 	for i: int in segments + 1:
 		var t: float = -px + 2.0 * px * float(i) / float(segments)
 		for side: float in [1.0, -1.0]:
-			_add_box(Vector3(SCAFFOLD_POST, INTERIOR_HEIGHT, SCAFFOLD_POST),
+			_add_box(Vector3(SCAFFOLD_POST, interior_height, SCAFFOLD_POST),
 					Vector3(t, mid_y, px * side), mat, true)
-			_add_box(Vector3(SCAFFOLD_POST, INTERIOR_HEIGHT, SCAFFOLD_POST),
+			_add_box(Vector3(SCAFFOLD_POST, interior_height, SCAFFOLD_POST),
 					Vector3(px * side, mid_y, t), mat, true)
 	# Perimeter ring beams up the height — visual, the cage's belts.
 	for level: int in range(1, SCAFFOLD_RINGS + 1):
-		var ry: float = INTERIOR_HEIGHT * float(level) / float(SCAFFOLD_RINGS)
+		var ry: float = interior_height * float(level) / float(SCAFFOLD_RINGS)
 		for side: float in [1.0, -1.0]:
 			_add_box(Vector3(2.0 * px, SCAFFOLD_BEAM, SCAFFOLD_BEAM),
 					Vector3(0.0, ry, px * side), mat, false)
@@ -223,9 +226,9 @@ func _build_walls() -> void:
 	else:
 		var side_len: float = footprint - 2.0 * WALL
 		for side: float in [1.0, -1.0]:
-			_add_box(Vector3(WALL, INTERIOR_HEIGHT, side_len),
+			_add_box(Vector3(WALL, interior_height, side_len),
 					Vector3((footprint * 0.5 - WALL * 0.5) * side,
-					INTERIOR_HEIGHT * 0.5, 0.0), _mat_dark, true)
+					interior_height * 0.5, 0.0), _mat_dark, true)
 
 
 ## One wall with a centered window opening: two flanking piers, a sill below
@@ -236,15 +239,15 @@ func _build_opened_wall(along_z: bool, side: float) -> void:
 	var h: float = window_size.y
 	var pier_w: float = (footprint - w) * 0.5
 	var depth: float = (footprint * 0.5 - WALL * 0.5) * side
-	var mid_y: float = INTERIOR_HEIGHT * 0.5
+	var mid_y: float = interior_height * 0.5
 	for pier: float in [1.0, -1.0]:
-		_add_box(_axis_size(along_z, pier_w, INTERIOR_HEIGHT, WALL),
+		_add_box(_axis_size(along_z, pier_w, interior_height, WALL),
 				_axis_pos(along_z, (w * 0.5 + pier_w * 0.5) * pier, mid_y, depth),
 				_mat_dark, true)
 	if sill > 0.01:
 		_add_box(_axis_size(along_z, w, sill, WALL),
 				_axis_pos(along_z, 0.0, sill * 0.5, depth), _mat_dark, true)
-	var header_h: float = INTERIOR_HEIGHT - sill - h
+	var header_h: float = interior_height - sill - h
 	if header_h > 0.01:
 		_add_box(_axis_size(along_z, w, header_h, WALL),
 				_axis_pos(along_z, 0.0, sill + h + header_h * 0.5, depth),
@@ -293,7 +296,7 @@ func _axis_pos(along_z: bool, along: float, y: float, depth: float) -> Vector3:
 ## vector is readable whichever surface the pilot's eye hugs. Runway
 ## markings in the navigation palette, flat, never obstacles.
 func _build_chevrons() -> void:
-	for surface_y: float in [0.05, INTERIOR_HEIGHT - 0.05]:
+	for surface_y: float in [0.05, interior_height - 0.05]:
 		for tip_z: float in [2.0, 0.0, -2.0]:
 			for arm: float in [1.0, -1.0]:
 				_add_box(Vector3(BAR, 0.04, 1.2),
@@ -305,7 +308,7 @@ func _build_chevrons() -> void:
 ## ingress. Cyan (navigation palette); flares when a menu floor is selected.
 func _build_light() -> void:
 	_light = OmniLight3D.new()
-	_light.position = Vector3(0.0, 2.8, 0.0)
+	_light.position = Vector3(0.0, interior_height * 0.78, 0.0)
 	_light.light_color = Color(0.35, 0.8, 1.0)
 	_light.light_energy = LIGHT_ENERGY_IDLE
 	_light.omni_range = 8.0
@@ -325,10 +328,10 @@ func _build_label() -> void:
 func _build_zone() -> void:
 	var zone: MenuFloor = MenuFloor.new()
 	zone.leaf_id = leaf_id
-	zone.position = Vector3(0.0, INTERIOR_HEIGHT * 0.5, 0.0)
+	zone.position = Vector3(0.0, interior_height * 0.5, 0.0)
 	var shape: BoxShape3D = BoxShape3D.new()
 	var side_len: float = footprint - 2.0 * WALL
-	shape.size = Vector3(side_len, INTERIOR_HEIGHT, side_len)
+	shape.size = Vector3(side_len, interior_height, side_len)
 	var collision: CollisionShape3D = CollisionShape3D.new()
 	collision.shape = shape
 	zone.add_child(collision)

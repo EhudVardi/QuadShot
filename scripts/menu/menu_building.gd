@@ -18,7 +18,6 @@ signal floor_entered(frame: MenuFloorFrame)
 signal floor_committed(frame: MenuFloorFrame)
 signal floor_canceled(frame: MenuFloorFrame)
 
-const FLOOR_PITCH: float = 4.0
 const SLAB_THICK: float = 0.4
 const LINER_THICK: float = 0.1
 ## The slab plate overhangs its floor footprint by this lip; the void liner
@@ -27,6 +26,10 @@ const LINER_THICK: float = 0.1
 const SLAB_LIP: float = 0.6
 const LINER_LIP: float = 0.4
 const DEFAULT_FOOTPRINT: float = 12.0
+## Floor pitch = interior height + slab thickness (v1.50): the slab exactly
+## fills the gap between one floor's ceiling and the next floor's deck, so the
+## stack stays sound at any interior height. Buildings vary floor height (B3).
+const DEFAULT_INTERIOR_HEIGHT: float = 3.6
 
 ## Bottom→top, filled at _ready; the side view walks this.
 var frames: Array[MenuFloorFrame] = []
@@ -41,7 +44,19 @@ static func create(floors: Array) -> MenuBuilding:
 
 
 func height() -> float:
-	return _floors.size() * FLOOR_PITCH + 0.4
+	return _floors.size() * _pitch() + SLAB_THICK
+
+
+## Uniform per building: all floors carry the same stamped interior height, so
+## floor 0's value sets the pitch for the whole stack.
+func _interior_height() -> float:
+	if _floors.is_empty():
+		return DEFAULT_INTERIOR_HEIGHT
+	return _floors[0].get("interior_height", DEFAULT_INTERIOR_HEIGHT)
+
+
+func _pitch() -> float:
+	return _interior_height() + SLAB_THICK
 
 
 func _ready() -> void:
@@ -52,8 +67,9 @@ func _ready() -> void:
 	void_material.albedo_color = Color(0.008, 0.01, 0.015)
 	var body: StaticBody3D = StaticBody3D.new()
 	add_child(body)
+	var pitch: float = _pitch()
 	for k: int in _floors.size() + 1:
-		_add_slab(body, k * FLOOR_PITCH + 0.2, _slab_footprint(k),
+		_add_slab(body, k * pitch + SLAB_THICK * 0.5, _slab_footprint(k),
 				slab_material, void_material)
 	for k: int in _floors.size():
 		var spec: Dictionary = _floors[k]
@@ -66,7 +82,8 @@ func _ready() -> void:
 		frame.text_pixel = spec.get("pixel", 0.1)
 		frame.footprint = spec.get("footprint", DEFAULT_FOOTPRINT)
 		frame.cross_windows = spec.get("cross_windows", false)
-		frame.position = Vector3(0.0, k * FLOOR_PITCH + 0.4, 0.0)
+		frame.interior_height = spec.get("interior_height", DEFAULT_INTERIOR_HEIGHT)
+		frame.position = Vector3(0.0, k * pitch + SLAB_THICK, 0.0)
 		add_child(frame)
 		frames.append(frame)
 		frame.entered.connect(func(_id: StringName) -> void:

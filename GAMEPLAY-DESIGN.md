@@ -5692,3 +5692,12 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     **To resume after a session cut: "Continue QuadShot per v1.50 — the scale
     pass is in; varied floor height is next, then setbacks and a real
     street-grid city layout."**
+
+- **2026-07-25 — v1.51. Varied floor height, flown and approved ("awesome").**
+  Interior (floor-to-ceiling) height is now per-building; MenuBuilding derives
+  the floor pitch from it (`pitch = interior + slab`), so the slab always fills
+  the gap between a ceiling and the next deck and the stack stays sound at any
+  height. The dev city spans 3.6 m tight office floors (Q1) to 5.6 m grand
+  floors (Q4); the menu is unchanged (default 3.6). The user then went AFK
+  (~90 min) and asked for an independent work set — executed and logged in
+  v1.52 (built + headless-verified, pending the user's flight).

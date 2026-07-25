@@ -22,6 +22,9 @@ extends Node3D
 ## Big-world footprint (v1.50): the drone is a 0.28 m box, these are proper
 ## towers. Uniform across a building's floors for now; setbacks arrive next.
 @export var footprint: float = 24.0
+## Floor-to-ceiling height (v1.50). Varied across buildings for a richer
+## skyline and interior — a taller value = fewer, grander floors per metre.
+@export var interior_height: float = 4.0
 
 
 func _ready() -> void:
@@ -38,4 +41,5 @@ func _ready() -> void:
 	for spec: Dictionary in floors:
 		spec["footprint"] = footprint
 		spec["cross_windows"] = true
+		spec["interior_height"] = interior_height
 	add_child(MenuBuilding.create(floors))
