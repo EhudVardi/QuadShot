@@ -66,6 +66,10 @@ const MULLION_COLOR: Color = Color(0.3, 0.45, 0.6)
 const MULLION_ENERGY: float = 0.9
 const MULLION_SPACING: float = 4.0
 
+## The four faces as [along_z, side] for per-side openings (v1.62), indexed to
+## match open_sides: 0 front (+Z), 1 back (-Z), 2 right (+X), 3 left (-X).
+const SIDES: Array = [[true, 1.0], [true, -1.0], [false, 1.0], [false, -1.0]]
+
 @export var state: StringName = STATE_OPEN
 @export var leaf_id: StringName = &""
 @export var label: String = ""
@@ -80,6 +84,12 @@ const MULLION_SPACING: float = 4.0
 ## floor is enterable from any direction; the menu keeps front-entry /
 ## back-commit with solid sides (false).
 @export var cross_windows: bool = false
+## Per-side openings (v1.62): 4 bools [front +Z, back -Z, right +X, left -X] —
+## each side open (windowed) or solid. World buildings set this to open only the
+## sides facing the downtown core (the "less central a side, the less entrance"
+## rule). Empty = the legacy path below (front/back open, sides per cross_windows),
+## which the menu uses.
+@export var open_sides: Array = []
 ## Interior (floor-to-ceiling) height (v1.50): MenuBuilding sets it per floor
 ## and derives the floor pitch from it, so buildings vary in floor height.
 ## Default matches the menu.
@@ -231,20 +241,35 @@ func _build_under_construction() -> void:
 
 
 func _build_walls() -> void:
-	# Front and back always open (the menu's entry + commit crossing). A world
-	# building opens the crossed sides too — enter from any direction — while
-	# the menu keeps them solid.
+	# Directional (world buildings, v1.62): open the core-facing sides, seal the
+	# rest — the "less central a side, the less entrance" rule.
+	if not open_sides.is_empty():
+		for i: int in SIDES.size():
+			if open_sides[i]:
+				_build_opened_wall(SIDES[i][0], SIDES[i][1])
+			else:
+				_build_solid_wall(SIDES[i][0], SIDES[i][1])
+		return
+	# Legacy (menu): front and back always open (entry + commit crossing); the
+	# crossed sides open only with cross_windows, else stay solid.
 	_build_opened_wall(true, 1.0)
 	_build_opened_wall(true, -1.0)
 	if cross_windows:
 		_build_opened_wall(false, 1.0)
 		_build_opened_wall(false, -1.0)
 	else:
-		var side_len: float = footprint - 2.0 * WALL
-		for side: float in [1.0, -1.0]:
-			_add_box(Vector3(WALL, interior_height, side_len),
-					Vector3((footprint * 0.5 - WALL * 0.5) * side,
-					interior_height * 0.5, 0.0), _mat_dark, true)
+		_build_solid_wall(false, 1.0)
+		_build_solid_wall(false, -1.0)
+
+
+## A solid wall on one face (no opening). Front/back (along_z) span the full
+## footprint; the side walls fit between them (inset by a wall thickness each
+## end), so faces meet cleanly at the corners.
+func _build_solid_wall(along_z: bool, side: float) -> void:
+	var span: float = footprint if along_z else footprint - 2.0 * WALL
+	var depth: float = (footprint * 0.5 - WALL * 0.5) * side
+	_add_box(_axis_size(along_z, span, interior_height, WALL),
+			_axis_pos(along_z, 0.0, interior_height * 0.5, depth), _mat_dark, true)
 
 
 ## One wall with a centered window opening: two flanking piers, a sill below
@@ -271,7 +296,13 @@ func _build_opened_wall(along_z: bool, side: float) -> void:
 
 
 func _build_window_line() -> void:
-	# Front always framed; a world building frames all four openings.
+	# Directional (v1.62): frame exactly the open sides.
+	if not open_sides.is_empty():
+		for i: int in SIDES.size():
+			if open_sides[i]:
+				_build_window_line_side(SIDES[i][0], SIDES[i][1])
+		return
+	# Legacy: front always framed; a cross-windowed floor frames all four.
 	_build_window_line_side(true, 1.0)
 	if cross_windows:
 		_build_window_line_side(true, -1.0)

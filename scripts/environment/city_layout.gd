@@ -101,6 +101,11 @@ const STREETLIGHT_CENTRALITY_CUT: float = -0.15
 ## Blocks within this of the core are lit on all corners (direction to core is
 ## ill-defined at the centre — downtown is fully lit).
 const STREETLIGHT_CORE_RADIUS: float = 24.0
+## A building opens a side toward the core if that side's outward normal faces
+## the core by more than this (v1.62) — the building half of the "less central,
+## less entrance" rule. Gentle: axis-aligned edge buildings seal only their one
+## fully-outward side; diagonal ones seal the outward pair.
+const FACING_CUT: float = -0.35
 
 ## A block is either built on, a raised empty plaza, or a sunken marked lot.
 enum Lot { OCCUPIED, PLAZA, SUNKEN }
@@ -266,8 +271,25 @@ func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
 	if rng.randf() < clampf(setback_chance + zone * setback_core_bonus, 0.0, 1.0):
 		building.setback_tiers = rng.randi_range(3, 4)
 		building.top_footprint = fp * rng.randf_range(0.45, 0.6)
+	building.open_sides = _facing_open_sides(_col_x[c], _row_z[r])
 	building.position = Vector3(_col_x[c], 0.0, _row_z[r])
 	add_child(building)
+
+
+## Which of a building's four sides open toward the downtown core (v1.62): the
+## order is [front +Z, back -Z, right +X, left -X], matching MenuFloorFrame.SIDES.
+## Core-adjacent buildings open all four (direction is ill-defined at the centre).
+func _facing_open_sides(bx: float, bz: float) -> Array:
+	var to_core: Vector2 = _core_world - Vector2(bx, bz)
+	if to_core.length() < STREETLIGHT_CORE_RADIUS:
+		return [true, true, true, true]
+	var dir: Vector2 = to_core.normalized()
+	var normals: Array = [Vector2(0.0, 1.0), Vector2(0.0, -1.0),
+			Vector2(1.0, 0.0), Vector2(-1.0, 0.0)]
+	var sides: Array = []
+	for n: Vector2 in normals:
+		sides.append(n.dot(dir) > FACING_CUT)
+	return sides
 
 
 ## Normalised height-zone at block (c, r): 1 at the downtown core, 0 at the

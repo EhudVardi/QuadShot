@@ -6009,3 +6009,28 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     fly. Next: the building-side of the centrality rule (core-facing entrances),
     then greenery/props starting with NATURAL (then cyberpunk-centre /
     urban-edge by zone), then B3 interiors."**
+
+- **2026-07-25 — v1.62. Building-side of the centrality rule: core-facing
+  entrances (built + headless-verified, pending flight).** The coupled other half
+  of v1.61's lighting — buildings now OPEN toward the downtown core and SEAL the
+  outward sides, so entrances face inward and the rim shows blind walls (the
+  user's "the less central a side, the less entrance").
+  - **Per-side openings:** `MenuFloorFrame` gains `open_sides` (4 bools
+    [front +Z, back -Z, right +X, left -X]) — each side opened+windowed or a solid
+    wall (new `_build_solid_wall`). When set it takes over from `cross_windows`;
+    empty keeps the legacy menu path (front-entry / back-commit) **untouched**.
+    Threaded `WorldBuilding` → `MenuBuilding` → frame; `CityLayout._facing_open_sides`
+    (cut −0.35) computes each building's mask from its position vs the core:
+    core-adjacent buildings open all four, axis-aligned edge buildings seal their
+    one fully-outward side, diagonal-far ones seal the outward pair.
+  - **Verified directional (probe, seed-42 4×5):** the core cell opens FBRL; the
+    far −Z rows seal Back; the far +X column seals Right; the far corner opens
+    only Front+Left (its two core-facing sides). Exactly the intended gradient.
+  - Bonus: collision shapes dropped 3668 → 3014 (a sealed side is one wall, not
+    several window piers) — lighter physics. Draw calls unchanged (batched).
+  - `world_building` / `menu` / `building_gen` / `city_layout` checks PASS;
+    menu_tower + city_map + dev_map boot clean; the MENU is untouched.
+  - **To resume: "Continue QuadShot per v1.62 — buildings open toward the core /
+    seal outward (entrances follow centrality), verified directional; the user is
+    about to fly. Next: greenery/props starting with NATURAL (then
+    cyberpunk-centre / urban-edge by zone), then B3 interiors."**

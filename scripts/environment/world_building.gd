@@ -32,6 +32,10 @@ extends Node3D
 @export var setback_tiers: int = 1
 ## Footprint at the top tier when tiered (0 = no setback, = base footprint).
 @export var top_footprint: float = 0.0
+## Per-side openings (v1.62): 4 bools [front +Z, back -Z, right +X, left -X],
+## set by CityLayout to open only the sides facing the downtown core. Empty =
+## all four sides open (cross_windows), the standalone / dev-room default.
+@export var open_sides: Array = []
 
 
 ## The footprint of floor k of `total`, stepped down in discrete tiers from the
@@ -63,4 +67,6 @@ func _ready() -> void:
 		spec["footprint"] = _footprint_at(k, floors.size())
 		spec["cross_windows"] = true
 		spec["interior_height"] = interior_height
+		if not open_sides.is_empty():
+			spec["open_sides"] = open_sides
 	add_child(MenuBuilding.create(floors))

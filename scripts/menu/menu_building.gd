@@ -86,6 +86,7 @@ func _ready() -> void:
 		frame.text_pixel = spec.get("pixel", 0.1)
 		frame.footprint = spec.get("footprint", DEFAULT_FOOTPRINT)
 		frame.cross_windows = spec.get("cross_windows", false)
+		frame.open_sides = spec.get("open_sides", [])
 		frame.interior_height = spec.get("interior_height", DEFAULT_INTERIOR_HEIGHT)
 		frame.position = Vector3(0.0, k * pitch + SLAB_THICK, 0.0)
 		add_child(frame)
