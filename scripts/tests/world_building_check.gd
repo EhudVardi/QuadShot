@@ -70,6 +70,22 @@ func _check() -> void:
 	if open != 4:
 		return _fail("expected 4 open floors, got %d" % open)
 
-	print("[world_building_check] 11 floors, 4 leafless enterable, no menu furniture — ok")
+	# Setbacks: a tiered building tapers its footprint up the tower (pure fn,
+	# no tree needed — build a throwaway just to query it).
+	var taper: WorldBuilding = WorldBuilding.new()
+	taper.footprint = 30.0
+	taper.setback_tiers = 3
+	taper.top_footprint = 12.0
+	var base_fp: float = taper._footprint_at(0, 30)
+	var top_fp: float = taper._footprint_at(29, 30)
+	taper.free()
+	if not is_equal_approx(base_fp, 30.0):
+		return _fail("setback base floor should be full width, got %f" % base_fp)
+	if not is_equal_approx(top_fp, 12.0):
+		return _fail("setback top floor should be the top width, got %f" % top_fp)
+	if top_fp >= base_fp:
+		return _fail("setback should narrow going up (%f -> %f)" % [base_fp, top_fp])
+
+	print("[world_building_check] 11 floors, leafless enterable, no menu furniture, setback — ok")
 	print("[world_building_check] PASS")
 	quit(0)

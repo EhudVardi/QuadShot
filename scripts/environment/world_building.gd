@@ -25,6 +25,22 @@ extends Node3D
 ## Floor-to-ceiling height (v1.50). Varied across buildings for a richer
 ## skyline and interior — a taller value = fewer, grander floors per metre.
 @export var interior_height: float = 4.0
+## Setbacks / tiers (v1.52, 3b-ii): the footprint steps down in this many
+## discrete tiers up the tower (1 = a plain box). The wider tier below leaves a
+## ledge on the narrower tier above (MenuBuilding sizes each slab to its wider
+## neighbour). The classic stepped-skyscraper silhouette.
+@export var setback_tiers: int = 1
+## Footprint at the top tier when tiered (0 = no setback, = base footprint).
+@export var top_footprint: float = 0.0
+
+
+## The footprint of floor k of `total`, stepped down in discrete tiers from the
+## base `footprint` to `top_footprint`. A box (no setback) when tiers <= 1.
+func _footprint_at(k: int, total: int) -> float:
+	if setback_tiers <= 1 or top_footprint <= 0.0 or total <= 1:
+		return footprint
+	var tier: int = mini(k * setback_tiers / total, setback_tiers - 1)
+	return lerpf(footprint, top_footprint, float(tier) / float(setback_tiers - 1))
 
 
 func _ready() -> void:
@@ -37,11 +53,12 @@ func _ready() -> void:
 	# so a world building never appears to float over open air.
 	var floors: Array = BuildingGenerator.generate(
 			building_seed, open_specs, target_floors, true)
-	# Stamp world-building geometry onto every floor (open + filler): the
-	# footprint sizes walls and slabs, and crossed windows make open floors
-	# enterable from any direction (not just front/back like the menu).
-	for spec: Dictionary in floors:
-		spec["footprint"] = footprint
+	# Stamp world-building geometry onto every floor (open + filler): a tapered
+	# footprint sizes walls and slabs (setbacks), crossed windows make open
+	# floors enterable from any direction, and the interior height sets the pitch.
+	for k: int in floors.size():
+		var spec: Dictionary = floors[k]
+		spec["footprint"] = _footprint_at(k, floors.size())
 		spec["cross_windows"] = true
 		spec["interior_height"] = interior_height
 	add_child(MenuBuilding.create(floors))
