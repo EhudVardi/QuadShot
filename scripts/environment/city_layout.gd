@@ -36,6 +36,9 @@ extends Node3D
 @export var max_floors: int = 34
 ## Chance a block is an empty lot — some gaps in the skyline.
 @export var empty_chance: float = 0.1
+## Of empty lots, the fraction that are raised PLAZAS; the rest are SUNKEN bare
+## lots (marked). Variety in the gaps.
+@export_range(0.0, 1.0) var plaza_chance: float = 0.5
 ## Chance a building is tiered (setbacks) rather than a plain box.
 @export var setback_chance: float = 0.4
 ## HEIGHT ZONING — a downtown core. Height follows distance from a seeded core
@@ -64,6 +67,24 @@ const MIN_BLOCK: float = 20.0
 ## Dark paved base under the whole grid — the street surface, so the roads read
 ## as a continuous ground, not gaps between towers.
 const ASPHALT_COLOR: Color = Color(0.035, 0.04, 0.05)
+## Raised block platforms (v1.58 ground life): each block lifts a curb above the
+## road, so the streets read as sunken roadways between raised sidewalks. A pale
+## concrete so the curb reads even in the dark (SSAO grounds it).
+const SIDEWALK_COLOR: Color = Color(0.20, 0.22, 0.26)
+const CURB_HEIGHT: float = 0.15
+## Cyan neon curb line along a raised block's top edges (navigation palette —
+## pedestrian ways glow cool, roads amber).
+const CURB_TRIM_COLOR: Color = Color(0.2, 0.7, 1.0)
+const CURB_TRIM_ENERGY: float = 2.0
+const CURB_TRIM: float = 0.12
+## Amber painted border on a SUNKEN empty lot, so a gap reads as a deliberate lot
+## (a construction plot), not a hole in the ground.
+const LOT_MARK_COLOR: Color = Color(1.0, 0.7, 0.2)
+const LOT_MARK_ENERGY: float = 2.0
+const LOT_MARK: float = 0.25
+
+## A block is either built on, a raised empty plaza, or a sunken marked lot.
+enum Lot { OCCUPIED, PLAZA, SUNKEN }
 
 # Grid geometry, computed in _ready before any building spawns.
 var _col_x: Array[float] = []       ## centre x of each column
@@ -90,13 +111,30 @@ func rebuild() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = layout_seed
 	_lay_grid(rng)
+	var lots: Array = _roll_lots(rng)
 	_build_ground()
 	_build_roads()
+	_build_sidewalks(lots)
 	for r: int in rows:
 		for c: int in cols:
+			if lots[r][c] == Lot.OCCUPIED:
+				_spawn_building(rng, r, c)
+
+
+## Decide every block's lot up front, so the sidewalk pass and the building pass
+## agree: most are OCCUPIED; an empty_chance fraction are empty, split
+## plaza_chance PLAZA (raised) vs SUNKEN (bare, marked) for gap variety.
+func _roll_lots(rng: RandomNumberGenerator) -> Array:
+	var lots: Array = []
+	for r: int in rows:
+		var row: Array = []
+		for c: int in cols:
 			if rng.randf() < empty_chance:
-				continue
-			_spawn_building(rng, r, c)
+				row.append(Lot.PLAZA if rng.randf() < plaza_chance else Lot.SUNKEN)
+			else:
+				row.append(Lot.OCCUPIED)
+		lots.append(row)
+	return lots
 
 
 ## Compute per-column widths + per-row depths (varied grain) and their cumulative
@@ -244,6 +282,61 @@ func _build_roads() -> void:
 		_add_line(Vector3(city_w, 0.05, ROADLINE_WIDTH), Vector3(0.0, 0.03, cz), mat)
 	_add_line(Vector3(city_w, 0.05, ROADLINE_WIDTH),
 			Vector3(0.0, 0.03, back - road_width * 0.5), mat)
+
+
+## Ground life per block (v1.58): OCCUPIED / PLAZA blocks get a raised sidewalk
+## with a cyan neon curb line; SUNKEN lots get an amber painted border instead.
+## Everything batches by material (slab / trim / marking → 3 draw calls for the
+## whole grid, even at 10×10). Buildings sit on their raised block.
+func _build_sidewalks(lots: Array) -> void:
+	var slab_mat := StandardMaterial3D.new()
+	slab_mat.albedo_color = SIDEWALK_COLOR
+	slab_mat.roughness = 0.95
+	var trim_mat := _emissive_mat(CURB_TRIM_COLOR, CURB_TRIM_ENERGY)
+	var mark_mat := _emissive_mat(LOT_MARK_COLOR, LOT_MARK_ENERGY)
+	var batch := BoxBatcher.new()
+	for r: int in rows:
+		for c: int in cols:
+			var w: float = _col_w[c]
+			var d: float = _row_d[r]
+			var at: Vector3 = Vector3(_col_x[c], 0.0, _row_z[r])
+			if lots[r][c] == Lot.SUNKEN:
+				_mark_lot(batch, at, w, d, mark_mat)
+			else:
+				batch.add(Vector3(w, CURB_HEIGHT, d),
+						Vector3(at.x, CURB_HEIGHT * 0.5, at.z), slab_mat)
+				_curb_trim(batch, at, w, d, trim_mat)
+	batch.commit_into(self)
+
+
+## Cyan neon along the four top edges of a raised block — the curb line.
+func _curb_trim(batch: BoxBatcher, at: Vector3, w: float, d: float, mat: Material) -> void:
+	var y: float = CURB_HEIGHT
+	batch.add(Vector3(w, CURB_TRIM, CURB_TRIM), Vector3(at.x, y, at.z - d * 0.5), mat)
+	batch.add(Vector3(w, CURB_TRIM, CURB_TRIM), Vector3(at.x, y, at.z + d * 0.5), mat)
+	batch.add(Vector3(CURB_TRIM, CURB_TRIM, d), Vector3(at.x - w * 0.5, y, at.z), mat)
+	batch.add(Vector3(CURB_TRIM, CURB_TRIM, d), Vector3(at.x + w * 0.5, y, at.z), mat)
+
+
+## An amber painted border on a sunken lot, inset like a real plot line, so the
+## gap reads as a deliberate empty lot rather than a hole.
+func _mark_lot(batch: BoxBatcher, at: Vector3, w: float, d: float, mat: Material) -> void:
+	var y: float = 0.045
+	var iw: float = w - 1.5
+	var id: float = d - 1.5
+	batch.add(Vector3(iw, 0.05, LOT_MARK), Vector3(at.x, y, at.z - id * 0.5), mat)
+	batch.add(Vector3(iw, 0.05, LOT_MARK), Vector3(at.x, y, at.z + id * 0.5), mat)
+	batch.add(Vector3(LOT_MARK, 0.05, id), Vector3(at.x - iw * 0.5, y, at.z), mat)
+	batch.add(Vector3(LOT_MARK, 0.05, id), Vector3(at.x + iw * 0.5, y, at.z), mat)
+
+
+func _emissive_mat(color: Color, energy: float) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = energy
+	return mat
 
 
 func _add_line(size: Vector3, at: Vector3, mat: Material) -> void:

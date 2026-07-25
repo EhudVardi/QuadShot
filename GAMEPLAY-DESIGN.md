@@ -5886,3 +5886,41 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     material (15.8× fewer draw calls, headless-measured); the user is about to
     fly it to confirm FPS is solid again and push the city bigger via the CITY
     overlay. Then: ground life, then B3 interiors."**
+  - **v1.57 FLOWN & APPROVED** ("AMAZING JOB"): pushed the city to 10×10 with no
+    FPS flinch (longer generate time, as expected and fine); no visual
+    regression. Committed. Draw-call ceiling is gone — the path is open again.
+
+- **2026-07-25 — v1.58. Ground life beat 1: sidewalks / curbs (flown plain, then
+  refined; refined version pending re-flight).** First bite of the user-chosen
+  ground-life pass (roadmap item 2). Each block lifts a raised sidewalk slab a
+  curb (0.15 m) above the road, so the streets read as sunken roadways between
+  raised blocks — the ground plane the streetlights and props will sit on.
+  - **Flown-plain feedback → refinements this beat:** curbs read a touch thin
+    (user suspects the world scale, will fly more to feel it — curb height held);
+    "brighter color, and maybe their edges get colors" → sidewalk brightened to a
+    pale concrete and a **cyan neon curb line** now runs each raised block's top
+    edges (navigation palette: pedestrian ways glow cool, roads stay amber).
+  - **Empty-lot variety (user's ask):** lots roll up front (`_roll_lots`) into
+    OCCUPIED / PLAZA (raised) / SUNKEN, split by a new `plaza_chance` knob (X%
+    plazas, rest sunken); sunken lots get an **amber painted border** so a gap
+    reads as a deliberate plot, not a hole. `plaza_chance` joins the CITY overlay.
+  - **Still batched:** slab / curb-trim / lot-marking each merge by material — 3
+    draw calls for ALL ground life across the whole grid, even at 10×10. Lots are
+    decided before both the sidewalk and building passes so they agree;
+    determinism intact (`city_layout_check` PASS). city_map + dev_map + main boot
+    clean. (Seed cities re-rolled: the plaza/sunken draws reorder the RNG — fine,
+    no save depends on it.)
+  - **Leash fix (bug surfaced this flight):** the FPV signal leash yanked the
+    pilot to the menu past 300 m from origin — a combat-arena mechanic that a big
+    city sprawls straight past. `RANGE_WARN_M`/`RANGE_LOST_M` are now
+    `@export signal_warn_m`/`signal_lost_m` on `main.gd`, disabled at
+    `signal_lost_m <= 0`; the exploration scenes (city_map, dev_map) set it 0.
+    main.tscn (the combat slice) keeps the leash.
+  - **Queued next (ground life):** streetlights (budgeted, emissive-forward), low
+    props, distance haze. Plus the user's **measurement visual mode** (a toggle
+    that labels building width/height, street width, etc.) — a standalone tool
+    beat. Then B3 interiors.
+  - **To resume: "Continue QuadShot per v1.58 — sidewalks + cyan curb trim +
+    empty-lot variety (plaza/sunken) are in and the signal leash is off in the
+    city, headless-verified; the user is about to re-fly. Next: the measurement
+    visual mode (its own beat), then streetlights/props/haze, then B3 interiors."**

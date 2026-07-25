@@ -646,6 +646,7 @@ func _build_city_section() -> void:
 	_add_city_int(city, "min_floors", 2, 40)
 	_add_city_int(city, "max_floors", 4, 60)
 	_add_city_slider(city, "empty_chance", 0.0, 0.5, 0.02)
+	_add_city_slider(city, "plaza_chance", 0.0, 1.0, 0.05)
 	_add_city_slider(city, "setback_chance", 0.0, 1.0, 0.05)
 	_add_city_slider(city, "zone_strength", 0.0, 1.0, 0.05)
 	_add_city_slider(city, "core_falloff", 0.25, 4.0, 0.05)
