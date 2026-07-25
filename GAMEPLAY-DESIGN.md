@@ -5701,3 +5701,36 @@ the silhouette flag is logged, not yet patched, by the user's own call.
   floors (Q4); the menu is unchanged (default 3.6). The user then went AFK
   (~90 min) and asked for an independent work set — executed and logged in
   v1.52 (built + headless-verified, pending the user's flight).
+
+- **2026-07-25 — v1.52. Autonomous AFK batch (the user out ~90 min, "work in
+  quiet… we'll assess together").** Four building-system advances, each
+  committed with headless tests. STATUS: STRUCTURE verified headless; every
+  LOOK / FEEL judgment is explicitly deferred to the user's flight — the agent
+  asserts none of it. Nothing here touches the balance harness (configs /
+  combat / bestiary), so it is standalone and safe, like all of B.
+  - **v1.52a — under-construction crown (the "floating" fix).** The generator
+    gains a world-only `crown_at_top`: scaffold floors cluster as a seeded crown
+    at the TOP (the floors still being built), not sprinkled mid-stack where a
+    see-through skeletal floor made the tower look like it floats. Menu mode
+    unchanged (RNG draw order preserved → every menu building byte-identical).
+    `building_gen_check` asserts the crown is always contiguous at the top.
+  - **v1.52b — setbacks / tiers (3b-ii).** WorldBuilding gains `setback_tiers` +
+    `top_footprint`: the footprint steps down in discrete tiers up the tower.
+    The slab-ledge plumbing (v1.48, slab sized to its wider neighbour) turns
+    each step into a real ledge — the stepped-skyscraper silhouette.
+  - **v1.52c — procedural CITY LAYOUT (the "real streets" flag).** `CityLayout`
+    places WorldBuildings on a seeded cols×rows block grid separated by roads,
+    so the streets are a connected grid, not a scatter. No two footprints can
+    overlap (each capped to its block, blocks a road-width apart); amber
+    centerlines mark the roads; empty lots leave skyline gaps. The dev room
+    swaps the hand-placed 5-tower cluster for a `City` node (3×2, seed 20 → 5
+    buildings + 1 lot), clear of the +X placeholder boxes. `city_layout_check`
+    asserts on-grid placement, no overlaps, determinism.
+  - **What still wants the user's hands / eyes:** does the crown read right; do
+    the setback tiers look good and stay flyable; does the block-grid city feel
+    like a city (street width, block size, density, the amber road lines); FPS
+    across the whole grid. Plus the OPEN design questions surfaced for us to
+    assess together — see the session rundown.
+  - **To resume: "Continue QuadShot per v1.52 — crown + setbacks + a block-grid
+    city are in (headless-verified); the user is about to fly them and pick the
+    next path."**
