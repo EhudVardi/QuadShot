@@ -1,8 +1,9 @@
 extends SceneTree
 
-## Headless check for the seeded city layout (B4, v1.52): buildings land on a
-## block grid, no two footprints overlap (the streets never close up), and the
-## same seed builds the same city.
+## Headless check for the seeded city layout (B4, v1.52 → v1.54): buildings land
+## on a block grid, no two footprints overlap (the streets never close up), one
+## interior street is picked as the avenue, and the same seed builds the same
+## city (avenue included).
 ##
 ## Run: <godot> --headless -s scripts/tests/city_layout_check.gd --path .
 
@@ -78,7 +79,15 @@ func _check() -> void:
 		if not is_equal_approx(built[i].footprint, twin_built[i].footprint):
 			return _fail("same seed sized building %d differently" % i)
 
-	print("[city_layout_check] %d buildings on a grid, none overlapping, deterministic — ok"
-			% built.size())
+	# Road hierarchy: an interior street is the avenue, and the seed fixes which.
+	if _city._avenue_street < 1 or _city._avenue_street > _city.cols - 1:
+		return _fail("no valid avenue street chosen (got %d for %d cols)"
+				% [_city._avenue_street, _city.cols])
+	if twin._avenue_street != _city._avenue_street:
+		return _fail("same seed picked a different avenue (%d vs %d)"
+				% [_city._avenue_street, twin._avenue_street])
+
+	print("[city_layout_check] %d buildings on a grid, none overlapping, avenue #%d, deterministic — ok"
+			% [built.size(), _city._avenue_street])
 	print("[city_layout_check] PASS")
 	quit(0)

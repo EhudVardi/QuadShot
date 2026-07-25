@@ -5755,3 +5755,37 @@ the silhouette flag is logged, not yet patched, by the user's own call.
   - **Immediate direction (the user's):** move OUT of the dev room into a
     dedicated CITY MAP — fly the procedural city at scale and build toward
     interior generation. "Let's make the city feel real."
+
+- **2026-07-25 — v1.54. "Deepen the city" beat 1: ROAD HIERARCHY + varied grain
+  (built + headless-verified, pending the user's flight).** First checkpoint of
+  the user-set breadth push ("make the city feel real"); the user picked
+  *districts & road hierarchy* as the first bite. The change is deliberately one
+  structural variable so the flight read is interpretable.
+  - **What changed (`city_layout.gd` only, plus its check):** the uniform-`pitch`
+    coordinate model is gone. Block widths now vary per COLUMN and depths per ROW
+    (`block_variation`, floored at `MIN_BLOCK`), so the grain isn't a stamp — but
+    a whole column shares one width and a whole row one depth, which keeps the
+    **streets straight** (a scatter would zigzag them). Centres are accumulated
+    from those varied sizes (X centred on 0, row 0 held at `front_z`), roads and
+    the asphalt base derived from the true block extents rather than a fixed
+    pitch.
+  - **The main avenue:** one interior vertical street (seeded, biased toward the
+    middle via best-of-two) is widened to `avenue_mult × road_width` (2.4× by
+    default) — a canyon that runs the flight direction (-Z), a "fly down the main
+    drag" moment. Its centerline draws `AVENUE_LINE_MULT` (2.6×) thicker so the
+    hierarchy reads from three blocks out. Needs cols ≥ 3; disabled otherwise.
+  - **Invariants held:** footprints still cap to their block's smaller dimension
+    minus `BUILDING_MARGIN`, so no two overlap by construction (proven: the gap
+    between adjacent rects = street + margin > 0 regardless of variation).
+    Deterministic — `city_layout_check` now also asserts the avenue street is
+    valid and seed-stable. All checks green (city_layout / world_building /
+    building_gen / menu), city_map + dev_map boot clean headless.
+  - **Note:** a given seed's city changes vs v1.53b (new layout draws reorder the
+    RNG stream) — fine, no save depends on it yet. Held to ONE avenue axis
+    (vertical); a cross-avenue / alley tier and height-ZONING districts
+    (downtown-core-taller) are the natural next bites, kept separate so each
+    flies as its own variable.
+  - **To resume: "Continue QuadShot per v1.54 — road hierarchy (a main avenue +
+    varied block grain) is in, headless-verified; the user is about to fly it.
+    Next breadth bites queued: height-zoning districts, then ground life
+    (sidewalks/streetlights/haze), then B3 interiors."**
