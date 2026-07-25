@@ -32,6 +32,9 @@ const ROADLINE_ENERGY: float = 2.5
 const ROADLINE_WIDTH: float = 0.5
 ## Minimum gap between a footprint and its block edge (keeps streets clear).
 const BUILDING_MARGIN: float = 4.0
+## Dark paved base under the whole grid — the street surface, so the roads read
+## as a continuous ground, not gaps between towers.
+const ASPHALT_COLOR: Color = Color(0.035, 0.04, 0.05)
 
 
 func _ready() -> void:
@@ -39,6 +42,7 @@ func _ready() -> void:
 	rng.seed = layout_seed
 	var pitch: float = block_size + road_width
 	var col0_x: float = -(cols - 1) * 0.5 * pitch
+	_build_ground(pitch)
 	_build_roads(pitch, col0_x)
 	for r: int in rows:
 		for c: int in cols:
@@ -95,3 +99,21 @@ func _add_line(size: Vector3, at: Vector3, mat: Material) -> void:
 	line.mesh = box
 	line.position = at
 	add_child(line)
+
+
+## A dark paved slab under the whole grid (plus a small margin) — the road
+## surface the streets and blocks sit on, so the city reads as ground, not gaps.
+func _build_ground(pitch: float) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = ASPHALT_COLOR
+	mat.roughness = 0.95
+	var w: float = cols * pitch + road_width
+	var d: float = rows * pitch + road_width
+	var mid_z: float = front_z - (rows - 1) * 0.5 * pitch
+	var ground := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(w, d)
+	plane.material = mat
+	ground.mesh = plane
+	ground.position = Vector3(0.0, 0.02, mid_z)
+	add_child(ground)
