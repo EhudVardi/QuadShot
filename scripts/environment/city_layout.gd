@@ -114,6 +114,21 @@ const TREE_LEAF_COLOR: Color = Color(0.14, 0.34, 0.16)
 const PLANTER_COLOR: Color = Color(0.18, 0.19, 0.21)
 ## Trees stand about this far apart when a plaza is filled like a park.
 const TREE_SPACING: float = 6.0
+## Prop style by height-zone (v1.64): the lush core glows cyberpunk, the mid ring
+## is natural, the gritty rim is urban hardscape.
+const CYBER_ZONE_CUT: float = 0.6
+const NATURAL_ZONE_CUT: float = 0.3
+## Cyberpunk greenery — bio-luminescent, blooms past the 1.0 threshold.
+const CYBER_BASE_COLOR: Color = Color(0.05, 0.07, 0.08)
+const CYBER_GLOW_COLOR: Color = Color(0.25, 0.95, 0.7)
+const CYBER_GLOW_ENERGY: float = 2.6
+## Urban hardscape — concrete grey with a small warm sign light.
+const HARDSCAPE_COLOR: Color = Color(0.16, 0.17, 0.19)
+const HARDSCAPE_SIGN_COLOR: Color = Color(1.0, 0.5, 0.25)
+const HARDSCAPE_SIGN_ENERGY: float = 2.0
+
+## Ground-prop kit chosen per block by its zone (v1.64).
+enum PropStyle { URBAN, NATURAL, CYBER }
 
 ## A block is either built on, a raised empty plaza, or a sunken marked lot.
 enum Lot { OCCUPIED, PLAZA, SUNKEN }
@@ -447,38 +462,66 @@ func _add_streetlight(batch: BoxBatcher, x: float, z: float,
 ## + planters), occupied blocks get a couple of street trees at the curb. Uses a
 ## private seed so it never disturbs the building RNG stream — the city is
 ## byte-identical, greenery just lands on top. All batched (3 draw calls).
+## Ground props STYLED BY ZONE (v1.64): the downtown core gets cyberpunk
+## bio-luminescent greenery, the mid ring natural matte trees, the rim urban
+## hardscape (kiosks/benches, no green) — the user's centre-lush / edge-gritty
+## vision. Plazas fill like the zone's kind of park; occupied blocks get a prop
+## on each sealed side. Private seed (the city is untouched); all batched.
 func _build_greenery(lots: Array) -> void:
 	var g_rng := RandomNumberGenerator.new()
 	g_rng.seed = layout_seed * 977 + 13
-	var trunk_mat := StandardMaterial3D.new()
-	trunk_mat.albedo_color = TREE_TRUNK_COLOR
-	trunk_mat.roughness = 0.9
-	var leaf_mat := StandardMaterial3D.new()
-	leaf_mat.albedo_color = TREE_LEAF_COLOR
-	leaf_mat.roughness = 0.85
-	var planter_mat := StandardMaterial3D.new()
-	planter_mat.albedo_color = PLANTER_COLOR
-	planter_mat.roughness = 0.9
+	var mats: Dictionary = _prop_materials()
 	var batch := BoxBatcher.new()
 	for r: int in rows:
 		for c: int in cols:
+			var style: int = _prop_style(c, r)
 			var x: float = _col_x[c]
 			var z: float = _row_z[r]
 			var w: float = _col_w[c]
 			var d: float = _row_d[r]
 			match lots[r][c]:
 				Lot.PLAZA:
-					_fill_plaza(batch, g_rng, x, z, w, d, trunk_mat, leaf_mat, planter_mat)
+					_fill_plaza(batch, g_rng, style, x, z, w, d, mats)
 				Lot.OCCUPIED:
-					_dress_sidewalk(batch, g_rng, x, z, w, d, trunk_mat, leaf_mat)
+					_dress_sidewalk(batch, g_rng, style, x, z, w, d, mats)
 	batch.commit_into(self)
 
 
-## A plaza filled like a small park: a jittered grid of mostly trees plus the odd
-## planter, on the raised slab.
-func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
-		cz: float, w: float, d: float, trunk_mat: Material, leaf_mat: Material,
-		planter_mat: Material) -> void:
+## A block's ground-prop style from its height-zone: cyberpunk at the lush core,
+## natural in the mid ring, urban hardscape at the gritty rim.
+func _prop_style(c: int, r: int) -> int:
+	var zone: float = _zone(c, r)
+	if zone >= CYBER_ZONE_CUT:
+		return PropStyle.CYBER
+	if zone >= NATURAL_ZONE_CUT:
+		return PropStyle.NATURAL
+	return PropStyle.URBAN
+
+
+## Shared material set for every prop kit — each material is one batched draw call.
+func _prop_materials() -> Dictionary:
+	return {
+		"trunk": _flat_mat(TREE_TRUNK_COLOR, 0.9),
+		"leaf": _flat_mat(TREE_LEAF_COLOR, 0.85),
+		"planter": _flat_mat(PLANTER_COLOR, 0.9),
+		"cyber_base": _flat_mat(CYBER_BASE_COLOR, 0.6),
+		"cyber_glow": _emissive_mat(CYBER_GLOW_COLOR, CYBER_GLOW_ENERGY),
+		"concrete": _flat_mat(HARDSCAPE_COLOR, 0.9),
+		"sign": _emissive_mat(HARDSCAPE_SIGN_COLOR, HARDSCAPE_SIGN_ENERGY),
+	}
+
+
+func _flat_mat(color: Color, rough: float) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = rough
+	return mat
+
+
+## A plaza filled like the zone's kind of park: a jittered grid of that style's
+## props on the raised slab.
+func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, style: int,
+		cx: float, cz: float, w: float, d: float, mats: Dictionary) -> void:
 	var inset: float = 3.0
 	var iw: float = w - 2.0 * inset
 	var id: float = d - 2.0 * inset
@@ -492,19 +535,15 @@ func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
 			var fz: float = 0.5 if nz == 1 else float(j) / float(nz - 1)
 			var px: float = cx - iw * 0.5 + iw * fx + g_rng.randf_range(-0.8, 0.8)
 			var pz: float = cz - id * 0.5 + id * fz + g_rng.randf_range(-0.8, 0.8)
-			if g_rng.randf() < 0.75:
-				_add_tree(batch, px, pz, g_rng, trunk_mat, leaf_mat)
-			else:
-				_add_planter(batch, px, pz, planter_mat, leaf_mat)
+			_add_prop(batch, style, px, pz, g_rng, mats)
 
 
-## Street trees on an occupied block's SEALED sides only (v1.63b) — a tree
-## softens the blank outward wall and, by construction, never blocks an opening
-## (the user's note: edge-centre trees were sitting in front of the windows).
-## Core blocks (open on all sides) get none; their greenery is the plaza parks.
-## Order matches _facing_open_sides / SIDES: front +Z, back -Z, right +X, left -X.
-func _dress_sidewalk(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
-		cz: float, w: float, d: float, trunk_mat: Material, leaf_mat: Material) -> void:
+## A prop on each of an occupied block's SEALED sides (blank outward walls) — the
+## v1.63b rule (never blocks an opening), now styled by zone. Core blocks (open
+## all round) get none; their greenery is the plaza parks. Side order matches
+## _facing_open_sides / SIDES: front +Z, back -Z, right +X, left -X.
+func _dress_sidewalk(batch: BoxBatcher, g_rng: RandomNumberGenerator, style: int,
+		cx: float, cz: float, w: float, d: float, mats: Dictionary) -> void:
 	var open: Array = _facing_open_sides(cx, cz)
 	var inset: float = 1.2
 	var spots: Array = [
@@ -515,7 +554,30 @@ func _dress_sidewalk(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
 	]
 	for i: int in 4:
 		if not open[i]:
-			_add_tree(batch, spots[i].x, spots[i].y, g_rng, trunk_mat, leaf_mat)
+			_add_prop(batch, style, spots[i].x, spots[i].y, g_rng, mats)
+
+
+## Place one prop of the given style. Natural + cyber reuse the tree/hedge shapes
+## with different materials (a cyber tree is a tree with a glowing canopy); urban
+## has its own kiosk/bench.
+func _add_prop(batch: BoxBatcher, style: int, x: float, z: float,
+		g_rng: RandomNumberGenerator, mats: Dictionary) -> void:
+	match style:
+		PropStyle.CYBER:
+			if g_rng.randf() < 0.6:
+				_add_tree(batch, x, z, g_rng, mats["cyber_base"], mats["cyber_glow"])
+			else:
+				_add_hedge(batch, x, z, mats["cyber_base"], mats["cyber_glow"])
+		PropStyle.NATURAL:
+			if g_rng.randf() < 0.75:
+				_add_tree(batch, x, z, g_rng, mats["trunk"], mats["leaf"])
+			else:
+				_add_hedge(batch, x, z, mats["planter"], mats["leaf"])
+		_:
+			if g_rng.randf() < 0.5:
+				_add_kiosk(batch, x, z, g_rng, mats["concrete"], mats["sign"])
+			else:
+				_add_bench(batch, x, z, g_rng, mats["concrete"])
 
 
 ## A greybox tree: a slim trunk under a boxy canopy, standing on the sidewalk.
@@ -531,11 +593,31 @@ func _add_tree(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerat
 			Vector3(x, CURB_HEIGHT + trunk_h + canopy_h * 0.5, z), leaf_mat)
 
 
-## A low planter box with a hedge on top.
-func _add_planter(batch: BoxBatcher, x: float, z: float, planter_mat: Material,
-		leaf_mat: Material) -> void:
-	batch.add(Vector3(1.4, 0.5, 1.4), Vector3(x, CURB_HEIGHT + 0.25, z), planter_mat)
-	batch.add(Vector3(1.2, 0.5, 1.2), Vector3(x, CURB_HEIGHT + 0.75, z), leaf_mat)
+## A low planter box with a hedge on top — natural (concrete + green) or cyber
+## (dark base + glowing top), by the materials passed.
+func _add_hedge(batch: BoxBatcher, x: float, z: float, base_mat: Material,
+		top_mat: Material) -> void:
+	batch.add(Vector3(1.4, 0.5, 1.4), Vector3(x, CURB_HEIGHT + 0.25, z), base_mat)
+	batch.add(Vector3(1.2, 0.5, 1.2), Vector3(x, CURB_HEIGHT + 0.75, z), top_mat)
+
+
+## Urban hardscape: a chest-high kiosk / utility cabinet with a thin lit sign.
+func _add_kiosk(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerator,
+		body_mat: Material, sign_mat: Material) -> void:
+	var h: float = g_rng.randf_range(1.8, 2.6)
+	var bw: float = g_rng.randf_range(1.1, 1.7)
+	batch.add(Vector3(bw, h, bw * 0.7), Vector3(x, CURB_HEIGHT + h * 0.5, z), body_mat)
+	batch.add(Vector3(bw * 0.85, 0.28, 0.06),
+			Vector3(x, CURB_HEIGHT + h * 0.78, z + bw * 0.36), sign_mat)
+
+
+## Urban hardscape: a low bench, randomly oriented.
+func _add_bench(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerator,
+		mat: Material) -> void:
+	var length: float = g_rng.randf_range(1.6, 2.2)
+	var size: Vector3 = Vector3(0.5, 0.45, length) if g_rng.randf() < 0.5 \
+			else Vector3(length, 0.45, 0.5)
+	batch.add(size, Vector3(x, CURB_HEIGHT + 0.225, z), mat)
 
 
 func _add_line(size: Vector3, at: Vector3, mat: Material) -> void:

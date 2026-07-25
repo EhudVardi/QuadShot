@@ -6058,3 +6058,23 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     street trees, matte, +3 draw calls) is in; the user is about to fly. Next:
     zonal styling (cyberpunk greenery in the centre, urban hardscape at the
     edges) layered on the same placement, then B3 interiors."**
+
+- **2026-07-25 — v1.64. Ground life: zonal prop styling (built + headless-
+  verified, pending flight).** The user's centre-lush / edge-gritty vision, on the
+  v1.63 framework: a block's ground props follow its height-zone — CYBERPUNK
+  bio-luminescent greenery at the lush core, NATURAL matte trees in the mid ring,
+  URBAN hardscape (kiosks + benches, no green) at the rim.
+  - **Shapes reused, materials swapped:** a "cyber tree" is the same tree with a
+    glowing canopy; a cyber hedge is the planter with a glowing top. Only urban
+    adds shapes (kiosk + lit sign, bench). Style picked by `_prop_style` off
+    `_zone` (CYBER ≥ 0.6, NATURAL ≥ 0.3, else URBAN); plazas fill with the zone's
+    park, occupied blocks get the zone's prop on each sealed side (still the
+    v1.63b never-block-an-opening rule).
+  - **Verified gradient (probe, seed-42 6×5):** a C cluster on the core, an N
+    ring around it, U at every edge — exactly centre-lush → rim-gritty.
+  - Batched: up to 7 prop materials → +4 draw calls vs the natural-only pass
+    (573 → 577 at 4×5). `city_layout_check` PASS; city_map + dev_map boot clean.
+  - **To resume: "Continue QuadShot per v1.64 — ground props style by zone (cyber
+    core / natural mid / urban rim), verified gradient; the user is about to fly.
+    BREADTH is deep now (layout, road hierarchy, districts, ground life, facing/
+    lighting rules); the roadmap's next turn is DEPTH — B3 INTERIORS."**
