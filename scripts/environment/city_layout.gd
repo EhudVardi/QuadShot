@@ -77,6 +77,16 @@ var _max_zone_dist: float = 1.0     ## core→farthest-corner distance (normalis
 
 
 func _ready() -> void:
+	rebuild()
+
+
+## (Re)build the whole city from the current exports, clearing any existing
+## geometry first. Called on ready, and by the debug overlay's CITY section so
+## the grid / avenue / zoning knobs (and the seed) can be re-rolled live.
+func rebuild() -> void:
+	for child: Node in get_children():
+		remove_child(child)
+		child.queue_free()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = layout_seed
 	_lay_grid(rng)
@@ -94,6 +104,10 @@ func _ready() -> void:
 ## at front_z. Interior vertical street `i` (i in 1..cols-1) sits left of column
 ## i; the avenue is one such street, so it runs the full depth in -Z.
 func _lay_grid(rng: RandomNumberGenerator) -> void:
+	_col_w.clear()
+	_col_x.clear()
+	_row_d.clear()
+	_row_z.clear()
 	for _c: int in cols:
 		_col_w.append(_block_dim(rng))
 	for _r: int in rows:

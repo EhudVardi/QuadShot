@@ -5821,3 +5821,37 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     downtown core along the avenue) are in, headless-verified; the user is about
     to fly it. Next breadth bites: ground life (sidewalks/streetlights/haze),
     then B3 interiors."**
+  - **v1.55 FLOWN & APPROVED** (same session): recognizable skyline shape, clear
+    from above AND below where downtown is; the core reads along the avenue;
+    setback clustering makes downtown obvious. Committed. Two follow-ups the user
+    raised → v1.56.
+
+- **2026-07-25 — v1.56. Live CITY overlay + a lighter default (built + headless-
+  verified, pending the user's flight).** Two things the v1.55 flight surfaced:
+  (1) scaling the city map to 6×5 (~26 buildings) dropped FPS with deep hitches —
+  the greybox floor-stacks are draw-call-heavy; and (2) the procgen knobs lived
+  only in the Inspector, breaking the project's live-tuning workflow.
+  - **Lighter default:** the city map is now **4×5** (~18 buildings), a perf-safe
+    default after the 6×5 drop. Real scaling waits on a perf pass (LOD / culling /
+    mesh-merge) — flagged, not yet done.
+  - **The CITY overlay section (`debug_overlay.gd`):** live sliders for the whole
+    `CityLayout` — grid (cols/rows/block/road/avenue/variation), floors, empties,
+    setbacks, and all four zoning knobs — plus **Regenerate** and **Re-roll seed**
+    buttons. The city rebuilds on the button, not per-slider, so dragging a big
+    grid never hitches; the overlay's FPS readout up top makes this the **procgen
+    perf-budget tool** (dial cols/rows/max_floors, Regenerate, watch FPS). Found
+    via `find_children` (race-free, no scene wiring), so it lights up in the city
+    map AND the dev room, and is skipped in main.tscn like LOOK.
+  - **`CityLayout.rebuild()`:** `_ready` now delegates to a `rebuild()` that frees
+    existing geometry first and re-runs grid + roads + buildings from the current
+    exports; `_lay_grid` clears its arrays so it's idempotent. Determinism intact
+    (`city_layout_check` still PASS).
+  - **Not persisted (by design):** CityLayout isn't a `TunableConfig`, so the
+    overlay's Save/Load/Defaults don't touch it — the .tscn Inspector stays the
+    persistent home. Live-explore in the overlay; when a config feels right, bake
+    it into `city.tscn` (the same bake-when-right pattern as flight defaults).
+  - **To resume: "Continue QuadShot per v1.56 — a live CITY overlay section
+    (Regenerate / Re-roll seed, doubles as the FPS-budget tool) + a 4×5 default
+    are in, headless-verified; the user is about to fly/tune. Open: a perf pass
+    (LOD/culling) before scaling the city up, then ground life, then B3
+    interiors."**

@@ -278,6 +278,7 @@ func _ready() -> void:
 		_add_section_header("LOOK")
 		_add_preset_bar("look", look_config)
 		_add_config_rows(look_config, _LOOK_FLOAT_ROWS, [])
+	_build_city_section()
 	if weather_config != null:
 		_configs.append(weather_config)
 		if weather_config.load_from_user():
@@ -619,6 +620,67 @@ func _add_throttle_curve_row(config: FlightConfig) -> void:
 	row.add_child(label)
 	row.add_child(option)
 	_section.add_child(row)
+
+
+## The CITY section (v1.56): live-tune the scene's CityLayout — grid, avenue,
+## and height-zoning knobs — then Regenerate to rebuild the city in place, or
+## Re-roll the seed. Appears only where a CityLayout is in the tree (city map /
+## dev room); skipped in main.tscn like LOOK. The city rebuilds on the button,
+## not per-slider, so dragging never hitches a big grid — and the FPS readout up
+## top makes this the procgen perf-budget tool too.
+func _build_city_section() -> void:
+	var found: Array[Node] = get_tree().root.find_children("*", "CityLayout", true, false)
+	if found.is_empty():
+		return
+	var city: CityLayout = found[0] as CityLayout
+	_add_section_header("CITY")
+	var hint := Label.new()
+	hint.text = "dial, then Regenerate ↓"
+	_section.add_child(hint)
+	_add_city_int(city, "cols", 1, 10)
+	_add_city_int(city, "rows", 1, 10)
+	_add_city_slider(city, "block_size", 20.0, 60.0, 1.0)
+	_add_city_slider(city, "road_width", 6.0, 40.0, 1.0)
+	_add_city_slider(city, "avenue_mult", 1.0, 4.0, 0.1)
+	_add_city_slider(city, "block_variation", 0.0, 0.6, 0.02)
+	_add_city_int(city, "min_floors", 2, 40)
+	_add_city_int(city, "max_floors", 4, 60)
+	_add_city_slider(city, "empty_chance", 0.0, 0.5, 0.02)
+	_add_city_slider(city, "setback_chance", 0.0, 1.0, 0.05)
+	_add_city_slider(city, "zone_strength", 0.0, 1.0, 0.05)
+	_add_city_slider(city, "core_falloff", 0.25, 4.0, 0.05)
+	_add_city_slider(city, "zone_jitter", 0.0, 0.5, 0.02)
+	_add_city_slider(city, "setback_core_bonus", 0.0, 1.0, 0.05)
+	_add_city_int(city, "layout_seed", 1, 9999)
+	var buttons := HBoxContainer.new()
+	var regen := Button.new()
+	regen.text = "Regenerate"
+	regen.focus_mode = Control.FOCUS_NONE
+	regen.pressed.connect(city.rebuild)
+	var reroll := Button.new()
+	reroll.text = "Re-roll seed"
+	reroll.focus_mode = Control.FOCUS_NONE
+	reroll.pressed.connect(func() -> void:
+		city.layout_seed = randi_range(1, 9999)
+		city.rebuild()
+		_refresh_all())
+	buttons.add_child(regen)
+	buttons.add_child(reroll)
+	_section.add_child(buttons)
+
+
+## A CITY float knob bound live to the CityLayout node (applies on Regenerate).
+func _add_city_slider(city: Node, prop: String, lo: float, hi: float, step: float) -> void:
+	_add_slider(_section, prop, lo, hi, step,
+			func() -> float: return float(city.get(prop)),
+			func(v: float) -> void: city.set(prop, v))
+
+
+## A CITY integer knob (cols/rows/floors/seed): stepped by 1, rounded on set.
+func _add_city_int(city: Node, prop: String, lo: int, hi: int) -> void:
+	_add_slider(_section, prop, float(lo), float(hi), 1.0,
+			func() -> float: return float(city.get(prop)),
+			func(v: float) -> void: city.set(prop, int(round(v))))
 
 
 func _add_slider(parent: Container, label_text: String, min_value: float,
