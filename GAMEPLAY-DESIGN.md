@@ -5904,6 +5904,12 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     OCCUPIED / PLAZA (raised) / SUNKEN, split by a new `plaza_chance` knob (X%
     plazas, rest sunken); sunken lots get an **amber painted border** so a gap
     reads as a deliberate plot, not a hole. `plaza_chance` joins the CITY overlay.
+  - **Wide-road placement rule (user's rule):** a block's empty chance scales by
+    `road_width / widest-bordering-road`, so blocks flanking the wide avenue are
+    ~0.42× as likely to be empty — prime avenue frontage is built up, gaps fall
+    on the narrow back streets (reinforcing the downtown core, which is also on
+    the avenue). Parameter-free; measured over 600 seeds: avenue-flanking columns
+    0.09 empty vs 0.19 elsewhere at `empty_chance` 0.2.
   - **Still batched:** slab / curb-trim / lot-marking each merge by material — 3
     draw calls for ALL ground life across the whole grid, even at 10×10. Lots are
     decided before both the sidewalk and building passes so they agree;
@@ -5924,3 +5930,59 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     empty-lot variety (plaza/sunken) are in and the signal leash is off in the
     city, headless-verified; the user is about to re-fly. Next: the measurement
     visual mode (its own beat), then streetlights/props/haze, then B3 interiors."**
+
+- **2026-07-25 — v1.59. Ground life beat 2: streetlights (built + headless-
+  verified, pending flight).** Terminology got clarified first — a "plaza" is a
+  raised empty lot with **no content yet** (bare, as the user noticed; a plaza
+  earns its garden/park identity only once props land). The user then asked to
+  "proceed with the other objects" for a scale reference. Streetlights first:
+  amber lamp-posts at every block edge's midpoint, on the sidewalk facing the
+  road — human vertical scale (~6 m), warm rhythm, light on the dark streets;
+  both sides of every street lit by adjacent blocks' edge lights.
+  - **Emissive heads, no real lights:** the head glows via bloom (energy 2.5), no
+    OmniLight, so the count stays free. Pole + head batch into 2 meshes for the
+    whole grid (measured: 4×5 draw calls 568 → 570, +2 total). Scenery:
+    non-colliding for now (add collision later for a slalom hazard if wanted).
+  - `city_layout_check` PASS; city_map + dev_map boot clean.
+  - **Also pending from just before (v1.58b):** the empty-lot placement rule —
+    wide-avenue frontage builds up (avenue-flanking columns ~0.42× as likely
+    empty; measured 0.09 vs 0.19 at empty_chance 0.2).
+  - **Queued next (ground life):** greenery / props — the bite that gives PLAZAS
+    their garden/park identity (the user's mental model) and dresses the bare
+    sidewalks. The aesthetic of greenery in a neon-noir city is the user's call —
+    ASK before building. Then maybe the measurement mode (or skip it if the
+    scaled objects give enough scale sense — user's call). Then B3 interiors.
+  - **To resume: "Continue QuadShot per v1.59 — streetlights (amber emissive
+    lamp-posts, batched, +2 draw calls) + the wide-road empty-lot rule are in,
+    headless-verified; the user is about to fly. Next: greenery/props for plaza
+    identity (ask the aesthetic first), then maybe the measurement mode, then B3
+    interiors."**
+
+- **2026-07-25 — v1.60. Streetlight placement + a LOOK preset spread (AFK batch,
+  built + headless-verified).** The user flew v1.59 (poles "good" for scale),
+  gave a placement rule, asked for lighting presets, and went AFK with "commit
+  and go ahead — do anything you can without my input."
+  - **Streetlights flank, not block (user's rule):** moved from edge-midpoints
+    (dead in front of the centered ground-floor window) to the four block
+    CORNERS, inset onto the sidewalk — a light now sits beside openings, and
+    corners of adjacent blocks light every intersection. Same 2 draw calls.
+    **Deferred** (needs the user's eyes + per-building opening data): the
+    entrance-aware half — lit where a building actually opens, darker in blind
+    alleys with no opening. Noted, not guessed.
+  - **LOOK preset spread (user's ask — "nights with/without fog, how the city
+    lights seam together"):** six LookConfig presets generated into
+    `user://presets/look/` (loadable from the LOOK preset dropdown): Clear Night,
+    Foggy Night, Dense Fog, Neon Overdrive, Dusk (the shipped default anchor),
+    Clear Day. Each starts from defaults and overrides sun/ambient/fog/glow for a
+    distinct mood — a spread to range over, not final looks. They live in user://
+    (per-machine, uncommitted); bake favorites into `default_look_config` / the
+    repo when the user picks winners (the usual bake-when-right pattern).
+  - Also in this session's commit: the wide-road empty-lot rule (v1.58b) and the
+    streetlights (v1.59). All headless-verified — `city_layout_check` PASS,
+    city_map/dev_map boot clean, ground life stays cheap (sidewalks + curb trim +
+    lot markings + streetlights ≈ 5 draw calls total across the whole grid).
+  - **To resume: "Continue QuadShot per v1.60 — streetlights flank block corners,
+    6 night/fog LOOK presets are in user://presets/look/, empty-lot rule live;
+    the user is about to fly + range the look presets. Next: greenery/props for
+    plaza identity (ASK the neon-vs-natural aesthetic first), the entrance-aware
+    streetlight refinement, maybe the measurement mode, then B3 interiors."**

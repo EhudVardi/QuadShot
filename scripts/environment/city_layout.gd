@@ -82,6 +82,18 @@ const CURB_TRIM: float = 0.12
 const LOT_MARK_COLOR: Color = Color(1.0, 0.7, 0.2)
 const LOT_MARK_ENERGY: float = 2.0
 const LOT_MARK: float = 0.25
+## Streetlights (v1.59 ground life): amber lamp-posts down every block edge —
+## human vertical scale + warm street rhythm. The lamp head is emissive (glows
+## via bloom), no real OmniLight, so the count stays free and batched. Scenery:
+## non-colliding for now.
+const STREETLIGHT_POLE_H: float = 6.0
+const STREETLIGHT_POLE_W: float = 0.22
+const STREETLIGHT_LAMP: float = 0.55
+## Poles stand this far in from the block edge, on the sidewalk facing the road.
+const STREETLIGHT_INSET: float = 1.0
+const STREETLIGHT_POLE_COLOR: Color = Color(0.09, 0.1, 0.12)
+const STREETLIGHT_LAMP_COLOR: Color = Color(1.0, 0.72, 0.32)
+const STREETLIGHT_LAMP_ENERGY: float = 2.5
 
 ## A block is either built on, a raised empty plaza, or a sunken marked lot.
 enum Lot { OCCUPIED, PLAZA, SUNKEN }
@@ -115,6 +127,7 @@ func rebuild() -> void:
 	_build_ground()
 	_build_roads()
 	_build_sidewalks(lots)
+	_build_streetlights()
 	for r: int in rows:
 		for c: int in cols:
 			if lots[r][c] == Lot.OCCUPIED:
@@ -129,12 +142,23 @@ func _roll_lots(rng: RandomNumberGenerator) -> Array:
 	for r: int in rows:
 		var row: Array = []
 		for c: int in cols:
-			if rng.randf() < empty_chance:
+			# The wider the bordering road, the less likely a gap — prime avenue
+			# frontage is built up; empty lots fall on the narrow back streets.
+			var chance: float = empty_chance * road_width / _block_max_road(c)
+			if rng.randf() < chance:
 				row.append(Lot.PLAZA if rng.randf() < plaza_chance else Lot.SUNKEN)
 			else:
 				row.append(Lot.OCCUPIED)
 		lots.append(row)
 	return lots
+
+
+## The widest road bordering column c's blocks — the avenue where a column flanks
+## it, else a side street. Drives the "wide road → fewer empty lots" rule.
+func _block_max_road(c: int) -> float:
+	var left: float = _street_width(c) if c >= 1 else road_width
+	var right: float = _street_width(c + 1) if c <= cols - 2 else road_width
+	return maxf(maxf(left, right), road_width)
 
 
 ## Compute per-column widths + per-row depths (varied grain) and their cumulative
@@ -337,6 +361,39 @@ func _emissive_mat(color: Color, energy: float) -> StandardMaterial3D:
 	mat.emission = color
 	mat.emission_energy_multiplier = energy
 	return mat
+
+
+## Amber lamp-posts at each block's four CORNERS (v1.59 → v1.60), inset onto the
+## sidewalk — so a light flanks the windows rather than blocking a centered
+## opening (the user's placement rule). Pole + emissive head only, all batched
+## into 2 meshes for the whole grid; corners of adjacent blocks light every
+## street intersection. (Entrance-aware placement / darker blind alleys is a
+## deeper follow-up — it needs each building's ground-floor opening data.)
+func _build_streetlights() -> void:
+	var pole_mat := StandardMaterial3D.new()
+	pole_mat.albedo_color = STREETLIGHT_POLE_COLOR
+	pole_mat.roughness = 0.8
+	var lamp_mat := _emissive_mat(STREETLIGHT_LAMP_COLOR, STREETLIGHT_LAMP_ENERGY)
+	var batch := BoxBatcher.new()
+	for r: int in rows:
+		for c: int in cols:
+			var ix: float = _col_w[c] * 0.5 - STREETLIGHT_INSET
+			var iz: float = _row_d[r] * 0.5 - STREETLIGHT_INSET
+			var x: float = _col_x[c]
+			var z: float = _row_z[r]
+			_add_streetlight(batch, x - ix, z - iz, pole_mat, lamp_mat)
+			_add_streetlight(batch, x + ix, z - iz, pole_mat, lamp_mat)
+			_add_streetlight(batch, x - ix, z + iz, pole_mat, lamp_mat)
+			_add_streetlight(batch, x + ix, z + iz, pole_mat, lamp_mat)
+	batch.commit_into(self)
+
+
+func _add_streetlight(batch: BoxBatcher, x: float, z: float,
+		pole_mat: Material, lamp_mat: Material) -> void:
+	batch.add(Vector3(STREETLIGHT_POLE_W, STREETLIGHT_POLE_H, STREETLIGHT_POLE_W),
+			Vector3(x, STREETLIGHT_POLE_H * 0.5, z), pole_mat)
+	batch.add(Vector3(STREETLIGHT_LAMP, STREETLIGHT_LAMP, STREETLIGHT_LAMP),
+			Vector3(x, STREETLIGHT_POLE_H, z), lamp_mat)
 
 
 func _add_line(size: Vector3, at: Vector3, mat: Material) -> void:
