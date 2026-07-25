@@ -87,7 +87,17 @@ func _check() -> void:
 		return _fail("same seed picked a different avenue (%d vs %d)"
 				% [_city._avenue_street, twin._avenue_street])
 
-	print("[city_layout_check] %d buildings on a grid, none overlapping, avenue #%d, deterministic — ok"
+	# Height zoning: the downtown core reads strictly taller than the fringe.
+	var z_core: float = _city._zone(int(round(_city._core_c)), int(round(_city._core_r)))
+	var z_fringe: float = _city._zone(0, 0)
+	for corner: Array in [[_city.cols - 1, 0], [0, _city.rows - 1],
+			[_city.cols - 1, _city.rows - 1]]:
+		z_fringe = minf(z_fringe, _city._zone(corner[0], corner[1]))
+	if z_core <= z_fringe:
+		return _fail("core zone (%.2f) not taller than the fringe (%.2f)"
+				% [z_core, z_fringe])
+
+	print("[city_layout_check] %d buildings, none overlapping, avenue #%d, zoned core, deterministic — ok"
 			% [built.size(), _city._avenue_street])
 	print("[city_layout_check] PASS")
 	quit(0)

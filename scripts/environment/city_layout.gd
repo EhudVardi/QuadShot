@@ -1,17 +1,19 @@
 class_name CityLayout
 extends Node3D
 
-## A seeded city-block layout with ROAD HIERARCHY (GAMEPLAY-DESIGN B4,
-## v1.52 → v1.54). The grid is no longer uniform: block widths vary per column
-## and depths per row (varied grain), and one interior street is a wide MAIN
-## AVENUE running the flight direction (-Z) — a canyon you fly straight down.
-## Straight streets are preserved — a whole column shares one width, a whole row
-## one depth — so the network still reads as a grid, not a scatter.
-## Deterministic: same seed = same city. No building overlaps another — each
-## footprint is capped to its own block, and blocks sit a full street apart, so
-## the streets never close up. Amber centerlines mark the roads (the avenue's is
-## thicker). First client: the dev room; the game-world city is this node at
-## scale.
+## A seeded city-block layout with ROAD HIERARCHY + HEIGHT ZONING (GAMEPLAY-
+## DESIGN B4, v1.52 → v1.55). The grid is no longer uniform: block widths vary
+## per column and depths per row (varied grain), and one interior street is a
+## wide MAIN AVENUE running the flight direction (-Z) — a canyon you fly straight
+## down. Building height follows a DOWNTOWN CORE seeded near the avenue: tall
+## downtown, tapering to low-rise at the edges, so the skyline has a shape you
+## read from the air (and setbacks cluster in the core). Straight streets are
+## preserved — a whole column shares one width, a whole row one depth — so the
+## network still reads as a grid, not a scatter. Deterministic: same seed = same
+## city. No building overlaps another — each footprint is capped to its own
+## block, and blocks sit a full street apart, so the streets never close up.
+## Amber centerlines mark the roads (the avenue's is thicker). First client: the
+## dev room; the game-world city is this node at scale.
 
 @export var layout_seed: int = 1
 @export var cols: int = 3
@@ -36,6 +38,19 @@ extends Node3D
 @export var empty_chance: float = 0.1
 ## Chance a building is tiered (setbacks) rather than a plain box.
 @export var setback_chance: float = 0.4
+## HEIGHT ZONING — a downtown core. Height follows distance from a seeded core
+## near the avenue: 0 = the old flat random height (no district); 1 = the full
+## core→edge gradient.
+@export_range(0.0, 1.0) var zone_strength: float = 1.0
+## Gradient shape: >1 tightens a tall core with a sharp drop, <1 spreads height
+## out. 1 = linear.
+@export_range(0.25, 4.0) var core_falloff: float = 1.5
+## Random height jitter on the zoned target, as a fraction of the floor range —
+## so a district reads as a cluster, not a smooth dome.
+@export_range(0.0, 0.5) var zone_jitter: float = 0.18
+## Extra setback (tiering) chance added at the core — stepped towers cluster
+## downtown, plain boxes at the fringe.
+@export_range(0.0, 1.0) var setback_core_bonus: float = 0.35
 
 const ROADLINE_COLOR: Color = Color(1.0, 0.75, 0.2)
 const ROADLINE_ENERGY: float = 2.5
@@ -56,6 +71,9 @@ var _col_w: Array[float] = []       ## block width of each column
 var _row_z: Array[float] = []       ## centre z of each row
 var _row_d: Array[float] = []       ## block depth of each row
 var _avenue_street: int = -1        ## interior street index that is the avenue
+var _core_c: float = 0.0            ## downtown core, in column-index space
+var _core_r: float = 0.0            ## downtown core, in row-index space
+var _max_zone_dist: float = 1.0     ## core→farthest-corner distance (normaliser)
 
 
 func _ready() -> void:
@@ -102,6 +120,22 @@ func _lay_grid(rng: RandomNumberGenerator) -> void:
 	for r: int in range(1, rows):
 		_row_z.append(_row_z[r - 1]
 				- (_row_d[r - 1] * 0.5 + road_width + _row_d[r] * 0.5))
+	# Downtown core: a real block flanking the avenue (so a genuine tower reaches
+	# max_floors there), at a seeded middle-weighted depth. Snapping to a cell —
+	# not a half-cell between blocks — is what lets the core actually peak; a
+	# floating core leaves the tallest building undershooting max_floors.
+	if _avenue_street >= 1:
+		_core_c = float(_avenue_street - rng.randi_range(0, 1))   # either avenue neighbour
+	else:
+		_core_c = float((cols - 1) / 2)
+	var mid_r: float = float(rows - 1) * 0.5
+	_core_r = clampf(roundf(mid_r + rng.randf_range(-1.0, 1.0) * float(rows - 1) * 0.35),
+			0.0, float(rows - 1))
+	# The core→farthest-corner distance normalises the gradient to 0..1.
+	_max_zone_dist = 0.0001
+	for cc: int in [0, cols - 1]:
+		for rr: int in [0, rows - 1]:
+			_max_zone_dist = maxf(_max_zone_dist, _raw_zone_dist(cc, rr))
 
 
 ## A varied block dimension (column width or row depth), floored so it always
@@ -118,7 +152,14 @@ func _street_width(i: int) -> float:
 
 
 func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
-	var floors: int = rng.randi_range(min_floors, max_floors)
+	# Height follows the district: a zoned target (tall core → short edge) blended
+	# by zone_strength against a flat mid, plus bounded jitter so it's not a dome.
+	var zone: float = _zone(c, r)
+	var flat: float = float(min_floors + max_floors) * 0.5
+	var zoned: float = lerpf(float(min_floors), float(max_floors), zone)
+	var target: float = lerpf(flat, zoned, zone_strength)
+	var jitter: float = rng.randf_range(-1.0, 1.0) * float(max_floors - min_floors) * zone_jitter
+	var floors: int = clampi(int(round(target + jitter)), min_floors, max_floors)
 	# Taller → wider, capped to the block's smaller dimension so a tower never
 	# eats its street.
 	var lean: float = float(floors - min_floors) / maxf(float(max_floors - min_floors), 1.0)
@@ -132,11 +173,27 @@ func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
 	building.target_floors = floors
 	building.open_floors = maxi(2, int(round(float(floors) * 0.55)))
 	building.interior_height = rng.randf_range(3.6, 5.6)
-	if rng.randf() < setback_chance:
+	# Setbacks cluster downtown: base chance + a core bonus scaled by the zone.
+	if rng.randf() < clampf(setback_chance + zone * setback_core_bonus, 0.0, 1.0):
 		building.setback_tiers = rng.randi_range(3, 4)
 		building.top_footprint = fp * rng.randf_range(0.45, 0.6)
 	building.position = Vector3(_col_x[c], 0.0, _row_z[r])
 	add_child(building)
+
+
+## Normalised height-zone at block (c, r): 1 at the downtown core, 0 at the
+## farthest corner, shaped by core_falloff.
+func _zone(c: int, r: int) -> float:
+	var d: float = _raw_zone_dist(c, r) / _max_zone_dist
+	return pow(1.0 - clampf(d, 0.0, 1.0), core_falloff)
+
+
+## Grid-space distance from block (c, r) to the core, each axis normalised by its
+## span so cols ≠ rows doesn't skew the gradient.
+func _raw_zone_dist(c: int, r: int) -> float:
+	var dc: float = (float(c) - _core_c) / maxf(float(cols - 1), 1.0)
+	var dr: float = (float(r) - _core_r) / maxf(float(rows - 1), 1.0)
+	return sqrt(dc * dc + dr * dr)
 
 
 ## A centerline down every street (both axes, incl. the perimeter), so the block

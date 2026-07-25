@@ -5789,3 +5789,35 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     varied block grain) is in, headless-verified; the user is about to fly it.
     Next breadth bites queued: height-zoning districts, then ground life
     (sidewalks/streetlights/haze), then B3 interiors."**
+  - **v1.54 FLOWN & APPROVED** (same session): "coming nicely," 144 FPS solid,
+    the avenue reads as the main street from above, the varied grain "looks more
+    like a street instead of a messy random builds set." Committed. Housekeeping
+    the user OK'd: the stale `balance-model-handoff.md` (the fully-adopted seed
+    doc for the balance instrument) recycled; `city.tscn`'s ~20 dead duplication
+    sub_resources trimmed (load_steps 37→14).
+
+- **2026-07-25 — v1.55. "Deepen the city" beat 2: HEIGHT ZONING — a downtown
+  core (built + headless-verified, pending the user's flight).** The *districts*
+  half of the user's chosen bite (v1.54 was the road hierarchy). Building height
+  now follows distance from a seeded DOWNTOWN CORE snapped to a real block
+  flanking the avenue: tall downtown, tapering to low-rise at the fringe, so the
+  skyline has a shape you read from the air. Still `city_layout.gd` only + its
+  check — touches nothing the balance harness measures.
+  - **Mechanism:** `_zone(c,r)` = pow(1 − normalised core-distance, `core_falloff`),
+    1 at the core cell → 0 at the farthest corner. Floors = a zoned target
+    lerp(min,max,zone) blended by `zone_strength` against a flat mid, plus
+    bounded `zone_jitter` so a district reads as a cluster, not a smooth dome.
+    Setbacks cluster downtown too (`setback_core_bonus` scaled by the zone). Four
+    new Inspector knobs, all defaulted; zoning turns off at `zone_strength = 0`.
+  - **The core must be a real cell:** the first pass floated it at a half-cell
+    between blocks, so the tallest tower undershot max_floors (topped ~21/30).
+    Snapping the core to a block adjacent to the avenue fixes it — seed-42 4×3
+    (10–30 floors) now spans [10,11,12,13,16,18,21,23,28], a genuine core→fringe
+    taper reaching near the top.
+  - **Invariants held:** placement / no-overlap / determinism unchanged;
+    `city_layout_check` now also asserts the core zone reads strictly taller than
+    the fringe and is seed-stable. All checks green; city_map + dev_map boot clean.
+  - **To resume: "Continue QuadShot per v1.55 — height-zoning districts (a
+    downtown core along the avenue) are in, headless-verified; the user is about
+    to fly it. Next breadth bites: ground life (sidewalks/streetlights/haze),
+    then B3 interiors."**
