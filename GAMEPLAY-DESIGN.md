@@ -6043,8 +6043,11 @@ the silhouette flag is logged, not yet patched, by the user's own call.
   - **Plazas → little parks:** a jittered grid of mostly greybox trees (slim
     trunk + boxy canopy) plus the odd planter (box + hedge) on the raised slab —
     a "plaza" now reads as a garden, resolving the v1.58 naming confusion.
-  - **Occupied blocks → street trees:** ~2 trees at the curb edges, clear of the
-    centred building.
+  - **Occupied blocks → street trees.** *Flown: plazas-as-parks approved; street
+    trees at edge-centres were blocking the windows.* **v1.63b fix:** trees now
+    go only on a building's **sealed** sides (the blank outward walls, from
+    v1.62's `_facing_open_sides`), so they can never block an opening and they
+    soften the rim-facing walls; core blocks (open all round) get none.
   - **Cheap + deterministic:** a private greenery seed (layout_seed·977+13) so
     the building RNG stream is untouched (the city is byte-identical, greenery
     lands on top); all trees/planters batch into 3 meshes (trunk / foliage /

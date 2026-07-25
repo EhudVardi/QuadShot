@@ -498,20 +498,24 @@ func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
 				_add_planter(batch, px, pz, planter_mat, leaf_mat)
 
 
-## A couple of street trees near an occupied block's curb (clear of the centered
-## building). Roughly half the four edge-midpoints get one.
+## Street trees on an occupied block's SEALED sides only (v1.63b) — a tree
+## softens the blank outward wall and, by construction, never blocks an opening
+## (the user's note: edge-centre trees were sitting in front of the windows).
+## Core blocks (open on all sides) get none; their greenery is the plaza parks.
+## Order matches _facing_open_sides / SIDES: front +Z, back -Z, right +X, left -X.
 func _dress_sidewalk(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
 		cz: float, w: float, d: float, trunk_mat: Material, leaf_mat: Material) -> void:
-	var inset: float = 1.5
+	var open: Array = _facing_open_sides(cx, cz)
+	var inset: float = 1.2
 	var spots: Array = [
 		Vector2(cx, cz + d * 0.5 - inset),
 		Vector2(cx, cz - d * 0.5 + inset),
-		Vector2(cx - w * 0.5 + inset, cz),
 		Vector2(cx + w * 0.5 - inset, cz),
+		Vector2(cx - w * 0.5 + inset, cz),
 	]
-	for spot: Vector2 in spots:
-		if g_rng.randf() < 0.5:
-			_add_tree(batch, spot.x, spot.y, g_rng, trunk_mat, leaf_mat)
+	for i: int in 4:
+		if not open[i]:
+			_add_tree(batch, spots[i].x, spots[i].y, g_rng, trunk_mat, leaf_mat)
 
 
 ## A greybox tree: a slim trunk under a boxy canopy, standing on the sidewalk.
