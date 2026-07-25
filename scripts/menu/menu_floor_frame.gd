@@ -89,6 +89,9 @@ var _mat_dark: StandardMaterial3D
 var _mat_line: StandardMaterial3D
 var _text: GlowText3D
 var _light: OmniLight3D
+## Batches this floor's boxes into one mesh per material (v1.57 perf pass), so a
+## floor is ~1–2 draw calls instead of dozens. Collision stays per box.
+var _batch: BoxBatcher = BoxBatcher.new()
 
 
 func _ready() -> void:
@@ -102,6 +105,7 @@ func _ready() -> void:
 			_build_under_construction()
 		_:
 			_build_open()
+	_batch.commit_into(self)
 
 
 ## The side-view keyboard mode highlights the floor under the cursor: the
@@ -355,14 +359,9 @@ func _build_zone() -> void:
 
 func _add_box(size: Vector3, at: Vector3, material: Material, solid: bool,
 		yaw: float = 0.0) -> void:
-	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
-	var box: BoxMesh = BoxMesh.new()
-	box.size = size
-	box.material = material
-	mesh_instance.mesh = box
-	mesh_instance.position = at
-	mesh_instance.rotation = Vector3(0.0, yaw, 0.0)
-	add_child(mesh_instance)
+	# Visual mesh is batched by material (committed once in _ready); only the
+	# collision shape is a per-box node.
+	_batch.add(size, at, material, yaw)
 	if solid:
 		var shape: BoxShape3D = BoxShape3D.new()
 		shape.size = size

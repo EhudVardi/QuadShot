@@ -5855,3 +5855,34 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     are in, headless-verified; the user is about to fly/tune. Open: a perf pass
     (LOD/culling) before scaling the city up, then ground life, then B3
     interiors."**
+  - **v1.56 FLOWN & APPROVED** ("awesome"): the CITY overlay works (sliders /
+    Regenerate / Re-roll). Confirmed the section shows in the city map AND the
+    dev room (any scene with a CityLayout), not just the city map. Committed.
+
+- **2026-07-25 — v1.57. Perf pass: mesh-batching the buildings (built + headless-
+  MEASURED, pending the user's flight).** The 6×5 FPS drop was a draw-call
+  explosion: every wall, pier, window-bar, mullion, column, beam, joist, slab and
+  liner was its own `MeshInstance3D` (`_add_box`), so one 25-floor building was
+  ~800–1000 draw calls and the 4×5 city measured **10,314** MeshInstance3D.
+  - **The fix — `BoxBatcher` (`scripts/menu/box_batcher.gd`):** a RefCounted that
+    accumulates unit boxes by material via `SurfaceTool.append_from` (offset/yaw
+    baked into the mesh) and commits one merged `MeshInstance3D` per material.
+    `MenuFloorFrame._add_box` now batches the visual and commits once in `_ready`
+    (a floor → ~1–2 draw calls, not dozens); `MenuBuilding` batches all slabs +
+    all liners into one mesh each. Collision is untouched (still per-box).
+  - **MEASURED: 10,314 → 651 MeshInstance3D at 4×5 — a 15.8× draw-call cut**
+    (the rare headless-measurable win; FPS-in-engine is still the user's to
+    confirm). All checks PASS (menu/world_building/building_gen/city_layout);
+    city_map + menu_tower + dev_map boot clean.
+  - **Why it's visually identical:** the `neon_structure` slab shader is
+    world-space (`MODEL_MATRIX * VERTEX`); baking the box offset into a
+    frame-local mesh and letting the MeshInstance's transform place it preserves
+    the exact world position, so the seams don't shift. Standard-material walls/
+    lines/glass keep their UVs/normals through `append_from`.
+  - **Still per-box:** collision (4,183 shapes at 4×5) — untouched, static, and
+    not the render bottleneck. If node-count/physics ever bites, merging a
+    building's solids into one concave shape is the next lever; not needed yet.
+  - **To resume: "Continue QuadShot per v1.57 — building meshes are batched by
+    material (15.8× fewer draw calls, headless-measured); the user is about to
+    fly it to confirm FPS is solid again and push the city bigger via the CITY
+    overlay. Then: ground life, then B3 interiors."**

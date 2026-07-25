@@ -68,9 +68,13 @@ func _ready() -> void:
 	var body: StaticBody3D = StaticBody3D.new()
 	add_child(body)
 	var pitch: float = _pitch()
+	# All slabs + all liners batch into one mesh each (v1.57 perf pass) instead
+	# of two MeshInstances per slab; collision stays per slab.
+	var slab_batch: BoxBatcher = BoxBatcher.new()
 	for k: int in _floors.size() + 1:
-		_add_slab(body, k * pitch + SLAB_THICK * 0.5, _slab_footprint(k),
+		_add_slab(slab_batch, body, k * pitch + SLAB_THICK * 0.5, _slab_footprint(k),
 				slab_material, void_material)
+	slab_batch.commit_into(body)
 	for k: int in _floors.size():
 		var spec: Dictionary = _floors[k]
 		var frame: MenuFloorFrame = MenuFloorFrame.new()
@@ -106,28 +110,17 @@ func _floor_footprint(k: int) -> float:
 	return _floors[idx].get("footprint", DEFAULT_FOOTPRINT)
 
 
-func _add_slab(body: StaticBody3D, at_y: float, fp: float,
+func _add_slab(batch: BoxBatcher, body: StaticBody3D, at_y: float, fp: float,
 		slab_material: Material, void_material: Material) -> void:
 	var slab_size: Vector3 = Vector3(fp + SLAB_LIP, SLAB_THICK, fp + SLAB_LIP)
-	var slab: MeshInstance3D = MeshInstance3D.new()
-	var slab_mesh: BoxMesh = BoxMesh.new()
-	slab_mesh.size = slab_size
-	slab_mesh.material = slab_material
-	slab.mesh = slab_mesh
-	slab.position = Vector3(0.0, at_y, 0.0)
-	body.add_child(slab)
+	var at: Vector3 = Vector3(0.0, at_y, 0.0)
+	batch.add(slab_size, at, slab_material)
 	var collision: CollisionShape3D = CollisionShape3D.new()
 	var shape: BoxShape3D = BoxShape3D.new()
 	shape.size = slab_size
 	collision.shape = shape
-	collision.position = Vector3(0.0, at_y, 0.0)
+	collision.position = at
 	body.add_child(collision)
 	# The void liner (v1.42): a near-black skin nested inside the slab, so a
 	# camera clipping the slab surface sees darkness, never the next floor.
-	var liner: MeshInstance3D = MeshInstance3D.new()
-	var liner_mesh: BoxMesh = BoxMesh.new()
-	liner_mesh.size = Vector3(fp + LINER_LIP, LINER_THICK, fp + LINER_LIP)
-	liner_mesh.material = void_material
-	liner.mesh = liner_mesh
-	liner.position = Vector3(0.0, at_y, 0.0)
-	body.add_child(liner)
+	batch.add(Vector3(fp + LINER_LIP, LINER_THICK, fp + LINER_LIP), at, void_material)
