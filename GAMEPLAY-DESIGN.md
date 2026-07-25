@@ -6034,3 +6034,24 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     seal outward (entrances follow centrality), verified directional; the user is
     about to fly. Next: greenery/props starting with NATURAL (then
     cyberpunk-centre / urban-edge by zone), then B3 interiors."**
+
+- **2026-07-25 — v1.63. Ground life: natural greenery (built + headless-verified,
+  pending flight).** The first greenery bite — and the one that finally gives
+  PLAZAS their identity. NATURAL style (matte trees + planters, not neon), placed
+  everywhere for now; the zonal cyberpunk-centre / urban-edge split is the next
+  layer on top.
+  - **Plazas → little parks:** a jittered grid of mostly greybox trees (slim
+    trunk + boxy canopy) plus the odd planter (box + hedge) on the raised slab —
+    a "plaza" now reads as a garden, resolving the v1.58 naming confusion.
+  - **Occupied blocks → street trees:** ~2 trees at the curb edges, clear of the
+    centred building.
+  - **Cheap + deterministic:** a private greenery seed (layout_seed·977+13) so
+    the building RNG stream is untouched (the city is byte-identical, greenery
+    lands on top); all trees/planters batch into 3 meshes (trunk / foliage /
+    planter) for the whole grid — measured +3 draw calls at 4×5 (570 → 573).
+    Non-colliding scenery for now.
+  - `city_layout_check` PASS; city_map + dev_map boot clean.
+  - **To resume: "Continue QuadShot per v1.63 — natural greenery (park plazas +
+    street trees, matte, +3 draw calls) is in; the user is about to fly. Next:
+    zonal styling (cyberpunk greenery in the centre, urban hardscape at the
+    edges) layered on the same placement, then B3 interiors."**

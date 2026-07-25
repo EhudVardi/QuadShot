@@ -106,6 +106,14 @@ const STREETLIGHT_CORE_RADIUS: float = 24.0
 ## less entrance" rule. Gentle: axis-aligned edge buildings seal only their one
 ## fully-outward side; diagonal ones seal the outward pair.
 const FACING_CUT: float = -0.35
+## Natural greenery (v1.63 ground life): matte trees + planters — NOT neon (the
+## user's "natural" style). Plazas become little parks; sidewalks get street
+## trees. Batched into 3 meshes (trunk / foliage / planter) for the whole grid.
+const TREE_TRUNK_COLOR: Color = Color(0.16, 0.12, 0.09)
+const TREE_LEAF_COLOR: Color = Color(0.14, 0.34, 0.16)
+const PLANTER_COLOR: Color = Color(0.18, 0.19, 0.21)
+## Trees stand about this far apart when a plaza is filled like a park.
+const TREE_SPACING: float = 6.0
 
 ## A block is either built on, a raised empty plaza, or a sunken marked lot.
 enum Lot { OCCUPIED, PLAZA, SUNKEN }
@@ -141,6 +149,7 @@ func rebuild() -> void:
 	_build_roads()
 	_build_sidewalks(lots)
 	_build_streetlights()
+	_build_greenery(lots)
 	for r: int in rows:
 		for c: int in cols:
 			if lots[r][c] == Lot.OCCUPIED:
@@ -432,6 +441,97 @@ func _add_streetlight(batch: BoxBatcher, x: float, z: float,
 			Vector3(x, STREETLIGHT_POLE_H * 0.5, z), pole_mat)
 	batch.add(Vector3(STREETLIGHT_LAMP, STREETLIGHT_LAMP, STREETLIGHT_LAMP),
 			Vector3(x, STREETLIGHT_POLE_H, z), lamp_mat)
+
+
+## Natural greenery (v1.63): plazas become little parks (a jittered grid of trees
+## + planters), occupied blocks get a couple of street trees at the curb. Uses a
+## private seed so it never disturbs the building RNG stream — the city is
+## byte-identical, greenery just lands on top. All batched (3 draw calls).
+func _build_greenery(lots: Array) -> void:
+	var g_rng := RandomNumberGenerator.new()
+	g_rng.seed = layout_seed * 977 + 13
+	var trunk_mat := StandardMaterial3D.new()
+	trunk_mat.albedo_color = TREE_TRUNK_COLOR
+	trunk_mat.roughness = 0.9
+	var leaf_mat := StandardMaterial3D.new()
+	leaf_mat.albedo_color = TREE_LEAF_COLOR
+	leaf_mat.roughness = 0.85
+	var planter_mat := StandardMaterial3D.new()
+	planter_mat.albedo_color = PLANTER_COLOR
+	planter_mat.roughness = 0.9
+	var batch := BoxBatcher.new()
+	for r: int in rows:
+		for c: int in cols:
+			var x: float = _col_x[c]
+			var z: float = _row_z[r]
+			var w: float = _col_w[c]
+			var d: float = _row_d[r]
+			match lots[r][c]:
+				Lot.PLAZA:
+					_fill_plaza(batch, g_rng, x, z, w, d, trunk_mat, leaf_mat, planter_mat)
+				Lot.OCCUPIED:
+					_dress_sidewalk(batch, g_rng, x, z, w, d, trunk_mat, leaf_mat)
+	batch.commit_into(self)
+
+
+## A plaza filled like a small park: a jittered grid of mostly trees plus the odd
+## planter, on the raised slab.
+func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
+		cz: float, w: float, d: float, trunk_mat: Material, leaf_mat: Material,
+		planter_mat: Material) -> void:
+	var inset: float = 3.0
+	var iw: float = w - 2.0 * inset
+	var id: float = d - 2.0 * inset
+	if iw < 2.0 or id < 2.0:
+		return
+	var nx: int = clampi(int(round(iw / TREE_SPACING)), 1, 4)
+	var nz: int = clampi(int(round(id / TREE_SPACING)), 1, 4)
+	for i: int in nx:
+		for j: int in nz:
+			var fx: float = 0.5 if nx == 1 else float(i) / float(nx - 1)
+			var fz: float = 0.5 if nz == 1 else float(j) / float(nz - 1)
+			var px: float = cx - iw * 0.5 + iw * fx + g_rng.randf_range(-0.8, 0.8)
+			var pz: float = cz - id * 0.5 + id * fz + g_rng.randf_range(-0.8, 0.8)
+			if g_rng.randf() < 0.75:
+				_add_tree(batch, px, pz, g_rng, trunk_mat, leaf_mat)
+			else:
+				_add_planter(batch, px, pz, planter_mat, leaf_mat)
+
+
+## A couple of street trees near an occupied block's curb (clear of the centered
+## building). Roughly half the four edge-midpoints get one.
+func _dress_sidewalk(batch: BoxBatcher, g_rng: RandomNumberGenerator, cx: float,
+		cz: float, w: float, d: float, trunk_mat: Material, leaf_mat: Material) -> void:
+	var inset: float = 1.5
+	var spots: Array = [
+		Vector2(cx, cz + d * 0.5 - inset),
+		Vector2(cx, cz - d * 0.5 + inset),
+		Vector2(cx - w * 0.5 + inset, cz),
+		Vector2(cx + w * 0.5 - inset, cz),
+	]
+	for spot: Vector2 in spots:
+		if g_rng.randf() < 0.5:
+			_add_tree(batch, spot.x, spot.y, g_rng, trunk_mat, leaf_mat)
+
+
+## A greybox tree: a slim trunk under a boxy canopy, standing on the sidewalk.
+func _add_tree(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerator,
+		trunk_mat: Material, leaf_mat: Material) -> void:
+	var h: float = g_rng.randf_range(3.0, 4.5)
+	var trunk_h: float = h * 0.4
+	var canopy_h: float = h - trunk_h
+	var canopy_w: float = g_rng.randf_range(1.6, 2.2)
+	batch.add(Vector3(0.3, trunk_h, 0.3), Vector3(x, CURB_HEIGHT + trunk_h * 0.5, z),
+			trunk_mat)
+	batch.add(Vector3(canopy_w, canopy_h, canopy_w),
+			Vector3(x, CURB_HEIGHT + trunk_h + canopy_h * 0.5, z), leaf_mat)
+
+
+## A low planter box with a hedge on top.
+func _add_planter(batch: BoxBatcher, x: float, z: float, planter_mat: Material,
+		leaf_mat: Material) -> void:
+	batch.add(Vector3(1.4, 0.5, 1.4), Vector3(x, CURB_HEIGHT + 0.25, z), planter_mat)
+	batch.add(Vector3(1.2, 0.5, 1.2), Vector3(x, CURB_HEIGHT + 0.75, z), leaf_mat)
 
 
 func _add_line(size: Vector3, at: Vector3, mat: Material) -> void:
