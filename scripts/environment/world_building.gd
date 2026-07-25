@@ -11,16 +11,17 @@ extends Node3D
 ## zone). The dev room places ONE as a specimen; the city (later) places many.
 
 @export var building_seed: int = 1
-@export var target_floors: int = 11
+@export var target_floors: int = 28
 ## Enterable (windowed) floors, spread up the tower by the generator's bands;
 ## every other floor fills sealed / under-construction by the seed.
-@export var open_floors: int = 4
-## Generous by design (B3: "windows generous") — you fly straight through.
-@export var window_size: Vector2 = Vector2(4.5, 2.8)
-@export var sill: float = 0.5
-## Building width (B3 variety, v1.48). Uniform across this building's floors
-## for now; setbacks (per-floor footprint) arrive in the next step.
-@export var footprint: float = 12.0
+@export var open_floors: int = 5
+## Kept small against the big walls (v1.50 scale pass): a window you thread,
+## not an open bay — so floors read as solid architecture, entry is a skill.
+@export var window_size: Vector2 = Vector2(3.0, 2.4)
+@export var sill: float = 0.8
+## Big-world footprint (v1.50): the drone is a 0.28 m box, these are proper
+## towers. Uniform across a building's floors for now; setbacks arrive next.
+@export var footprint: float = 24.0
 
 
 func _ready() -> void:

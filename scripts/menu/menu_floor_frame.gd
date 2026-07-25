@@ -55,6 +55,16 @@ const SCAFFOLD_ENERGY: float = 2.0
 const SCAFFOLD_POST: float = 0.15
 const SCAFFOLD_BEAM: float = 0.12
 const WORK_LIGHT_ENERGY: float = 0.35
+## Scaffold posts step around the perimeter roughly this far apart; big
+## footprints get a denser cage (the user's "support beams at the edges").
+const SCAFFOLD_POST_SPACING: float = 7.0
+const SCAFFOLD_RINGS: int = 4
+## Faint mullion grid on sealed glass so a closed floor reads as a glazed
+## curtain wall, not a blank slab. Dim (energy <1 → no bloom), grid ~4 m.
+const MULLION: float = 0.08
+const MULLION_COLOR: Color = Color(0.3, 0.45, 0.6)
+const MULLION_ENERGY: float = 0.9
+const MULLION_SPACING: float = 4.0
 
 @export var state: StringName = STATE_OPEN
 @export var leaf_id: StringName = &""
@@ -111,39 +121,62 @@ func _build_open() -> void:
 	window_size.x = minf(window_size.x, footprint - 2.0 * (WALL + MIN_PIER))
 	_build_walls()
 	_build_window_line()
-	_build_light()
 	# Menu furniture — only on a real menu leaf. A world building's open floor
 	# (no leaf) is a plain windowed, enterable floor: no label, commit zone or
-	# exit chevrons, just an opening lit for ingress.
+	# exit chevrons. It also skips the per-floor interior light (that scales to
+	# many open floors), lit instead by the environment through its openings;
+	# the menu keeps its dramatic light for selection feedback.
 	if leaf_id != &"":
+		_build_light()
 		_build_chevrons()
 		_build_label()
 		_build_zone()
 
 
-## SEALED (B4): a full glazed facade with no opening. The silhouette stays
-## solid so the pilot flies past, never into; the side walls match the open
-## floors so a building's side profile is continuous. No light — glass, dark.
+## SEALED (B4): a closed glass box — flown past, never into. All four faces
+## are glazed and carry a faint mullion grid so a closed floor reads as a
+## curtain wall, not a blank slab (the user's "make closed floors interesting").
+## No light — dark glass.
 func _build_sealed() -> void:
 	var glass: StandardMaterial3D = StandardMaterial3D.new()
 	glass.albedo_color = SEALED_ALBEDO
 	glass.metallic = 0.35
 	glass.roughness = 0.45
+	var grid: StandardMaterial3D = StandardMaterial3D.new()
+	grid.albedo_color = MULLION_COLOR
+	grid.emission_enabled = true
+	grid.emission = MULLION_COLOR
+	grid.emission_energy_multiplier = MULLION_ENERGY
 	var mid_y: float = INTERIOR_HEIGHT * 0.5
-	var z_wall: float = footprint * 0.5 - WALL * 0.5
-	for side: float in [1.0, -1.0]:
-		_add_box(Vector3(footprint, INTERIOR_HEIGHT, WALL),
-				Vector3(0.0, mid_y, z_wall * side), glass, true)
+	var wall: float = footprint * 0.5 - WALL * 0.5
 	var side_len: float = footprint - 2.0 * WALL
+	# Front / back span the full width; sides fit between them.
 	for side: float in [1.0, -1.0]:
-		_add_box(Vector3(WALL, INTERIOR_HEIGHT, side_len),
-				Vector3((footprint * 0.5 - WALL * 0.5) * side, mid_y, 0.0),
-				_mat_dark, true)
+		_add_box(_axis_size(true, footprint, INTERIOR_HEIGHT, WALL),
+				_axis_pos(true, 0.0, mid_y, wall * side), glass, true)
+		_add_box(_axis_size(false, side_len, INTERIOR_HEIGHT, WALL),
+				_axis_pos(false, 0.0, mid_y, wall * side), glass, true)
+		_build_facade_grid(true, side, footprint, grid)
+		_build_facade_grid(false, side, side_len, grid)
 
 
-## UNDER CONSTRUCTION (B4): no facade at all — a bare amber scaffold frame
-## (corner posts + two perimeter rings) over the slab MenuBuilding already
-## lays. Reads as honest texture, no entry (no window, label or zone).
+## A curtain-wall grid on one sealed face: vertical mullions every ~4 m plus a
+## horizontal band at mid height, laid just outside the glass.
+func _build_facade_grid(along_z: bool, side: float, span: float,
+		mat: Material) -> void:
+	var depth: float = (footprint * 0.5 + 0.05) * side
+	var divisions: int = maxi(2, int(round(span / MULLION_SPACING)))
+	for i: int in range(1, divisions):
+		var a: float = -span * 0.5 + span * float(i) / float(divisions)
+		_add_box(_axis_size(along_z, MULLION, INTERIOR_HEIGHT, MULLION),
+				_axis_pos(along_z, a, INTERIOR_HEIGHT * 0.5, depth), mat, false)
+	_add_box(_axis_size(along_z, span, MULLION, MULLION),
+			_axis_pos(along_z, 0.0, INTERIOR_HEIGHT * 0.5, depth), mat, false)
+
+
+## UNDER CONSTRUCTION (B4): a bare amber scaffold cage over the slab — posts
+## stepping around the whole perimeter (dense at the edges, scaled to the
+## footprint) with several ring beams up the height. No facade, no entry.
 func _build_under_construction() -> void:
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
 	mat.albedo_color = SCAFFOLD_ALBEDO
@@ -152,18 +185,23 @@ func _build_under_construction() -> void:
 	mat.emission_energy_multiplier = SCAFFOLD_ENERGY
 	var px: float = footprint * 0.5 - WALL
 	var mid_y: float = INTERIOR_HEIGHT * 0.5
-	# Corner posts are the blockers; the ring beams are visual only.
-	for sx: float in [1.0, -1.0]:
-		for sz: float in [1.0, -1.0]:
+	var segments: int = maxi(1, int(round(2.0 * px / SCAFFOLD_POST_SPACING)))
+	# Posts step along all four edges (corners shared) — the blockers.
+	for i: int in segments + 1:
+		var t: float = -px + 2.0 * px * float(i) / float(segments)
+		for side: float in [1.0, -1.0]:
 			_add_box(Vector3(SCAFFOLD_POST, INTERIOR_HEIGHT, SCAFFOLD_POST),
-					Vector3(px * sx, mid_y, px * sz), mat, true)
-	for ring_y: float in [mid_y, INTERIOR_HEIGHT - SCAFFOLD_BEAM]:
-		for sz: float in [1.0, -1.0]:
+					Vector3(t, mid_y, px * side), mat, true)
+			_add_box(Vector3(SCAFFOLD_POST, INTERIOR_HEIGHT, SCAFFOLD_POST),
+					Vector3(px * side, mid_y, t), mat, true)
+	# Perimeter ring beams up the height — visual, the cage's belts.
+	for level: int in range(1, SCAFFOLD_RINGS + 1):
+		var ry: float = INTERIOR_HEIGHT * float(level) / float(SCAFFOLD_RINGS)
+		for side: float in [1.0, -1.0]:
 			_add_box(Vector3(2.0 * px, SCAFFOLD_BEAM, SCAFFOLD_BEAM),
-					Vector3(0.0, ring_y, px * sz), mat, false)
-		for sx: float in [1.0, -1.0]:
+					Vector3(0.0, ry, px * side), mat, false)
 			_add_box(Vector3(SCAFFOLD_BEAM, SCAFFOLD_BEAM, 2.0 * px),
-					Vector3(px * sx, ring_y, 0.0), mat, false)
+					Vector3(px * side, ry, 0.0), mat, false)
 	# A dim amber work-light so the skeleton reads at night.
 	var work: OmniLight3D = OmniLight3D.new()
 	work.position = Vector3(0.0, mid_y, 0.0)

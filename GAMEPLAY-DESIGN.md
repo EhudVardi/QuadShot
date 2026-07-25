@@ -5658,3 +5658,37 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     after a session cut: "Continue QuadShot per v1.49 — building variety flown;
     the SCALE pass (bigger buildings + world + tighter windows) is next, then
     setbacks."**
+
+- **2026-07-25 — v1.50. The SCALE pass: the world is big now, and the buildings
+  are richer.** Two flights (scale, then richness), both approved — "towers feel
+  larger as they should," "buildings feel big and high," "open/close fine,"
+  "FPS flowing great."
+  - **Big-world scale**: WorldBuilding defaults jumped (footprint 12 → 24, 11 →
+    28 floors) and the window tightened (4.5×2.8 → 3.0×2.4), so it reads as a
+    punched opening in a big wall, not an open bay — floors are solid, entry is a
+    skill. The dev-room city is five towers, footprint 22–36 m, 16–40 floors,
+    64–160 m tall.
+  - **Taller → wider** (the user's rule): footprints track height across the
+    cluster, with variation. **Open > closed**: enterable floors are now the
+    majority. **Denser scaffolding**: under-construction floors are a full
+    perimeter cage (posts stepping around every edge, scaled to footprint, four
+    ring beams). **Closed floors** are glazed on all four sides with a faint
+    mullion grid (curtain-wall, not a blank slab).
+  - **Perf**: the per-floor interior light became MENU-ONLY — world open floors
+    are lit by the environment through their openings, so an open-floor majority
+    doesn't add ~80 lights. FPS held. The crash wall was relocated deep (z-200)
+    to clear the city footprint.
+  - **New backlog from feedback (noted, not yet built):**
+    - **Real STREETS need a layout, not just gaps** — "no continuity (a road, a
+      walkway); they're not arranged by street blocks." The scatter is buildings,
+      not a city. Wants a procedural CITY LAYOUT: a road / block grid the
+      generator places buildings into (the B4 "city" proper).
+    - **Under-construction floors read as the building FLOATING** over empty air
+      (you see through the skeletal floor). Likely fix: place uc floors at the
+      TOP of the building — the crown being built, realistic, nothing floats
+      above them — a generator placement rule.
+  - **Next (the user's call): VARIED FLOOR HEIGHT** (per-building interior height
+    → skyline + interior variety), then setbacks, then the city-layout grid.
+    **To resume after a session cut: "Continue QuadShot per v1.50 — the scale
+    pass is in; varied floor height is next, then setbacks and a real
+    street-grid city layout."**

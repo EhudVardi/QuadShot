@@ -250,56 +250,48 @@ shape = SubResource("shape_tower_m")
 
 [node name="GeneratedCity" type="Node3D" parent="."]
 
-[node name="B1" type="Node3D" parent="GeneratedCity"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -58)
+[node name="Q1" type="Node3D" parent="GeneratedCity"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -80)
 script = ExtResource("6_wbld")
 building_seed = 16
-footprint = 12.0
-target_floors = 11
-open_floors = 4
+footprint = 24.0
+target_floors = 20
+open_floors = 11
 
-[node name="B2" type="Node3D" parent="GeneratedCity"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -34, 0, -74)
+[node name="Q2" type="Node3D" parent="GeneratedCity"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 0, -82)
 script = ExtResource("6_wbld")
 building_seed = 7
-footprint = 9.0
-target_floors = 8
-open_floors = 3
+footprint = 29.0
+target_floors = 28
+open_floors = 15
 
-[node name="B3" type="Node3D" parent="GeneratedCity"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -80)
+[node name="Q3" type="Node3D" parent="GeneratedCity"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -105, 0, -92)
 script = ExtResource("6_wbld")
 building_seed = 23
-footprint = 16.0
-target_floors = 15
-open_floors = 5
+footprint = 36.0
+target_floors = 40
+open_floors = 22
 
-[node name="B4" type="Node3D" parent="GeneratedCity"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26, 0, -100)
+[node name="Q4" type="Node3D" parent="GeneratedCity"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, -150)
 script = ExtResource("6_wbld")
 building_seed = 4
-footprint = 10.0
-target_floors = 6
-open_floors = 2
+footprint = 22.0
+target_floors = 16
+open_floors = 9
 
-[node name="B5" type="Node3D" parent="GeneratedCity"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -104)
+[node name="Q5" type="Node3D" parent="GeneratedCity"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -72, 0, -155)
 script = ExtResource("6_wbld")
 building_seed = 11
-footprint = 13.0
-target_floors = 18
-open_floors = 6
-
-[node name="B6" type="Node3D" parent="GeneratedCity"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -90)
-script = ExtResource("6_wbld")
-building_seed = 19
-footprint = 8.0
-target_floors = 13
-open_floors = 4
+footprint = 27.0
+target_floors = 24
+open_floors = 13
 
 [node name="CrashWall" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -120)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -200)
 
 [node name="Mesh" type="MeshInstance3D" parent="CrashWall"]
 mesh = SubResource("mesh_wall")
