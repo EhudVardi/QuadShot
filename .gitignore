@@ -3,3 +3,6 @@
 
 # Misc
 *.tmp
+
+# Brainstorming visual-companion scratch (design sessions)
+.superpowers/
