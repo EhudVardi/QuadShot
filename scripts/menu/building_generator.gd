@@ -16,36 +16,54 @@ extends RefCounted
 
 ## Chance a filler (closed) floor is under construction rather than sealed — a
 ## minority, so the silhouette reads mostly solid with the occasional gap.
+## (Menu mode only; a world building wears its scaffold as a top crown instead.)
 const UNDER_CONSTRUCTION_CHANCE: float = 0.3
+## Tallest scaffold crown a world building can wear (v1.51 fix): a real building
+## is built bottom-up, so the floors still under construction sit at the TOP —
+## nothing floats over open air.
+const CROWN_MAX: int = 5
 
 
 ## required_leaves: open-floor spec dicts (leaf/label/window/sill/pixel, maybe
 ## submenu) — each is GUARANTEED exactly one open floor. target_floors: total
-## height; clamped up if it cannot hold every required leaf. Returns the
+## height; clamped up if it cannot hold every required leaf. crown_at_top: world
+## mode — under-construction floors cluster as a scaffold crown at the top
+## (else, menu mode, they sprinkle among the sealed floors). Returns the
 ## bottom-to-top floor list MenuBuilding.create() consumes.
 static func generate(seed_value: int, required_leaves: Array,
-		target_floors: int) -> Array:
+		target_floors: int, crown_at_top: bool = false) -> Array:
 	var open_count: int = required_leaves.size()
 	var floor_count: int = maxi(target_floors, open_count)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 
-	# Each required leaf owns one vertical BAND, so the options spread up the
-	# tower instead of clumping; the seed places the open floor inside its band.
-	# Bands are disjoint index ranges, so every band's pick is distinct — the
-	# "exactly one open floor per leaf" guarantee falls out for free. Leaf
-	# order is preserved bottom-to-top (predictable menu navigation).
+	# A world building's scaffold is a CROWN at the top — the floors still being
+	# built. Sized off the seed and capped so the open floors still fit below.
+	# Menu mode keeps crown 0 and sprinkles under-construction floors instead,
+	# so its RNG draw order (and every existing menu building) is unchanged.
+	var crown: int = 0
+	if crown_at_top:
+		crown = mini(rng.randi_range(0, CROWN_MAX), floor_count - open_count)
+	var usable: int = floor_count - crown
+
+	# Each required leaf owns one vertical BAND within the usable (non-crown)
+	# floors, so the options spread instead of clumping; the seed places the open
+	# floor inside its band. Bands are disjoint, so every pick is distinct — the
+	# "exactly one open floor per leaf" guarantee falls out for free. Leaf order
+	# is preserved bottom-to-top (predictable menu navigation).
 	var open_at: Dictionary = {}
 	for i: int in open_count:
-		var band_start: int = i * floor_count / open_count
-		var band_end: int = (i + 1) * floor_count / open_count
+		var band_start: int = i * usable / open_count
+		var band_end: int = (i + 1) * usable / open_count
 		open_at[rng.randi_range(band_start, band_end - 1)] = required_leaves[i]
 
 	var floors: Array = []
 	for k: int in floor_count:
-		if open_at.has(k):
+		if k >= usable:
+			floors.append({"state": MenuFloorFrame.STATE_UNDER_CONSTRUCTION})
+		elif open_at.has(k):
 			floors.append(open_at[k])
-		elif rng.randf() < UNDER_CONSTRUCTION_CHANCE:
+		elif not crown_at_top and rng.randf() < UNDER_CONSTRUCTION_CHANCE:
 			floors.append({"state": MenuFloorFrame.STATE_UNDER_CONSTRUCTION})
 		else:
 			floors.append({"state": MenuFloorFrame.STATE_SEALED})

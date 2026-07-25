@@ -33,8 +33,10 @@ func _ready() -> void:
 	var open_specs: Array = []
 	for _i: int in open_floors:
 		open_specs.append({"window": window_size, "sill": sill})
+	# crown_at_top: scaffold floors cluster at the top (the crown being built),
+	# so a world building never appears to float over open air.
 	var floors: Array = BuildingGenerator.generate(
-			building_seed, open_specs, target_floors)
+			building_seed, open_specs, target_floors, true)
 	# Stamp world-building geometry onto every floor (open + filler): the
 	# footprint sizes walls and slabs, and crossed windows make open floors
 	# enterable from any direction (not just front/back like the menu).

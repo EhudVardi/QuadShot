@@ -54,7 +54,24 @@ func _initialize() -> void:
 	if not differs:
 		return _fail("seed does not affect the building (11 seeds identical)")
 
-	print("[building_gen_check] determinism, guarantees, seed sensitivity — all ok")
+	# crown_at_top: any under-construction floors form a contiguous crown at the
+	# very top (a world building is built bottom-up — nothing floats mid-air).
+	var any_crown: bool = false
+	for s: int in range(1, 30):
+		var crowned: Array = BuildingGenerator.generate(s, leaves, 12, true)
+		var seen_uc: bool = false
+		for spec: Dictionary in crowned:  # bottom -> top
+			var st: StringName = spec.get("state", MenuFloorFrame.STATE_OPEN)
+			if st == MenuFloorFrame.STATE_UNDER_CONSTRUCTION:
+				seen_uc = true
+				any_crown = true
+			elif seen_uc:
+				return _fail("crown_at_top: under-construction must be a top "
+						+ "crown, seed %d put a %s above it" % [s, st])
+	if not any_crown:
+		return _fail("crown_at_top produced no crowns across 29 seeds")
+
+	print("[building_gen_check] determinism, guarantees, seed + crown — all ok")
 	print("[building_gen_check] PASS")
 	quit(0)
 
