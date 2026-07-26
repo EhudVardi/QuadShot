@@ -174,14 +174,20 @@ func _build_open() -> void:
 	# A narrow footprint can't fit a wide window and still leave piers — clamp
 	# the width so the opening always has a wall either side.
 	window_size.x = minf(window_size.x, footprint - 2.0 * (WALL + MIN_PIER))
-	# Glass curtain-wall (B3 Tier A): the solid wall segments become a reflective
-	# glazed panel that catches the neon city, so the room reads as window walls.
+	# Glass curtain-wall (B3): the solid wall segments become actual TRANSPARENT
+	# glass — you see through to the city (metallic glaze read as nothing without
+	# reflections in the scene). A faint blue tint + sub-bloom emissive rim so the
+	# pane reads even against the dark interior; culling off so both faces show.
+	# Collision stays (you fly the opening, not through the glass).
 	if glass:
 		_mat_wall = StandardMaterial3D.new()
-		_mat_wall.albedo_color = SEALED_ALBEDO
-		_mat_wall.metallic = 0.6
-		_mat_wall.metallic_specular = 0.85
-		_mat_wall.roughness = 0.22
+		_mat_wall.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_mat_wall.albedo_color = Color(0.35, 0.5, 0.7, 0.18)
+		_mat_wall.roughness = 0.12
+		_mat_wall.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mat_wall.emission_enabled = true
+		_mat_wall.emission = Color(0.2, 0.45, 0.7)
+		_mat_wall.emission_energy_multiplier = 0.5
 	_build_walls()
 	_build_window_line()
 	# Menu furniture — only on a real menu leaf. A world building's open floor
