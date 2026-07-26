@@ -102,6 +102,7 @@ script = ExtResource("7_city")
 layout_seed = 42
 cols = 4
 rows = 5
+interiors_enabled = true
 block_size = 32.0
 road_width = 16.0
 front_z = -50.0

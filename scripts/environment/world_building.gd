@@ -48,6 +48,14 @@ extends Node3D
 @export var interior_lod: bool = false
 ## Interior tuning knobs passed to InteriorGenerator (empty = its defaults).
 @export var interior_knobs: Dictionary = {}
+## Distance LOD (B3, spec §9): furnish open floors only within this radius of the
+## drone; free them beyond. Hysteresis avoids thrashing at the boundary.
+@export var interior_lod_radius: float = 140.0
+@export var interior_lod_hysteresis: float = 20.0
+
+## The player drone (group "player"), found lazily; interiors furnish near it.
+var _drone: Node3D = null
+var _furnished: bool = false
 
 
 ## The footprint of floor k of `total`, stepped down in discrete tiers from the
@@ -97,3 +105,31 @@ func _ready() -> void:
 			spec["district"] = district
 			spec["interior_lod_managed"] = interior_lod
 	add_child(MenuBuilding.create(floors))
+	# City LOD: only poll distance when this building manages its own interiors.
+	set_process(interior_lod)
+
+
+## Distance LOD driver: furnish open floors when the drone is within radius, free
+## them when it leaves (with hysteresis). No-op unless interior_lod is set.
+func _process(_delta: float) -> void:
+	if not interior_lod:
+		return
+	if _drone == null:
+		_drone = get_tree().get_first_node_in_group(&"player") as Node3D
+		if _drone == null:
+			return
+	var d: float = global_position.distance_to(_drone.global_position)
+	if not _furnished and d < interior_lod_radius:
+		_set_interiors(true)
+	elif _furnished and d > interior_lod_radius + interior_lod_hysteresis:
+		_set_interiors(false)
+
+
+func _set_interiors(on: bool) -> void:
+	_furnished = on
+	for frame: MenuFloorFrame in find_children("*", "MenuFloorFrame", true, false):
+		if frame.has_interior():
+			if on:
+				frame.build_interior()
+			else:
+				frame.clear_interior()
