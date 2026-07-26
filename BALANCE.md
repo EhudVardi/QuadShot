@@ -110,8 +110,19 @@ the economy) to go model or accept. NOT for: populating the table.
   and 0.99 with the fused flak shell, so any cell comparing the two is partly
   reporting the BOT. On Layer 1 alone flak is the *slowest* single-target
   weapon in the game (4 hits / 1.2 s on a raider vs the blaster's 2 / 0.1 s);
-  it only outranks the gun once this pilot's aim is applied. Until the human
-  aim bench (H.q4) lands, read every flak-vs-gun comparison as provisional.
+  it only outranks the gun once this pilot's aim is applied. **H.q4 settled
+  this** (drill flown 2026-07-24, design-doc v1.45): on the identical static
+  ruler the human reads **blaster 0.21** (17/81, radio, focused) against the
+  bot's 0.17 and **flak 1.03** (39/38) against the bot's 0.99 — hands and bot
+  agree on both weapons, so the flak-vs-gun gap is the WEAPONS, not the bot,
+  and those comparisons are no longer provisional. ~0.2 hits-per-shot is
+  simply what a ballistic chip gun costs against a small hitbox.
+- **What H.q4 did NOT settle: tracking a maneuvering target.** The drill's
+  ruler is a *static* raider, so it validates the aim datum and nothing past
+  it. `Blaster × Raider` remains rig-unflyable and hand-banded — the pilot
+  positions and fires but the gun director's *linear* lead is defeated by a
+  curved orbit (the v1.20 finding, calibration task #1, still open). Read a
+  discharged aim ruler as exactly that; it is not a discharged pilot.
 - **Human results are deviation data** (H5): they tell you how a skilled
   human deviates from the reference datum. Interesting, logged, labeled —
   and never merged into the base table. Hand-banded cells say out loud that

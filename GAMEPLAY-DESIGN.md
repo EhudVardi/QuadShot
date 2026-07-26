@@ -6252,3 +6252,83 @@ the silhouette flag is logged, not yet patched, by the user's own call.
   roster/frames/weapons exist at slice scale and the balance INSTRUMENT is built, but
   the difficulty-curve CALIBRATION (blocked on H.q4, the human aim drill) and SORTIE
   COMPOSITION (P2, the war↔fight loop) are unfinished — that is the resumption.
+
+- **2026-07-26 — v1.70. M6 resumed: the state audited, H.q4 found already
+  discharged, and P2 Beat 1 built — the MANIFEST (P4.7), where a garrison float
+  grows faces.** The user steered back to the war and asked for everything that
+  does not need their hands.
+  - **AUDIT FINDING — H.q4 was not a blocker; it was discharged two days ago.**
+    The session brief (and the resumption notes in v1.65/v1.67/v1.69) carried
+    "calibration is BLOCKED on H.q4, the human aim drill" forward. It is not:
+    the drill was flown 2026-07-24 and logged in **v1.45** — human blaster
+    **0.21** vs bot 0.17, flak **1.03** vs bot 0.99, missile ~1.0 both, i.e.
+    *"the human's delivery matches the reference pilot on all three weapons."*
+    What kept re-importing the phantom blocker is **BALANCE.md**, whose last
+    commit is the drill's *build* (v1.36), not its *flight*, so it still read
+    *"until the human aim bench lands, read every flak-vs-gun comparison as
+    provisional."* **Retired**, and replaced with the landed numbers.
+  - **The nuance that survives, now stated in BALANCE.md:** the drill's ruler is
+    a STATIC raider, so it discharged the *aim datum*, not *tracking*.
+    `Blaster × Raider` is still rig-unflyable and hand-banded — the gun
+    director's linear lead is defeated by a curved orbit (the v1.20 finding,
+    calibration task #1, still open). A discharged aim ruler is not a
+    discharged pilot.
+  - **The real blocker for the difficulty curve is P2, not the drill.** H6
+    defines SDI as a readout of *composed sorties*; with no composer there is
+    nothing to take a readout of, and H7 forbids the fallback (recalibrating the
+    abstract-garrison skeleton "would tune the wrong thing"). Re-measured this
+    session, the strategic layer still prints v1.7's brutal number verbatim:
+    **skill 0.9 → 4/40 wins, median 127 sorties** against the 25–40 target. That
+    debt cannot be retired until the war projects into real fights.
+  - **State of the joint, audited:** `WarSim`/`TheaterGenerator` are green,
+    deterministic and **entirely unwired** — referenced only by `war_config.gd`,
+    `war_soak.gd`, `war_trace.gd`. No game scene touches the war. No
+    `SortieComposer`, no `BiomeConfig`, no `sortie_spec`. P5 economy unbuilt.
+    Every ingredient exists in isolation; nothing connects them.
+  - **BUILT — `WarManifest` (`scripts/war/war_manifest.gd`), P4.7's projection.**
+    The abstract garrison becomes a named unit list, discharging P1.3's promise
+    ("an actual unit list, not an abstract strength 7") without the war-sim
+    carrying per-unit books. Pure static-func over the state dict, war/ doctrine:
+    - **A projection, never sim state.** Nothing stored; the tick engine never
+      calls it. Critically it does **not draw from the war's RNG stream** —
+      looking at a node must not move the war. Character is seeded from
+      (theater seed, node id), written out rather than via `hash()` so a
+      portable save (F4) re-projects identically on a future engine.
+    - **Node identity is persistent, quantity follows the war.** The SAM belt
+      fields turrets at tick 3 and at tick 300; only the counts track the
+      garrison float. That split is what makes the fog honest.
+    - **`strength_cost` is no longer inert** — the last known-inert field in the
+      bestiary block goes live as the exchange rate BALANCE.md always named.
+      **The swarm's unit is the pack** (P4.q5), so a gnat unit prices at
+      `strength_cost × pack_size` = 2.7, comparable to a turret's 2.0 — the
+      field keeps meaning "per body" while the manifest counts units.
+    - **The dent direction is the same price list read backwards** (P2.q4,
+      "every kill dents the node"): `dent_from_kills` takes BODIES, so a
+      half-cleared pack dents by half a pack — not nothing, not a whole one.
+    - **Doctrine × cover × escalation.** Node type picks the mix (contested
+      airspace fields no turrets — nothing to bolt one to; a depot gets no aegis
+      guard); biome cover tints it (gnats nest in cover 0.63 city vs 0.28
+      desert, raiders prefer open ground 0.72 desert vs 0.37 city); escalation
+      (P4.6) shifts toward the heavy end rather than adding bodies, clamped so
+      it can never *erase* a type (P1.7: pressure, not replacement).
+    - **Fog degrades detail before quantity** (P1.3): exact list → families →
+      the abstract strength, whose last stop is *exactly the number the war-sim
+      keeps*. The briefing runs against this, the sortie against truth.
+  - **`WarSim.escalation()` extracted** from `_enemy_operations` and made public
+    — the manifest grades mixes by the same clock the tick engine attacks with,
+    and two copies of that formula would let the war and its briefings disagree.
+    Behaviour-preserving: war_soak reprints byte-identical.
+  - **Verified:** new `scripts/tests/manifest_check.gd` — 100+ assertions, all
+    PASS. Purity/determinism/non-mutation, budget solvency on all 30 nodes of a
+    real theater (never overspends, always spends down to the last affordable
+    unit), the exchange rate both ways, doctrine and cover reaching the mix,
+    escalation inside budget, fog accounting for the whole garrison, var_to_str
+    round-trip — plus **1800 projections across a 60-tick running war, none
+    overspent** (the joint has to hold while garrisons grow, decay and change
+    hands, not just at tick 0). war_soak unchanged; boot clean.
+  - **Next: P2 Beat 2 — `SortieComposer.compose(seed, node, war_state, tier)
+    → sortie_spec`**, the pure serializable function P2.1 specced, consuming
+    this manifest. Then Beat 3 instantiates a spec in the city biome (Iteration
+    8 handed P2.13 its "one biome — the cyberpunk city" already flyable), and
+    Beat 4 closes the loop by pricing the result back into the war. Calibration
+    rides on Beat 4, when there is finally something to measure.

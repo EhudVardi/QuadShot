@@ -46,6 +46,15 @@ static func winner(state: Dictionary) -> StringName:
 	return state["winner"]
 
 
+## The escalation clock (P1.7): the war never settles — a passive front
+## eventually comes to you. Public because the manifest projection (P4.7)
+## grades its mixes by the same number the tick engine attacks with; two
+## copies of this formula would let the war and its briefings disagree.
+static func escalation(state: Dictionary, config: WarConfig) -> float:
+	return float(state["aggression"]) \
+			+ float(state["tick"]) * config.escalation_per_tick
+
+
 ## ---------- tick phases ----------
 
 ## Factories feed the weakest same-owner node among themselves and their
@@ -148,10 +157,7 @@ static func _proxy_sortie(state: Dictionary, config: WarConfig,
 
 static func _enemy_operations(state: Dictionary, config: WarConfig,
 		rng: RandomNumberGenerator) -> void:
-	# The escalation clock (P1.7): the war never settles — a passive front
-	# eventually comes to you.
-	var aggression: float = float(state["aggression"]) \
-			+ float(state["tick"]) * config.escalation_per_tick
+	var aggression: float = escalation(state, config)
 	# Offensives: enemy frontline garrisons attack weaker player neighbors.
 	var attacks: Array = []
 	var supplied: Dictionary = _supplied_set(state, &"enemy")
