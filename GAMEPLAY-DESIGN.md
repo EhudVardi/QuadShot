@@ -6210,3 +6210,29 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     energy). Then Tier B (rare true glass = penthouse/boss/garden landmarks). After
     interiors ship, pivot to the WAR CAMPAIGN (M6): H.q4 → roster/weapons calibration
     → sortie P2."**
+
+- **2026-07-26 — v1.68. B3 Beat 6 part 2: glass = transparency (APPROVED) + the
+  darkness diagnosis + an SDFGI toggle (built + headless-verified, pending flight).**
+  - **Glass Tier A (metallic glaze) was invisible** — metallic reads as glass only
+    with something to reflect (reflection probe / SDFGI / bright sky), and the scene
+    has none, plus the albedo was near-black. Switched to **actual TRANSPARENCY**
+    (alpha 0.18 blue tint + sub-bloom emissive rim, cull disabled); collision
+    unchanged (fly the opening, not the pane). **Flown and APPROVED — "amazing, high
+    ROI, no noticeable perf hit."** So the glassy programs now read as see-through
+    window walls. (This is Tier B's technique applied broadly; the rare-fancy-floor
+    idea survives as a KIT/landmark distinction, not a rendering one.)
+  - **The "flat lighting / can't get dark inside" was NOT an engine limit.** Root
+    cause: (1) flat `ambient_light_energy` fills every interior uniformly, ignoring
+    the slab; (2) open-plan floors with big multi-side openings are lit pavilions, not
+    caves; (3) **auto-exposure renormalises** — lowering ambient/sun uniformly just
+    makes it crank exposure back up, so nothing reads darker. The effect needs
+    *occlusion* (inside dark WHILE outside bright), which flat ambient cannot produce.
+  - **SDFGI toggle added** (`LookConfig.sdfgi` 0/1, overlay LOOK row, default off):
+    bake-free occlusion GI. On also disables the flat ambient fill so the occlusion
+    isn't washed out; off restores the scene's captured ambient source. The
+    human-judged "can this engine do the darker-inside vision" test — if it delivers,
+    it fixes darkness AND gives glass/metal real reflections; if not, the honest
+    fallback is to embrace interiors as lit neon rooms (and reserve true darkness for
+    the enclosed rim floors, since a floor open on 3 sides to a lit city stays lit
+    regardless).
+  - All scenes boot clean; SDFGI off = no change until toggled.
