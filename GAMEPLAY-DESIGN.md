@@ -6179,3 +6179,34 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     and a natural future P2 objective floor. Both recorded as Beat-6 Task 6.3 in the
     plan; not built (bundled with lighting). A lovely emergent hook: glass becomes a
     scarcity signal, not a default.
+
+- **2026-07-26 — v1.67. B3 interiors, Beat 6 (the lighting beat) — part 1: glass
+  Tier A + the auto-exposure finding (built + headless-verified, pending flight).**
+  - **Auto-exposure was ALREADY shipping.** Opening Beat 6, found `LookConfig` already
+    carries the full Auto-Exposure group and `LookController` already assigns a
+    `CameraAttributesPractical` to the WorldEnvironment and applies enabled/scale/
+    speed/min+max-sensitivity every frame — built in the v1.38 look-lite pass, tuned
+    "more dramatic" (slow adapt, min-sensitivity floor so interiors stay genuinely
+    dark). So the "gets darker inside" B2 moment has been live the whole time; the
+    interiors have been flown with it. No new exposure code — Beat 6's exposure task
+    was already done. Darkness/exposure to taste is a LOOK-overlay tuning the human
+    owns (auto_exposure_min_sensitivity, ambient_energy, auto_exposure_speed).
+  - **Glass Tier A built.** Open-floor solid walls now render through a `_mat_wall`
+    indirection on `MenuFloorFrame`: a reflective metallic glaze (SEALED_ALBEDO,
+    metallic 0.6, roughness 0.22) when `glass`, else the matte `_mat_dark`.
+    `InteriorGenerator.is_glassy()` gates it (office/atrium/lobby/server glassy;
+    warehouse/dock opaque); `WorldBuilding` stamps `spec["glass"]`, `MenuBuilding`
+    threads it. Menu + sealed/UC floors untouched (glass defaults false). Probe:
+    office 4 glass / warehouse 0. All six checks PASS; menu_tower/dev_map/city_map/
+    main boot clean.
+  - **Still Beat 6, pending:** the human flies glass + tunes the darkness/exposure to
+    taste (the game-wide knobs, live in the overlay); then Tier B (rare true-glass
+    landmark floors) if wanted. Glass reads by reflection, so it needs eyes on it
+    under the real lighting — the checkpoint the agent cannot stand in for.
+  - **To resume: "Continue QuadShot per v1.67 — B3 Beat 6: auto-exposure was already
+    shipping (v1.38); glass Tier A (curtain-wall glaze on office/atrium/lobby/server)
+    is built + headless-verified, pending flight. FLY city_map/dev_map: judge the
+    glass look + tune darkness (LOOK overlay: auto_exposure_min_sensitivity, ambient_
+    energy). Then Tier B (rare true glass = penthouse/boss/garden landmarks). After
+    interiors ship, pivot to the WAR CAMPAIGN (M6): H.q4 → roster/weapons calibration
+    → sortie P2."**
