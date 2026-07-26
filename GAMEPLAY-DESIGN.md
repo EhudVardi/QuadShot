@@ -6138,3 +6138,36 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     (game-wide auto-exposure, hands-on). After interiors feel decent, the user pivots
     back to the WAR CAMPAIGN (M6): H.q4 aim drill → roster/weapons calibration →
     sortie composition P2."**
+
+- **2026-07-26 — v1.66. B3 interiors, feel pass 1 from the first flight (built +
+  headless-verified, pending re-flight).** The user flew city_map + dev_map ("looks
+  good so far") and gave five notes; four became config/code, the fifth (glass
+  walls) is a pending design decision.
+  - **Columns uneven → fixed.** The user was right: the column grid started at an
+    offset (`-px + spacing*(i+1)`), so it was lopsided. Rewrote `_build_columns` to a
+    grid **centred on the origin, symmetric about both axes**; channel-drops are now
+    symmetric too. Probed: 4 columns at (±8, ±8) for the 26 m specimen.
+  - **Ceilings a touch low → raised, + flyover headroom.** Specimens 4.0→5.0, city
+    range 3.6–5.6 → 4.0–6.0; and tall furniture (racking/shelving/server/container/
+    feature) now caps to `interior_height*0.62`, so a low floor never fully walls you
+    off above the furniture (racking was a fixed 3.0 m — unflyable-over in a 3.6 m
+    floor).
+  - **Props invisible (same colour as the room) → fixed.** The palette reused the
+    outdoor zonal base colours, which are tuned to be seen lit outdoors and vanish in
+    the dark interior. Gave props a purpose-made mid-grey (visible against near-black
+    walls even before lighting) and bumped accents well past the 1.0 bloom threshold
+    so glow clearly glows. (The "bright green" is atrium/plaza greenery accents,
+    working as intended; the "green but not glowing" was the city's outdoor trees seen
+    through the open walls.) Overall brightness/mood remains the deferred Beat 6
+    (auto-exposure) job.
+  - **Wayfinding strips too subtle → bolder.** Wider (0.18→0.45 m) and brighter
+    (energy ×1.3) cyan floor lines.
+  - **PENDING DESIGN DECISION — glass walls.** The user asked to replace the opaque
+    wall segments on open floors with transparent/full-window walls (offices, plazas).
+    B2 deliberately shipped windows as openings, not glass ("no transparency sorting/
+    refraction cost; glass later as an emissive rim if the look wants it"), and the
+    wall build is shared with the menu + every building — so this is a real fork
+    (true transparency vs emissive-tinted curtain-wall vs bigger openings), best
+    sequenced with the lighting beat (glass reads completely differently under
+    auto-exposure). Put to the user; not implemented.
+  - All checks PASS; dev_map/city_map/menu_tower boot clean.
