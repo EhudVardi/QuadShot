@@ -64,7 +64,7 @@ static func generate(config: WarConfig, seed_value: int) -> Dictionary:
 			garrison += config.garrison_per_hop * float(distance)
 			garrison *= _garrison_type_multiplier(node_type)
 		# Quantized so the state round-trips var_to_str bit-exactly (F4).
-		garrison = snappedf(minf(garrison, config.garrison_cap), 0.001)
+		garrison = WarSim.quantize(minf(garrison, config.garrison_cap))
 		nodes.append({
 			"id": i, "q": cell.x, "r": cell.y,
 			"type": node_type, "owner": owner,
@@ -84,8 +84,8 @@ static func generate(config: WarConfig, seed_value: int) -> Dictionary:
 		"winner": &"",
 		"nodes": nodes,
 		# Seeded enemy character (P1.4): different theaters fight differently.
-		"aggression": snappedf(rng.randf_range(0.4, 0.9), 0.001),
-		"caution": snappedf(rng.randf_range(0.2, 0.7), 0.001),
+		"aggression": WarSim.quantize(rng.randf_range(0.4, 0.9)),
+		"caution": WarSim.quantize(rng.randf_range(0.2, 0.7)),
 		"rng_state": rng.state,
 		"seed": seed_value,
 	}

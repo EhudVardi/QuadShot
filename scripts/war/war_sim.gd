@@ -38,12 +38,28 @@ static func tick(state: Dictionary, config: WarConfig, proxy_skill: float = -1.0
 	# var_to_str/str_to_var bit-for-bit, which is what makes the portable
 	# save (F4) provably lossless.
 	for node: Dictionary in state["nodes"]:
-		node["garrison"] = snappedf(float(node["garrison"]), 0.001)
+		node["garrison"] = quantize(float(node["garrison"]))
 	state["rng_state"] = rng.state
 
 
 static func winner(state: Dictionary) -> StringName:
 	return state["winner"]
+
+
+## Quantize an evolving float so the state round-trips var_to_str EXACTLY —
+## the F4 promise, and the reason every war float goes through one function.
+##
+## Not `snappedf(v, 0.001)`, which is `round(v / 0.001) * 0.001`: multiplying
+## by 0.001 lands on a double whose shortest decimal form needs 17 digits
+## (29900 * 0.001 → 29.900000000000002), var_to_str prints all of them, and
+## Godot's float parser drops the tail on the way back in. Dividing instead
+## lands on the nearest double to the 3-decimal value, which prints and parses
+## as itself. Found 2026-07-26 while building the composer: 40/40 soak seeds
+## failed a textual round-trip at tick 0, invisible to war_soak because its
+## guard was written against StringName-vs-String drift, not float precision.
+static func quantize(value: float, decimals: int = 3) -> float:
+	var factor: float = pow(10.0, float(decimals))
+	return roundf(value * factor) / factor
 
 
 ## The escalation clock (P1.7): the war never settles — a passive front
@@ -99,7 +115,7 @@ static func _proxy_sortie(state: Dictionary, config: WarConfig,
 			continue
 		if node["hq"] and command_alive > int(config.hq_unlock_command_posts):
 			continue
-		var capturable: bool = _has_adjacent_owner(state, node, &"player")
+		var capturable: bool = has_adjacent_owner(state, node, &"player")
 		# Don't re-bomb rubble that can't be captured — the anti-treadmill
 		# rule (degrading a node the enemy will just refill wins nothing).
 		if not capturable and float(node["garrison"]) < 3.0:
@@ -129,7 +145,7 @@ static func _proxy_sortie(state: Dictionary, config: WarConfig,
 	var success_chance: float = clampf(0.15 + skill * 0.75 - risk * 0.1
 			- float(best["garrison"]) * 0.002, 0.05, 0.95)
 	var success: bool = rng.randf() < success_chance
-	var capturable: bool = _has_adjacent_owner(state, best, &"player")
+	var capturable: bool = has_adjacent_owner(state, best, &"player")
 	if success:
 		if capturable:
 			# A WON assault sortie IS the node cleared — that's what the M4
@@ -264,7 +280,7 @@ static func _weather_and_intel(state: Dictionary, rng: RandomNumberGenerator) ->
 	for node: Dictionary in state["nodes"]:
 		if rng.randf() < 0.15:
 			node["weather"] = weathers[rng.randi_range(0, weathers.size() - 1)]
-		if node["owner"] == &"player" or _has_adjacent_owner(state, node, &"player"):
+		if node["owner"] == &"player" or has_adjacent_owner(state, node, &"player"):
 			node["intel_age"] = 0
 		else:
 			node["intel_age"] = int(node["intel_age"]) + 1
@@ -296,7 +312,10 @@ static func _neighbors(state: Dictionary, node: Dictionary) -> Array:
 	return result
 
 
-static func _has_adjacent_owner(state: Dictionary, node: Dictionary,
+## Public because P1.q2's capture rule ("supply-connected assaults capture,
+## deep strikes only degrade") is read by the sortie composer as well as by
+## the tick engine, and the two must never disagree about what is capturable.
+static func has_adjacent_owner(state: Dictionary, node: Dictionary,
 		side: StringName) -> bool:
 	for neighbor: Dictionary in _neighbors(state, node):
 		if neighbor["owner"] == side:

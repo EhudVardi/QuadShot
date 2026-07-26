@@ -73,6 +73,30 @@ func _check_serialization(config: WarConfig) -> void:
 	if not ok:
 		_failures.append("restored save diverged from the live war")
 
+	# The behavioural check above compares CONTENT, which is what actually
+	# matters — but it cannot see a save whose TEXT drifts, and for two months
+	# it did not: `snappedf(v, 0.001)` produced values var_to_str printed to 17
+	# digits and str_to_var could not parse back (2026-07-26, found while
+	# building the composer; every seed failed at tick 0). F4 claims the state
+	# round-trips bit-exactly, so assert exactly that, on every seed the soak
+	# already generates.
+	var textual_failures: int = 0
+	for seed_value: int in range(1, THEATERS_PER_MODE + 1):
+		var state: Dictionary = TheaterGenerator.generate(config, seed_value)
+		for tick: int in CHECK_TICKS:
+			WarSim.tick(state, config, 0.7)
+			if WarSim.winner(state) != &"":
+				break
+			var text: String = var_to_str(state)
+			if var_to_str(str_to_var(text)) != text:
+				textual_failures += 1
+				break
+	print("[war_soak] textual round-trip (F4 bit-exactness): %s"
+			% ("OK" if textual_failures == 0 else
+			"BROKEN on %d/%d seeds" % [textual_failures, THEATERS_PER_MODE]))
+	if textual_failures > 0:
+		_failures.append("the portable save is not textually lossless")
+
 
 func _soak_spectator(config: WarConfig) -> void:
 	var enemy_wins: int = 0

@@ -6332,3 +6332,87 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     8 handed P2.13 its "one biome — the cyberpunk city" already flyable), and
     Beat 4 closes the loop by pricing the result back into the war. Calibration
     rides on Beat 4, when there is finally something to measure.
+
+- **2026-07-26 — v1.71. P2 Beat 2: the COMPOSER lands — a node on the map becomes
+  the fight you fly. Plus an F4 bug the composer flushed out: the "provably
+  lossless" portable save was not lossless.**
+  - **BUILT — `SortieComposer` (`scripts/war/sortie_composer.gd`), P2.1–P2.13.**
+    `compose(node, war_state, config) → sortie_spec`: pure, deterministic,
+    serializable, and it knows nothing about Node3D — the scene layer
+    instantiates the spec. Node TYPE picks archetype + objective (P2.2, all
+    eight rows), the MANIFEST supplies the garrison (P4.7), the BIOME supplies
+    approach geometry (P2.4), weather/pads/escalation tune difficulty
+    organically (P2.11).
+  - **The invariant that makes the loop honest: CONSERVATION.** Triggered
+    reinforcements are taken **out of** the garrison, never added on top — the
+    manifest is the node's whole strength and the reserve is part of it
+    arriving later. So `layers + triggers == the manifest`, exactly, on all 30
+    nodes and across a 40-tick running war (1092 composed sorties, zero
+    leakage). Consequences: clearing everything a sortie fields dents the node
+    by precisely its garrison (P2.q4 closes *arithmetically*, not as a wish),
+    and escalation can never conjure free bodies (P4.6's "only within what
+    surviving production affords" holds by construction rather than by a cap).
+  - **What the composer REFUSES to emit: a difficulty number.** H6 makes SDI a
+    measurement, so the spec carries the H.q2 axis vector (garrison / cover /
+    weather+penalty / pads / escalation / fortification) for diagnosis and no
+    composite score. `sortie_compose_check` asserts the *absence* of `sdi`,
+    `difficulty`, `hardness` — a composer that graded its own output would turn
+    "organic difficulty" back into a hand-tuned level knob, quietly.
+  - **P2 decisions, now mechanized:** placed garrison for assaults / waves only
+    for dogfights (P2.q1 — the M3 wave_director is one archetype, demoted from
+    "the game"); open biome-shaped ingress, no rail (P2.q2 — 400 m exposed over
+    desert vs 150 m and four corridors in the city); deterministic triggers
+    only (P2.q3 — `detected` / `objective_damaged` / `wave_cleared`, with the
+    delay seeded so the same sortie always gives the same window); capture vs
+    degrade read from the tick engine's own `has_adjacent_owner` so briefing
+    and war can never disagree (P1.q2). Pads scale inversely with difficulty
+    and the HQ has none (P2.6). One dare max, biome-weighted (P2.7).
+  - **The P2.1 double evaluation is real:** `compose` runs against truth,
+    `compose_briefing` against the manifest through fog. Fresh intel and the
+    two agree bit-for-bit; at 11 ticks stale the briefing reads *"strength
+    ~16.2 (no composition resolved)"* against a truth of *2×raider 3×gnat(27)
+    6×raider*. Fog hides the garrison, not the geography — you always know what
+    KIND of place it is.
+  - **A design flaw the TRACE caught that the check did not.** First trace run:
+    light nodes held no reaction force at all, because "never reserve the whole
+    garrison" was a per-TYPE guard — a factory of one raider + one pack + one
+    turret could reserve nothing, so the Strike's "escorts converge" promise
+    evaporated on exactly the light targets a new pilot flies first. Made
+    global (at least one unit stays placed, whatever the type spread); now 0 of
+    30 nodes of 2+ units go reserveless, and there is an assertion for it. The
+    watch-mode doctrine (v1.25) earning its keep on a headless bench: the
+    assertions were all green and the *output* was wrong.
+  - **THE F4 BUG — the portable save was not textually lossless, and had never
+    been.** Found while chasing a spec that would not round-trip.
+    `snappedf(v, 0.001)` is `round(v / 0.001) * 0.001`, and the **multiply**
+    lands on a double whose shortest decimal form needs 17 digits (29900 ×
+    0.001 → 29.900000000000002); var_to_str prints all of them and Godot's
+    float parser drops the tail. **40/40 soak seeds failed a textual
+    round-trip at tick 0.** war_soak never saw it because its guard hashes
+    `JSON.stringify` and was written against a *different* drift
+    (StringName-vs-String), so it asserted behaviour and was blind to text.
+    - **Fixed** by `WarSim.quantize(value, decimals)` — divide, don't multiply
+      — and every war float (sim, generator, manifest, composer) now goes
+      through it. `snappedf` is banned in `war/` and CLAUDE.md says so.
+    - **war_soak grew the assertion that was missing**: a textual round-trip
+      check over every seed it already generates. Now prints *"textual
+      round-trip (F4 bit-exactness): OK"*.
+    - **Blast radius, measured and reported rather than hidden:** the fix moves
+      values by ~1 ULP, and the war is chaotic enough to feel it. skill 0.9
+      went **W4/L29/S7 → W5/L27/S8** (one theater flipped loss→win, one
+      loss→stalemate); pilots lost 2.4 → 2.3; **median win still 127 sorties**;
+      skill 0.3 and 0.6 unchanged at zero wins. The H7 debt is untouched — this
+      was a correctness fix, not a balance change, and it should not be read as
+      one.
+  - **Verified:** `sortie_compose_check.gd` (new) + `manifest_check.gd` +
+    war_soak + the full 16-check suite all PASS; menu_tower / main / dev_map /
+    city_map boot with zero error or warning lines. New readable bench
+    `tests/sortie_trace.gd` prints the fights a running war is offering.
+  - **Next: Beat 3 — instantiate a spec.** The scene layer that turns a
+    `sortie_spec` into a flyable fight in the city biome (Iteration 8 already
+    handed P2.13 its "one biome — the cyberpunk city", flyable, with
+    interiors), starting with the two slice-ready archetypes the composer
+    already flags. Then Beat 4 closes the loop: the sortie's result priced back
+    into the war through `dent_from_kills`, which is already built and tested.
+    **Only after that does calibration have something to measure** — and per
+    H.q4 that pass is mine to initiate and lead.

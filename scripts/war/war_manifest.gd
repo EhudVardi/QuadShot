@@ -174,7 +174,7 @@ static func project(node: Dictionary, theater_seed: int,
 			"bodies": unit_bodies(config) * count,
 			# Quantized like every other evolving float in the war state, so
 			# the manifest round-trips var_to_str bit-exactly (F4).
-			"strength": snappedf(unit_strength(config) * float(count), 0.001),
+			"strength": WarSim.quantize(unit_strength(config) * float(count)),
 		})
 	return units
 
@@ -185,7 +185,7 @@ static func strength_of(units: Array) -> float:
 	var total: float = 0.0
 	for unit: Dictionary in units:
 		total += float(unit["strength"])
-	return snappedf(total, 0.001)
+	return WarSim.quantize(total)
 
 
 ## Kinetic result → war currency (P2.q4: every kill dents the node). `kills`
@@ -198,7 +198,7 @@ static func dent_from_kills(kills: Dictionary) -> float:
 			continue
 		var config: EnemyConfig = roster()[type_id]
 		total += config.strength_cost * float(kills[type_id])
-	return snappedf(total, 0.001)
+	return WarSim.quantize(total)
 
 
 ## How much of a manifest intel can resolve at this freshness (P1.3).
@@ -223,8 +223,8 @@ static func through_fog(units: Array, intel_age: int) -> Dictionary:
 		var families: Dictionary = {}
 		for unit: Dictionary in units:
 			var family: StringName = FAMILIES.get(unit["type"], &"air")
-			families[family] = snappedf(
-					float(families.get(family, 0.0)) + float(unit["strength"]), 0.001)
+			families[family] = WarSim.quantize(
+					float(families.get(family, 0.0)) + float(unit["strength"]))
 		report["families"] = families
 	return report
 
