@@ -54,6 +54,10 @@ extends Node3D
 ## Extra setback (tiering) chance added at the core — stepped towers cluster
 ## downtown, plain boxes at the fringe.
 @export_range(0.0, 1.0) var setback_core_bonus: float = 0.35
+## Interiors (B3): furnish buildings' open floors, districted by zone and driven by
+## per-building distance LOD. Off by default so existing city checks/perf are
+## unchanged until flown.
+@export var interiors_enabled: bool = false
 
 const ROADLINE_COLOR: Color = Color(1.0, 0.75, 0.2)
 const ROADLINE_ENERGY: float = 2.5
@@ -296,6 +300,12 @@ func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
 		building.setback_tiers = rng.randi_range(3, 4)
 		building.top_footprint = fp * rng.randf_range(0.45, 0.6)
 	building.open_sides = _facing_open_sides(_col_x[c], _row_z[r])
+	# Interiors (B3): districted by the block's zone (inside matches the ground
+	# props), driven by the building's own distance LOD (Beat 5).
+	if interiors_enabled:
+		building.interiors_enabled = true
+		building.district = _prop_style(c, r)
+		building.interior_lod = true
 	building.position = Vector3(_col_x[c], 0.0, _row_z[r])
 	add_child(building)
 
