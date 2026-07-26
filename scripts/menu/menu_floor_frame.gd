@@ -101,8 +101,15 @@ const SIDES: Array = [[true, 1.0], [true, -1.0], [false, 1.0], [false, -1.0]]
 @export var interior: Dictionary = {}
 @export var district: int = -1
 @export var interior_lod_managed: bool = false
+## Glass curtain-wall (B3 Tier A): the open floor's solid wall segments render as a
+## reflective glazed panel instead of matte dark, so glassy programs (office/atrium/
+## lobby/server) read as full window walls. Default false → menu + industrial floors
+## keep opaque walls. Tuned under the lighting pass (glass reads by its reflections).
+@export var glass: bool = false
 
 var _mat_dark: StandardMaterial3D
+## The wall material — _mat_dark (opaque) by default, a reflective glaze when `glass`.
+var _mat_wall: StandardMaterial3D
 var _mat_line: StandardMaterial3D
 var _text: GlowText3D
 var _light: OmniLight3D
@@ -117,6 +124,7 @@ func _ready() -> void:
 	_mat_dark = StandardMaterial3D.new()
 	_mat_dark.albedo_color = INTERIOR_ALBEDO
 	_mat_dark.roughness = 0.9
+	_mat_wall = _mat_dark
 	match state:
 		STATE_SEALED:
 			_build_sealed()
@@ -166,6 +174,14 @@ func _build_open() -> void:
 	# A narrow footprint can't fit a wide window and still leave piers — clamp
 	# the width so the opening always has a wall either side.
 	window_size.x = minf(window_size.x, footprint - 2.0 * (WALL + MIN_PIER))
+	# Glass curtain-wall (B3 Tier A): the solid wall segments become a reflective
+	# glazed panel that catches the neon city, so the room reads as window walls.
+	if glass:
+		_mat_wall = StandardMaterial3D.new()
+		_mat_wall.albedo_color = SEALED_ALBEDO
+		_mat_wall.metallic = 0.6
+		_mat_wall.metallic_specular = 0.85
+		_mat_wall.roughness = 0.22
 	_build_walls()
 	_build_window_line()
 	# Menu furniture — only on a real menu leaf. A world building's open floor
@@ -301,7 +317,7 @@ func _build_solid_wall(along_z: bool, side: float) -> void:
 	var span: float = footprint if along_z else footprint - 2.0 * WALL
 	var depth: float = (footprint * 0.5 - WALL * 0.5) * side
 	_add_box(_axis_size(along_z, span, interior_height, WALL),
-			_axis_pos(along_z, 0.0, interior_height * 0.5, depth), _mat_dark, true)
+			_axis_pos(along_z, 0.0, interior_height * 0.5, depth), _mat_wall, true)
 
 
 ## One wall with a centered window opening: two flanking piers, a sill below
@@ -316,15 +332,15 @@ func _build_opened_wall(along_z: bool, side: float) -> void:
 	for pier: float in [1.0, -1.0]:
 		_add_box(_axis_size(along_z, pier_w, interior_height, WALL),
 				_axis_pos(along_z, (w * 0.5 + pier_w * 0.5) * pier, mid_y, depth),
-				_mat_dark, true)
+				_mat_wall, true)
 	if sill > 0.01:
 		_add_box(_axis_size(along_z, w, sill, WALL),
-				_axis_pos(along_z, 0.0, sill * 0.5, depth), _mat_dark, true)
+				_axis_pos(along_z, 0.0, sill * 0.5, depth), _mat_wall, true)
 	var header_h: float = interior_height - sill - h
 	if header_h > 0.01:
 		_add_box(_axis_size(along_z, w, header_h, WALL),
 				_axis_pos(along_z, 0.0, sill + h + header_h * 0.5, depth),
-				_mat_dark, true)
+				_mat_wall, true)
 
 
 func _build_window_line() -> void:

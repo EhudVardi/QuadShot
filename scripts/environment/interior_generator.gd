@@ -226,6 +226,13 @@ static func _kind_extent(kind: StringName, rng: RandomNumberGenerator) -> Vector
 		_: return Vector2(1.0, 1.0)
 
 
+## Which programs read as glazed curtain-wall interiors (Tier A glass, B3 v1.66):
+## the human-facing programs go glassy; warehouse/dock stay opaque industrial.
+static func is_glassy(program: StringName) -> bool:
+	return program == PROGRAM_OFFICE or program == PROGRAM_ATRIUM \
+			or program == PROGRAM_LOBBY_ATRIUM or program == PROGRAM_SERVER_FARM
+
+
 static func _weighted_pick(weights: Dictionary, rng: RandomNumberGenerator) -> StringName:
 	var total: float = 0.0
 	for w: float in weights.values():

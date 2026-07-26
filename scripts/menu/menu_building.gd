@@ -91,6 +91,7 @@ func _ready() -> void:
 		frame.interior = spec.get("interior", {})
 		frame.district = spec.get("district", -1)
 		frame.interior_lod_managed = spec.get("interior_lod_managed", false)
+		frame.glass = spec.get("glass", false)
 		frame.position = Vector3(0.0, k * pitch + SLAB_THICK, 0.0)
 		add_child(frame)
 		frames.append(frame)

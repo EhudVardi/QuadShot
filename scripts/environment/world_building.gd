@@ -104,6 +104,7 @@ func _ready() -> void:
 					spec["footprint"], interior_height, spec.get("open_sides", []), interior_knobs)
 			spec["district"] = district
 			spec["interior_lod_managed"] = interior_lod
+			spec["glass"] = InteriorGenerator.is_glassy(prog)
 	add_child(MenuBuilding.create(floors))
 	# City LOD: only poll distance when this building manages its own interiors.
 	set_process(interior_lod)
