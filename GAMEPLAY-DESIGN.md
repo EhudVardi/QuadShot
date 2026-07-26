@@ -6078,3 +6078,63 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     core / natural mid / urban rim), verified gradient; the user is about to fly.
     BREADTH is deep now (layout, road hierarchy, districts, ground life, facing/
     lighting rules); the roadmap's next turn is DEPTH — B3 INTERIORS."**
+
+- **2026-07-26 — v1.65. B3 INTERIORS, Beats 1–5 + wayfinding (autonomous AFK
+  batch, built + headless-verified, pending the user's flight).** The depth turn:
+  hollow open floors become flyable open-plan interiors. Designed design-only first
+  (spec `docs/superpowers/specs/2026-07-25-b3-interiors-design.md`, plan
+  `docs/superpowers/plans/2026-07-25-b3-interiors.md`); this is the implementation,
+  run as a one-hour AFK batch to a "decent flyable level" (Beat 6's game-wide
+  auto-exposure deliberately deferred to a hands-on pass). The four settled
+  decisions (open-plan / district-linked / district-restructures-the-profile /
+  refined-B) held.
+  - **Beat 1 (b5ecd01) — two pure generators + a headless check.**
+    `InteriorGenerator` (scripts/environment): channels between every open window →
+    a hub (Fold 2, flyability), a sparse structural column grid (Fold 1, nothing
+    floats), then a rejection-sampled furniture scatter, all seeded/deterministic.
+    `BuildingProgram`: the per-district vertical profile (cyber → server-farm-heavy
+    + sky-lobby, natural → lobby/warehouse/office/atrium, urban → dock/warehouse;
+    ground always a lobby-atrium). `interior_gen_check` sweeps 6 programs × 4 side
+    masks × 5 seeds asserting determinism, channel flyability, min-clearance, and a
+    restructured profile. PASS.
+  - **Beat 2 (cfee5cb) — the render hook (one path preserved).** `InteriorBuilder`
+    (scripts/menu) expands a spec into a freeable **"Interior" child subtree**
+    (batched boxes + per-box collision), districted palette reusing CityLayout's
+    zonal colours. `MenuFloorFrame` gains `interior`/`district`/
+    `interior_lod_managed` + `build_interior()`/`clear_interior()`; `MenuBuilding`
+    threads them; `WorldBuilding` stamps a spec per OPEN floor (seed =
+    `building_seed*1000003 + k`, F4; never touches the layout RNG). A 6-floor office
+    specimen in `dev_map`. Probe: 6/6 floors furnished, 12 batched meshes, 225
+    collision shapes.
+  - **Beat 3 (88fefc7) — the full furniture kit.** Warehouse (racking/pallet/crate),
+    atrium (planter/bench/feature/counter), server-farm (server-rack), dock
+    (container) `_emit` cases; four more `dev_map` specimens, one per program at its
+    home district. Variety by combination.
+  - **Beat 4 (00bc576) — districted city plumbing.** `CityLayout.interiors_enabled`
+    (default off): each building furnished, districted by its block's `_prop_style`
+    zone, `interior_lod=true`. Defaults off → existing checks/perf untouched.
+  - **Beat 5 (374e0df) — building-level distance LOD + the furnished city.**
+    `WorldBuilding._process` furnishes open floors when the drone (group **"player"**
+    — the plan's assumed "drone" was wrong, caught on verify) is within
+    `interior_lod_radius` (140 m, +20 hysteresis), frees them beyond; rebuilds
+    deterministically. `city.tscn` interiors ON → `city_map` + the CITY leaf show
+    the furnished city (dev_room stays hollow bar its specimens). New
+    `interior_lod_check`.
+  - **Wayfinding (e192399) — the safe half of B2.** A faint emissive cyan strip down
+    each keep-clear channel ("neon shines the way"), interior-local, visual-only.
+  - **Verify:** all six checks PASS (`interior_gen_check`, `interior_lod_check`,
+    `world_building_check`, `menu_check`, `building_gen_check`, `city_layout_check`);
+    `menu_tower` / `dev_map` / `city_map` boot clean; import clean, no warnings.
+    The MENU is untouched.
+  - **Deferred to a HANDS-ON pass (feel is the human's):** Beat 6's game-wide
+    auto-exposure "gets darker inside" (LookController is game-wide — not to be tuned
+    blind); and all feel tuning — `channel_width`/`scatter_density`/`min_clearance`
+    (generous-first defaults now), `interior_lod_radius` + pop-in tolerance, kit box
+    dims, wayfinding energy.
+  - **To resume: "Continue QuadShot per v1.65 — B3 interiors Beats 1–5 + wayfinding
+    are built + headless-verified, pending the user's flight. FLY: `city_map` (or the
+    CITY leaf) for the furnished city; `dev_map` for the five program specimens west
+    at x≈−80..−175. Map feel → knobs on WorldBuilding/InteriorGenerator. Then Beat 6
+    (game-wide auto-exposure, hands-on). After interiors feel decent, the user pivots
+    back to the WAR CAMPAIGN (M6): H.q4 aim drill → roster/weapons calibration →
+    sortie composition P2."**
