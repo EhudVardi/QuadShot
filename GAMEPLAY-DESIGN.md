@@ -6416,3 +6416,57 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     into the war through `dent_from_kills`, which is already built and tested.
     **Only after that does calibration have something to measure** — and per
     H.q4 that pass is mine to initiate and lead.
+
+- **2026-07-26 — v1.72. `Atlas × Aegis` diagnosed: not a bug, not a tuning
+  target — the frame axis pointed at the one enemy that cannot exercise a
+  frame. AWAITING THE HUMAN'S CALL (no number changed).**
+  - **The cell:** `paper ++ → predicted 0 → validated --`, exchange **-1.00**
+    vs the Kestrel. 0/6, outcome `bombed` all six reps, **2 missiles spent
+    against a 3-missile kill**, `dmg-taken 0.0`. The Kestrel flying the SAME
+    weapon at the SAME enemy wins 6/6 at ttk 8.0 s spending exactly the 3
+    missiles Layer 1 predicts.
+  - **Ruled out — the harness timeout.** A throwaway probe (a copy of the
+    harness with `MAX_SECONDS` 10 → 20, everything else identical; run, read,
+    deleted, never committed) reprints `Atlas × Aegis` **identically**: 0/6,
+    spent 2.0, -1.00. `MAX_SECONDS` is not the deadline — the aegis's own bomb
+    run is (~60 m of transit at speed 7.0 = ~8.6 s), and no rep cap touches
+    that. The other Atlas cells moved by ±0.02–0.07 between the two runs, which
+    is the cross-process float variance the harness header already warns about;
+    `Atlas × Aegis` did not move at all. The result is robust, not noise.
+  - **The mechanism, from committed numbers.** `missile_cooldown = 3.0`, so
+    three launches need ≥6.0 s of window after the first lock; the Kestrel's
+    third lands at 8.0 s, roughly **0.6 s inside** the bomb deadline. The Atlas
+    is heavier and lazier by design (mass 1.24 vs 0.65, TWR 3.2 vs 4.5, rate_p
+    0.004 vs 0.007, drag 0.045 vs 0.03), so its first lock comes later — and
+    because the cadence is 3.0 s, **a sub-second deficit costs a whole
+    missile.** The cell is a step function of a ~7% margin.
+  - **The structural finding, which is the real one: the aegis never shoots at
+    you.** `sight_range 0`, `muzzle_speed 0`, `preferred_range 0`, and the rig
+    records `dmg-taken 0.0` — it is a **stopwatch, not a duel**. So the Atlas's
+    entire virtue (hull 190, armor 3) is INERT here while its entire cost
+    (tonnage) is fully paid. BALANCE.md already says a frame's durability "is
+    visible only in the validated column"; the aegis is the one roster member
+    where **even the validated column cannot see it**, because nothing is
+    shooting. A frame cell against a non-shooting, timed enemy can only ever
+    price tonnage. `--` is the honest answer to the question actually asked.
+  - **So the PAPER band is what is wrong, not the frame and not the bench.**
+    Three ways to close it, for the human to pick (nothing applied):
+    - **(a) Re-paper the cell** *(my recommendation)* — P4.3/P3.4's `++`
+      becomes a stated `-`/`--` with the reason recorded. Cheap, honest, no
+      number moves, and it teaches the table something true.
+    - **(b) Mark it structurally unmeasurable** — like the existing
+      unseeded-enemy band limit (`can only read ++ or --`), state that the
+      frame axis has nothing to say against an enemy that does not shoot.
+    - **(c) Move the bench geometry** (push `BOMB_TARGET_Z` out until both
+      frames fit three launches) — **worst option**, and named here so it is
+      rejected on purpose: it tunes the ruler until it prints the answer paper
+      expected, which is the exact move BALANCE.md's "do not fix a number to
+      close a gap you have not explained" forbids.
+  - **A separate design question this surfaced, logged not answered:** if
+    intercepting a bomber is a race and the missile's 3.0 s cadence quantizes
+    that race into whole-missile steps, then *any* frame slower than the
+    Kestrel fails the intercept regardless of pilot skill. That is a fact about
+    the **aegis + missile pairing**, not about the Atlas, and it sits close to
+    the P4/Iteration-7 anti-frustration guardrail ("no fight is hopeless") —
+    for the Atlas, this one currently is. Worth revisiting when the bestiary
+    grows a second bomber or the arsenal a second anti-bomber answer.
