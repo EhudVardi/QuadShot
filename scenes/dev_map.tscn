@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/environment/dev_room.tscn" id="1_devroom"]
 [ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
@@ -26,6 +26,7 @@
 [ext_resource type="PackedScene" path="res://scenes/combat/repair_gate.tscn" id="21_gate"]
 [ext_resource type="PackedScene" path="res://scenes/combat/gnat_swarm.tscn" id="25_swarm"]
 [ext_resource type="PackedScene" path="res://scenes/combat/aegis.tscn" id="27_aegis"]
+[ext_resource type="Script" path="res://scripts/environment/world_building.gd" id="28_wb"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4_main")
@@ -123,3 +124,14 @@ loop_route = true
 
 [node name="RepairGate" parent="." instance=ExtResource("21_gate")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 22)
+
+[node name="InteriorSpecimen" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0, 0)
+script = ExtResource("28_wb")
+building_seed = 777
+target_floors = 6
+open_floors = 6
+footprint = 26.0
+interior_height = 4.0
+interiors_enabled = true
+force_program = &"office"

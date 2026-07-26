@@ -37,6 +37,18 @@ extends Node3D
 ## all four sides open (cross_windows), the standalone / dev-room default.
 @export var open_sides: Array = []
 
+## Interiors (B3): fill open floors with generated open-plan interiors.
+@export var interiors_enabled: bool = false
+## District (CityLayout.PropStyle: 0 urban / 1 natural / 2 cyber) — palette + profile.
+@export var district: int = BuildingProgram.NATURAL
+## Testbed override: force one program on every open floor (empty = use the
+## per-district vertical profile).
+@export var force_program: StringName = &""
+## When true, frames defer interior build to this node's distance LOD (Beat 5).
+@export var interior_lod: bool = false
+## Interior tuning knobs passed to InteriorGenerator (empty = its defaults).
+@export var interior_knobs: Dictionary = {}
+
 
 ## The footprint of floor k of `total`, stepped down in discrete tiers from the
 ## base `footprint` to `top_footprint`. A box (no setback) when tiers <= 1.
@@ -59,6 +71,11 @@ func _ready() -> void:
 	# "topping-out" building type.
 	var floors: Array = BuildingGenerator.generate(
 			building_seed, open_specs, target_floors)
+	# Interiors (B3): the per-district vertical program profile, one program per
+	# floor (bottom->top). Only OPEN floors are furnished below.
+	var programs: Array = []
+	if interiors_enabled:
+		programs = BuildingProgram.programs_for(district, building_seed, floors.size())
 	# Stamp world-building geometry onto every floor (open + filler): a tapered
 	# footprint sizes walls and slabs (setbacks), crossed windows make open
 	# floors enterable from any direction, and the interior height sets the pitch.
@@ -69,4 +86,14 @@ func _ready() -> void:
 		spec["interior_height"] = interior_height
 		if not open_sides.is_empty():
 			spec["open_sides"] = open_sides
+		# Generate an interior for open floors only (sealed / under-construction
+		# stay hollow). Seed derives from the building seed + floor index (F4), so
+		# it never disturbs the layout RNG stream.
+		if interiors_enabled and spec.get("state", MenuFloorFrame.STATE_OPEN) == MenuFloorFrame.STATE_OPEN:
+			var prog: StringName = force_program if force_program != &"" else programs[k]
+			var fseed: int = building_seed * 1000003 + k
+			spec["interior"] = InteriorGenerator.generate(prog, fseed,
+					spec["footprint"], interior_height, spec.get("open_sides", []), interior_knobs)
+			spec["district"] = district
+			spec["interior_lod_managed"] = interior_lod
 	add_child(MenuBuilding.create(floors))

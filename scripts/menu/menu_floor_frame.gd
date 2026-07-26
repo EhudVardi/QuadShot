@@ -94,6 +94,13 @@ const SIDES: Array = [[true, 1.0], [true, -1.0], [false, 1.0], [false, -1.0]]
 ## and derives the floor pitch from it, so buildings vary in floor height.
 ## Default matches the menu.
 @export var interior_height: float = 3.6
+## Interior (B3): the InteriorGenerator spec + district for palette. Empty = no
+## interior (menu floors, sealed/UC floors). When interior_lod_managed is true,
+## WorldBuilding drives build_interior()/clear_interior() by distance (city LOD);
+## when false, the interior builds at _ready (menu / dev-room specimen).
+@export var interior: Dictionary = {}
+@export var district: int = -1
+@export var interior_lod_managed: bool = false
 
 var _mat_dark: StandardMaterial3D
 var _mat_line: StandardMaterial3D
@@ -102,6 +109,8 @@ var _light: OmniLight3D
 ## Batches this floor's boxes into one mesh per material (v1.57 perf pass), so a
 ## floor is ~1–2 draw calls instead of dozens. Collision stays per box.
 var _batch: BoxBatcher = BoxBatcher.new()
+## The B3 interior subtree (one child, freeable for distance LOD); null until built.
+var _interior_root: Node3D = null
 
 
 func _ready() -> void:
@@ -128,6 +137,26 @@ func set_selected(on: bool) -> void:
 		_light.light_energy = LIGHT_ENERGY_SELECTED if on else LIGHT_ENERGY_IDLE
 
 
+## True if this floor carries a B3 interior spec (open world-building floors).
+func has_interior() -> bool:
+	return not interior.is_empty()
+
+
+## Build the interior subtree once (idempotent). Used at _ready and by the city
+## LOD manager on approach.
+func build_interior() -> void:
+	if _interior_root != null or interior.is_empty():
+		return
+	_interior_root = InteriorBuilder.build(interior, district, self, interior_height)
+
+
+## Free the interior subtree (LOD, out of range). Deterministic to rebuild.
+func clear_interior() -> void:
+	if _interior_root != null:
+		_interior_root.queue_free()
+		_interior_root = null
+
+
 func _build_open() -> void:
 	_mat_line = StandardMaterial3D.new()
 	_mat_line.albedo_color = Color(0.05, 0.15, 0.25)
@@ -149,6 +178,9 @@ func _build_open() -> void:
 		_build_chevrons()
 		_build_label()
 		_build_zone()
+	# B3 interior: build now unless the city LOD manager will drive it by distance.
+	if not interior.is_empty() and not interior_lod_managed:
+		build_interior()
 
 
 ## SEALED (B4): a closed glass box — flown past, never into. All four faces
