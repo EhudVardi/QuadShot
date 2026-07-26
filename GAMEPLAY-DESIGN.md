@@ -6236,3 +6236,19 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     the enclosed rim floors, since a floor open on 3 sides to a lit city stays lit
     regardless).
   - All scenes boot clean; SDFGI off = no change until toggled.
+
+- **2026-07-26 — v1.69. B3 interiors PAUSED here (shipping as-is); pivot to M6.**
+  The user flew SDFGI ("interiors look somewhat different, for the better — as if
+  their internal lights read better"; perf change not noticeable either way) and
+  called it: leave the interiors work as-is and steer back to the war campaign. State
+  at pause: open-plan flyable interiors — seeded/deterministic, district-programmed
+  vertical profiles, sparse symmetric structural columns, seeded furniture scatter
+  with flyover headroom, keep-clear window channels, bold cyan wayfinding, TRANSPARENT
+  glass window-walls (approved), building-level distance LOD. SDFGI is an off-by-
+  default LOOK toggle. **Deferred (not abandoned):** Tier B rare fancy landmark floors
+  (penthouse/boss/garden), a glowing mullion grid on glass if wanted, and any deeper
+  darkness work (accepted truth: open-plan floors open on 3–4 sides stay lit; real
+  darkness lives in the enclosed rim floors). **Next: M6 — the war campaign.** The
+  roster/frames/weapons exist at slice scale and the balance INSTRUMENT is built, but
+  the difficulty-curve CALIBRATION (blocked on H.q4, the human aim drill) and SORTIE
+  COMPOSITION (P2, the war↔fight loop) are unfinished — that is the resumption.
