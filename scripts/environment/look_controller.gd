@@ -19,6 +19,9 @@ var _cam_attrs: CameraAttributesPractical = CameraAttributesPractical.new()
 ## Last content_scale_factor pushed to the window; -1 forces a first apply.
 ## Guards the re-layout so ui_scale is free every frame it is unchanged.
 var _applied_ui_scale: float = -1.0
+## The scene's original ambient source, captured once; restored when SDFGI is off
+## (SDFGI mode disables flat ambient so its occlusion isn't washed out).
+var _base_ambient_source: int = -1
 
 @onready var _world_env: WorldEnvironment = get_node_or_null(^"../WorldEnvironment")
 @onready var _sun: DirectionalLight3D = get_node_or_null(^"../Sun")
@@ -47,6 +50,7 @@ func _enable_features() -> void:
 	env.ssao_enabled = true
 	env.fog_enabled = true
 	env.adjustment_enabled = true
+	_base_ambient_source = env.ambient_light_source
 	_world_env.camera_attributes = _cam_attrs
 
 
@@ -77,6 +81,16 @@ func _apply() -> void:
 	env.adjustment_contrast = look_config.contrast
 	env.adjustment_saturation = look_config.saturation
 	env.ambient_light_energy = look_config.ambient_energy
+	# SDFGI (experiment): occlusion-based GI so interiors go dark where light can't
+	# reach. On also disables the flat ambient fill (which would wash the occlusion
+	# out); off restores the scene's original ambient source.
+	if look_config.sdfgi >= 0.5:
+		env.sdfgi_enabled = true
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
+	else:
+		env.sdfgi_enabled = false
+		if _base_ambient_source >= 0:
+			env.ambient_light_source = _base_ambient_source
 	if _sun != null:
 		_sun.light_energy = look_config.sun_energy
 		# Directional light shines along local -Z; negative pitch tilts it

@@ -59,6 +59,16 @@ extends TunableConfig
 @export var contrast: float = 1.08
 @export var saturation: float = 1.12
 
+@export_group("Global Illumination")
+## SDFGI (B3 Beat 6 experiment): bake-free global illumination for real OCCLUSION —
+## interiors the sun/sky can't reach go genuinely dark (the "darker inside" moment
+## that flat ambient can't make), and glass/metal get bounce to reflect. 0/1 float
+## (the overlay + presets speak float). When on, the flat ambient term is disabled
+## so SDFGI's occlusion actually shows through auto-exposure; off restores the
+## scene's original ambient source. Costs some perf; thin walls can leak (ours
+## 0.4 m). Off by default — a look the human opts into.
+@export var sdfgi: float = 0.0
+
 @export_group("Lighting")
 @export var ambient_energy: float = 1.0
 @export var sun_energy: float = 1.4
