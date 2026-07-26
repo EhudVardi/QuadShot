@@ -6171,3 +6171,11 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     sequenced with the lighting beat (glass reads completely differently under
     auto-exposure). Put to the user; not implemented.
   - All checks PASS; dev_map/city_map/menu_tower boot clean.
+  - **Glass walls RESOLVED (same day):** the user chose **Tier A — emissive
+    curtain-wall glass — bundled into the lighting beat (Beat 6)**, and reserved
+    **true transparent glass (Tier B) as a VERY SPARSE landmark treatment** for
+    fancy floors — penthouse / top-level boss office / conservatory-garden — a rare
+    seed-gated program variant that doubles as a from-outside landmark telegraph (B2)
+    and a natural future P2 objective floor. Both recorded as Beat-6 Task 6.3 in the
+    plan; not built (bundled with lighting). A lovely emergent hook: glass becomes a
+    scarcity signal, not a default.

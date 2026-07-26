@@ -985,9 +985,12 @@ Auto-exposure "gets darker inside" + neon wayfinding + genuine darkness. Extends
 
 - [ ] **Step 4: Boot check.** `--import`, boot `main.tscn`/`city_map.tscn`, open the overlay LOOK section → the new group appears and pushes live.
 
-### Task 6.2 — Neon wayfinding channel strips
+### Task 6.2 — Neon wayfinding channel strips  ✅ ALREADY LANDED (v1.65 bonus + v1.66)
 
-**Files:** Modify `scripts/menu/interior_builder.gd`
+Done ahead of Beat 6 as the safe, interior-local half. `InteriorBuilder._wayfinding`
+draws a wide (0.45 m) bright cyan floor strip down each axis-aligned channel
+(window→hub), visual-only. Remaining Beat-6 work here is just re-tuning energy/width
+once the darkness lands. Original sketch kept for reference:
 
 - [ ] **Step 1: Add faint emissive guide strips** along each channel in `build()` (behind a knob so it is tunable/removable), in the navigation-cyan palette (like the window-line/chevrons):
 
@@ -1022,6 +1025,42 @@ git commit -m "B3 interiors: B2 lighting — auto-exposure + neon wayfinding + d
 ```
 
 - [ ] **Step 5: 🛑 HUMAN FLIGHT CHECKPOINT.** Human flies the "gets darker inside" beat: does crossing the window line read as the eye adapting? Do the channel strips shine the way? Is the interior genuinely dark yet readable? Tune auto-exposure speed/scale, ambient, strip energy. Decision-log entry on approval — B3 interiors ship.
+
+### Task 6.3 — Glass walls (bundled with lighting; user decision v1.66)
+
+The user asked for glassy open-floor walls; decided to **bundle it with this beat**
+because glass reads completely differently under the auto-exposure/darkness pass.
+Two tiers:
+
+**Tier A — emissive curtain-wall glass (the default, everywhere it fits).** The
+open-floor solid wall segments become dark glazed panels carrying a glowing mullion
+grid — reuse the sealed-floor treatment (`MenuFloorFrame._build_facade_grid` +
+`SEALED_ALBEDO`/`MULLION_*`), applied to the *solid* parts of an open floor's walls
+(the piers/sill/header from `_build_opened_wall` and the whole face from
+`_build_solid_wall`). Reads unmistakably as "glass office/atrium" with **no
+transparency cost**. Gate by program (atrium/lobby/office/server glassy;
+warehouse/dock stay opaque industrial) via a new `glass: bool` on the floor spec,
+set in `WorldBuilding` from the program.
+
+- [ ] Add `glass` to the floor spec + `MenuFloorFrame` (default false → menu/existing
+  untouched). In `_build_open`, when `glass`, use the glazed panel + mullion material
+  for the solid wall boxes instead of `_mat_dark`.
+- [ ] `WorldBuilding`: set `glass = true` for the glassy programs when stamping.
+- [ ] Guard: sealed/under-construction floors and the whole menu are unaffected.
+- [ ] Tune glaze tint + mullion energy in the SAME checkpoint as auto-exposure.
+
+**Tier B — true transparent glass, VERY SPARSE (landmark floors).** Reserved for rare
+"premium" floors — a **penthouse / boss office / conservatory-garden** — as a special,
+seed-gated program variant (at most one per tall building, typically the top). These
+get an actual transparent material (accept the alpha-sorting cost precisely *because*
+they are rare) and double as **landmark telegraphs** (a glass crown reads as "special"
+from blocks away — B2 doctrine) and a natural future **P2 objective floor** (boss
+office). Design seed recorded; implement only after Tier A + lighting feel right.
+
+- [ ] Add a rare program (e.g. `PROGRAM_PENTHOUSE`) chosen by `BuildingProgram` for the
+  very top band of a small fraction of tall buildings; give it a sparse fancy kit
+  (lounge, garden planters, a feature) + true-glass walls.
+- [ ] Keep it rare enough that transparency never accumulates into a perf problem.
 
 ---
 
