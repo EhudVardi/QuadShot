@@ -98,6 +98,32 @@ static func _emit(batch: BoxBatcher, body: StaticBody3D, p: Dictionary,
 			_box(batch, body, Vector3(e.x, 1.4, e.y), at + Vector3(0, 0.7, 0), yaw, mats["prop"])
 		InteriorGenerator.KIND_SHELVING:
 			_box(batch, body, Vector3(e.x, 2.2, e.y), at + Vector3(0, 1.1, 0), yaw, mats["prop"])
+		InteriorGenerator.KIND_COUNTER:
+			_box(batch, body, Vector3(e.x, 1.1, e.y), at + Vector3(0, 0.55, 0), yaw, mats["prop"])
+			_box(batch, body, Vector3(e.x, 0.12, e.y), at + Vector3(0, 1.12, 0), yaw, mats["accent"])
+		InteriorGenerator.KIND_RACKING:
+			# Tall shelving run — the warehouse aisle-former.
+			_box(batch, body, Vector3(e.x, 3.0, e.y), at + Vector3(0, 1.5, 0), yaw, mats["prop"])
+		InteriorGenerator.KIND_PALLET:
+			_box(batch, body, Vector3(e.x, 0.2, e.y), at + Vector3(0, 0.1, 0), yaw, mats["prop"])
+			_box(batch, body, Vector3(e.x * 0.8, 1.0, e.y * 0.8), at + Vector3(0, 0.7, 0), yaw, mats["prop"])
+		InteriorGenerator.KIND_CRATE:
+			var cr: float = e.x * 0.9
+			_box(batch, body, Vector3(e.x, cr, e.y), at + Vector3(0, cr * 0.5, 0), yaw, mats["prop"])
+		InteriorGenerator.KIND_CONTAINER:
+			_box(batch, body, Vector3(e.x, 2.4, e.y), at + Vector3(0, 1.2, 0), yaw, mats["prop"])
+		InteriorGenerator.KIND_PLANTER:
+			_box(batch, body, Vector3(e.x, 0.5, e.y), at + Vector3(0, 0.25, 0), yaw, mats["prop"])
+			_box(batch, body, Vector3(e.x * 0.7, 0.8, e.y * 0.7), at + Vector3(0, 0.9, 0), yaw, mats["accent"])
+		InteriorGenerator.KIND_BENCH:
+			_box(batch, body, Vector3(e.x, 0.45, e.y), at + Vector3(0, 0.225, 0), yaw, mats["prop"])
+		InteriorGenerator.KIND_FEATURE:
+			# Atrium centrepiece — a plinth + glowing stack (placed by scatter, never on the hub).
+			_box(batch, body, Vector3(e.x, 0.4, e.y), at + Vector3(0, 0.2, 0), yaw, mats["prop"])
+			_box(batch, body, Vector3(e.x * 0.5, 2.2, e.y * 0.5), at + Vector3(0, 1.3, 0), yaw, mats["accent"])
+		InteriorGenerator.KIND_SERVER_RACK:
+			_box(batch, body, Vector3(e.x, 2.2, e.y), at + Vector3(0, 1.1, 0), yaw, mats["prop"])
+			_box(batch, body, Vector3(e.x * 0.9, 2.0, 0.06), at + Vector3(0, 1.1, e.y * 0.5), yaw, mats["accent"])
 		_:
-			# Fallback until Beat 3: a waist-high block the size of the reserved footprint.
+			# Fallback: a waist-high block the size of the reserved footprint.
 			_box(batch, body, Vector3(e.x, 0.9, e.y), at + Vector3(0, 0.45, 0), yaw, mats["prop"])

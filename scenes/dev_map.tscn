@@ -135,3 +135,51 @@ footprint = 26.0
 interior_height = 4.0
 interiors_enabled = true
 force_program = &"office"
+
+[node name="SpecimenWarehouse" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -130, 0, 0)
+script = ExtResource("28_wb")
+building_seed = 811
+target_floors = 6
+open_floors = 6
+footprint = 26.0
+interior_height = 4.0
+interiors_enabled = true
+district = 0
+force_program = &"warehouse"
+
+[node name="SpecimenAtrium" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -130, 0, 45)
+script = ExtResource("28_wb")
+building_seed = 822
+target_floors = 6
+open_floors = 6
+footprint = 26.0
+interior_height = 4.0
+interiors_enabled = true
+district = 1
+force_program = &"atrium"
+
+[node name="SpecimenServerFarm" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -130, 0, -45)
+script = ExtResource("28_wb")
+building_seed = 833
+target_floors = 6
+open_floors = 6
+footprint = 26.0
+interior_height = 4.0
+interiors_enabled = true
+district = 2
+force_program = &"server_farm"
+
+[node name="SpecimenDock" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -175, 0, 0)
+script = ExtResource("28_wb")
+building_seed = 844
+target_floors = 6
+open_floors = 6
+footprint = 26.0
+interior_height = 4.0
+interiors_enabled = true
+district = 0
+force_program = &"dock"
