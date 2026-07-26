@@ -294,7 +294,7 @@ func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
 	building.footprint = fp
 	building.target_floors = floors
 	building.open_floors = maxi(2, int(round(float(floors) * 0.55)))
-	building.interior_height = rng.randf_range(3.6, 5.6)
+	building.interior_height = rng.randf_range(4.0, 6.0)
 	# Setbacks cluster downtown: base chance + a core bonus scaled by the zone.
 	if rng.randf() < clampf(setback_chance + zone * setback_core_bonus, 0.0, 1.0):
 		building.setback_tiers = rng.randi_range(3, 4)

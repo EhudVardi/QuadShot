@@ -103,17 +103,26 @@ static func _in_channel(p: Vector2, channels: Array, pad: float) -> bool:
 	return false
 
 
-## A sparse interior column grid that holds the slab (spec §4, Fold 1). Skips
-## columns falling in a channel; the perimeter walls carry the edge load.
+## A sparse interior column grid that holds the slab (spec §4, Fold 1). The grid is
+## CENTRED on the origin and symmetric about both axes, so the columns read as an
+## even structural bay pattern; any that fall in a flight channel are dropped
+## (symmetrically — the channels are axis-aligned), and the perimeter walls carry
+## the edge load.
 static func _build_columns(px: float, k: Dictionary, channels: Array) -> Array:
 	var cols: Array = []
 	var spacing: float = k["column_spacing"]
-	var n: int = maxi(1, int(floor(2.0 * px / spacing)))
-	for ix: int in n:
-		for iz: int in n:
-			var gx: float = -px + spacing * (float(ix) + 1.0)
-			var gz: float = -px + spacing * (float(iz) + 1.0)
-			if absf(gx) > px - COLUMN_W or absf(gz) > px - COLUMN_W:
+	var limit: float = px - COLUMN_W - 1.0   # keep columns off the walls
+	if limit <= 0.0:
+		return cols
+	var count: int = maxi(2, int(floor(2.0 * limit / spacing)) + 1)
+	var start: float = -float(count - 1) * 0.5 * spacing
+	for ix: int in count:
+		var gx: float = start + float(ix) * spacing
+		if absf(gx) > limit:
+			continue
+		for iz: int in count:
+			var gz: float = start + float(iz) * spacing
+			if absf(gz) > limit:
 				continue
 			var p := Vector2(gx, gz)
 			if _in_channel(p, channels, COLUMN_W * 0.5):
