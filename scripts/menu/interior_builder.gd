@@ -24,9 +24,29 @@ static func build(spec: Dictionary, district: int, parent: Node3D,
 				Vector3(c.x, interior_height * 0.5, c.y), 0.0, mats["structure"])
 	for p: Dictionary in spec.get("pieces", []):
 		_emit(batch, body, p, mats)
+	_wayfinding(batch, spec)
 	batch.commit_into(body)
 	parent.add_child(root)
 	return root
+
+
+## A faint emissive strip on the floor down each keep-clear channel — the neon line
+## that "shines the way" (spec §8). Interior-local; visual only (no collision).
+## Channels run window->hub and are axis-aligned, so no rotation is needed.
+static func _wayfinding(batch: BoxBatcher, spec: Dictionary) -> void:
+	var guide := StandardMaterial3D.new()
+	guide.albedo_color = MenuFloorFrame.LINE_COLOR
+	guide.emission_enabled = true
+	guide.emission = MenuFloorFrame.LINE_COLOR
+	guide.emission_energy_multiplier = MenuFloorFrame.LINE_ENERGY * 0.5
+	for ch: Dictionary in spec.get("channels", []):
+		var a: Vector2 = ch["a"]           # window centre; hub is the origin
+		var mid: Vector2 = a * 0.5
+		var length: float = a.length()
+		if absf(a.x) < 0.001:              # front/back window -> strip along Z
+			batch.add(Vector3(0.18, 0.04, length), Vector3(mid.x, 0.02, mid.y), guide)
+		else:                              # right/left window -> strip along X
+			batch.add(Vector3(length, 0.04, 0.18), Vector3(mid.x, 0.02, mid.y), guide)
 
 
 ## Interior palette by district — reuses CityLayout's zonal colours so inside and
