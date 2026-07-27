@@ -3550,6 +3550,114 @@ win. Only Beat 3 is actually paused, and it had not started.
   invitation and deferred it with a stated trigger. Overrule if you want it
   modeled now.
 
+### S steering — ANSWERED (v1.74, 2026-07-27)
+
+Iteration 9 is steered — all seven S.q resolved, six to their leans, with three
+user enrichments that change the model rather than just confirming it.
+
+- **S.q1 → DECIDED: the web, not the census.** Balance **six** types first
+  (raider, turret, gnat, aegis + **Falx** + **Screamer**), then extend. The
+  remaining four arrive with the systems that need them, each with its harness
+  row (P4.10).
+- **S.q2 → DECIDED: the melee bench PRICES `strength_cost` — but it must earn
+  that authority first.** The user's question is the right one and had no answer
+  in the proposal: *"how do we measure the reliability of the melee bench?"* You
+  cannot validate a source of truth against a more authoritative measurement,
+  because there isn't one. You validate it by **properties that can fail** —
+  five, all cheap, all assertable (**S12**, added below). Sequencing: the bench
+  is **step 4**, after the roster is complete — pricing a roster you are about
+  to extend just means pricing it twice. And pricing is a **loop, not a
+  one-shot**: price → rebalance stats → re-price.
+- **S.q3 → DECIDED: adopt ammo — and the user's reason is better than the
+  proposal's.** S6 argued only that "missiles bankrupt on gnats" is currently
+  unfalsifiable. The user: capacity is **a balance LEVER in its own right** —
+  "we can make a powerful weapon more expensive to use, or limit its fire
+  count." That promotes ammo from bookkeeping to **a fourth design axis
+  alongside damage, cadence and delivery**, and it is the axis that lets a
+  weapon stay powerful *and* fair. Consequence worth flagging: ammo is a
+  per-weapon property, which strengthens the case for the long-deferred GAP-1
+  `WeaponConfig` split — `CombatConfig` is a player-side bag, and capacity per
+  weapon wants a home.
+- **S.q4 → DECIDED: task for the FACTOR, N-vs-1 for the WEB.** Isolation for
+  measurement, realism for validation — the split Layers 1–2 already use.
+- **S.q5 → DECIDED: bump `PILOT_VERSION` 3 → 4** and re-measure deliberately, in
+  one go. User: "its a good practice."
+- **S.q6 → DECIDED: re-run the war after re-pricing, and record it.** Act on the
+  result in M6b, not M6a — but never leave the 127-sortie headline standing on
+  rates that have been superseded.
+- **S.q7 → DECIDED: detectability deferred**, trigger as stated in S8 — and the
+  user reframed *why* the deferral is safe (**S13**, added below): a repeatable
+  balance suite is what makes new mechanics cheap to introduce later.
+
+### S12 — How the melee bench earns the right to price (S.q2, discharged)
+
+A bench that is the source of truth cannot be checked against a better answer.
+It is checked against **properties that can fail** — and each of these has
+caught real bugs in instruments of this shape:
+
+1. **Transitivity.** If the bench prices turret = 2× raider and aegis = 2×
+   turret, then aegis must trade evenly against **4 raiders** — test that
+   composed prediction *directly*. Non-composing ratios mean either the bench is
+   noisy or "strength" is not a scalar at all. This is the strongest test
+   because it is the one most likely to fail.
+2. **Scale invariance.** If 3 raiders ≈ 1.5 turrets, does 6 ≈ 3? A ratio that
+   drifts with N means strength is **N-dependent** (focus fire, swarm overwhelm,
+   concentration) — which would be a *finding*, not merely a failure: the war's
+   linear arithmetic would be wrong, and that is worth knowing before M6b builds
+   more on it.
+3. **Mirror symmetry.** Swap sides A and B in the arena. If A wins 70% and the
+   mirrored B also wins 70%, the arena has a **positional bias** (spawn
+   geometry, who acquires first) and every price is contaminated. The classic
+   melee-bench bug.
+4. **Determinism and a stated error bar.** Same seeds → same result (F4). Across
+   seeds → report the **spread, not a point value**. A bench that cannot state
+   its own variance cannot be relied on; a price is `2.0 ± 0.3` or it is a
+   guess wearing a decimal point.
+5. **Layer 1 sanity anchor.** Gross disagreement with the lethality arithmetic
+   (total hull, damage throughput) means the bench is measuring behaviour, not
+   stats. Weak test, catches only large errors — but free.
+
+**And the ruler underneath it must be pinned.** In a melee, both sides are flown
+by AI, so the bench measures *these types as currently implemented*. That is the
+`PILOT_VERSION` problem with a second head: improving the raider's chase logic
+would silently re-price the raider. **A `BESTIARY_AI_VERSION` pin is required
+before any price is committed**, on the same rule as the pilot's — numbers
+measured under different enemy brains never share a table.
+
+### S13 — The repeatable suite as an ENABLER (the user's S.q7 reframe)
+
+The user's argument for deferring detectability: once a **repeatable** balance
+suite exists — "just like a unit test... let it run and get back the balancing
+result" — then introducing a new mechanic (an invisibility module) becomes
+tractable, because you run the suite, see the macro effect, and design the
+counter (an advanced radar) against measured evidence.
+
+This is **H8's green board and H.q6's advisory→gate, re-derived independently
+from the user's own reasoning** — a good sign that the doctrine is load-bearing
+rather than decorative. What the reframe *adds* is the motive: the harness is
+not overhead protecting existing balance, it is **the thing that makes a large
+roster affordable at all.** Every type after the sixth is cheap precisely
+because the suite exists. That is the strongest argument yet for paying the S11
+re-measure cost now rather than later.
+
+Two refinements, recorded so the idea does not overreach:
+
+- **The suite localizes; it never prescribes.** It says *which cell broke* and,
+  via the H.q2 axis vector, *along which axis*. Choosing the counter is design
+  judgment. A harness that proposed counter-modifications would be the
+  expected-value oracle BALANCE.md exists to forbid — the user's phrase "find
+  the best and most reasonable counter modification" is the human's job, with
+  the suite supplying the evidence.
+- **Runtime forces tiering, and the user already anticipated it** ("a full
+  balancing run set will take a long time"). Today's 14-cell web takes ~10
+  minutes. Six enemies × three weapons, plus frame cells, plus a concurrency
+  axis, plus survivability cells, plus melee composition sweeps is plausibly
+  5–10× that. So the suite ships in **two tiers**: a fast **smoke** set that
+  runs after any config change, and the **full** set run deliberately (and
+  reported with its pilot version, AI version and config stamp). A suite too
+  slow to run is a suite that rots — H8's red-rots argument applied to wall
+  clock.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -6799,3 +6907,48 @@ win. Only Beat 3 is actually paused, and it had not started.
     S.q6 re-run the war after re-pricing; S.q7 confirm the detectability
     deferral.
   - No code changed this entry — paper only, per 2.4.
+
+- **2026-07-27 — v1.74. Iteration 9 STEERED (S.q1–S.q7); two user enrichments
+  changed the model, and S12/S13 were added to answer them.** M6a is now the
+  live milestone.
+  - **All seven answered**, six to their leans: six-type roster first (raider,
+    turret, gnat, aegis + Falx + Screamer); the melee bench PRICES
+    `strength_cost`; ammo adopted; task-for-factor / N-vs-1-for-web; PILOT_VERSION
+    3 → 4; re-run and record the war after re-pricing; detectability deferred.
+  - **The user's question the proposal could not answer — "how do we measure the
+    reliability of the melee bench?"** — became **S12**. A source of truth
+    cannot be checked against a better answer, so it is checked against
+    **properties that can fail**: transitivity (turret=2×raider and
+    aegis=2×turret must compose into aegis≈4 raiders), scale invariance (a ratio
+    that drifts with N means strength is not a scalar — a *finding*, since the
+    war's arithmetic is linear), mirror symmetry (catches arena positional
+    bias), determinism plus a **stated error bar** (a price is `2.0 ± 0.3` or it
+    is a guess wearing a decimal point), and a Layer 1 sanity anchor. Plus the
+    ruler underneath: both sides are AI, so **a `BESTIARY_AI_VERSION` pin is
+    required before any price is committed** — improving the raider's chase
+    logic would otherwise silently re-price the raider.
+  - **The user improved the ammo argument (S.q3).** S6 argued only
+    falsifiability; the user argued capacity is **a balance LEVER** — "make a
+    powerful weapon more expensive to use, or limit its fire count." That
+    promotes ammo to a fourth design axis beside damage, cadence and delivery,
+    and it is the axis that lets a weapon stay powerful *and* fair. It also
+    strengthens the deferred GAP-1 `WeaponConfig` split, since capacity is
+    per-weapon and `CombatConfig` is a player-side bag.
+  - **The user reframed why deferring detectability is safe (S13):** a
+    repeatable suite makes new mechanics cheap to introduce — add invisibility,
+    run the suite, read the macro effect, design the counter (advanced radar)
+    against evidence. This is **H8's green board and H.q6's advisory→gate
+    re-derived independently**, which is a good sign the doctrine is
+    load-bearing. What it adds is the motive: the harness is not overhead
+    protecting existing balance, it is **what makes a large roster affordable at
+    all.** Two refinements recorded so it does not overreach — the suite
+    *localizes, never prescribes* (a harness proposing counters would be the
+    forbidden oracle), and **runtime forces two tiers**, a fast smoke set and a
+    deliberate full run, because a suite too slow to run is a suite that rots.
+  - **Sequencing consequence recorded:** the pilot bump invalidates every
+    committed delivery factor, so it lands EARLY — measuring anything else under
+    v3 first would just buy a second re-measure. Order: incoming lethality
+    (pilot-independent arithmetic) → pilot v4 → re-measure baseline → player
+    evasion + concurrency → roster (Falx, Screamer) → ammo → melee bench +
+    S12 → suite tiering → calibration.
+  - No code this entry — paper only.
