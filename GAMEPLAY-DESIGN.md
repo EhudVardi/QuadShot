@@ -7080,3 +7080,34 @@ Two refinements, recorded so the idea does not overreach:
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-27 — v1.77. The v1.76 noise caveat CORRECTED, and the two jink
+  findings confirmed real.** A second v4 run at identical settings was made
+  specifically to measure the floor before believing any delta.
+  - **The harness is far more reproducible than its own header implies.** Two
+    full v4 runs: **9 of 10 compared cells byte-identical** (Blaster × Gnats
+    −0.33/1.7/51%, Missile × Gnats −0.45/1.0/56%, Flak × Gnats +1.00, Flak ×
+    Raiders +0.88/2.8/7%, Atlas × Turret −0.10, Atlas × Aegis −1.00 — all
+    reproduced exactly). The single mover was `Atlas × Gnats` at **0.04**.
+  - **MY v1.76 CAVEAT WAS WRONG, and the correction matters more than the
+    caveat did.** I claimed ~16% run-to-run variance from `Atlas × Turret`
+    reading 22.2 damage in one v3 run and 18.7 in another. Those two runs did
+    NOT have identical settings — the second was the v1.72 clock probe with
+    `MAX_SECONDS` doubled. **A changed rig constant is not noise; it is a
+    different measurement**, and I attributed to the solver what the ruler
+    caused. Recorded in BALANCE.md as a standing rule: compare runs only at
+    identical settings.
+  - **So the readable floor is ~0.04, and two v3 → v4 deltas clear it:**
+    - **Blaster × Gnats: kills 2.2 → 1.7, exchange −0.24 → −0.33** (Δ0.09).
+      The jink **costs** you against the contact swarm.
+    - **Flak × Raiders: kills 2.3 → 2.8, exchange +0.71 → +0.88** (Δ0.17).
+      The jink **pays** against ranged shooters.
+    - Missile × Gnats (Δ0.03), Missile × Raiders (Δ0.03) and Blaster × Raiders
+      (Δ0.02) sit inside the floor and are **not** readable as changes.
+  - **The finding, now standing on measurement:** evasion is not free, and its
+    price depends on what is shooting you. Jinking breaks a raider's firing
+    solution, so it pays against ranged threats; it does not break a gnat
+    cloud's approach, so against a contact swarm it only degrades your own gun —
+    fewer kills, more stings. That is a real design fact about the bestiary, it
+    was invisible before Layer 3, and it is the first thing the symmetric half
+    of the model has told us that the old instrument could not.

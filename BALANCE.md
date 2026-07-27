@@ -120,6 +120,18 @@ the economy) to go model or accept. NOT for: populating the table.
   the drift lived in a file that is not in the repo. **An instrument measures
   the numbers that are committed.** Human tuning is deviation data (H5); it
   reaches the benches only when it is baked into a `default_*.tres`.
+- **How reproducible the duel harness actually is (measured 2026-07-27).** The
+  harness header warns that it is "not bit-exact" because the physics solver
+  carries float variance between processes. Two full runs under identical
+  settings were compared to put a number on that: **9 of 10 compared cells came
+  back byte-identical**, and the single mover was a pack cell at **0.04**
+  exchange. So a delta of ~0.09 or more is a real balance movement; anything at
+  or under ~0.04 is not readable and must not be reported as a change. The
+  warning is real but far smaller than it sounds — and the trap it hides is
+  worse than noise: a v3-vs-v3 pair that appeared to differ by 16% turned out to
+  differ because `MAX_SECONDS` had been changed between them. **Compare runs
+  only at identical settings; a changed rig constant is not noise, it is a
+  different measurement.**
 - **Rig asserts address cells BY NAME, never by index** — a positional assert
   silently re-aims itself when a matrix row is inserted, and an assert that can
   be misaimed is worse than none.
