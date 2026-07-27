@@ -16,11 +16,20 @@ extends RefCounted
 ## BALANCE.md sense: deterministic, instant, and verified against the shipped
 ## Health node by the planted-shot bench (scripts/tests/lethality_check.gd).
 ##
-## Deliberately NOT modeled: anything about hitting (that is Layer 2, delivery),
-## and anything about being SHOT AT — the player frame's own armor and hull never
-## appear here, because Layer 1 asks what YOUR weapon does to a target. A frame's
-## durability can only show up in the validated column (BalancePrediction
-## assumption 3: nobody shoots back).
+## Deliberately NOT modeled: anything about hitting (that is Layer 2, delivery).
+##
+## LAYER 3a — INCOMING (Iteration 9 / S2, 2026-07-27). Being shot at used to be
+## outside this file too, and that omission is what made the frame axis
+## illegible: a frame cell bands "destroyed minus hull spent", the Atlas's whole
+## virtue lives in the hull term, and nothing was ever measuring the hull term.
+## The fix costs almost nothing, because the exchange loop below never cared
+## WHOSE durability it was replaying — it reads six fields. So a "target" is now
+## a plain durability block (`target_from_enemy` / `target_from_frame`) and
+## `incoming()` points the same arithmetic the other way: THEIR weapon against
+## YOUR frame. Same rules, same verification discipline, arrow reversed.
+##
+## Still not modeled here: whether their shot connects. That is Layer 3b (player
+## evasion), measured by a bench, exactly as aim_quality is on the outgoing side.
 ##
 ## EnemyConfig.armor IS modeled as of Phase 4b: it stopped being a schema-only
 ## field the day the Atlas needed flat reduction to exist (P3.3), and this file
@@ -140,18 +149,141 @@ static func combo(strip: String, finish: String, combat: CombatConfig,
 	}
 
 
+## ---------- targets (the durability block, whoever owns it) ----------
+
+## A target is these six numbers and nothing else. Making that explicit is what
+## lets one verified exchange loop serve both directions of the model.
+static func target_from_enemy(enemy: EnemyConfig) -> Dictionary:
+	return {
+		"hull": enemy.hull, "armor": enemy.armor,
+		"shield_max": enemy.shield_max,
+		"shield_break_threshold": enemy.shield_break_threshold,
+		"shield_regen": enemy.shield_regen,
+		"shield_regen_delay": enemy.shield_regen_delay,
+	}
+
+
+## The player, as a target. `FrameConfig.hull`/`armor` are live on the drone —
+## `FlightController._ready` pushes both into its `Health` — so this mirrors
+## shipped wiring, not a schema. No shield: no frame has one, and inventing
+## fields for a defence nothing implements is how dead tunables start.
+static func target_from_frame(frame: FrameConfig) -> Dictionary:
+	return {
+		"hull": frame.hull, "armor": frame.armor,
+		"shield_max": 0.0, "shield_break_threshold": 0.0,
+		"shield_regen": 0.0, "shield_regen_delay": 0.0,
+	}
+
+
+## ---------- Layer 3a: incoming ----------
+
+## What ONE enemy type's weapon does to ONE player frame, if it connects:
+## hits-to-kill-you, seconds-to-kill-you at that type's own cadence. The exact
+## mirror of `versus`, and the term the frame axis was missing.
+##
+## THREE DELIVERY MODES, because the roster already has three and collapsing
+## them would have made this layer lie on its first day:
+##
+##   &"ranged"  — a cadence weapon (`fire_rate > 0`): raider, turret. Sustained
+##                fire, so ttk and dps are meaningful.
+##   &"contact" — a CONSUMABLE sting (`fire_rate == 0`, `pack_size > 0`): the
+##                gnat. `gnat_swarm._resolve_stings` calls `take_hit(damage)`
+##                and then `body.die(false)` — each body spends ITSELF for one
+##                bite. So a pack is a FINITE damage budget, not a rate, and
+##                the arrival timing belongs to delivery, not to this file.
+##                Reporting a ttk here would invent a cadence that does not
+##                exist in any config.
+##   &"none"    — no weapon at all (`damage == 0`): the aegis. The v1.72
+##                finding as arithmetic — an enemy that cannot hurt you cannot
+##                price your durability, so no frame can distinguish itself.
+##
+## The gnat is why `fire_rate == 0` must never be read as "harmless": it is the
+## type the Atlas's armor exists for (P4.4, "heavy is ++ against gnat stings"),
+## and a naive weaponless test would have deleted exactly the cell that proves
+## flat reduction works.
+static func incoming(enemy: EnemyConfig, frame: FrameConfig) -> Dictionary:
+	var target: Dictionary = target_from_frame(frame)
+	var per_hit: float = maxf(enemy.damage - frame.armor, 0.0)
+
+	if enemy.damage <= 0.0:
+		var idle: Dictionary = _never(
+				"%s carries no weapon against the player" % enemy.type_id)
+		idle["mode"] = &"none"
+		idle["per_hit"] = 0.0
+		idle["hull_fraction"] = 0.0
+		return idle
+
+	if enemy.fire_rate <= 0.0:
+		# Contact: the whole pack, spent.
+		var bodies: int = maxi(int(enemy.pack_size), 1)
+		var budget: float = per_hit * float(bodies)
+		var needed: int = NEVER
+		if per_hit > 0.0:
+			needed = int(ceil(frame.hull / per_hit))
+		return {
+			"mode": &"contact",
+			"kills": budget >= frame.hull and per_hit > 0.0,
+			"shots": needed,
+			# No ttk: the arrival rate is a DELIVERY property (how fast the
+			# cloud reaches you), measured by a bench, never read from a config.
+			"ttk": 0.0,
+			"interval": 0.0,
+			"per_hit": per_hit,
+			"bodies": bodies,
+			"pack_damage": budget,
+			"hull_fraction": minf(budget / maxf(frame.hull, 0.001), 1.0),
+			"why": "" if budget >= frame.hull and per_hit > 0.0
+					else ("%.0f dmg at or under the %.0f armor"
+					% [enemy.damage, frame.armor] if per_hit <= 0.0
+					else "a full pack of %d spends %.0f against %.0f hull"
+					% [bodies, budget, frame.hull]),
+		}
+
+	var interval: float = 1.0 / enemy.fire_rate
+	var result: Dictionary = _exchange(enemy.damage, interval, target, false)
+	result["mode"] = &"ranged"
+	result["per_hit"] = per_hit
+	result["dps"] = per_hit * enemy.fire_rate
+	# Fraction of hull spent per second under sustained fire — the term a frame
+	# cell actually bands, in the unit it bands it in.
+	result["hull_fraction"] = minf(
+			result["dps"] / maxf(frame.hull, 0.001), 1.0)
+	return result
+
+
+## Seconds this frame survives under sustained fire from `count` RANGED bodies,
+## all connecting. The durability readout in the unit the fight uses — how long
+## can I stay in the envelope — and what being outnumbered (S5) erodes.
+##
+## Linear in `count` by construction, and that linearity is a CLAIM the
+## concurrency bench can falsify, not a convenience: focus fire, overkill on
+## the killing blow and armor's per-hit nature all bend it.
+##
+## INF for contact and weaponless types — a pack that cannot spend more than
+## your hull never kills you however long you loiter, and saying "3.2 seconds"
+## about a gnat cloud would be inventing a cadence.
+static func survival_seconds(enemy: EnemyConfig, frame: FrameConfig,
+		count: int = 1) -> float:
+	if count <= 0:
+		return INF
+	var solo: Dictionary = incoming(enemy, frame)
+	if solo["mode"] != &"ranged" or not bool(solo["kills"]):
+		return INF
+	return float(solo["ttk"]) / float(count)
+
+
 static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		damage_mult: float, stop_at_shield_down: bool) -> Dictionary:
 	match weapon:
 		"blaster":
 			return _exchange(combat.projectile_damage * damage_mult,
-					1.0 / maxf(combat.fire_rate, 0.001), enemy,
+					1.0 / maxf(combat.fire_rate, 0.001), target_from_enemy(enemy),
 					stop_at_shield_down)
 		"missile":
 			# The launcher's cooldown IS the missile's cadence: unlike the
 			# blaster it cannot volley, which is the whole gnat story.
 			return _exchange(combat.missile_damage,
-					maxf(combat.missile_cooldown, 0.001), enemy,
+					maxf(combat.missile_cooldown, 0.001), target_from_enemy(enemy),
 					stop_at_shield_down)
 		"flak":
 			# PER BODY, exactly like every other column. The fact that one flak
@@ -167,7 +299,7 @@ static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 			# gun. P4.3's "useless tonnage against shields" is not special-cased
 			# anywhere — it falls out of one number being small.
 			return _exchange(combat.flak_damage * damage_mult,
-					1.0 / maxf(combat.flak_fire_rate, 0.001), enemy,
+					1.0 / maxf(combat.flak_fire_rate, 0.001), target_from_enemy(enemy),
 					stop_at_shield_down)
 	push_error("Lethality: unknown weapon '%s'" % weapon)
 	return {}
@@ -181,12 +313,17 @@ static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 ## instead of continuing into the hull — the strip leg of a combo. It shares
 ## this loop rather than getting its own so the two can never drift apart on
 ## the regen rules, which is the whole discipline of this file.
-static func _exchange(damage: float, interval: float, enemy: EnemyConfig,
+static func _exchange(damage: float, interval: float, target: Dictionary,
 		stop_at_shield_down: bool = false) -> Dictionary:
 	if damage <= 0.0:
 		return _never("zero damage", interval)
-	var hull: float = enemy.hull
-	var shield: float = enemy.shield_max
+	var hull: float = float(target["hull"])
+	var armor: float = float(target["armor"])
+	var shield_max: float = float(target["shield_max"])
+	var break_threshold: float = float(target["shield_break_threshold"])
+	var regen: float = float(target["shield_regen"])
+	var regen_delay: float = float(target["shield_regen_delay"])
+	var shield: float = shield_max
 	# Seconds until regen resumes; only shield-touching hits rewind it.
 	var regen_wait: float = 0.0
 	for hit: int in MAX_HITS:
@@ -196,17 +333,16 @@ static func _exchange(damage: float, interval: float, enemy: EnemyConfig,
 			var regen_time: float = maxf(interval - regen_wait, 0.0)
 			regen_wait = maxf(regen_wait - interval, 0.0)
 			if regen_time > 0.0:
-				shield = minf(shield + enemy.shield_regen * regen_time,
-						enemy.shield_max)
+				shield = minf(shield + regen * regen_time, shield_max)
 		var amount: float = damage
 		if shield > 0.0:
-			regen_wait = enemy.shield_regen_delay
-			if amount < enemy.shield_break_threshold:
+			regen_wait = regen_delay
+			if amount < break_threshold:
 				# Absorbed outright — and since absorbed hits never lower the
 				# shield, no number of them ever will. The P4.3 chip-gun story
 				# in one branch.
 				return _never("%.0f dmg under the %.0f break threshold"
-						% [amount, enemy.shield_break_threshold], interval)
+						% [amount, break_threshold], interval)
 			var excess: float = amount - shield
 			shield = maxf(shield - amount, 0.0)
 			if stop_at_shield_down and shield <= 0.0:
@@ -222,7 +358,7 @@ static func _exchange(damage: float, interval: float, enemy: EnemyConfig,
 					"interval": interval, "why": ""}
 		# The hull's flat plating, applied to whatever the shield let through —
 		# health.gd's order exactly.
-		amount = maxf(amount - enemy.armor, 0.0)
+		amount = maxf(amount - armor, 0.0)
 		if amount <= 0.0:
 			# NEVER only when the weapon's FULL hit cannot get through the
 			# plating; that is a kill-or-never verdict of the same kind as the
@@ -232,9 +368,9 @@ static func _exchange(damage: float, interval: float, enemy: EnemyConfig,
 			# the screen, with the next hit arriving at full damage against a
 			# shield that is now down. Verdicting on `amount` here would have
 			# called that combination unkillable.
-			if damage <= enemy.armor:
+			if damage <= armor:
 				return _never("%.0f dmg at or under the %.0f armor"
-						% [damage, enemy.armor], interval)
+						% [damage, armor], interval)
 			continue
 		hull -= amount
 		if hull <= 0.0:

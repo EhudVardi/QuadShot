@@ -90,6 +90,9 @@ func _initialize() -> void:
 		var armored: EnemyConfig = base.duplicate() as EnemyConfig
 		armored.armor = float(probe["armor"])
 		_add_cells(armored, "armor%.0f" % armored.armor, base)
+	_add_incoming_cells()
+	_verify_weaponless()
+	_verify_contact()
 	print("[lethality] Layer 1 table (config arithmetic, %d cells):"
 			% _cells.size())
 	for cell: Dictionary in _cells:
@@ -97,8 +100,7 @@ func _initialize() -> void:
 		var verdict: String = "NEVER (%s)" % p["why"] if not p["kills"] \
 				else "%d hit%s, ttk %.1fs" % [p["shots"],
 				"" if int(p["shots"]) == 1 else "s", p["ttk"]]
-		print("[lethality]   %-8s x %-18s %s"
-				% [cell["weapon"], cell["label"], verdict])
+		print("[lethality]   %-29s %s" % [_cell_name(cell), verdict])
 	_print_combos()
 	_start_cell()
 	physics_frame.connect(_on_physics_frame)
@@ -110,9 +112,57 @@ func _add_cells(config: EnemyConfig, state: String, named: EnemyConfig) -> void:
 	var label: String = String(named.type_id)
 	if state != "":
 		label += "(%s)" % state
+	var pps: float = float(Engine.physics_ticks_per_second)
 	for weapon: String in Lethality.WEAPONS:
-		_cells.append({"enemy": config, "weapon": weapon, "label": label,
-				"predicted": Lethality.versus(weapon, _combat, config)})
+		var interval: float = 0.0
+		var damage: float = 0.0
+		match weapon:
+			"blaster":
+				damage = _combat.projectile_damage
+				interval = 1.0 / _combat.fire_rate
+			"missile":
+				damage = _combat.missile_damage
+				interval = _combat.missile_cooldown
+			"flak":
+				# One BODY's share of a burst. The pack yield lives in Layer 2,
+				# so what is planted here is a single fragment cloud's worth of
+				# damage to a single target, at the pod's own cycle.
+				damage = _combat.flak_damage
+				interval = 1.0 / _combat.flak_fire_rate
+		_cells.append({
+			"weapon": weapon, "label": label, "direction": "out",
+			"hull": config.hull, "armor": config.armor, "defenses": config,
+			"damage": damage, "interval": interval,
+			"predicted": Lethality.versus(weapon, _combat, config),
+		})
+	# `pps` is read by _start_cell; touching it here keeps the two in sync if
+	# the tick rate ever changes under us.
+	assert(pps > 0.0)
+
+
+## LAYER 3a (Iteration 9 / S2): the same planted-shot discipline, arrow
+## reversed — one enemy type's weapon fired into a REAL player `Health`, built
+## from the frame the drone actually flies. This is the verification that was
+## missing while the frame axis was being banded on unmeasured durability.
+func _add_incoming_cells() -> void:
+	for frame_id: String in Frames.ROSTER:
+		var frame: FrameConfig = Frames.config(frame_id)
+		for enemy_path: String in ENEMIES:
+			var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
+			var predicted: Dictionary = Lethality.incoming(enemy, frame)
+			# Only RANGED types have a cadence to plant on. Contact types are
+			# verified synchronously in _verify_contact (no shield on a frame
+			# means no time dependence at all), and weaponless types are
+			# asserted as arithmetic in _verify_weaponless.
+			if predicted["mode"] != &"ranged":
+				continue
+			_cells.append({
+				"weapon": String(enemy.type_id), "direction": "in",
+				"label": "%s <- %s" % [frame_id, enemy.type_id],
+				"hull": frame.hull, "armor": frame.armor, "defenses": null,
+				"damage": enemy.damage, "interval": 1.0 / enemy.fire_rate,
+				"predicted": predicted,
+			})
 
 
 ## The combo rows: what a two-weapon answer costs, computed from the state
@@ -151,30 +201,119 @@ func _print_combos() -> void:
 							strip, solo["shots"], solo["ttk"]])
 
 
+## The v1.72 finding, as an assertion rather than a paragraph: a type carrying
+## no weapon against the player prices NO frame's durability, so every frame
+## looks identical against it and the frame axis is structurally blind there.
+## If a future roster gives the aegis a defensive gun this check FAILS, which
+## is the correct alarm — the Atlas x Aegis band would have to be revisited.
+func _verify_weaponless() -> void:
+	for enemy_path: String in ENEMIES:
+		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
+		var identical: bool = true
+		var first: float = -1.0
+		for frame_id: String in Frames.ROSTER:
+			var result: Dictionary = Lethality.incoming(enemy,
+					Frames.config(frame_id))
+			if result["mode"] != &"none":
+				identical = false
+				break
+			if bool(result["kills"]):
+				_failures.append("%s carries no weapon yet kills a %s"
+						% [enemy.type_id, frame_id])
+			var cost: float = float(result["hull_fraction"])
+			if first < 0.0:
+				first = cost
+			elif not is_equal_approx(first, cost):
+				_failures.append("%s is weaponless yet frames differ against it"
+						% enemy.type_id)
+		if identical:
+			print("[lethality]   weaponless: %s prices NO frame's durability — "
+					% enemy.type_id
+					+ "every frame is identical against it, so the frame axis "
+					+ "is structurally blind here (v1.72)")
+
+
+## CONTACT types (the gnat). A frame has no shield, so `Health.take` has no
+## time dependence for it — the whole exchange can be planted synchronously and
+## compared exactly, no physics frames needed.
+##
+## This is the cell that proves flat armor does what P4.4 promises, and it only
+## exists because `fire_rate == 0` turned out to mean "spends itself on contact"
+## rather than "harmless" (gnat_swarm._resolve_stings → take_hit → die).
+func _verify_contact() -> void:
+	for enemy_path: String in ENEMIES:
+		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
+		for frame_id: String in Frames.ROSTER:
+			var frame: FrameConfig = Frames.config(frame_id)
+			var predicted: Dictionary = Lethality.incoming(enemy, frame)
+			if predicted["mode"] != &"contact":
+				continue
+			# Plant the whole pack into a real Health wired the way
+			# FlightController._ready wires the drone's.
+			var health := Health.new()
+			health.max_health = frame.hull
+			root.add_child(health)
+			health.armor = frame.armor
+			# `_ready` has NOT run: this bench plants during _initialize, before
+			# the first frame, so `current` is still its 0.0 default and the
+			# first sting would "kill" a full-hull frame. The cell machine never
+			# hit this because it plants from _on_physics_frame. State the
+			# starting condition instead of inheriting a lifecycle assumption.
+			health.current = frame.hull
+			health.alive = true
+			var bodies: int = int(predicted["bodies"])
+			for body: int in bodies:
+				if not health.alive:
+					break
+				health.take(enemy.damage)
+			# Read `alive` directly rather than latching the `died` signal in a
+			# lambda: GDScript closures capture locals BY VALUE, so the flag set
+			# inside the callback never reaches this scope.
+			var died: bool = not health.alive
+			var spent: float = frame.hull - maxf(health.current, 0.0)
+			health.queue_free()
+
+			if died != bool(predicted["kills"]):
+				_failures.append("%s <- %s pack: predicted %s, planted %s"
+						% [frame_id, enemy.type_id,
+						"kill" if predicted["kills"] else "survives",
+						"killed" if died else "survived"])
+				continue
+			if not died and absf(spent - float(predicted["pack_damage"])) > 0.01:
+				_failures.append("%s <- %s pack: predicted %.1f damage, planted %.1f"
+						% [frame_id, enemy.type_id, predicted["pack_damage"], spent])
+				continue
+			print("[lethality]   verified %-18s %d stings spend %.0f of %.0f hull "
+					% ["%s <- %s pack:" % [frame_id, enemy.type_id], bodies,
+					spent, frame.hull]
+					+ "(%.0f%%, %s)" % [float(predicted["hull_fraction"]) * 100.0,
+					"KILLS" if died else "survivable"])
+
+
+## Outgoing cells read "weapon x target"; incoming cells already carry their
+## own "frame <- enemy" shape, and doubling it up reads as a typo.
+func _cell_name(cell: Dictionary) -> String:
+	if cell["direction"] == "in":
+		return String(cell["label"])
+	return "%s x %s" % [cell["weapon"], cell["label"]]
+
+
 func _start_cell() -> void:
 	var cell: Dictionary = _cells[_cell_i]
-	var enemy: EnemyConfig = cell["enemy"]
 	_health = Health.new()
-	_health.max_health = enemy.hull
+	_health.max_health = float(cell["hull"])
 	root.add_child(_health)
-	_health.configure_defenses(enemy)
+	# An outgoing cell configures from the enemy's own block; an incoming cell
+	# is the PLAYER's Health, which has armor and no shield — set the same way
+	# FlightController._ready sets it, so the bench cannot drift from the drone.
+	if cell["defenses"] != null:
+		_health.configure_defenses(cell["defenses"] as EnemyConfig)
+	else:
+		_health.armor = float(cell["armor"])
 	_health.died.connect(func() -> void: _death_tick = _ticks)
 	var pps: float = float(Engine.physics_ticks_per_second)
-	match cell["weapon"]:
-		"blaster":
-			_damage = _combat.projectile_damage
-			_hit_interval_ticks = maxi(int(roundf(pps / _combat.fire_rate)), 1)
-		"missile":
-			_damage = _combat.missile_damage
-			_hit_interval_ticks = maxi(
-					int(roundf(pps * _combat.missile_cooldown)), 1)
-		"flak":
-			# One BODY's share of a burst. The pack yield lives in Layer 2, so
-			# what gets planted here is a single fragment cloud's worth of damage
-			# to a single target, at the pod's own cycle.
-			_damage = _combat.flak_damage
-			_hit_interval_ticks = maxi(
-					int(roundf(pps / _combat.flak_fire_rate)), 1)
+	_damage = float(cell["damage"])
+	_hit_interval_ticks = maxi(int(roundf(pps * float(cell["interval"]))), 1)
 	_ticks = 0
 	_hits_planted = 0
 	_death_tick = -1
@@ -199,7 +338,7 @@ func _on_physics_frame() -> void:
 func _verify_cell() -> void:
 	var cell: Dictionary = _cells[_cell_i]
 	var predicted: Dictionary = cell["predicted"]
-	var label: String = "%s x %s" % [cell["weapon"], cell["label"]]
+	var label: String = _cell_name(cell)
 	var killed: bool = _death_tick >= 0
 	if killed != bool(predicted["kills"]):
 		_failures.append("%s: predicted %s, planted shots %s (after %d hits)"

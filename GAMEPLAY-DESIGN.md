@@ -6952,3 +6952,66 @@ Two refinements, recorded so the idea does not overreach:
     evasion + concurrency → roster (Falx, Screamer) → ammo → melee bench +
     S12 → suite tiering → calibration.
   - No code this entry — paper only.
+
+- **2026-07-27 — v1.75. M6a step 1: LAYER 3a lands — the instrument can finally
+  see being shot at, and the roster turned out to have three damage-delivery
+  modes rather than one.**
+  - **The refactor was almost free, as S2 predicted.** `Lethality._exchange`
+    never cared whose durability it was replaying — it reads six fields — so a
+    "target" became a plain durability block (`target_from_enemy` /
+    `target_from_frame`) and `incoming()` points the same verified arithmetic
+    the other way. `FrameConfig.hull`/`armor` are live on the drone
+    (`FlightController._ready` pushes both into its `Health`), so this mirrors
+    shipped wiring rather than a schema. Every outgoing cell re-verified
+    unchanged: the refactor is behaviour-preserving.
+  - **THE FIRST NUMBERS EVER MEASURED FOR DURABILITY**, planted-shot verified
+    against the real `Health`:
+
+    | | Kestrel (100 hull, 0 armor) | Atlas (190 hull, 3 armor) |
+    |---|---|---|
+    | under raider fire | 13 hits, **8.0 s** | 38 hits, **24.7 s** |
+    | under turret fire | 10 hits, **4.5 s** | 28 hits, **13.5 s** |
+    | a full gnat pack (9 stings) | 63 of 100 hull — **63%** | 36 of 190 — **19%** |
+
+    The Atlas survives **~3.1×** longer under a raider and **~3.0×** under a
+    turret, and eats **3.3× less** hull fraction from a gnat pack. That is the
+    P4.4 promise ("heavy is `++` against gnat stings") quantified for the first
+    time — and it has been completely invisible to the instrument for the
+    Atlas's entire life.
+  - **THREE DELIVERY MODES, discovered rather than designed.** The first draft
+    tested `damage <= 0 or fire_rate <= 0` for "weaponless" and would have been
+    wrong on the roster it shipped against:
+    - **`ranged`** (`fire_rate > 0`) — raider, turret. Cadence, so ttk and dps
+      mean something.
+    - **`contact`** — the **gnat**, which carries `damage 7.0` but
+      `fire_rate 0.0`. It is not harmless: `gnat_swarm._resolve_stings` calls
+      `take_hit(damage)` and then `body.die(false)`, so each body **spends
+      itself** for one bite. A pack is a FINITE damage budget, not a rate, and
+      its arrival timing is a DELIVERY property — reporting a ttk here would
+      invent a cadence no config contains. Reading `fire_rate == 0` as
+      "harmless" would have deleted precisely the cell that proves flat armor
+      works.
+    - **`none`** — the **aegis** (`damage 0`). The v1.72 finding as arithmetic,
+      and now as an assertion: `_verify_weaponless` fails the run if a
+      weaponless type ever kills a frame, or if two frames differ against one.
+      **If a future roster arms the aegis, that check goes red on purpose** —
+      the Atlas × Aegis band would have to be revisited.
+  - **Two bugs the contact bench caught in its own first run**, both worth
+    recording because they are lifecycle traps rather than logic slips:
+    - **`_ready` had not run.** The bench plants during `_initialize`, before
+      the first frame, so `Health.current` was still its `0.0` default and the
+      first sting "killed" a full-hull frame — planted damage came back as
+      exactly the hull on both frames, which is what made it obvious. The
+      existing cell machine never hit this because it plants from
+      `_on_physics_frame`. Fixed by stating the starting condition instead of
+      inheriting a lifecycle assumption.
+    - **A GDScript closure captured the `died` flag by VALUE**, so
+      `died.connect(func(): died = true)` never reached the enclosing scope and
+      the kill verdict silently read false. Replaced by reading `health.alive`
+      directly. Worth knowing generally: latching a signal into a local through
+      a lambda does not work in GDScript.
+  - **Verified:** `lethality_check` PASS across every outgoing cell (unchanged),
+    four new ranged incoming cells, two contact-pack cells, and the weaponless
+    assertion.
+  - **Next: step 2, `PILOT_VERSION` 3 → 4** — the pilot has to learn to survive
+    before Layer 3b can measure how well it does.
