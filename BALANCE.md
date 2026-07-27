@@ -64,6 +64,29 @@ duty ~0.7, aim 0.99). The delivery bench prints a **duty cycle** beside every
 rate for exactly this reason. Reading 0.99 against 0.17 as "flak aims better"
 is the Blaster×Raider mistake wearing a new column's name.
 
+**Layer 3 — survivability** (Iteration 9 / S1–S3, added 2026-07-27). The
+mirror of Layers 1–2: *their* output on *you*. Layers 1 and 2 were one half of
+a symmetric model for a year, and that omission is why the frame axis was
+illegible — a frame cell bands "destroyed minus hull spent", the Atlas's whole
+virtue lives in the hull term, and nothing measured the hull term.
+- **3a — incoming lethality.** `Lethality.incoming(enemy, frame)`: the same
+  verified exchange loop pointed the other way, against
+  `FrameConfig.hull`/`armor` (live on the drone — `FlightController._ready`
+  pushes both into its `Health`). Planted-shot verified like Layer 1. It
+  reports one of **three delivery modes**, because the roster has three:
+  `ranged` (a cadence — raider, turret), `contact` (a CONSUMABLE sting — the
+  gnat spends each body for one bite, so a pack is a finite damage budget and
+  its arrival timing belongs to delivery, not to a config), and `none` (the
+  aegis — no weapon, so it prices no frame's durability at all, which is the
+  v1.72 finding in arithmetic). **Never read `fire_rate == 0` as harmless**:
+  the gnat carries damage 7.0 at fire_rate 0.0 and is the type flat armor
+  exists for.
+- **3b — player evasion.** Per PILOT × FRAME, the twin of `aim_quality` and of
+  the per-target `evasion` the enemy rows already carry — the player is a
+  target too, and was the one nobody ever measured. Requires a pilot that
+  tries to survive (`PILOT_VERSION` 4's jink); a pilot that never evades makes
+  this unmeasurable by construction.
+
 **Validation — the duel harness** (`matchup_harness.gd`). The integrated
 fight, demoted from source-of-truth to cross-check: predicted product
 (lethality × aim_quality × evasion ÷ splash) vs dueled result. Divergence is

@@ -7015,3 +7015,68 @@ Two refinements, recorded so the idea does not overreach:
     assertion.
   - **Next: step 2, `PILOT_VERSION` 3 → 4** — the pilot has to learn to survive
     before Layer 3b can measure how well it does.
+
+- **2026-07-27 — v1.76. M6a steps 2+3: `PILOT_VERSION` 3 → 4, the pilot learns to
+  survive — and the re-measure confirms the bump's prediction EXACTLY.**
+  - **Why the bump was unavoidable (S11):** the reference pilot's own header said
+    it "never evades", which made Layer 3b unmeasurable by construction — you
+    cannot measure how well a pilot avoids fire when it makes no attempt to.
+  - **v4 = a DEFENSIVE JINK, gated on having actually been hit.** A perfect-aim
+    shooter misses a target whose ACCELERATION it cannot predict, so what
+    defeats it is changing direction inside the round's flight time. The jink is
+    a lateral bank oscillation (0.35 rad, 1.2 s) plus a vertical bob (1.5 m,
+    0.9 s, deliberately a different period so the two axes do not phase-lock
+    into a predictable ellipse), held for 2.5 s after any hull loss. It is
+    re-clamped to `orbit_bank_max`, so it inherits the same thrust budget the
+    orbit is ceilinged by and cannot bank the drone past what it can hold
+    altitude at — the v2 sink-into-the-floor lesson, reused rather than
+    relearned. The gate is purely local information (the pilot notices its own
+    hull dropping), needs no knowledge of the enemy, and is deterministic.
+  - **THE GATE IS THE DESIGN, and it made the bump falsifiable.** Because the
+    aim bench's static target has `sight_range = 0.0` and genuinely cannot fire
+    (verified in code, not taken from the header's wording), and because the
+    evasion cells do not run this brain at all, the bump shipped with a stated
+    prediction: **every committed delivery factor comes back unchanged, and only
+    the duels move.**
+  - **The prediction held to the byte.** The entire diff of
+    `balance/delivery_factors.json` after a full 21-cell re-measure is ONE LINE:
+    `"pilot_version": 3` → `4`. Every aim, evasion and splash value identical —
+    `aim: kestrel/blaster` 0.17, `atlas/blaster` 0.19, `flak x gnats` 1.00 ×
+    3.42, all of it. This is the third time the discipline has paid off the same
+    way (v2 moved things and said so; v3 and now v4 moved nothing and proved
+    it), and it is exactly what a pinned ruler is for: **a bump that changes
+    nothing it should not change is the instrument working, not a no-op.**
+  - **Regression:** the full check suite (combat, wave, missile, run, hover,
+    repair, motor_damage, menu, manifest, sortie_compose, lethality) PASS. The
+    Layer 3a refactor touched only the balance calculator, and the suite
+    confirms shipped game code is undisturbed.
+  - **The duels DID move, and they split by enemy type — the evasion/aim trade,
+    visible for the first time.** Every cell where the pilot is never hit stayed
+    put exactly as predicted (Atlas × Aegis −1.00, Blaster × Turret, Flak ×
+    Gnats at 0% hull, Atlas × Gnats, Atlas × Raider). Among the cells where it
+    IS hit:
+
+    | cell | v3 | v4 |
+    |---|---|---|
+    | Blaster × Gnats | −0.24, kills 2.2/9, hull 48% | **−0.33**, kills **1.7**/9, hull 51% |
+    | Missile × Gnats | −0.42, kills 1.2/9, hull 55% | **−0.45**, kills 1.0/9, hull 56% |
+    | Flak × Raiders | +0.71, kills 2.3/3, hull 7% | **+0.88**, kills **2.8**/3, hull 7% |
+    | Missile × Raiders | +0.89, hull 11% | **+0.92**, hull **8%** |
+    | Blaster × Raiders | −0.19, hull 19% | −0.17, hull 17% |
+
+    **The jink pays against RANGED shooters and costs against the CONTACT
+    swarm**, which is mechanically coherent rather than surprising: jinking
+    breaks a raider's firing solution, but it does not break a gnat cloud's
+    approach — it only degrades your own gun, so you kill fewer bodies and get
+    stung more. Evasion is not free, and this is the first time the instrument
+    could see the price.
+  - **PRELIMINARY, and honestly labelled.** The v1.72 clock probe — still pilot
+    **v3** — reported `Atlas × Turret` at `dmg-taken 18.7` where the v3 10 s run
+    said `22.2`. That cell resolves at 3.5 s, well inside both caps, so the cap
+    did not cause it: that is **~16% run-to-run variance under an unchanged
+    pilot**, exactly the cross-process float variance the harness header warns
+    about. Small deltas therefore cannot be attributed to the jink. A second v4
+    run is under way to establish a v4-vs-v4 noise floor; only deltas exceeding
+    it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
+    Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
+    with a mechanism, not as a measurement.**

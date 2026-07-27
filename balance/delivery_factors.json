@@ -26,7 +26,7 @@
 		"missile:gnat": 1.0,
 		"missile:raider": 1.0
 	},
-	"pilot_version": 3,
+	"pilot_version": 4,
 	"splash": {
 		"flak:gnat": 3.42,
 		"flak:raider": 1.9

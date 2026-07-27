@@ -38,7 +38,20 @@ extends RefCounted
 ## blaster and missile paths are byte-for-byte the flying they were under v2,
 ## and the re-measure PROVED it (every v2 factor came back unchanged). The bump
 ## is the discipline working, not a claim that anything moved.
-const PILOT_VERSION: int = 3
+## v4 (v1.76, Iteration 9 / S3) = THE PILOT LEARNS TO SURVIVE. Until now this
+## brain "never evades" (see standoff_range), which made Layer 3b unmeasurable:
+## you cannot measure how well a pilot avoids fire when it makes no attempt to.
+## v4 adds a DEFENSIVE JINK — see jink_bank — gated on having actually been hit.
+##
+## That gate is the whole design. Because the aim bench's target "cannot move,
+## cannot shoot and cannot die" (delivery_bench header), the pilot is never hit
+## there, never jinks, and every aim cell is byte-for-byte the flying it was
+## under v3. The evasion cells do not run this brain at all (frozen shooter). So
+## the prediction accompanying this bump is that **every committed delivery
+## factor comes back unchanged, and only the duels move** — the duels being the
+## one place the pilot is actually shot at. A bump that changes nothing it
+## should not change is the discipline working, exactly as at v3.
+const PILOT_VERSION: int = 4
 
 var drone: FlightController
 var weapon: Weapon
@@ -50,6 +63,12 @@ var flak: FlakPod
 ## a favour.
 var weapon_id: String = "blaster"
 var target: Node3D
+
+# --- Jink state (v4). Purely local: the pilot notices its own hull dropping.
+var _health_watch: Health
+var _last_health: float = -1.0
+var _since_hit: float = INF
+var _jink_time: float = 0.0
 
 # --- Competence datum (H5). Calibrated by the human against real skill. ---
 ## Altitude the pilot seeks, meters (harness spawns the duel around this).
@@ -140,6 +159,34 @@ var floor_lookahead_s: float = 1.2
 ## P gain from attitude error to commanded rate, used while recovering.
 var attitude_p: float = 4.0
 
+## --- DEFENSIVE JINK (PILOT_VERSION 4, Iteration 9 / S3) ---
+## Extra bank, radians, oscillated while under fire. A perfect-aim shooter
+## misses a target whose ACCELERATION it cannot predict, so what defeats it is
+## changing direction inside the round's flight time — not raw speed, and not
+## distance. This is the player-side twin of the raider's orbit.
+##
+## Deliberately modest: the pilot is a competent combatant that does not fly in
+## a straight line while being shot, NOT an optimized dodge-bot. Tuning this up
+## until the pilot is untouchable would make every survivability number a
+## measurement of this constant.
+var jink_bank: float = 0.35
+## Seconds per lateral cycle. Sized against the round's flight time — a bolt
+## covers a 25 m engagement in ~0.3 s and a flak shell in ~0.4 s, so a cycle
+## near a second means the platform has meaningfully changed direction between
+## the shooter's solution and the round's arrival. Much faster and the jink
+## averages out to a straight line over the flight time; much slower and it IS
+## a straight line.
+var jink_period_s: float = 1.2
+## Vertical component, meters of altitude bob, on a DIFFERENT period so the two
+## axes do not phase-lock into a predictable ellipse. Kept far inside the
+## ground guard's margin (cruise 14 m vs guard 7 m).
+var jink_climb_m: float = 1.5
+var jink_climb_period_s: float = 0.9
+## How long a hit keeps the pilot jinking. The gate is "I have been hit
+## recently", which is information a real pilot plainly has, needs no knowledge
+## of the enemy's config, and is perfectly deterministic.
+var jink_memory_s: float = 2.5
+
 
 ## Drive one physics tick. Called by the harness each physics_frame; the
 ## overrides it sets are consumed by the drone on the next physics step (a
@@ -153,12 +200,13 @@ var attitude_p: float = 4.0
 func update(_delta: float) -> void:
 	if drone == null or not drone.armed:
 		return
+	_track_damage(_delta)
 	drone.rate_override_enabled = true
 	if target == null or not is_instance_valid(target) \
 			or target.is_queued_for_deletion() or weapon == null:
 		# No target: level out and hold altitude, hold fire.
 		drone.rate_override = Vector3.ZERO
-		drone.throttle_override = _altitude_throttle(cruise_altitude)
+		drone.throttle_override = _altitude_throttle(_hold_altitude())
 		_hold_fire()
 		return
 
@@ -269,6 +317,13 @@ func update(_delta: float) -> void:
 	var desired_bank: float = -clampf(
 			orbit_bank_per_error * (desired_lateral - lateral_speed),
 			-orbit_bank_max, orbit_bank_max)
+	if jinking():
+		# Re-clamped to orbit_bank_max, so the jink inherits the same thrust
+		# budget the orbit is ceilinged by and can never bank the drone past
+		# what it can hold altitude at (the v2 sink-into-the-floor lesson).
+		desired_bank = clampf(
+				desired_bank + jink_bank * sin(TAU * _jink_time / jink_period_s),
+				-orbit_bank_max, orbit_bank_max)
 	var roll_rate: float = clampf(attitude_p * (body_roll - desired_bank),
 			-max_roll_rate, max_roll_rate)
 
@@ -285,7 +340,7 @@ func update(_delta: float) -> void:
 		roll_rate = clampf(attitude_p * body_roll, -max_roll_rate, max_roll_rate)
 
 	drone.rate_override = Vector3(roll_rate, pitch_rate, yaw_rate)
-	drone.throttle_override = _altitude_throttle(cruise_altitude)
+	drone.throttle_override = _altitude_throttle(_hold_altitude())
 
 	# Fire when the GUN line is on the target and it is in reach.
 	var on_target: bool = gun.angle_to(to_target) < deg_to_rad(fire_cone_deg)
@@ -313,6 +368,37 @@ func update(_delta: float) -> void:
 		_hold_blaster()
 	else:
 		weapon.fire_override = on_target and in_reach
+
+
+## Is the pilot currently evading? True for `jink_memory_s` after any hull
+## loss. Public so a bench can report the duty cycle of the evasion rather than
+## inferring it — the same honesty the delivery bench applies to trigger duty.
+func jinking() -> bool:
+	return _since_hit <= jink_memory_s
+
+
+## Watch our own hull. Polled rather than signal-wired so the pilot works
+## against any drone the benches hand it without setup order mattering.
+func _track_damage(delta: float) -> void:
+	_jink_time += delta
+	if _since_hit < INF:
+		_since_hit += delta
+	if _health_watch == null:
+		_health_watch = drone.get_node_or_null("Health") as Health
+		if _health_watch == null:
+			return
+		_last_health = _health_watch.current
+		return
+	if _last_health >= 0.0 and _health_watch.current < _last_health - 0.001:
+		_since_hit = 0.0
+	_last_health = _health_watch.current
+
+
+## Cruise, plus the vertical half of the jink while under fire.
+func _hold_altitude() -> float:
+	if not jinking():
+		return cruise_altitude
+	return cruise_altitude 			+ jink_climb_m * sin(TAU * _jink_time / jink_climb_period_s)
 
 
 func _altitude_throttle(target_alt: float) -> float:
