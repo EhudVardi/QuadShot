@@ -3282,6 +3282,274 @@ generator earns its place — likely when P2-era city composition needs
 enterable buildings for real. The frame tower stays two floors until then;
 the silhouette flag is logged, not yet patched, by the user's own call.
 
+---
+
+## Iteration 9 — S: The Symmetric Half (survivability, and the roster-first re-order) (PROPOSED, 2026-07-27 — user-initiated)
+
+> Iteration 6 built an instrument that measures **your output on them**. It was
+> never finished: there is no layer for **their output on you**, so durability —
+> the entire point of an airframe roster — has never been measurable, and the
+> war's exchange rate has never been validated. This iteration completes the
+> mirror, and proposes a **milestone re-order**: finish and balance the ROSTER
+> before building more of the WAR. Sections **S1–S11**; react by ID. Per 2.4
+> this is paper — the model and the benches that prove it, not tuned numbers.
+
+### S1 — The thesis: the instrument is half a model
+
+The user's framing (2026-07-27), which is correct and sharper than the doc has
+ever put it: balance is *how hard you hit*, *how well you deliver it*, **and
+separately** *how much you can take*. Mapped onto what exists:
+
+| | your output on them | their output on you |
+|---|---|---|
+| **does it hurt?** | **Layer 1** lethality ✅ | *nothing* ❌ |
+| **does it connect?** | **Layer 2** delivery ✅ | *nothing* ❌ |
+
+Layers 1 and 2 are one half of a symmetric model. BALANCE.md admits the hole in
+a single line — *"prediction has no survival term (assumption 3: nobody shoots
+back)"* — and then the **entire frame axis was built on top of it.** That is why
+`Atlas × Aegis` is illegible (v1.72): a frame cell bands *destroyed minus hull
+spent*, the Atlas's whole virtue lives in the hull term, and against an enemy
+that never fires the hull term is pinned at zero.
+
+**The Kestrel spends 0% hull in all four measured cells** and scores a perfect
+1.00 in three of them. Since a frame cell is `Atlas − Kestrel`, the arithmetic
+ceiling for the Atlas in those cells is **0.00**. It cannot win; it can only
+fail to lose. No amount of good frame design changes that — it is a property of
+the instrument, not of the airframe.
+
+### S2 — Layer 3a: incoming lethality (arithmetic, cheap)
+
+The exact mirror of Layer 1, and the existing calculator already has the shape:
+`EnemyConfig.damage` / `fire_rate` against `FrameConfig.hull` / `armor` →
+**shots-to-kill-YOU**, hits-to-kill, seconds-under-fire-to-kill. Armor is
+already live in `Health.take` and already modeled in `Lethality`; the frame side
+already carries `hull` and `armor` in `FrameConfig` (Kestrel 100/0, Atlas
+190/3). Nothing new needs inventing — the numbers exist and have simply never
+been pointed at the player.
+
+Verified the same way Layer 1 was: planted shots into a real player `Health`,
+so the calculator and the damage code cannot drift.
+
+### S3 — Layer 3b: player evasion (measured, and it re-keys the frame axis)
+
+`evasion` already exists in Layer 2 — **keyed per target.** The roster has
+exactly one target nobody has ever measured: **you.** BALANCE.md says evasion is
+deliberately not frame-keyed *because the bench freezes the shooter*; the
+player-side twin has no such constraint, and **would** be frame-keyed. That is
+precisely the axis that makes an Atlas legible.
+
+Same bench, arrow reversed: a fixed perfect-aim shooter (or a real enemy at a
+stated skill) firing at the reference pilot performing a standard task. Output:
+hits-taken per second-of-exposure, per **pilot × frame**.
+
+One factor, one owner, one bench that measures it alone — the discipline that
+kept Layers 1–2 clean, and the test any new metric must pass here.
+
+### S4 — Why 0% hull happens, and why "run the tests longer" will not fix it
+
+The user's hypothesis: the enemy cannot connect on a moving pilot, so the duels
+should run longer to give it a chance. **Half right, and the fix does not
+follow** — worth recording because the reasoning generalizes.
+
+The enemy *can* connect: the turret puts **12% of hull into the Atlas** over a
+3.6 s engagement. It fails to touch the Kestrel because the Kestrel kills it in
+**1.3 s** — exposure ≈ 0. So the mechanism is **time-in-the-threat-envelope,
+not marksmanship.**
+
+Which is why a longer cap changes nothing: **a duel ends when the enemy dies,
+not when the clock expires.** The v1.72 probe demonstrated this from the other
+side — doubling `MAX_SECONDS` 10 → 20 moved the Aegis cell not at all. Raising
+the cap on a 1.3 s fight buys zero extra exposure.
+
+What *does* create exposure, in ascending order of honesty:
+1. **More enemies at once** (S5) — the one that matches the game.
+2. **A task that holds you in the envelope** — "destroy the objective while the
+   turret ring fires", i.e. a composed sortie rather than a duel.
+3. Tougher enemies / longer TTK — happens naturally as the roster grows.
+
+**The corollary matters for H6:** the unit layer is inherently a step-function
+instrument. It will read `++` or `--` almost everywhere and cannot produce the
+graded 45–65% middle the difficulty curve asks for. That is consistent with H9
+(the graded signal was always specced to live at the *sortie* layer) — but it
+means the curve genuinely cannot be calibrated from duels. Duels prove
+feel-promises; sorties produce curves.
+
+### S5 — Concurrency: the web is 1v1, the fight is 1vN
+
+The v1.29 blackbox finding, now urgent: every `× Raider` cell is 1v1 while the
+shipped wave director spawns growing concurrent groups. v1.33 added one pack
+row. **v1.71's composer widened the gap deliberately** — a composed sortie is
+1v(layered garrison + timed reserve waves).
+
+Concurrency is not a fourth delivery factor; it is a **bench axis**. The same
+cells, run at N. It matters here because *durability is exactly the property
+that only appears when you are outnumbered* — S3 and S5 are the same fix
+arriving from two directions, and neither is worth much alone.
+
+### S6 — Cost per kill, and the ammo model behind it
+
+"Missiles bankrupt on gnats" is one of the design's founding feel-promises. It
+is **currently unfalsifiable**: there are no ammo, magazine or capacity fields
+anywhere in `CombatConfig` — weapons are infinite. Nothing can bankrupt.
+
+Cost-per-kill is trivial arithmetic *on top of* Layer 1 (shots-to-kill × cost
+per shot) — but it drags a real system in behind it: magazines, re-arm, and
+therefore pads (P2.6) and the between-sortie bill (P5.6). That is a scope
+decision, not bookkeeping, so it is **S.q3** rather than an assumption.
+
+### S7 — The engagement window: a constraint, NOT a factor
+
+`Atlas × Aegis` is the proof case. A deadline (the bomber's ~8.6 s run) met a
+quantized cadence (`missile_cooldown` 3.0 s) and turned a continuous quantity
+into a **step function**: 0.6 s of deficit cost a whole missile and the entire
+cell.
+
+Multiplying a "time available" term into the prediction would smear that step
+into a slope and lie about it. Instead: **tag cells whose outcome is decided by
+a clock**, the way unseeded-enemy cells are already tagged as resolution-limited
+(`can only read ++ or --`). A reader must never mistake a step for a gradient.
+
+### S8 — Detectability: deferred, with a stated trigger (my call, per the user)
+
+The user left this one to me. **Defer.** Not because it is unmeasurable — P2.3
+already makes reinforcements fire on `detected`, and player-side signature is
+programmable (range, speed, terrain masking). Defer because **it has exactly one
+possible value today**: no frame, no equipment and no enemy varies it, and a
+factor with one value measures nothing. This is P4.10's own rule ("a counter
+without a thing to counter is noise") applied to measurement.
+
+**Stated trigger for adoption:** the day a frame or a piece of equipment varies
+signature — the Shade frame, EW gear, or the user's "invisibility" module — it
+enters *with* its bench row, never before.
+
+### S9 — Pricing `strength_cost` empirically: the melee bench
+
+v1.70's manifest made `strength_cost` **load-bearing**: it is the exchange rate
+converting kinetic results into war currency, and the composer's whole
+conservation invariant is denominated in it. The shipped values — gnat 0.3,
+raider 1.0, turret 2.0, aegis 4.0 — are **hand-set and have never been
+validated against combat.** The war's arithmetic currently rests on four
+guesses.
+
+The user's instinct — *"start with an empty space, throw everything together,
+and see an actual war"* — is exactly the instrument for this, and it
+independently rediscovered a use case the project had already reserved: the
+agent-vs-agent mirror bench was **demoted** during the v1.23 realignment with
+one exception noted, *"only future use is empirically pricing `strength_cost`."*
+That day has arrived.
+
+**What it is:** side A of N units against side B of M units, in empty space,
+kinetic, headless (and watchable per the standing policy). Sweep compositions;
+find the ratios at which sides trade evenly; those ratios ARE the relative
+strengths. Then compare against the hand-set numbers and reconcile.
+
+**GUARDRAIL, non-negotiable (F2/P4.7):** this is an **instrument, not a game
+mode, and not the war.** The war never fights kinetically — unattended battles
+resolve by arithmetic, and the sortie is the only deaggregation bubble. The
+melee bench exists to *price* the arithmetic, never to *replace* it. If this
+bench ever starts being called during a war tick, the whole determinism and
+speed argument for F2 has been thrown away. Recorded here so the temptation is
+refused on purpose.
+
+### S10 — The re-order: roster and balance BEFORE more war (the user's call)
+
+The user's concern (2026-07-27), which I agree with: we have drifted into the
+macro — generation, sorties, nodes, weather, biomes — while the micro is
+incomplete and unmeasured. Their sequencing: **a complete roster, and a balance
+model that gives that roster basic balance, before more war model.**
+
+The strongest argument for it is one the user did not make, and it is decisive:
+**the war's arithmetic is denominated in `strength_cost`** (S9). Building more
+war on four unvalidated guesses means every strategic number — garrison values,
+the 127-sortie campaign length, the whole H6 curve — is measured against a ruler
+nobody has checked. Balance the roster first and the war layer inherits a real
+exchange rate instead of a placeholder.
+
+Proposed split of M6:
+
+- **M6a — The Roster & The Symmetric Model** *(next)*
+  1. Iteration 9 steered (this document).
+  2. Layer 3 built: incoming lethality (S2) + player evasion (S3), with the
+     concurrency axis (S5).
+  3. Roster completed to the agreed scope (**S.q1**), each type arriving with
+     its harness row (P4.10 doctrine).
+  4. The melee bench (S9); `strength_cost` re-derived from measurement.
+  5. **The calibration pass** — mine to initiate and lead (H.q4).
+- **M6b — The War** *(resumes after)*: composer Beats 3–4, nodes, biomes,
+  weather, the command room.
+
+**What is already banked and is NOT wasted by the re-order:** the manifest
+(v1.70) is *required* by M6a — it is the thing that consumes the exchange rate
+the melee bench will price. The composer (v1.71) is complete, tested and inert;
+it costs nothing to leave sitting. The F4 quantizer fix is a pure correctness
+win. Only Beat 3 is actually paused, and it had not started.
+
+### S11 — What this costs, and the ruler it disturbs
+
+- **`ReferencePilot` does not evade.** Its own header says so: *"never evades —
+  so v1 flew into the bomber."* Measuring player evasion (S3) against a pilot
+  that makes no attempt to survive would measure nothing but its flight path.
+  Giving it defensive behaviour is a **`PILOT_VERSION` bump (3 → 4), which
+  invalidates every committed delivery factor** and forces a full deliberate
+  re-measure. That is the single largest cost in this iteration and it is
+  unavoidable — see **S.q5**.
+- **Configs:** ammo fields on the weapon side only if S.q3 says yes; no new
+  config classes are otherwise required — `FrameConfig.hull`/`armor` and
+  `EnemyConfig.damage` already exist.
+- **BALANCE.md becomes a three-layer document**, and its "Known-inert fields"
+  section gets re-checked (armor stops being probe-only the moment player-side
+  lethality is real).
+- **The regression guarantee holds:** every new factor arrives with its bench
+  and its assertion, or it does not arrive (H8).
+
+### S open questions (react by ID)
+
+- **S.q1 — Roster scope: how complete is "complete"?** The designed bestiary is
+  roughly ten (Gnat, Raider, Falx, Aegis, Screamer, Turret, SAM, Convoy,
+  Commander, Sentinel); **four** are shipped. Full designed roster, or a
+  narrower "enough types to make the counter-web real" cut? My lean: **the web,
+  not the census** — add Falx and Screamer (the two the counter-matrix actually
+  leans on: the open-approach flyer and the EW threat FCS exists to answer),
+  balance the resulting six, and let the rest arrive with the systems that need
+  them. Ten unbalanced types is further from "basic balance" than six measured
+  ones.
+- **S.q2 — Does the melee bench PRICE `strength_cost`, or CHECK it?** Derive the
+  numbers from measured even-trade ratios (the bench is the source of truth), or
+  keep them hand-set as design statements and let the bench flag divergence? My
+  lean: **price them** — a hand-set exchange rate is exactly the kind of
+  unvalidated number the instrument exists to retire, and unlike a feel-promise
+  there is no human sense to consult about whether a turret is worth two
+  raiders.
+- **S.q3 — Ammo now, or defer cost-per-kill?** Adopt magazines (making
+  "bankrupt" falsifiable, and giving pads/re-arm their referent) vs. defer until
+  P5's economy. My lean: **adopt a minimal capacity field now** — one number per
+  weapon, no re-arm economy yet. It makes a founding feel-promise testable for
+  almost nothing, and the pads already exist in the composer's output.
+- **S.q4 — How is exposure created for the survivability bench?** N-vs-1
+  (matches the game), a hold-station-under-fire task (cleanest isolation), or
+  both. My lean: **the task for the FACTOR, N-vs-1 for the WEB** — isolate
+  player evasion against a controlled shooter, then let concurrency show up as a
+  bench axis on the real cells. Isolation for measurement, realism for
+  validation, exactly as Layers 1–2 already split it.
+- **S.q5 — Does the reference pilot learn to survive (PILOT_VERSION 3 → 4)?**
+  Required for S3 to mean anything, and it invalidates every committed delivery
+  factor. Options: bump and re-measure everything deliberately; or keep the
+  pilot naive and measure *frame* survivability only (armor and hull, no
+  evasive skill), accepting that "how well does this pilot avoid fire" stays
+  unmeasured. My lean: **bump it, once, as part of this iteration** — do the
+  re-measure deliberately and in one go rather than dribbling it, and never
+  bump it again for the roster build.
+- **S.q6 — After `strength_cost` is re-derived, do we re-run the war?** The
+  127-sortie / ~10% headline was measured on the guessed rates. Re-running is
+  cheap; the question is whether we *act* on the result during M6a or note it
+  and wait for M6b. My lean: **re-run and record, act in M6b** — it is a
+  strategic-layer number and the strategic layer is not what we are balancing
+  yet, but leaving it stale would mislead the next person who reads it.
+- **S.q7 — Detectability: confirm the S8 deferral?** I have taken the user's
+  invitation and deferred it with a stated trigger. Overrule if you want it
+  modeled now.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -6470,3 +6738,64 @@ the silhouette flag is logged, not yet patched, by the user's own call.
     the P4/Iteration-7 anti-frustration guardrail ("no fight is hopeless") —
     for the Atlas, this one currently is. Worth revisiting when the bestiary
     grows a second bomber or the arsenal a second anti-bomber answer.
+
+- **2026-07-27 — v1.73. Iteration 9 PROPOSED (S1–S11): the symmetric half of the
+  balance model, and a user-called re-order — roster and balance BEFORE more
+  war.** The user read the `Atlas × Aegis` diagnosis, named the gap in their own
+  terms, and steered the milestone.
+  - **The user's framing, adopted as S1:** balance is how hard you hit, how well
+    you deliver it, **and separately** how much you can take. Mapped onto the
+    instrument it exposes that Layers 1–2 are *one half of a symmetric model* —
+    there is no layer for their output on you, and the entire frame axis was
+    built on that hole. The proof is arithmetic: the Kestrel spends **0% hull in
+    all four cells** and scores a perfect 1.00 in three, so a frame delta's
+    ceiling there is **0.00**. The Atlas cannot win, only fail to lose.
+  - **A user hypothesis corrected, because the reasoning generalizes (S4).** The
+    user proposed that enemies simply cannot connect on a moving pilot and the
+    tests should run longer. Half right: the turret puts **12% of hull into the
+    Atlas** over 3.6 s and misses the Kestrel only because the Kestrel kills it
+    in **1.3 s**. The mechanism is *time-in-the-threat-envelope, not
+    marksmanship* — and a longer cap buys nothing, because **a duel ends when
+    the enemy dies, not when the clock expires** (the v1.72 probe showed the
+    same thing from the other side). Exposure comes from more enemies at once,
+    or from a task that holds you in the envelope. Corollary for H6: the unit
+    layer is inherently a step-function instrument and **cannot** produce the
+    graded 45–65% middle — that always belonged to the sortie layer (H9). Duels
+    prove feel-promises; sorties produce curves.
+  - **The re-order (S10), agreed.** The user: we have drifted into the macro
+    while the micro is incomplete and unmeasured; finish and balance the ROSTER
+    first. The decisive argument is one they did not make — **the war's
+    arithmetic is denominated in `strength_cost`**, and v1.70's manifest just
+    made that field load-bearing while its four values (0.3 / 1.0 / 2.0 / 4.0)
+    remain hand-set guesses nobody has validated. More war on an unchecked ruler
+    means every strategic number is measured against a placeholder. **M6a** (the
+    roster + the symmetric model + calibration) now precedes **M6b** (the war:
+    composer Beats 3–4, nodes, biomes, weather, command room). Nothing built is
+    wasted: the manifest is *required* by M6a, the composer is complete, tested
+    and inert, the F4 fix is a pure win. Only Beat 3 pauses, and it had not
+    started.
+  - **The melee bench returns, with a guardrail (S9).** The user's "empty space,
+    throw everything together" instinct independently rediscovered the one use
+    the v1.23 realignment reserved for the demoted agent-vs-agent mirror:
+    *"only future use is empirically pricing `strength_cost`."* That day
+    arrived. Recorded loudly: it is an **instrument, not a game mode and not the
+    war** — F2/P4.7 keeps the war arithmetic, and this bench prices that
+    arithmetic, never replaces it.
+  - **Detectability deferred (S8) — my call, at the user's invitation.** Not
+    unmeasurable; it simply has one possible value until a frame or equipment
+    varies signature (Shade, EW gear, the user's "invisibility" idea). P4.10's
+    rule applied to measurement. Stated trigger recorded so it enters *with* its
+    bench row.
+  - **The cost, named up front (S11): `ReferencePilot` does not evade** — its
+    own header says so. Measuring player evasion against a pilot that never
+    tries to survive would measure only its flight path, so S3 needs a
+    **`PILOT_VERSION` 3 → 4 bump, which invalidates every committed delivery
+    factor** and forces a deliberate full re-measure. Largest cost in the
+    iteration, unavoidable, posed as S.q5.
+  - **Seven open questions await steering:** S.q1 roster scope (my lean: *the
+    web, not the census* — add Falx + Screamer to six total, balance those,
+    rather than shipping ten unmeasured); S.q2 price vs check `strength_cost`;
+    S.q3 ammo now or defer; S.q4 how exposure is created; S.q5 the pilot bump;
+    S.q6 re-run the war after re-pricing; S.q7 confirm the detectability
+    deferral.
+  - No code changed this entry — paper only, per 2.4.
