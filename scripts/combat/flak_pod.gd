@@ -60,6 +60,24 @@ func _physics_process(delta: float) -> void:
 				0.001)
 
 
+## The fuse radius the NEXT shell will carry, meters. The pod's ranging computer
+## is FCS like every other director, so a screamer's jam shrinks it toward zero —
+## and a shell with no fuse radius is a shell that only bursts on contact.
+##
+## P3.6 already promised this shape: "the fuse ranging is onboard computation —
+## a screamer degrades it to contact-only, GRACEFULLY". Graceful is the whole
+## point of doing it here rather than with a flag: the pod does not stop working
+## inside a bubble, it stops working at a distance, which is a different and much
+## more interesting loss.
+##
+## Note what does NOT degrade: `flak_burst_radius`. The fragments do not care
+## about the jam, so a contact-fused shell is still an area weapon — it just has
+## to arrive where a fused one only had to arrive NEAR. That is the degradation
+## the design asked for and not one step further.
+func fuse_radius() -> float:
+	return combat_config.flak_fuse_radius * (1.0 - Jamming.level_at(self))
+
+
 ## Called by every shell as it detonates. `bodies` is how many hostiles the
 ## fragment cloud caught — zero for a burst that went off in empty air or
 ## against scenery.
@@ -83,5 +101,5 @@ func _fire() -> void:
 	_drone.get_parent().add_child(shell)
 	shell.global_position = origin
 	shell.setup(combat_config, self, _drone.team, [_drone.get_rid()], velocity,
-			combat_config.flak_damage * RunMods.current.damage_mult)
+			combat_config.flak_damage * RunMods.current.damage_mult, fuse_radius())
 	SoundBank.play_at(&"shot", origin, -3.0, 0.3)

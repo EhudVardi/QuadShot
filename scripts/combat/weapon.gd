@@ -50,9 +50,13 @@ func _physics_process(delta: float) -> void:
 ## threshold is what the equipment offers; this is what survives the electronic
 ## environment it is being flown in.
 ##
-## 0 when unequipped. Nothing else shrinks it today; the screamer's jam will.
+## 0 when unequipped, and shrunk toward 0 by a screamer's jam (P4.2: "FCS
+## solutions degrade, gun director confidence collapses"). Graded rather than
+## switched, so flying INTO a bubble reads as an assist quietly getting worse
+## before it stops — see jamming.gd for why the gradient is the user's call.
 func director_window() -> float:
-	return maxf(combat_config.fire_assist_miss_m, 0.0)
+	return maxf(combat_config.fire_assist_miss_m, 0.0) \
+			* (1.0 - Jamming.level_at(self))
 
 
 ## Is there a gun director to hand a trigger to? Asked by any brain that would

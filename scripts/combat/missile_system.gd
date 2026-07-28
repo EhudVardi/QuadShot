@@ -44,6 +44,10 @@ func _physics_process(delta: float) -> void:
 		_lock_announced = false
 		_lock_stable = 0.0
 		return
+	# EW (P4.2's screamer): the seeker head is FCS, so a jam stretches the lock and
+	# refuses it outright at full strength. Sampled at the launcher rather than at
+	# the target, because the computation being jammed is the one onboard.
+	var jam: float = Jamming.level_at(self)
 	# Sticky lock: a target being worked stays the target while it remains
 	# inside a widened cone (hysteresis) — crowds don't steal your lock
 	# mid-acquisition; you lose it by letting it escape, not by flying past
@@ -55,10 +59,20 @@ func _physics_process(delta: float) -> void:
 		_lock_announced = false
 	elif target != null:
 		var lock_time: float = combat_config.missile_lock_time * RunMods.current.lock_time_mult
-		lock_progress = minf(lock_progress + delta / maxf(lock_time, 0.05), 1.0)
+		lock_progress = minf(
+				lock_progress + delta * (1.0 - jam) / maxf(lock_time, 0.05), 1.0)
 		if is_locked() and not _lock_announced:
 			_lock_announced = true
 			SoundBank.play_at(&"lock", global_position, -6.0, 0.02)
+	if jam >= 1.0:
+		# THE LOCK BREAKS, it does not merely stall. The design says "missile locks
+		# break/refuse inside it", and a lock frozen at 0.97 would still read as a
+		# yellow diamond forever — a HUD that lies about why nothing is launching.
+		# The step is at the bottom of the gradient, not across it.
+		# (`_lock_stable` clears itself on the next line — is_locked() is now
+		# false — so there is no second copy of this state to keep in step.)
+		lock_progress = 0.0
+		_lock_announced = false
 	_lock_stable = _lock_stable + delta if is_locked() else 0.0
 	# Missile director (FCS): with missile_auto_switch on, a lock that stays
 	# stable through the hold window launches by itself — the pilot's job is

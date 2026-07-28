@@ -1,0 +1,64 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/screamer.gd" id="1_scream"]
+[ext_resource type="Resource" path="res://resources/default_enemy_screamer.tres" id="2_ecfg"]
+[ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
+
+[sub_resource type="StandardMaterial3D" id="mat_body"]
+albedo_color = Color(0.13, 0.12, 0.15, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_emitter"]
+albedo_color = Color(1, 0.24, 0.2, 1)
+emission_enabled = true
+emission = Color(1, 0.16, 0.1, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="BoxMesh" id="mesh_body"]
+material = SubResource("mat_body")
+size = Vector3(0.7, 0.34, 0.7)
+
+[sub_resource type="CylinderMesh" id="mesh_mast"]
+material = SubResource("mat_body")
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.5
+
+[sub_resource type="CylinderMesh" id="mesh_emitter"]
+material = SubResource("mat_emitter")
+top_radius = 0.42
+bottom_radius = 0.06
+height = 0.16
+
+[sub_resource type="BoxShape3D" id="shape_body"]
+size = Vector3(0.8, 0.9, 0.8)
+
+[node name="Screamer" type="CharacterBody3D" groups=["enemies", "jammers"]]
+motion_mode = 1
+script = ExtResource("1_scream")
+enemy_config = ExtResource("2_ecfg")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="Visual"]
+mesh = SubResource("mesh_body")
+
+[node name="Mast" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+mesh = SubResource("mesh_mast")
+
+[node name="Dish" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)
+
+[node name="Emitter" type="MeshInstance3D" parent="Visual/Dish"]
+transform = Transform3D(1, 0, 0, 0, 0.94, -0.34, 0, 0.34, 0.94, 0, 0.08, 0)
+mesh = SubResource("mesh_emitter")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_body")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("3_hp")
+
+[node name="JamTone" type="AudioStreamPlayer3D" parent="."]
+max_distance = 200.0
+volume_db = -60.0

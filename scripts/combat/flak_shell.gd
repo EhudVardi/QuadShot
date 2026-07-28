@@ -41,18 +41,29 @@ var _exclude: Array[RID] = []
 var _life: float = 0.0
 var _travelled: float = 0.0
 var _damage: float = 0.0
+## The fuse radius THIS shell flies with, set at launch (see setup). Not read
+## from the config in flight, because the ranging is onboard computation and a
+## screamer degrades it — see flak_pod.gd.
+var _fuse_radius: float = 0.0
 
 var _gravity_default: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
 func setup(config: CombatConfig, pod: FlakPod, team: StringName,
-		exclude: Array[RID], velocity: Vector3, damage: float) -> void:
+		exclude: Array[RID], velocity: Vector3, damage: float,
+		fuse_radius: float = -1.0) -> void:
 	_config = config
 	_pod = pod
 	_team = team
 	_exclude = exclude
 	_velocity = velocity
 	_damage = damage
+	# BAKED AT LAUNCH, not sampled in flight. P3.6 is explicit that "the fuse
+	# ranging is onboard computation", so the number that matters is the jam over
+	# the LAUNCHER at the moment of firing — not whatever the shell flies through
+	# on its way. A shell fired clean is a clean shell even if it crosses a bubble;
+	# a shell fired jammed stays dumb even if it leaves one.
+	_fuse_radius = fuse_radius if fuse_radius >= 0.0 else config.flak_fuse_radius
 	_life = config.flak_shell_lifetime
 	_orient()
 
@@ -77,7 +88,7 @@ func _physics_process(delta: float) -> void:
 	_orient()
 	_life -= delta
 	if _travelled >= _config.flak_arm_distance \
-			and _hostile_within(_config.flak_fuse_radius):
+			and _hostile_within(_fuse_radius):
 		_burst()
 		return
 	if _life <= 0.0:

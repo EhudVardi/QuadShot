@@ -350,7 +350,16 @@ func _update_damage_feedback(delta: float) -> void:
 			var burst: float = dc.video_flicker_strength * _video_damage \
 					* randf_range(0.6, 1.0)
 			_video_glitch_spike = clampf(maxf(_video_glitch_spike, burst), 0.0, 1.0)
-	_hud.set_video_glitch(maxf(maxf(_video_glitch_spike, sustained), _range_wash))
+	# EW (P4.2's screamer): the jam rides the SAME overlay as battle damage and the
+	# range wash, which is the whole reason the user asked for it — D6's "EW and
+	# battle damage both degrade FCS, one mechanism" becomes one thing on screen.
+	# It is a floor rather than an addition, like the other two: whichever failure
+	# is worst right now is the one you are looking at.
+	var jam_wash: float = 0.0
+	if _drone_health.alive:
+		jam_wash = Jamming.level_at(_drone) * dc.jam_video_glitch
+	_hud.set_video_glitch(maxf(maxf(_video_glitch_spike, sustained),
+			maxf(_range_wash, jam_wash)))
 
 
 ## Field patch (D5): pads/gate/respawn restore the airframe's flight and clear

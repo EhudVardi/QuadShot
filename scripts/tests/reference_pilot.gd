@@ -573,13 +573,24 @@ func _hold_blaster() -> void:
 ## a perfect gun run and never pulled the trigger — a cell reporting zero, which
 ## reads exactly like a hard-countered weapon and is in fact a broken brain.
 ##
-## THE TWO PATHS ARE NOT COMPARABLE AS AIM NUMBERS, and that is expected rather
-## than a defect. The director fires on any arc solution and so takes many
-## marginal shots (duty ~0.4, aim 0.17); the manual cone is 6 degrees wide and
-## fires far less often at far better odds — the flak pod's trigger policy exactly
-## (duty ~0.7, aim ~1.0). The delivery bench prints a duty beside every rate for
-## this reason, and a jammed aim cell must be read against the clear cell's DUTY,
-## never against its hit rate alone.
+## THE TWO PATHS ARE NOT COMPARABLE AS AIM NUMBERS, and the direction of the
+## difference is not the one I predicted — recorded because the wrong guess is
+## instructive. I expected the manual cone to fire LESS and hit better (the flak
+## pod's shape). Measured on the aim bench it is the reverse: `kestrel/blaster`
+## goes from 81 shots at 0.17 with the director to **135 shots at 0.12** by hand.
+##
+## The reason is the two triggers ask different questions. The director demands a
+## real ballistic INTERSECTION — muzzle, inherited velocity and drop swept against
+## the target's motion, inside 1.2 m — while `fire_cone_deg` asks only whether the
+## gun line is pointing within 6 degrees, which at 40 m is a cone about 4 m wide
+## and says nothing about the drop. Against a static target the pilot sits inside
+## that cone most of the time, so the manual trigger is the LOOSER of the two.
+##
+## So the jam's real cost to the chip gun is not accuracy, it is DISCIPLINE: more
+## rounds for slightly more hits. That is nearly free today and stops being free
+## the day the blaster gets the heat economy P3.5 has already drafted for it.
+## Either way, read a jammed aim cell against the clear cell's DUTY, never against
+## its hit rate alone.
 func _fire_blaster(manual_solution: bool) -> void:
 	if weapon == null:
 		return

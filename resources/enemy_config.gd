@@ -75,6 +75,21 @@ extends TunableConfig
 ## Contact range at which a body stings and detonates, meters.
 @export var swarm_sting_radius: float = 1.6
 
+@export_group("Electronic warfare")
+## Outer edge of this type's jam field, meters. 0 = not a jammer, which is every
+## roster type but the Screamer — the union-schema rule above, applied to EW.
+##
+## The jam FADES between here and `jam_full_range` rather than switching at an
+## edge (S.q8, the user's call over my binary lean): a sensor warning is where a
+## gradient belongs, and it makes the approach itself cost something, since
+## closing to kill the screamer is closing into a stronger jam.
+@export var jam_range: float = 0.0
+## Inside this the jam is TOTAL: gun director silent, missile lock refused, flak
+## fuse degraded to contact-only. Sized against the type's own standoff so that
+## engaging it at all costs you part of your FCS and killing it costs you all of
+## it. See `Jamming.falloff`.
+@export var jam_full_range: float = 0.0
+
 @export_group("Behavior")
 ## Standoff distance the type holds while attacking (orbit radius for flyers).
 @export var preferred_range: float = 18.0

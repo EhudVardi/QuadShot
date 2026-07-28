@@ -159,6 +159,11 @@ const _ENEMY_FLOAT_ROWS: Array[Array] = [
 	["swarm_pursuit_gain", 0.0, 5.0, 0.1],
 	["swarm_jitter", 0.0, 3.0, 0.05],
 	["swarm_sting_radius", 0.5, 8.0, 0.1],
+	# EW (P4.2's screamer). Both are FEEL numbers the human has to fly — how far
+	# out the feed starts breaking up, and how close you have to press before the
+	# gun director gives up entirely — so they get sliders on day one.
+	["jam_range", 0.0, 120.0, 1.0],
+	["jam_full_range", 0.0, 60.0, 1.0],
 	["preferred_range", 0.0, 60.0, 1.0],
 	["respawn_delay", 0.0, 60.0, 1.0],
 	["points", 0.0, 1000.0, 10.0],
@@ -178,6 +183,7 @@ const _DAMAGE_FLOAT_ROWS: Array[Array] = [
 	["video_glitch_sustained", 0.0, 1.0, 0.05],
 	["video_flicker_rate", 0.0, 10.0, 0.5],
 	["video_flicker_strength", 0.0, 1.0, 0.05],
+	["jam_video_glitch", 0.0, 1.0, 0.05],
 ]
 
 const _AUDIO_FLOAT_ROWS: Array[Array] = [

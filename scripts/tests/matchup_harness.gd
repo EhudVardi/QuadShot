@@ -202,6 +202,48 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Atlas x Falx", "frame": Frames.ATLAS, "weapon": "flak",
 			"type": "falx", "enemy": "res://scenes/combat/falx.tscn",
 			"paper": "--", "mode": "frame", "datum": "Flak x Falx"},
+	# --- THE SCREAMER (P4.2, roster type six — M6a step 7, v1.83). Paper bands come
+	# straight off P4.3's Screamer row: chip gun `+`, missile `--`, flak `0`.
+	#
+	# THESE ROWS WILL LOOK STRANGE, and the strangeness is the type. It carries no
+	# weapon, so `dmg-taken` is 0.0 in every rep and the survival line says out loud
+	# that the cell cannot price durability (Layer 3a: mode `none`) — the aegis's
+	# illegibility (v1.72) all over again, and for the same honest reason. Nothing
+	# this type does is visible to Layer 1 or Layer 3a. It all lives in Layer 2, in
+	# the aim factor these rows are keyed `jammed` against.
+	#
+	# `jam: jammed` is an AUTHORED input like `count`, not a measurement: it says
+	# which aim column the prediction should read. Whether it was FAIR is reported
+	# rather than assumed — every cell prints the mean jam level the duels actually
+	# flew through, so a row keyed `jammed` that spent its ten seconds at 0.3 says
+	# so instead of quietly predicting from the wrong column.
+	#
+	# Missile x Screamer is the cell the whole type exists to produce — but it is
+	# NOT a structural assert, and the difference matters. The jam is graded, so a
+	# screamer stationing at 40 m leaves the player around 0.43 and a lock can
+	# still be worked, slowly; "no lock, ever" is only true inside `jam_full_range`.
+	# The hard claim therefore belongs where the condition can be held fixed:
+	# `screamer_check.gd` asserts that a full jam refuses a lock outright, and the
+	# delivery bench's `aim: */missile jammed` cells fire nothing at all. This row
+	# reports what the FIGHT does with a gradient, which is a different question.
+	{"name": "Blaster x Screamer", "weapon": "blaster", "type": "screamer",
+			"enemy": "res://scenes/combat/screamer.tscn",
+			"paper": "+", "mode": "win", "jam": "jammed"},
+	{"name": "Missile x Screamer", "weapon": "missile", "type": "screamer",
+			"enemy": "res://scenes/combat/screamer.tscn",
+			"paper": "--", "mode": "win", "jam": "jammed"},
+	{"name": "Flak x Screamer", "weapon": "flak", "type": "screamer",
+			"enemy": "res://scenes/combat/screamer.tscn",
+			"paper": "0", "mode": "win", "jam": "jammed"},
+	# P3.4's heavy column gives the Atlas `-` against a screamer: it is slow to
+	# close on a type whose entire defence is not being closed on. Banded against
+	# the Kestrel flying the SAME weapon, and the blaster is the honest choice —
+	# it is the weapon that still works inside the bubble, so the row measures the
+	# airframe rather than the jam refusing a lock on both frames equally.
+	{"name": "Atlas x Screamer", "frame": Frames.ATLAS, "weapon": "blaster",
+			"type": "screamer", "enemy": "res://scenes/combat/screamer.tscn",
+			"paper": "-", "mode": "frame", "datum": "Blaster x Screamer",
+			"jam": "jammed"},
 	# --- THE CONCURRENCY AXIS (Iteration 9 / S5, v1.78). Not a fourth delivery
 	# factor and not a new matrix: the SAME cells, run at N. It lands here rather
 	# than in the delivery bench because what it changes is exposure, and exposure
@@ -289,6 +331,9 @@ var _player_max: float = 100.0
 var _won: bool = false
 var _kills: int = 0
 var _bombed: bool = false
+## Sum of the jam level over the duel's ticks — the mean is what a `jam:` row's
+## keying is checked against (see the Screamer block in MATCHUPS).
+var _jam_sum: float = 0.0
 
 # Aggregates, one array of result dicts per matchup index.
 var _results: Array[Array] = []
@@ -339,6 +384,12 @@ func _on_physics_frame() -> void:
 			_phase = RUN
 		RUN:
 			_duel_ticks += 1
+			# Sampled every tick, on every cell — 0.00 across the whole matrix
+			# except the EW rows, which is the point: a row that starts reporting
+			# jam without asking for it means something joined the `jammers` group
+			# where nobody expected one.
+			if _drone != null and is_instance_valid(_drone):
+				_jam_sum += Jamming.level_at(_drone)
 			if _pilot != null:
 				_retarget()
 				_pilot.update(1.0 / _pps)
@@ -462,6 +513,7 @@ func _build_duel() -> void:
 	_pilot.target = _enemy as Node3D
 	_pilot.cruise_altitude = ARENA_ALTITUDE
 	_duel_ticks = 0
+	_jam_sum = 0.0
 
 	if _watching:
 		BenchView.follow(_drone)
@@ -560,6 +612,9 @@ func _record(outcome: String) -> void:
 	_results[_matchup_i].append({
 		"outcome": outcome,
 		"ttk": float(_duel_ticks) / _pps,
+		# What this rep was ACTUALLY jammed by, so a `jam:` keying can be checked
+		# rather than trusted (see _print_banded_matrix).
+		"jam": _jam_sum / float(maxi(_duel_ticks, 1)),
 		"damage_taken": _player_max - _health.current,
 		# Recorded per rep because the denominator is the FRAME's hull. Averaging
 		# raw damage and dividing by whichever drone happened to be built last is
@@ -810,6 +865,9 @@ func _print_banded_matrix() -> void:
 		var survival: String = _survival_line(i, factors)
 		if survival != "":
 			print("[matchup] %-18s   %s" % ["", survival])
+		var jam_line: String = _jam_line(i)
+		if jam_line != "":
+			print("[matchup] %-18s   %s" % ["", jam_line])
 		if not prediction.is_empty():
 			print("[matchup] %-18s   model: %s" % ["", prediction["note"]])
 			var ttk_line: String = _ttk_line(i, prediction)
@@ -873,7 +931,8 @@ func _predict(matchup_i: int, factors: Dictionary) -> Dictionary:
 	var aim_table: Dictionary = factors.get("aim", {})
 	var evasion_table: Dictionary = factors.get("evasion", {})
 	var aim_key: String = BalancePrediction.aim_key(
-			String(matchup.get("frame", Frames.KESTREL)), weapon)
+			String(matchup.get("frame", Frames.KESTREL)), weapon,
+			String(matchup.get("jam", "clear")))
 	var evasion_key: String = BalancePrediction.evasion_key(weapon, type_id)
 	if not aim_table.has(aim_key) or not evasion_table.has(evasion_key):
 		return {}
@@ -963,6 +1022,32 @@ func _survival_line(matchup_i: int, factors: Dictionary) -> String:
 	return "survival: %s under %dx %s  (measured: hull spent %.0f%% over %.1fs)" \
 			% [", ".join(parts), count, enemy.type_id,
 			_mean(matchup_i, "hull_frac") * 100.0, _mean(matchup_i, "ttk")]
+
+
+## WAS THIS ROW'S JAM KEYING FAIR? (v1.83.)
+##
+## A cell states which aim column to predict from (`jam: jammed`), and that is an
+## AUTHORED input — the honest version of an authored input is one you can check,
+## so every rep records the jam it actually flew through and this prints the mean.
+## The delivery bench measures the two ENDS of the field (`clear` at 0, `jammed`
+## at 1) because the model's state axis is discrete on `Lethality.STATES`'
+## precedent; this line is where the gradient in between gets reported instead of
+## pretended away.
+##
+## Read it as a caveat on the predicted column, never as a number to tune: a duel
+## averaging 0.6 against a `jammed` keying is not an error, it is the fight
+## spending part of its time on the approach. It becomes a problem only if a row
+## keyed `jammed` barely jams at all, and then the fix is the row's key or the
+## type's radii, not the band.
+##
+## Silent on the 20-odd rows with no EW anywhere near them.
+func _jam_line(matchup_i: int) -> String:
+	var mean: float = _mean(matchup_i, "jam")
+	var keyed: String = String(MATCHUPS[matchup_i].get("jam", "clear"))
+	if mean < 0.005 and keyed == "clear":
+		return ""
+	return "jam: keyed `%s`, duels flew a mean of %.2f (delivery measures the two ends; the fight lives on the gradient)" \
+			% [keyed, mean]
 
 
 ## The measured Layer 3b factor for one threat x frame, or -1.0 when the bench

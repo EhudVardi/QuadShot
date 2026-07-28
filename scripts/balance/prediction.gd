@@ -129,11 +129,24 @@ const DELIVERY_FIELDS_COMBAT: Array[String] = [
 ##   - `muzzle_speed` and `sight_range` are the perfect shooter's own ballistics:
 ##     the lead solution and the round's lifetime. A slower round is a longer
 ##     flight time, which is exactly what a jink is racing.
+##   - `preferred_range` joined in v1.83 and was a PRE-EXISTING hole, not a new
+##     input: an orbiting type's standoff radius has always decided the geometry
+##     every evasion cell is measured at, and retuning it moved the factor while
+##     the stamp reported a match. The Screamer only made it conspicuous — its
+##     whole behaviour is a standoff radius.
+##
+## DELIBERATELY ABSENT: the EW pair (`jam_range`, `jam_full_range`). Every aim
+## cell FORCES its jam state (`Jamming.bench_override`), exactly as every Layer 3b
+## cell forces its jink state, so the radii cannot move a measured factor — they
+## decide where in a FIGHT the states are met, which is the duel's business. This
+## follows `aim_jitter_deg`'s stated precedent rather than the conservatism
+## granted to `damage`/`hull`/`armor`, because the reason is structural (the bench
+## states the condition) rather than merely currently-true.
 const DELIVERY_FIELDS_ENEMY: Array[String] = [
 	"speed", "accel", "turn_speed_deg", "pack_size", "swarm_spacing",
 	"swarm_separation_gain", "swarm_cohesion_gain", "swarm_jitter",
 	"swarm_sting_radius",
-	"damage", "fire_rate", "muzzle_speed", "sight_range",
+	"damage", "fire_rate", "muzzle_speed", "sight_range", "preferred_range",
 ]
 ## The AIRFRAME's half of aim (Phase 4b): what the pilot is flying decides how
 ## well it can hold a line, so a frame's flight model is a delivery input in the
@@ -246,8 +259,26 @@ static func _stamp_value(value: Variant) -> String:
 ## — a frozen Atlas and a frozen Kestrel fire identical shots. Splash likewise
 ## belongs to the weapon meeting the target. So the frame axis doubles the aim
 ## cells and nothing else.
-static func aim_key(frame_id: String, weapon: String) -> String:
-	return "%s:%s" % [frame_id, weapon]
+##
+## THE JAM STATE IS THE THIRD PART OF THE KEY (v1.83, S.q9). The Screamer is the
+## negative of the FCS gear ladder, and P4.3's rule — "FCS is not a column" —
+## points the same way for both: equipment shifts a delivery factor, it never adds
+## a matrix dimension. So EW re-keys aim rather than growing the matrix, on the
+## exact precedent of `Lethality.STATES` (shielded/cracked), which is how the
+## Aegis was absorbed without a column of its own. Cost, stated: the aim cells
+## double, six to twelve.
+##
+## DISCRETE EVEN THOUGH THE FIELD IS GRADED, and that is the same choice the
+## shield made. A shield is a continuous pool modeled as two states because the
+## two ENDS are what a weapon's answer inverts between; a jam is a continuous
+## field modeled as two states for the identical reason. What the gradient buys
+## lives in the fight, and the duel harness reports the mean jam it actually flew
+## through so a reader can see how fairly a row was keyed.
+const AIM_STATES: Array[String] = ["clear", "jammed"]
+
+static func aim_key(frame_id: String, weapon: String,
+		state: String = "clear") -> String:
+	return "%s:%s:%s" % [frame_id, weapon, state]
 
 
 static func evasion_key(weapon: String, type_id: String) -> String:

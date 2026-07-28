@@ -40,6 +40,35 @@ belong to different owners:
   rather than adding a factor, because "agent" always meant a pilot flying
   something — there was simply only ever one thing to fly. Contrast the flak
   pod, which did force a new factor (`splash`).
+  **The JAM STATE is the third part of that key** (v1.83, S.q9):
+  `<frame>:<weapon>:<clear|jammed>`. The Screamer is the negative of the FCS
+  ladder, so the same rule points the same way — and the precedent is
+  `Lethality.STATES` (shielded/cracked), which is how the Aegis was absorbed
+  without a column. It doubles the aim cells, six to twelve, and that is the
+  whole instrument cost of an EW type.
+  - **The state is DISCRETE even though the field is graded.** A shield is a
+    continuous pool modeled as two states because the two ENDS are what a
+    weapon's answer inverts between; the jam is the same. The gradient lives in
+    the fight, and the duel harness prints the **mean jam each row actually flew
+    through** so a row keyed `jammed` that only ever met 0.3 says so instead of
+    quietly predicting from the wrong column.
+  - **A jammed blaster cell is a different TRIGGER, not a worse gun.** The
+    director goes silent and the pilot falls back to its own 6° cone, so the two
+    states are the flak-vs-gun comparison all over again: read the duty. Measured,
+    and not in the direction predicted — `kestrel:blaster` goes 81 shots at 0.17
+    (directed) to **135 shots at 0.12** (by hand). The manual cone is the LOOSER
+    trigger against a static target: 6° at 40 m is a 4 m circle with no drop term,
+    while the director insists on a real intersection inside 1.2 m. **The jam
+    costs the chip gun discipline, not accuracy.**
+  - **The flak pair is the honest apples-to-apples one**, because the pod never
+    had a director: same trigger, same duty, **0.99 → 0.15**. That is the fuse
+    degrading to contact-only, and it is where the jam actually bites.
+  - **Zero shots is a MEASUREMENT in a jammed cell only.** A missile has no lock
+    to launch on inside a full jam, so `*/missile:jammed` reads 0.00 and composes
+    to `--` — P4.3's band arriving as arithmetic. That is the opposite direction
+    of danger from Layer 3b's forbidden 0.00 (which composes to "invulnerable"),
+    and the exemption is scoped to cells that DECLARED a jam. Everywhere else,
+    firing nothing still fails the run.
 - `evasion` — per TARGET. Measured by the evasion bench: a fixed
   perfect-aim shooter vs the moving enemy. The target's slipperiness is not
   the shooter's skill, and conflating them is how Blaster×Raider spent a
@@ -348,6 +377,37 @@ worth knowing before reading one:
 Relative banding also *rescues* the cells the win ruler cannot resolve: an
 unseeded enemy (turret, aegis) can only ever read `++` or `--` on win rate,
 but hull spent is continuous even in a deterministic duel.
+
+## The Screamer reads strangely on purpose
+
+It is the first roster member whose effect is neither damage nor durability, and
+two of the three layers cannot see it at all: **Layer 1** prices it as an
+ordinary 30-hull target and nothing more, **Layer 3a** reports `mode: none`
+(damage 0 — it prices no frame's durability, exactly the Aegis's illegibility
+from v1.72), and every duel row against it reads `dmg-taken 0.0`. All of its
+content is in **Layer 2**, in the `jammed` half of the aim table. So:
+
+- A screamer row with 0 damage taken is CORRECT, not a broken cell.
+- Its survival line says "carries no weapon — this cell cannot price
+  durability", and that sentence is the measurement.
+- `evasion: * x screamer` reads ~0.92–1.00: it station-keeps and slides, so a
+  perfect shooter hits it nearly every time. Its defence is not motion.
+- What it costs you is only visible by reading the clear and jammed aim cells
+  **as a pair**. One number in isolation from that table says nothing about it.
+
+Its EW is deliberately absent from the evasion cells (`jam: 0.0` forced there):
+the enemy-evasion bench freezes the shooter and lays its gun itself, so there is
+no director, no lock timer and no onboard fuse for a jam to degrade — measuring
+it there as well as on the aim axis would report it twice.
+
+**One NAMED GAP, stated rather than papered over: `splash` is measured clear
+only.** A jam degrades the flak fuse to contact-only, and a shell that must touch
+a body bursts on the near face of a cloud instead of inside it — so the real
+pack-coverage yield under jam is lower than the committed 3.42, by an amount
+nobody has measured. The single-target half of that loss IS captured (it is the
+0.99 → 0.15 in `aim: */flak:jammed`); the pack half is not. It costs nothing
+today, because no shipped cell fights a swarm inside a bubble — and the day
+P4.3's aegis+screamer pair grows a gnat escort, this is the line to come back to.
 
 ## Known-inert fields
 

@@ -14,6 +14,19 @@ extends SceneTree
 ## these cells are keyed `<frame>:<weapon>`. That is the whole Layer 2 cost of
 ## the P3.4 frame axis; nothing else in this file grew.
 ##
+## THE AIM CELLS CARRY A JAM STATE (v1.83, S.q9): `<frame>:<weapon>:<clear|jammed>`.
+## The Screamer's whole effect is a multiplier on the player's delivery, so per
+## P4.3's "FCS is not a column" it re-keys this factor instead of adding a matrix
+## dimension — the same move `Lethality.STATES` makes for the shield. The state is
+## FORCED by the cell (`Jamming.bench_override`), never inherited from a body in
+## the arena, for the same reason every Layer 3b cell forces its jink.
+##
+## And it changes what a jammed blaster cell MEANS: the gun director goes silent,
+## so the pilot falls back to its own 6-degree cone (PILOT_VERSION 6's iron
+## trigger). That is a different TRIGGER POLICY, not a worse gun, and its hit rate
+## is not comparable with the clear cell's — read the duty, exactly as the flak
+## column taught.
+##
 ## THESE CELLS FLY THE REPO'S NUMBERS. `Frames.build` turns off user:// config
 ## loading, because until Phase 4b the benches inherited whatever the human had
 ## tuned into their own override and every committed factor was a measurement of
@@ -151,12 +164,19 @@ const SWARM_SCENE: String = "res://scenes/combat/gnat_swarm.tscn"
 const AEGIS_SCENE: String = "res://scenes/combat/aegis.tscn"
 const TURRET_SCENE: String = "res://scenes/combat/turret.tscn"
 const FALX_SCENE: String = "res://scenes/combat/falx.tscn"
+const SCREAMER_SCENE: String = "res://scenes/combat/screamer.tscn"
 
 ## kind: aim (pilot flies) | evasion (frozen perfect shooter).
 ## target: static | raider | gnats | aegis. seconds: firing window.
 ## frame: which airframe flies the cell — AIM cells only. Evasion cells leave it
 ## unset because the shooter is frozen and its gun is laid by this bench, so the
 ## airframe cannot influence the shot (see BalancePrediction.aim_key).
+##
+## EVERY CELL STATES ITS JAM (v1.83), the way every Layer 3b cell already states
+## its jink. `jam: 1.0` on an aim cell measures the FCS under a screamer; every
+## other cell forces 0.0 rather than leaving it unset, because an unstated
+## condition lets the arena pick the number and v1.78's first Layer 3b attempt is
+## the standing lesson in what that costs. See `Jamming.bench_override`.
 const CELLS: Array[Dictionary] = [
 	{"name": "aim: kestrel/blaster", "kind": "aim", "weapon": "blaster",
 			"frame": Frames.KESTREL, "target": "static", "seconds": 20.0},
@@ -263,6 +283,69 @@ const CELLS: Array[Dictionary] = [
 			"target": "falx", "seconds": 45.0},
 	{"name": "evasion: flak x falx", "kind": "evasion", "weapon": "flak",
 			"target": "falx", "seconds": 25.0},
+	# --- THE SCREAMER's evasion row (M6a step 7, v1.83). Three ordinary cells for
+	# an extraordinary type: here it is measured purely as a FLYING BODY — how hard
+	# is it to put a round on a thing that station-keeps at 40 m and slides
+	# sideways. Its EW does nothing in these cells and MUST NOT: the shooter is
+	# frozen with its gun laid by this bench, so there is no director, no lock
+	# timer and no onboard fuse computation for a jam to degrade. Measuring the jam
+	# here as well as on the aim axis would report it twice.
+	#
+	# The missile cell is the one to watch for a rig fault rather than a finding:
+	# it needs a real LOCK to launch, so if the jam ever leaked into these cells it
+	# would fire nothing and read as "the screamer dodges perfectly" instead of as
+	# a broken bench. The forced `jam: 0.0` below is what stops that.
+	{"name": "evasion: blaster x screamer", "kind": "evasion",
+			"weapon": "blaster", "target": "screamer", "seconds": 20.0},
+	{"name": "evasion: missile x screamer", "kind": "evasion",
+			"weapon": "missile", "target": "screamer", "seconds": 45.0},
+	{"name": "evasion: flak x screamer", "kind": "evasion", "weapon": "flak",
+			"target": "screamer", "seconds": 20.0},
+	# --- THE JAM STATE AXIS (S.q9, v1.83). Six cells: the same aim matrix flown
+	# again with the FCS fully jammed. Not a new dimension — a RE-KEYING, exactly
+	# as the frame axis was, and on `Lethality.STATES`' precedent: equipment (or
+	# its negative) shifts a delivery factor and never adds a matrix column.
+	#
+	# READ THESE AGAINST THE CLEAR CELLS' DUTY, NEVER THEIR HIT RATE. The blaster's
+	# trigger CHANGES HANDS under jam — the director goes silent and the pilot
+	# falls back to its own 6-degree cone (PILOT_VERSION 6's iron trigger) — so a
+	# jammed blaster cell is a different TRIGGER POLICY, not a worse gun.
+	#
+	# MEASURED, AND NOT IN THE DIRECTION EXPECTED: `kestrel/blaster` goes 81 shots
+	# at 0.17 → **135 shots at 0.12**, i.e. more rounds for slightly more hits. The
+	# manual cone turns out to be the LOOSER trigger of the two against a static
+	# target — 6 degrees at 40 m is a 4 m circle and carries no drop term, while
+	# the director insists on a real intersection inside 1.2 m. So the jam's cost
+	# to the chip gun is discipline rather than accuracy, which is nearly free
+	# today and stops being free when the blaster gets its heat economy (P3.5).
+	#
+	# The FLAK cells are where the jam actually bites, and they are the honest
+	# apples-to-apples pair in this block because the pod never had a director:
+	# same trigger, same duty, 0.99 → 0.15 on the Kestrel. That is the fuse
+	# degrading to contact-only, and it is P3.6's promise measured.
+	#
+	# The MISSILE cells read as the design intends with no caveat at all: at full
+	# jam there is no lock, so there is nothing to launch and the cell saturates at
+	# zero shots. P4.3's `--` for missile-vs-screamer, arriving as an arithmetic
+	# fact rather than as a tuned band.
+	{"name": "aim: kestrel/blaster jammed", "kind": "aim", "weapon": "blaster",
+			"frame": Frames.KESTREL, "target": "static", "seconds": 20.0,
+			"jam": 1.0},
+	{"name": "aim: kestrel/missile jammed", "kind": "aim", "weapon": "missile",
+			"frame": Frames.KESTREL, "target": "static", "seconds": 45.0,
+			"jam": 1.0},
+	{"name": "aim: kestrel/flak jammed", "kind": "aim", "weapon": "flak",
+			"frame": Frames.KESTREL, "target": "static", "seconds": 40.0,
+			"jam": 1.0},
+	{"name": "aim: atlas/blaster jammed", "kind": "aim", "weapon": "blaster",
+			"frame": Frames.ATLAS, "target": "static", "seconds": 20.0,
+			"jam": 1.0},
+	{"name": "aim: atlas/missile jammed", "kind": "aim", "weapon": "missile",
+			"frame": Frames.ATLAS, "target": "static", "seconds": 45.0,
+			"jam": 1.0},
+	{"name": "aim: atlas/flak jammed", "kind": "aim", "weapon": "flak",
+			"frame": Frames.ATLAS, "target": "static", "seconds": 40.0,
+			"jam": 1.0},
 	# --- LAYER 3b: the player as a target (Iteration 9 / S3). Six cells: one
 	# control per frame, then each frame against each RANGED threat in the
 	# roster. The aegis is absent on purpose and the absence is a measurement —
@@ -372,6 +455,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 	"res://resources/default_enemy_gnat.tres",
 	"res://resources/default_enemy_aegis.tres",
 	"res://resources/default_enemy_falx.tres",
+	"res://resources/default_enemy_screamer.tres",
 ]
 
 ## Bench target name -> EnemyConfig.type_id, so the artifact is keyed by the
@@ -380,7 +464,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 ## section instead of the evasion table.
 const TYPE_IDS: Dictionary = {
 	"raider": "raider", "turret": "turret", "gnats": "gnat", "aegis": "aegis",
-	"raiderpack": "raider", "falx": "falx",
+	"raiderpack": "raider", "falx": "falx", "screamer": "screamer",
 }
 
 enum { BUILD, FIRE, GRACE, RECORD }
@@ -510,8 +594,19 @@ func _on_physics_frame() -> void:
 			_advance()
 
 
+## The jam this cell is measured under, as the model's discrete state name.
+## Named once here so the cell list, the artifact key and the report can never
+## disagree about which column a number belongs in.
+static func _aim_state(cell: Dictionary) -> String:
+	return "jammed" if float(cell.get("jam", 0.0)) > 0.0 else "clear"
+
+
 func _build_cell() -> void:
 	var cell: Dictionary = _cells[_cell_i]
+	# STATE THE JAM, always — including the 0.0 that every non-EW cell wants. An
+	# unstated condition is one the arena gets to pick, and a bench that lets the
+	# arena pick is the v1.78 range mistake with a new name.
+	Jamming.bench_override = float(cell.get("jam", 0.0))
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	BenchView.build_scenery(_arena)
@@ -716,6 +811,27 @@ func _build_target(type: String) -> Node:
 			_arena.add_child(falx)
 			_count_health_connects(falx.get_node("Health") as Health)
 			return falx
+		"screamer":
+			# Immortal like every other single-body evasion target. It arrives in
+			# the arena as a member of the `jammers` group and that is FINE here:
+			# `Jamming.bench_override` is forced to 0.0 by this cell, so the field
+			# it emits reads as clean and the cell measures the body's motion
+			# alone. The EW is on the aim axis, one table over.
+			_enemy_config = (load("res://resources/default_enemy_screamer.tres")
+					as EnemyConfig).duplicate() as EnemyConfig
+			_enemy_config.hull = IMMORTAL_HULL
+			var screamer: Node3D = (load(SCREAMER_SCENE) as PackedScene).instantiate() \
+					as Node3D
+			screamer.set(&"enemy_config", _enemy_config)
+			screamer.set(&"ai_seed", 0)
+			# Spawned at the shared RANGE_M like every other single-body target,
+			# NOT at its own 40 m standoff: it will slide out to its station under
+			# its own steam, and starting it there would hand this cell a different
+			# opening geometry from every cell it is compared against.
+			screamer.position = Vector3(0.0, ALTITUDE, -RANGE_M)
+			_arena.add_child(screamer)
+			_count_health_connects(screamer.get_node("Health") as Health)
+			return screamer
 		"raiderpack":
 			# The group the splash cell needs: three immortal raiders flying
 			# their real AI at the frozen shooter. They orbit at their own
@@ -1022,7 +1138,19 @@ func _score_cell() -> void:
 			if weapon_id == "flak" else ""
 	print("[delivery] %-28s %4d shots, %4d connects  -> %.2f  (duty %.2f)%s"
 			% [cell["name"], shots, connects, rate, duty, splash_note])
-	if shots == 0:
+	if shots == 0 and _aim_state(cell) == "jammed":
+		# THE ONE CELL WHERE FIRING NOTHING IS THE ANSWER. A weapon whose trigger
+		# depends on the FCS surviving — the missile, which cannot launch without a
+		# lock — has no shots to take inside a full jam, and 0.00 composes to `--`,
+		# which IS P4.3's missile-vs-screamer band. That is a measured refusal, not
+		# a broken rig, and it is the opposite direction of danger from Layer 3b's
+		# forbidden 0.00 (which composes to "invulnerable, forever").
+		#
+		# Scoped tightly on purpose: only a cell that DECLARED a jam earns this.
+		# Anywhere else, firing nothing still fails the run.
+		print("[delivery] %-28s   ^ REFUSED: the jam left this weapon nothing to fire. 0.00 is the measurement — it composes to `--`."
+				% "")
+	elif shots == 0:
 		_failures.append("%s: fired nothing — rig broken" % cell["name"])
 	elif cell.get("control", false) and rate < CONTROL_MIN_RATE:
 		_failures.append("%s: control rate %.2f under %.2f — the perfect shooter cannot shoot; fix the bench before reading evasion"
@@ -1174,12 +1302,17 @@ func _flag_control_loss(cell: Dictionary, aim_under_fire: float,
 ## the same rule the harness's asserts follow — and read from THIS run rather
 ## than from the committed artifact, so the comparison cannot straddle two
 ## measurements.
+## The CLEAR state specifically (v1.83): there are two aim cells per frame+weapon
+## now, and comparing an under-fire gun against the JAMMED datum would compare a
+## manual trigger with a manual trigger and quietly stop detecting the collapse
+## this guard exists for.
 func _clean_aim_rate(frame_id: String, weapon: String) -> float:
 	for i: int in _results.size():
 		var candidate: Dictionary = _cells[i]
 		if candidate["kind"] == "aim" \
 				and String(candidate.get("frame", "")) == frame_id \
-				and String(candidate["weapon"]) == weapon:
+				and String(candidate["weapon"]) == weapon \
+				and _aim_state(candidate) == "clear":
 			return float(_results[i]["rate"])
 	return -1.0
 
@@ -1240,6 +1373,10 @@ func _duty_cycle(cell: Dictionary, shots: int) -> float:
 
 
 func _teardown() -> void:
+	# Released between cells so a forgotten override cannot leak into the next
+	# one — the same hygiene the arena teardown below exists for. Every cell sets
+	# it in _build_cell anyway; this is the belt to that pair of braces.
+	Jamming.bench_override = -1.0
 	_pilot = null
 	if is_instance_valid(_arena):
 		_arena.queue_free()
@@ -1356,7 +1493,8 @@ func _write_factors() -> void:
 					String(cell["frame"]))] = rate
 			continue
 		if cell["kind"] == "aim":
-			aim[BalancePrediction.aim_key(String(cell["frame"]), weapon)] = rate
+			aim[BalancePrediction.aim_key(String(cell["frame"]), weapon,
+					_aim_state(cell))] = rate
 		elif cell.get("splash_only", false):
 			# This cell contributes ONLY its splash yield; its arrival rate is
 			# measured under different geometry (a converging group) than the

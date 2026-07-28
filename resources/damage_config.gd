@@ -58,6 +58,29 @@ extends TunableConfig
 ## randomness); bursts decay through video_glitch_decay.
 @export var video_flicker_strength: float = 0.6
 
+@export_group("Electronic warfare")
+## How loudly a screamer's jam reads on the video feed, at full jam strength
+## (P4.2, user steering 2026-07-28: "the screamer should also jam the VTX").
+##
+## THIS LIVES ON THE DAMAGE CONFIG ON PURPOSE, and the placement is the design
+## point rather than filing convenience: D6 predicted that "EW *and* battle damage
+## both degrade FCS — one mechanism", and a jam that reuses the damaged-feed
+## effect makes that literal. Being shot and being jammed look the same on the
+## screen because they are the same failure — the link is degraded — and the
+## pilot's answer to both is the same: fly it manually.
+##
+## Unlike the damage knobs it is NOT scaled by `severity`. Severity is the
+## arcade<->sim dial for how much a HIT costs you, and a jam is not a hit; muting
+## EW because someone wants a forgiving damage model would delete a whole roster
+## type's readability.
+##
+## PROVISIONAL — a feel number, not a measured one. It wants hands: strong enough
+## that entering a bubble is unmistakable, not so strong that the fight inside one
+## is unreadable. 0.55 sits under a wrecked transmitter's hit spike (0.85) and
+## above its permanent floor (0.45), so a jam reads as "the feed is going" without
+## claiming to be worse than actual damage.
+@export var jam_video_glitch: float = 0.55
+
 
 const SAVE_PATH: String = "user://damage_config.tres"
 const DEFAULTS_PATH: String = "res://resources/default_damage_config.tres"

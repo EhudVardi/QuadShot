@@ -1,0 +1,66 @@
+; Screamer — EW escort (GAMEPLAY-DESIGN P4.2, the sixth roster type).
+;
+; The design in one line: "it never shoots at you, and it is the most expensive
+; thing in the sky." Every number below serves that, and the ones that matter
+; are the three RANGES read together:
+;
+;   preferred_range 40 = where it stations itself, at the edge of the fight.
+;   jam_range       55 = where its interference starts to bite.
+;   jam_full_range  20 = where your FCS is gone entirely.
+;
+; That ordering is the whole fight. Meeting it at all puts you around 0.43 jam
+; (55-40 over 55-20), so the gun director's window is already almost halved and
+; the missile lock is nearly twice as slow before you have done anything. Closing
+; to kill it walks you into total jam, where the director is silent, the lock
+; refuses outright and the flak fuse degrades to contact-only. **Your gear gets
+; worse the closer you get to the thing you have to close on** — which is why the
+; jam is a gradient and not a bubble (S.q8, the user's call over my binary lean).
+;
+; damage 0 / fire_rate 0 are NOT an oversight and must not be "fixed": this type
+; is invisible to Layer 1 and reports `mode: none` on Layer 3a, exactly like the
+; aegis, and everything it does lives in Layer 2 (BALANCE.md). A screamer that
+; shot back would be a raider with a gimmick.
+;
+; hull 30 against a 25-damage bolt is two chip-gun hits — "light; it's tissue
+; once reached" (P4.2), and the reason its P4.3 chip-gun row is `+` rather than
+; `0`: the iron trigger still kills it, it just has to be aimed by hand. One
+; 60-damage missile would also do it, IF you could get a lock, which is the joke
+; the `--` missile row is telling.
+;
+; speed 15 / accel 16 is raider mobility (14/18) with a hair more top end and a
+; hair less authority: it holds a station rather than dogfighting, and it must not
+; be able to outrun a player who has committed to closing — an EW asset that can
+; simply leave has no counterplay at all.
+;
+; PROVISIONAL, flagged for hands: jam_range and jam_full_range are FEEL numbers.
+; They decide how early the feed starts breaking up and how deep you have to press
+; before the gun goes manual, and neither is a thing a bench can judge. Fly it and
+; move them (overlay: BESTIARY: SCREAMER).
+[gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
+
+[resource]
+script = ExtResource("1_ecfg")
+type_id = &"screamer"
+hull = 30.0
+armor = 0.0
+shield_max = 0.0
+shield_break_threshold = 0.0
+shield_regen = 0.0
+shield_regen_delay = 0.0
+speed = 15.0
+accel = 16.0
+turn_speed_deg = 110.0
+sight_range = 80.0
+damage = 0.0
+fire_rate = 0.0
+muzzle_speed = 0.0
+aim_jitter_deg = 0.0
+pack_size = 0.0
+jam_range = 55.0
+jam_full_range = 20.0
+preferred_range = 40.0
+respawn_delay = 0.0
+points = 350.0
+strength_cost = 3.0

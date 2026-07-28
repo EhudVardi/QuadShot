@@ -109,6 +109,32 @@ static func make_motor_loop() -> AudioStreamWAV:
 	return _make_wav(samples, true)
 
 
+## Looping EW jam: a warbling carrier under a band of hiss — the sound of a video
+## link losing its argument (P4.2's screamer). Two detuned tones beating against
+## each other give the warble for free, and the beat frequency is what makes it
+## read as INTERFERENCE rather than as an engine.
+##
+## Volume and pitch are driven live by the jam level at the player (screamer.gd),
+## so the cue and the mechanic are the same number.
+static func make_jam_loop() -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x5CEA11
+	# Exactly 2 s so the 7 Hz beat closes on itself at the loop seam.
+	var count: int = int(2.0 * MIX_RATE)
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	var hiss: float = 0.0
+	for i: int in count:
+		var t: float = float(i) / MIX_RATE
+		var carrier: float = sin(TAU * 320.0 * t) + sin(TAU * 327.0 * t)
+		hiss += 0.25 * (rng.randf_range(-1.0, 1.0) - hiss)
+		# The sweep is what stops it sitting still in the ear — a jam that is one
+		# steady tone stops being heard within seconds.
+		var sweep: float = 0.6 + 0.4 * sin(TAU * 0.4 * t)
+		samples[i] = clampf(carrier * 0.22 * sweep + hiss * 0.5, -1.0, 1.0)
+	return _make_wav(samples, true)
+
+
 ## Looping wind rush: one-pole lowpassed noise, crossfaded at the seam.
 static func make_wind_loop() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()

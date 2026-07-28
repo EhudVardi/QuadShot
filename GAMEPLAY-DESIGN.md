@@ -3660,6 +3660,16 @@ Two refinements, recorded so the idea does not overreach:
 
 ### S14 — The Screamer's FCS question (PROPOSED, 2026-07-28 — awaiting steering)
 
+> **STATUS: DISCHARGED 2026-07-28 (v1.83).** Steered in v1.80, built in v1.82–v1.83.
+> S.q8 → **graded**, not binary: the user overruled my lean, and the build
+> vindicated the overrule — the screamer's own standoff sits inside the fading
+> part of its field, so closing to kill it walks you into a stronger jam.
+> S.q9 → **a jam STATE on aim** (`<frame>:<weapon>:<clear|jammed>`), as leaned.
+> S.q10 → **the bump was accepted**, and landed a step early (v1.82,
+> `PILOT_VERSION` 6) so it could be batched with the frame-evasion edit and cost
+> one re-measure instead of two. The prose below is left exactly as written; it
+> is the question, and the log entries are the answer.
+
 S.q1 decided the roster (raider, turret, gnat, aegis + **Falx** + **Screamer**).
 Building Layer 3b (v1.78) surfaced a question about the Screamer that the roster
 decision could not have anticipated, and it has to be settled *before* the type
@@ -7137,6 +7147,130 @@ prevent.
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-28 — v1.83. M6a step 7: THE SCREAMER SHIPS (P4.2, roster type six),
+  and S14 is discharged — S.q8, S.q9 and S.q10 all built as steered.** The first
+  roster member whose entire effect is a multiplier on the player's delivery, and
+  the first that two of the three balance layers cannot see at all.
+  - **S.q8 BUILT AS STEERED: the jam FADES.** The user overruled my binary lean
+    and the implementation vindicates the overrule for a reason neither of us
+    stated at the time — **the gradient is what makes the counterplay a cost.**
+    The screamer's own standoff (`preferred_range` 40) sits inside the fading part
+    of its own field (`jam_range` 55 → `jam_full_range` 20), so meeting it at all
+    puts you at 0.43 jam, and closing to kill it — the counterplay P4.2 names —
+    walks you into 1.00. **Your gear gets worse the closer you get to the thing
+    you have to close on.** A hard bubble would have made the entire approach
+    free and the edge a single unpleasant surprise.
+    - It is ONE SCALAR with four consumers (`scripts/combat/jamming.gd`): the gun
+      director's solution window, the missile lock's build rate, the flak fuse
+      radius, and the video feed. Emitters join a `jammers` group and own their
+      own falloff, so a second EW type costs the model nothing.
+    - **Where a step DOES remain, deliberately.** S7's rule survives intact at the
+      two places that are DECISIONS rather than warnings: `Weapon.director_active`
+      (a 0.25 m floor, below which the director is demanding an intersection
+      tighter than the target's hitbox and the pilot should reach for the manual
+      trigger) and the lock, which BREAKS at full jam rather than freezing at 0.97
+      — a stalled lock is a HUD that lies about why nothing is launching.
+  - **S.q9 BUILT AS STEERED: aim grows a jam STATE, not the matrix a column.**
+    `<frame>:<weapon>:<clear|jammed>`, on `Lethality.STATES`' precedent. Six aim
+    cells become twelve and nothing else in the instrument changes — the entire
+    Layer 2 cost of an EW type, exactly as the frame axis's was.
+  - **S.q10 DISCHARGED, and it was the same fact as the Screamer** — the pilot
+    bump landed one step early (v1.82) precisely so it could be batched with the
+    frame-evasion edit instead of costing a second re-measure.
+  - **WHAT THE JAM ACTUALLY DOES, measured** (filtered LOOKs, pilot v6, full jam
+    against the aim bench's static target):
+
+    | cell | clear | jammed |
+    |---|---|---|
+    | `kestrel/blaster` | 14/81 = **0.17**, duty 0.41 | 16/135 = **0.12**, duty 0.68 |
+    | `kestrel/flak` | 67/68 = **0.99**, duty 0.68 | 10/68 = **0.15**, duty 0.68 |
+    | `kestrel/missile` | 15/15 = **1.00** | **0 shots fired** |
+    | `atlas/blaster` | 11/57 = 0.19, duty 0.28 | 12/52 = 0.23, duty 0.26 |
+    | `atlas/flak` | 17/17 = 1.00 | 2/17 = 0.12 |
+    | `atlas/missile` | 11/11 = 1.00 | **0 shots fired** |
+
+    - **The missile is deleted, and that is P4.3's `--` arriving as arithmetic
+      rather than as a tuned band.** No lock, nothing to launch, zero shots. The
+      bench treats that zero as a MEASUREMENT rather than a rig break — scoped to
+      cells that declared a jam, and it is the opposite direction of danger from
+      Layer 3b's forbidden 0.00, since it composes to `--` rather than to
+      "invulnerable forever".
+    - **The flak pair is where the jam really bites, and it is the only honest
+      apples-to-apples comparison in the table** — the pod never had a director,
+      so its trigger and duty are identical in both states and **0.99 → 0.15** is
+      the fuse degrading to contact-only and nothing else. P3.6's promise
+      ("a screamer degrades it to contact-only, gracefully"), measured.
+    - **THE BLASTER RESULT WENT THE OTHER WAY FROM MY PREDICTION, and I am
+      recording the wrong guess because it is the more useful half.** I expected
+      the manual cone to fire less and hit better — the flak pod's shape. It fires
+      **67% MORE** and hits slightly worse. The two triggers ask different
+      questions: the director demands a real ballistic intersection inside 1.2 m
+      including drop, while `fire_cone_deg` asks only whether the gun line is
+      within 6° — a 4 m circle at 40 m, with no drop term at all. The manual
+      trigger is the LOOSER of the two against a static target. **So the jam costs
+      the chip gun DISCIPLINE, not accuracy** — nearly free today, and it stops
+      being free the day the blaster gets the heat economy P3.5 already drafts for
+      it. That is also, unprompted, why P4.3 rates chip gun `+` against a screamer
+      while rating missile `--`.
+  - **THE VTX JAM (the user's second steer), and why it belongs on DamageConfig.**
+    The jam rides the SAME video-breakup overlay as battle damage and the range
+    wash, as a floor rather than an addition. D6 predicted this exact unification
+    — "EW *and* battle damage both degrade FCS, one mechanism" — and reusing the
+    effect makes it literal: being shot and being jammed look the same on screen
+    because they are the same failure, and the pilot's answer to both is to fly it
+    manually. Deliberately NOT scaled by `severity`: that dial is how much a HIT
+    costs you, and muting EW for a forgiving damage model would delete a roster
+    type's readability.
+  - **THE AUDIO CUE IS THE JAM LEVEL, not a proxy for it.** A looping detuned
+    carrier under a band of hiss (`SoundBank.make_jam_loop`), whose volume and
+    pitch are driven by the jam level sampled AT THE PLAYER. 3D attenuation would
+    have been free and was rejected: distance falloff and the jam falloff are two
+    different curves, and a cue that disagrees with the mechanic teaches the wrong
+    edge.
+  - **`screamer_check.gd`, because this type is the hardest one yet to read from
+    a results table.** The falx taught the lesson four times over ("this cell reads
+    0%" is equally consistent with a tough enemy, a broken enemy, and one that has
+    left the level); the screamer is worse, because `dmg-taken 0.0` is its CORRECT
+    reading and a jam field that silently failed to emit would leave the harness
+    board looking completely normal. Three phases, one per way it can quietly
+    break: does it STAY (leash from home with no player), does its jam FADE (both
+    ends asserted — total inside `jam_full_range`, partial at its own standoff,
+    absent past `jam_range` — plus the shipped systems read directly: director
+    window, flak fuse, lock progress), and does it HOLD ITS DISTANCE WITHOUT
+    ABSCONDING. That last one is the type's own failure mode: an EW asset that
+    simply runs is unkillable rather than difficult, and the harness cannot tell
+    those apart. Measured: spawned at 8 m, settles at exactly 40.
+  - **Its harness rows will look strange, and BALANCE.md now says why.** Layer 1
+    prices it as an ordinary 30-hull body; Layer 3a reports `mode: none` and its
+    survival line says out loud that the cell cannot price durability (v1.72's
+    Aegis finding, second occurrence); every duel reads `dmg-taken 0.0`.
+    Everything it does is in Layer 2. Its `evasion` cells read 0.92–1.00 — it
+    station-keeps and slides, so a perfect shooter hits it nearly every time. **Its
+    defence is not motion, and only the clear-vs-jammed aim PAIR describes it.**
+  - **The duels report the jam they actually flew.** `jam: jammed` on a matchup row
+    is an AUTHORED input like `count`, so every rep records the mean jam level it
+    experienced and the report prints it beside the bands. A row keyed `jammed`
+    that spent its ten seconds at 0.3 now says so instead of quietly predicting
+    from the wrong column — the gradient reported rather than pretended away.
+  - **One named model gap, stated rather than closed:** `splash` is measured clear
+    only. A contact-fused shell bursts on the near face of a cloud instead of
+    inside it, so real pack coverage under jam is below the committed 3.42 by an
+    unmeasured amount. The single-target half of that loss IS captured (the 0.99 →
+    0.15 above); the pack half is not, and it costs nothing until P4.3's
+    aegis+screamer pair grows a gnat escort.
+  - **Provisional, flagged for hands** (feel numbers a bench cannot judge, all
+    live in the overlay): `jam_range` 55 and `jam_full_range` 20 (how early the
+    feed starts breaking up, how deep you must press before the gun goes manual),
+    and `jam_video_glitch` 0.55 (how loud the interference reads — set under a
+    wrecked transmitter's hit spike of 0.85 and above its permanent floor of 0.45,
+    so a jam reads as "the feed is going" without claiming to be worse than actual
+    damage). The audio cue's loudness likewise.
+  - **Regression:** full check suite PASS, now THIRTEEN checks. The screamer joins
+    both stamp lists (`ENEMIES_FOR_STAMP`, `lethality_check.ENEMIES`) the day it
+    lands, per the v1.27 rule, and `preferred_range` joined the delivery stamp
+    with it — a pre-existing hole rather than a new input, since an orbiting type's
+    standoff radius has always set the geometry every evasion cell is measured at.
 
 - **2026-07-28 — v1.82. M6a step 6: EVASION BECOMES A FRAME TRAIT, and the pilot
   learns the iron trigger. `PILOT_VERSION` 5 → 6, bumped ONCE for both.** Two
