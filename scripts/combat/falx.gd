@@ -68,6 +68,17 @@ const FIRE_CONE_DEG: float = 20.0
 const MIN_ALTITUDE: float = 4.0
 ## Height above the player the setup arc climbs to, so passes come DOWN.
 const SETUP_HEIGHT: float = 16.0
+## Radius of the patrol circuit flown when there is nobody to attack.
+##
+## THE FALX MUST NOT LEAVE. Without this it flew straight ahead forever the
+## moment it had no target — and "no target" includes the whole time before the
+## player arms, so in the dev room it was already a dot on the horizon by the
+## time anyone looked up (reported from the cockpit, 2026-07-28: "flying away
+## regardless of what i did... tough time even finding it in the horizon").
+## A fast type needs a leash for the same reason a slow one does not.
+const PATROL_RADIUS: float = 45.0
+## Height it holds while patrolling, above its spawn point.
+const PATROL_HEIGHT: float = 8.0
 
 enum { RUN_IN, RECOVER, SETUP }
 
@@ -95,9 +106,14 @@ var _commit_point: Vector3
 var _setup_sign: float = 1.0
 var _rng := RandomNumberGenerator.new()
 var _stripe_material: StandardMaterial3D
+## Where it was placed, and the centre of the patrol circuit it returns to.
+var _home: Vector3
+## Angle around that circuit, advanced at the type's own speed.
+var _patrol_angle: float = 0.0
 
 
 func _ready() -> void:
+	_home = global_position
 	if ai_seed >= 0:
 		_rng.seed = ai_seed
 	else:
@@ -126,9 +142,12 @@ func _physics_process(delta: float) -> void:
 	if _pool == null:
 		_pool = get_tree().get_first_node_in_group(&"projectile_pool") as ProjectilePool
 	if not _can_engage():
-		_fly_toward(global_position + -global_basis.z * 10.0, delta)
+		_patrol(delta)
 		move_and_slide()
 		_face_velocity(delta)
+		# Reset to SETUP so the next engagement begins by lining up a pass
+		# rather than resuming a run-in aimed at where the player used to be.
+		_state = SETUP
 		return
 
 	match _state:
@@ -141,6 +160,23 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_face_velocity(delta)
 	_update_telegraph(delta)
+
+
+## Circuit the airfield when there is nobody to attack (P1.2: enemy airbases
+## generate patrols — this is that idea at the unit's own scale).
+##
+## A CIRCLE RATHER THAN A WANDER, deliberately. The raider picks random wander
+## points because it is slow enough that a random walk still reads as loitering;
+## at 25 m/s a random walk is a body disappearing in a straight line, which is
+## exactly the bug this replaced. Circling also keeps the type honest to itself:
+## it is always moving fast, always turning wide, and always findable.
+func _patrol(delta: float) -> void:
+	_patrol_angle += (enemy_config.speed / PATROL_RADIUS) * delta
+	var point: Vector3 = _home + Vector3(
+			cos(_patrol_angle) * PATROL_RADIUS,
+			PATROL_HEIGHT,
+			sin(_patrol_angle) * PATROL_RADIUS)
+	_fly_toward(point, delta)
 
 
 func _can_engage() -> bool:

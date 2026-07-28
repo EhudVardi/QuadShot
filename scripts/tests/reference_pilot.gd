@@ -51,7 +51,24 @@ extends RefCounted
 ## factor comes back unchanged, and only the duels move** — the duels being the
 ## one place the pilot is actually shot at. A bump that changes nothing it
 ## should not change is the discipline working, exactly as at v3.
-const PILOT_VERSION: int = 4
+## v5 (v1.81) = THE JINK TAKES TURNS WITH THE TRIGGER. The user's design, and it
+## names what v4 got wrong: the jink was UNCONDITIONAL, so it degraded the gun
+## during the exact moments the gun mattered. *"the pilot would strategically use
+## the jinking, actively and selectively jinking when fired on, and STOPS jinking
+## to take a shot."*
+##
+## Two things made that the right call rather than a preference. First, v4's own
+## measurements: flying the jink cost the Atlas its gun entirely (0 hits from 26
+## shots) and the Kestrel's cell became too chaotic to read at all — a dodge that
+## runs while you aim is a dodge that deletes your aim. Second, it is what a
+## pilot actually does: you break, you settle, you fire, you break again. A
+## constant wobble is not evasion, it is a rhythm, and a rhythm is a thing to be
+## led.
+##
+## The trade is now explicit and one constant wide (`jink_hold_cone_deg`): the
+## pilot gives up dodging only while its gun line is genuinely on the target, and
+## resumes the moment it is not.
+const PILOT_VERSION: int = 5
 
 var drone: FlightController
 var weapon: Weapon
@@ -69,6 +86,11 @@ var _health_watch: Health
 var _last_health: float = -1.0
 var _since_hit: float = INF
 var _jink_time: float = 0.0
+## True while the gun line is inside `jink_hold_cone_deg` of the target and the
+## target is in reach — the window in which the jink yields to the trigger (v5).
+## Recomputed every tick in `update`, from the real weapon basis rather than
+## from an intention, so it cannot claim a shot the aircraft is not actually on.
+var _shot_lined_up: bool = false
 
 # --- Competence datum (H5). Calibrated by the human against real skill. ---
 ## Altitude the pilot seeks, meters (harness spawns the duel around this).
@@ -185,7 +207,25 @@ var jink_climb_period_s: float = 0.9
 ## How long a hit keeps the pilot jinking. The gate is "I have been hit
 ## recently", which is information a real pilot plainly has, needs no knowledge
 ## of the enemy's config, and is perfectly deterministic.
+##
+## A NOTE ON THE GATE ITSELF: the user's phrasing was "when fired on", and this
+## is "when recently hit" — a cheaper proxy. Detecting incoming rounds that MISS
+## would need the pilot to scan live projectiles, which is real work and real
+## coupling. Worth doing if the gate is ever the thing under suspicion; until
+## then this is the honest approximation and the difference is stated rather
+## than hidden.
 var jink_memory_s: float = 2.5
+## --- THE TRIGGER'S RIGHT OF WAY (PILOT_VERSION 5) ---
+## While the gun line sits within this cone of the target, the jink STOPS so the
+## shot can settle. Wider than `fire_cone_deg` (6 deg) on purpose: the point is
+## to be steady as the gun SWINGS ONTO the target, not to snap still at the
+## instant of firing and wobble through the whole approach to it.
+##
+## This one number is the whole trade. Widen it and the pilot shoots better and
+## is hit more; narrow it and the reverse. It is the first tunable in this file
+## that prices survival against output directly, which makes it the one to reach
+## for when a frame reads wrong on the survivability cells.
+var jink_hold_cone_deg: float = 14.0
 
 
 ## Drive one physics tick. Called by the harness each physics_frame; the
@@ -313,6 +353,11 @@ func update(_delta: float) -> void:
 	# budget, then rate-control toward that attitude. Banking right (to
 	# accelerate right) is NEGATIVE body roll here, matching the sign the
 	# ground guard levels with.
+	# Decide the trigger's right of way BEFORE the bank loop reads `jinking()`
+	# (v5). Both terms are already to hand — the gun basis and the range — so
+	# this costs nothing beyond stating the rule in the one place it applies.
+	_shot_lined_up = gun.angle_to(to_target) < deg_to_rad(jink_hold_cone_deg) \
+			and to_target.length() < fire_range
 	var body_roll: float = asin(clampf(drone.global_basis.x.y, -1.0, 1.0))
 	var desired_bank: float = -clampf(
 			orbit_bank_per_error * (desired_lateral - lateral_speed),
@@ -387,20 +432,31 @@ func update(_delta: float) -> void:
 ## Forcing the state breaks the loop and buys something better than stability:
 ## ALWAYS and NEVER are two clean measurements whose DIFFERENCE is what the jink
 ## is actually worth — which is the question S3 asked in the first place.
+## The three modes are now genuinely different behaviours rather than a gate and
+## two overrides, and the bench needs all three: AUTO is what the game flies,
+## while ALWAYS and NEVER are the two extremes that PRICE it — "what does
+## dodging cost me" only means something against "what does not dodging cost me".
 enum Jink { AUTO, ALWAYS, NEVER }
 var jink_mode: int = Jink.AUTO
 
 
-## Is the pilot currently evading? True for `jink_memory_s` after any hull
-## loss. Public so a bench can report the duty cycle of the evasion rather than
-## inferring it — the same honesty the delivery bench applies to trigger duty.
+## Is the pilot currently evading?
+##
+## AUTO (v5): recently hit AND not lined up on a shot. The second clause is the
+## v5 design — see PILOT_VERSION — and it means this can flicker several times
+## inside one engagement, which is the intent: break, settle, fire, break.
+##
+## Public so a bench can report the DUTY of the evasion rather than inferring it,
+## the same honesty the delivery bench applies to trigger duty — and under v5
+## that duty finally carries information, because it is no longer pinned to 0 or
+## 1 by the cell's own settings.
 func jinking() -> bool:
 	match jink_mode:
 		Jink.ALWAYS:
 			return true
 		Jink.NEVER:
 			return false
-	return _since_hit <= jink_memory_s
+	return _since_hit <= jink_memory_s and not _shot_lined_up
 
 
 ## Watch our own hull. Polled rather than signal-wired so the pilot works

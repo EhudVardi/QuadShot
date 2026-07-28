@@ -283,20 +283,32 @@ const CELLS: Array[Dictionary] = [
 	# once and 4 hits / 0.23 duty the next — a 6x swing — while
 	# `kestrel x turret` reproduced to the integer. Two of four cells moved.
 	#
-	# So each pair is measured TWICE, at both extremes, and neither number is a
-	# blend: `[jink]` is the factor the model composes with (a pilot being shot at
-	# has tripped the gate), `[steady]` is the datum it is worth against. Their
-	# DIFFERENCE is what the jink actually buys — the question S3 asked, which the
-	# gated cell could only answer by accident.
+	# So each pair is measured THREE times, and only one of them is a factor:
+	#   [auto]   — THE SHIPPED BRAIN, and the number the model composes with.
+	#              Under PILOT_VERSION 5 this is the tactical jink: dodge under
+	#              fire, hold steady to take the shot.
+	#   [steady] — never dodges. The datum "what does flying straight cost me".
+	#   [jink]   — dodges without pause. The datum "what would never stopping
+	#              cost me", and the cell that proved the Atlas cannot fly a
+	#              constant jink at all.
+	# The model uses [auto] because that is what the game flies; the two extremes
+	# exist to PRICE it, since "what does dodging cost" is meaningless without
+	# both ends of the choice beside it.
 	{"name": "evade: kestrel x static", "kind": "survive", "threat": "raider",
 			"frame": Frames.KESTREL, "weapon": "blaster", "target": "static",
 			"seconds": 10.0, "frozen": true, "control": true},
+	{"name": "evade: kestrel x raider [auto]", "kind": "survive",
+			"threat": "raider", "frame": Frames.KESTREL, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "auto"},
 	{"name": "evade: kestrel x raider [jink]", "kind": "survive",
 			"threat": "raider", "frame": Frames.KESTREL, "weapon": "blaster",
 			"target": "static", "seconds": 25.0, "jink": "always"},
 	{"name": "evade: kestrel x raider [steady]", "kind": "survive",
 			"threat": "raider", "frame": Frames.KESTREL, "weapon": "blaster",
 			"target": "static", "seconds": 25.0, "jink": "never"},
+	{"name": "evade: kestrel x turret [auto]", "kind": "survive",
+			"threat": "turret", "frame": Frames.KESTREL, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "auto"},
 	{"name": "evade: kestrel x turret [jink]", "kind": "survive",
 			"threat": "turret", "frame": Frames.KESTREL, "weapon": "blaster",
 			"target": "static", "seconds": 25.0, "jink": "always"},
@@ -306,12 +318,18 @@ const CELLS: Array[Dictionary] = [
 	{"name": "evade: atlas x static", "kind": "survive", "threat": "raider",
 			"frame": Frames.ATLAS, "weapon": "blaster", "target": "static",
 			"seconds": 10.0, "frozen": true, "control": true},
+	{"name": "evade: atlas x raider [auto]", "kind": "survive",
+			"threat": "raider", "frame": Frames.ATLAS, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "auto"},
 	{"name": "evade: atlas x raider [jink]", "kind": "survive",
 			"threat": "raider", "frame": Frames.ATLAS, "weapon": "blaster",
 			"target": "static", "seconds": 25.0, "jink": "always"},
 	{"name": "evade: atlas x raider [steady]", "kind": "survive",
 			"threat": "raider", "frame": Frames.ATLAS, "weapon": "blaster",
 			"target": "static", "seconds": 25.0, "jink": "never"},
+	{"name": "evade: atlas x turret [auto]", "kind": "survive",
+			"threat": "turret", "frame": Frames.ATLAS, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "auto"},
 	{"name": "evade: atlas x turret [jink]", "kind": "survive",
 			"threat": "turret", "frame": Frames.ATLAS, "weapon": "blaster",
 			"target": "static", "seconds": 25.0, "jink": "always"},
@@ -603,6 +621,8 @@ func _build_threat(cell: Dictionary) -> void:
 			_pilot.jink_mode = ReferencePilot.Jink.ALWAYS
 		"never":
 			_pilot.jink_mode = ReferencePilot.Jink.NEVER
+		"auto":
+			_pilot.jink_mode = ReferencePilot.Jink.AUTO
 	if cell["kind"] == "contact":
 		# The trigger is locked, not merely un-aimed. A gnat that drifts through
 		# the gun director's arc would be shot down, and a cloud the pilot is
@@ -1052,13 +1072,24 @@ func _score_survive(cell: Dictionary) -> void:
 			# ZERO HITS IS NOT A FACTOR OF 0.00, it is a cell with no measurement
 			# in it — and 0.00 is the single most dangerous number this table can
 			# carry, because it composes into "this frame is invulnerable to this
-			# threat, forever". Whatever the cause (a geometry bug, or an airframe
-			# thrown around so hard that a perfect solution cannot find it), the
-			# bench must refuse rather than publish. `valid` below keeps it out of
-			# the artifact as well as failing the run: a FAIL nobody reads still
-			# leaves a poisoned file behind.
-			_failures.append("%s: nothing landed in %d shots — no measurement in this cell, and 0.00 must never reach the factor table (see the gun figure: %d/%d)"
-					% [cell["name"], _threat_shots, _connects, gun_shots])
+			# threat, forever". It never reaches the artifact either way (`valid`
+			# below): a FAIL nobody reads still leaves a poisoned file behind.
+			#
+			# Whether it FAILS THE RUN depends on which job the cell has. A FACTOR
+			# cell that cannot be measured is a broken instrument and must stop
+			# the report. A DATUM cell — `[jink]`, `[steady]`, the deliberate
+			# extremes — saturating IS its answer: "constant jinking throws this
+			# airframe so hard that a perfect solution cannot find it" is a
+			# finding, and holding the board red for it forever would just teach
+			# everyone to ignore red (H8's rots-argument, applied to ourselves).
+			var mode: String = String(cell.get("jink", "auto"))
+			var is_factor: bool = mode == "auto"
+			if is_factor:
+				_failures.append("%s: nothing landed in %d shots — no measurement in the FACTOR cell for this pair (gun: %d/%d)"
+						% [cell["name"], _threat_shots, _connects, gun_shots])
+			else:
+				print("[delivery] %-28s   ^ SATURATED: no round landed in %d, and the gun scored %d/%d. This datum has no number; that it has none is the result."
+						% ["", _threat_shots, _connects, gun_shots])
 		_flag_control_loss(cell, aim_under_fire, gun_shots)
 
 
@@ -1235,6 +1266,7 @@ func _write_factors() -> void:
 	var splash: Dictionary = {}
 	var player_evasion: Dictionary = {}
 	var steady: Dictionary = {}
+	var constant: Dictionary = {}
 	var contact: Dictionary = {}
 	for i: int in _cells.size():
 		var cell: Dictionary = _cells[i]
@@ -1260,11 +1292,15 @@ func _write_factors() -> void:
 				control[BalancePrediction.player_evasion_key(
 						"parked", frame_id)] = rate
 			elif String(cell.get("jink", "")) == "never":
-				# The datum, not the factor: what this frame eats flying straight.
-				# Kept in its own table so nothing can compose with it by
-				# accident — the model's pilot is always the jinking one.
+				# A datum, not the factor: what this frame eats flying straight.
 				steady[key] = rate
+			elif String(cell.get("jink", "")) == "always":
+				# The other datum: what never pausing the dodge would cost.
+				constant[key] = rate
 			else:
+				# AUTO — the shipped brain, and the only one the model composes
+				# with. The two datums live in their own tables so nothing can
+				# compose with them by accident.
 				player_evasion[key] = rate
 			continue
 		if cell["kind"] == "contact":
@@ -1317,6 +1353,7 @@ func _write_factors() -> void:
 		# `player_evasion` is worth against, and the pair's difference is the
 		# only honest statement of what the jink buys.
 		"player_evasion_steady": steady,
+		"player_evasion_constant": constant,
 		"contact_rate": contact,
 	}
 	DirAccess.make_dir_recursive_absolute(

@@ -148,6 +148,22 @@ virtue lives in the hull term, and nothing measured the hull term.
   - **No bench flies a wounded quad.** `apply_hit_to_motors` is wired in main.gd
     alone, which cost nothing while the player was never shot at and is a stated
     limit now that it is.
+  - **THREE MODES, ONE FACTOR** (v1.81). `[auto]` is the shipped brain and the
+    only one the model composes with; `[steady]` (never dodge) and `[jink]`
+    (never stop) are datums in their own tables, because "what does dodging
+    cost" is meaningless without both ends of the choice beside it. Under
+    `PILOT_VERSION` 5 the tactical jink beats both extremes on both axes at once
+    — fewest rounds taken AND the most shots at the best accuracy — while
+    dodging 17% of the time.
+  - **COMPARE MODES WITHIN ONE RUN, NEVER ACROSS RUNS.** All three cells of a
+    pair share a run, and that is the only fair comparison: the ORDERING is
+    stable, the absolute values are not. Two runs of the same command reproduced
+    `[auto]` and `[jink]` byte-for-byte while `[steady]` moved by two rounds.
+  - **A saturated DATUM does not fail the run; a saturated FACTOR does.** A
+    factor cell that cannot be measured is a broken instrument. A deliberate
+    extreme saturating is its answer — "constant jinking throws this airframe so
+    hard a perfect solution cannot find it" is a finding, and a board held red
+    for it forever just teaches everyone to ignore red.
   - **A JINK CELL IS CHAOTIC, AND A CHAOTIC CELL IS NOT A FACTOR** (v1.80).
     Forcing the state fixed the bistability; a second problem was underneath it.
     `kestrel × raider [jink]` reads **0.29** inside the full run and **0.13**

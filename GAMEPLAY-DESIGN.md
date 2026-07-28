@@ -7138,6 +7138,62 @@ prevent.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-28 — v1.81. THE TACTICAL JINK WORKS, and it is the user's design.
+  `PILOT_VERSION` 5.** Plus the Falx's fourth bug, found from the cockpit.
+  - **The user's rule, implemented:** jink while under fire, **stop jinking
+    while the gun line is on the target** (`jink_hold_cone_deg`, 14°), resume
+    the moment it is not. Break, settle, fire, break. One constant now prices
+    survival against output directly, which makes it the first knob to reach for
+    when a frame reads wrong on the survivability cells.
+  - **Measured three ways in one run** (Kestrel vs a perfect raider at 18 m —
+    all three cells share a run, which is the only fair comparison):
+
+    | mode | rounds taken | connect | its own gun |
+    |---|---|---|---|
+    | **`[auto]` tactical** | **7 / 38** | **0.18** | **24/130 = 0.18** |
+    | `[steady]` never dodge | 8–10 / 38 | 0.21–0.26 | 0.16–0.20 |
+    | `[jink]` never stop | 11 / 38 | 0.29 | 7/64 = 0.11 |
+
+    **The tactical jink is best on BOTH axes at once** — fewest rounds taken and
+    the most shots fired at the best accuracy — while dodging only 17% of the
+    time. It beats never dodging *and* it beats always dodging. That is a real
+    result and it was the user's idea, not the instrument's.
+  - **The ORDERING is the finding, not the decimals.** `[auto]` and `[jink]`
+    reproduced byte-identically across two runs of the same command while
+    `[steady]` moved (10 → 8 rounds). So: **compare modes WITHIN one run, never
+    across runs.** Every one of these cells sits somewhere on a knife edge, and
+    which one shows it varies — v1.80's "steady is history-independent" was two
+    histories agreeing by luck, and is hereby narrowed to "the ranking is
+    stable, the absolute values are not."
+  - **THE ATLAS SHOULD NOT JINK AT ALL, and that is now measured rather than
+    suspected.** Its three cells: `[auto]` 0.11 taken with the gun at **0.03**,
+    `[steady]` 0.08–0.11 taken with the gun at **0.11–0.17**, `[jink]` still
+    saturated (0 of 38, gun ~0.03). **Dodging buys the Atlas nothing** — the
+    same rounds land either way — **and costs it nearly all of its gun**, even
+    at a 23% duty. The user's call stands on evidence: *"the atlas, and any
+    heavy moving frame cannot use jink as an evading means. maybe it should not
+    even try."* **Proposed and NOT yet built:** make evasion style a FRAME
+    property, so dodging becomes part of the P3.3 roster's identity rather than
+    one behaviour for everyone. Awaiting steering.
+  - **A saturated DATUM no longer fails the run.** A factor cell that cannot be
+    measured is a broken instrument and still stops the report; a deliberate
+    extreme saturating is its ANSWER, and holding the board red for it forever
+    only teaches everyone to ignore red (H8's rots-argument turned on
+    ourselves). `tools/balance_report` is green again.
+  - **FALX BUG FOUR, reported from the cockpit and invisible to every test:**
+    *"the falx was flying away regardless of what i did... tough time even
+    finding it in the horizon."* With no target it flew straight ahead forever —
+    and "no target" includes every second before the player ARMS, so it was
+    already leaving at 25 m/s as the scene loaded. Now it flies a patrol circuit
+    around its spawn (a circle, not the raider's random wander: at 25 m/s a
+    random walk is just a body disappearing in a straight line).
+  - **`falx_check.gd` added**, because all four bugs were invisible to the suite
+    — the harness could only ever say "this cell reads 0%", which is equally
+    consistent with a tough enemy, a broken enemy, and an enemy that has left
+    the level. Two phases: does it stay (leash from home with no player), and
+    does it attack (rounds in the air against a parked armed player).
+  - **Regression:** full suite PASS, now twelve checks.
+
 - **2026-07-28 — v1.80. M6a step 5a: the FALX ships; v1.79's headline is
   RETRACTED; and the user steered the jink, the jam and the build order.**
   - **v1.79's Kestrel numbers do not survive a second look, and I am retracting
