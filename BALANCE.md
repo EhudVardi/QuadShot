@@ -148,19 +148,26 @@ virtue lives in the hull term, and nothing measured the hull term.
   - **No bench flies a wounded quad.** `apply_hit_to_motors` is wired in main.gd
     alone, which cost nothing while the player was never shot at and is a stated
     limit now that it is.
-  - **What it said first, and why the board is currently RED** (v1.79). Against
-    a perfect solution at 18 m the jink is a **net loss on both axes**: the
-    Kestrel is ~60% easier to hit (0.18 → 0.29 vs a raider, 0.22 → 0.36 vs a
-    turret) and lands ~2.4× fewer of its own hits (0.17 → 0.11 accuracy, 99 → 64
-    shots). **The Atlas cannot fly it at all** — `atlas × raider [jink]` took 0
-    of 38 while its gun scored 0 of 28, a cell with no measurement in it, so the
-    delivery bench FAILS and `tools/balance_report` stops there by design. That
-    is not a contradiction of v1.77's duel finding: those fought a real raider
-    with 3° jitter and its own tracking loop, so the two **bracket** the answer —
-    the jink pays against a threat that aims badly and costs against one that
-    aims well. Resolving it means retuning `jink_bank` per frame, re-gating the
-    jink, or withdrawing it — each a `PILOT_VERSION` event, so decide once and
-    measure once.
+  - **A JINK CELL IS CHAOTIC, AND A CHAOTIC CELL IS NOT A FACTOR** (v1.80).
+    Forcing the state fixed the bistability; a second problem was underneath it.
+    `kestrel × raider [jink]` reads **0.29** inside the full run and **0.13**
+    inside a two-cell run — while `[steady]` is bit-identical in both, and each
+    history reproduces its own answer exactly. So it is not randomness: **the
+    result depends on what ran before it in the same process.** A jinking drone
+    is in a violent oscillation that amplifies whatever float state the physics
+    server carries between arenas. **Any claim about what the jink does to the
+    Kestrel is retracted** — one history says worse, the other says better.
+    **The cheap test for this class of bug: run a cell in isolation and see
+    whether it agrees with itself.**
+  - **What survives, because it is saturated:** `atlas × raider [jink]` took
+    **0 of 38** with its gun at **1 of 26**, reproduced under two independent
+    histories. An aircraft that is completely out of control cannot be nudged by
+    noise. **The Atlas cannot fly this jink.** That cell has no measurement in
+    it, so the delivery bench FAILS and `tools/balance_report` stops there by
+    design — the board is RED on purpose.
+  - v1.77's duel finding is not contradicted by any of this: those fought a real
+    raider with 3° jitter and its own tracking loop, at fight geometry. Whatever
+    replaces the jink has to be measured against both.
 
 **The concurrency axis** (S5). Not a fourth factor and not a new matrix: the
 **same cells, run at N**. It lives in the duel harness (`count` on a matchup

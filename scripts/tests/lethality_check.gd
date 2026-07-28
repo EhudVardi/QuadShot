@@ -23,6 +23,7 @@ const ENEMIES: Array[String] = [
 	"res://resources/default_enemy_turret.tres",
 	"res://resources/default_enemy_gnat.tres",
 	"res://resources/default_enemy_aegis.tres",
+	"res://resources/default_enemy_falx.tres",
 ]
 ## ARMOR PROBES. Flat armor landed with the Atlas (P3.3), whose armor sits on
 ## the PLAYER's frame — and Layer 1 never models being shot at, so no roster row

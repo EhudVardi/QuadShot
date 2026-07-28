@@ -1,0 +1,50 @@
+; Falx — pursuit interceptor (GAMEPLAY-DESIGN P4.2, the fifth roster type).
+;
+; The design in one line: "it out-runs everything and out-turns nothing."
+; Every number below serves that sentence, and the two that matter most are
+; `speed` and `accel` READ TOGETHER:
+;
+;   speed 25 = 1.8x the raider's 14, exactly as P4.2 specifies.
+;   accel 11 = LOWER than the raider's 18, and that is the whole design.
+;
+; `accel` is what `velocity.move_toward` spends to CHANGE direction, so a fast
+; body with low accel physically cannot turn tightly — the wide arc falls out of
+; the physics instead of being scripted. That is what makes the counterplay real:
+; bait the pass, then kill it during the long recovery it cannot shorten.
+;
+; `preferred_range` is re-read for this type: not an orbit radius (it never
+; orbits) but the BREAK-OFF distance where the pass ends and the climb begins.
+;
+; fire_rate 4.0 looks alarming beside the raider's 1.5 and is not: the falx only
+; shoots inside a narrow cone during the run-in, so its damage arrives in short
+; committed bursts with long quiet gaps. Average output over a fight is far below
+; the raider's — the burst is the threat, the uptime is the weakness.
+;
+; hull 26 is under the raider's 40 (P4.2: "light — fragile is the price of
+; speed"), and it is what makes the flak `++` on the P4.3 row achievable: one
+; burst that catches the pass should end it.
+[gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
+
+[resource]
+script = ExtResource("1_ecfg")
+type_id = &"falx"
+hull = 26.0
+armor = 0.0
+shield_max = 0.0
+shield_break_threshold = 0.0
+shield_regen = 0.0
+shield_regen_delay = 0.0
+speed = 25.0
+accel = 11.0
+turn_speed_deg = 70.0
+sight_range = 90.0
+damage = 9.0
+fire_rate = 4.0
+muzzle_speed = 60.0
+aim_jitter_deg = 2.5
+preferred_range = 14.0
+respawn_delay = 0.0
+points = 200.0
+strength_cost = 1.5

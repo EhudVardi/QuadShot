@@ -7138,8 +7138,122 @@ prevent.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-28 — v1.80. M6a step 5a: the FALX ships; v1.79's headline is
+  RETRACTED; and the user steered the jink, the jam and the build order.**
+  - **v1.79's Kestrel numbers do not survive a second look, and I am retracting
+    them.** The delivery bench gained a watch FILTER (run one cell by name), and
+    running the same pair under a shorter cell list produced a different answer:
+
+    | cell | in the full run | in a 2-cell run |
+    |---|---|---|
+    | `kestrel × raider [jink]` | 0.29 (11/38), gun 0.11 | **0.13** (5/38), gun **0.18** |
+    | `kestrel × raider [steady]` | 0.18 (7/38), gun 0.17 | **0.18** (7/38), gun **0.17** |
+
+    The steady cell is bit-identical across both. The jink cell is not — and
+    repeating each history reproduces its own answer exactly, so this is not
+    randomness: **the jink cell's result depends on what ran before it in the
+    same process.** A jinking drone sits in a violent, high-gain oscillation
+    that amplifies whatever trivial float state the physics server carries
+    between arenas; a steady one does not. **So "the jink makes the Kestrel ~60%
+    easier to hit and costs it its gun" was one history's answer.** In the other
+    the jink cell reads BETTER than steady (0.13 vs 0.18) and costs the gun
+    nothing (0.18 vs 0.17). No direction can be claimed for the Kestrel.
+  - **What survives, and it is the important half.** The **Atlas** result was
+    re-run under a fresh history and held: `atlas × raider [jink]` took **0 of
+    38** with its gun at **1 of 26**, against `[steady]` at 0.11 with a gun of
+    0.17 — reproduced exactly. It survives *because* it is saturated: an
+    aircraft that is completely out of control cannot be nudged by float noise.
+    **The Atlas cannot fly this jink, and that is measured, not inferred.**
+  - **The lesson, which outlives the jink:** a chaotic manoeuvre makes an
+    unmeasurable cell. Layer 3b's forced states fixed the *bistability* (a
+    behaviour gate feeding back into the measurement) but a second, independent
+    problem was hiding underneath — **amplification**. A cell whose answer moves
+    with its own position in the run list is not a factor, and the tell is
+    cheap: run it in isolation and see whether it agrees with itself.
+  - **THE USER'S STEERING (2026-07-28), recorded before it is built:**
+    - **The jink should be TACTICAL, not constant.** Their design: the pilot
+      jinks *while being fired on* and **stops jinking to take its shot** — the
+      trigger and the dodge take turns instead of fighting each other. That is a
+      better model than either forced state, and it names what the current
+      implementation actually got wrong: the jink was unconditional, so it
+      degraded the gun during the exact moments the gun mattered.
+    - **Heavy frames may simply not jink.** The user: *"the atlas, and any heavy
+      moving frame cannot use jink as an evading means. maybe it should not even
+      try."* If adopted this is a FRAME PROPERTY, which makes evasion style part
+      of the P3.3 roster's identity rather than one constant for everyone.
+    - **They want to WATCH it before deciding** — hence the filter, which is why
+      it landed this step rather than later.
+    - **S.q8 ANSWERED: the jam FADES with distance**, not a hard bubble edge,
+      with an audio cue that rises as you close on the screamer. Fall back to
+      binary only if the gradient proves expensive. This **overrules my lean**
+      (I argued binary, from S7's "never smear a step into a slope"); the user's
+      reading is that a *sensor* warning is exactly where a gradient belongs,
+      and the S7 rule is about not smearing a decision boundary, which this is
+      not.
+    - **The screamer should also jam the VTX** — video-feed interference reusing
+      the existing damaged-feed effect. That unifies EW with battle damage on
+      one mechanism, which is precisely what D6 already predicted ("EW *and*
+      battle damage both degrade FCS — one mechanism").
+    - **Build order CONFIRMED:** Falx complete first (including the human
+      flying against it), *then* teach the pilot manual fire, *then* the
+      Screamer.
+  - **THE FALX SHIPS** (P4.2, roster type five): `default_enemy_falx.tres`,
+    `scripts/combat/falx.gd`, `scenes/combat/falx.tscn`, a dev-room specimen, a
+    bestiary block in all three scenes' overlays, three harness rows plus a
+    frame row, three evasion cells, and entries in both stamp lists.
+    - **The bestiary's second flight idiom.** Every flyer so far ORBITS; the
+      falx flies BOOM AND ZOOM — run-in, break off, climb away, swing wide,
+      repeat. The wide arc is **emergent, not scripted**: `speed` 25 against
+      `accel` 11 means a body that physically cannot turn tightly, because
+      `accel` is what `move_toward` spends to change direction. That is what
+      makes P4.2's counterplay honest — "bait the pass, kill the recovery" beats
+      it through GEOMETRY rather than through a memorised timer.
+    - **TWO BUGS THE HARNESS CAUGHT IMMEDIATELY**, both invisible without it:
+      1. **It refused to attack.** Committing to a pass required 56 m of
+         separation, so a falx spawned at the harness's 40 m spent the entire
+         10 s duel flying *away* to set up, and every cell read `dmg-taken 0.0`.
+         Fixed with a separate, shorter `RUN_IN_MIN_RANGE` — it attacks from
+         wherever it can and only rebuilds distance when it has none.
+      2. **It broke off on frame one.** The overshoot test asked whether the
+         player was behind the BODY, but a freshly spawned falx has identity
+         rotation and zero velocity, and the harness places every enemy at
+         identity — so at a spawn facing world −Z with the player at +Z it
+         declared "already overshot" before it had moved. Both the overshoot
+         test and the gun cone now read the **heading** (the velocity), which
+         also matches the type's own design sentence: *it shoots where it is
+         going*.
+    - **Early duels (REPS=2, directional only, not quotable):** Flak × Falx
+      **`++`** matching paper — the designed answer works, three shells at
+      1.4 s — and Atlas × Falx **`--`** matching P4.4's heavy column at −0.47
+      against the Kestrel. **That second cell is the first time the frame axis
+      has read NEGATIVE for the Atlas**, which matters: a roster in which the
+      heavy frame has no bad day would make P4.4's table decoration.
+    - **A delivery number worth keeping:** `evasion: missile x falx` connects
+      **1.00 at a duty of 0.13** — the missile hits every time it is fired and
+      almost never gets to fire, because a falx is inside lock geometry for about
+      a second per pass. Layer 2 measures whether a shot CONNECTS, never whether
+      you got to take it, and this is the cleanest example of that distinction in
+      the roster.
+    - **Layer 1 verified** with the falx included (planted shots vs the shipped
+      `Health`). Note `kestrel <- falx` reads 12 hits / **2.8 s**, faster than a
+      raider's 8.0 s — and that number OVERSTATES the threat, because Layer 3a
+      assumes sustained fire while the falx only shoots during passes. Its
+      `fire_rate` 4.0 is a burst cadence, not an uptime.
+  - **The delivery bench gained a WATCH FILTER.** `-- <substring>` runs only the
+    matching cells, so looking at a cell costs a minute instead of a quarter of
+    an hour — which is the difference between the founding tenet ("some things
+    are only visible to eyes") being policy and being decoration. **A filtered
+    run never writes the artifact**: a partial measurement would silently delete
+    every factor it did not run, and the file would look complete afterwards.
+  - **Regression:** full check suite PASS (combat, wave, missile, run, hover,
+    repair, motor_damage, menu, manifest, sortie_compose, lethality). The falx
+    joins both stamp lists, so the committed factors are stale by construction
+    and the predicted column blanks until a deliberate re-measure — deferred on
+    purpose until the jink decision lands, since that decision changes the pilot.
+
 - **2026-07-28 — v1.79. THE JINK IS A NET LOSS, and v1.77's two findings are
-  narrower than they read.** The measurement that Layer 3b was built to make
+  narrower than they read.** *(Kestrel half RETRACTED by v1.80 — the jink cell
+  turned out to amplify float noise into a 2× swing. The Atlas half stands.)* The measurement that Layer 3b was built to make
   possible, made — and it points at the pilot rather than the roster.
   - **Forced-state cells, Kestrel, perfect-aim threat at 18 m:**
 

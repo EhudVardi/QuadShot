@@ -150,6 +150,7 @@ const RAIDER_SCENE: String = "res://scenes/combat/enemy_drone.tscn"
 const SWARM_SCENE: String = "res://scenes/combat/gnat_swarm.tscn"
 const AEGIS_SCENE: String = "res://scenes/combat/aegis.tscn"
 const TURRET_SCENE: String = "res://scenes/combat/turret.tscn"
+const FALX_SCENE: String = "res://scenes/combat/falx.tscn"
 
 ## kind: aim (pilot flies) | evasion (frozen perfect shooter).
 ## target: static | raider | gnats | aegis. seconds: firing window.
@@ -247,6 +248,21 @@ const CELLS: Array[Dictionary] = [
 			"frame": Frames.ATLAS, "target": "static", "seconds": 45.0},
 	{"name": "aim: atlas/flak", "kind": "aim", "weapon": "flak",
 			"frame": Frames.ATLAS, "target": "static", "seconds": 40.0},
+	# --- THE FALX's evasion row (M6a step 5, v1.80). The bestiary's first
+	# non-orbiting flyer, so this is the first evasion cell measured against a
+	# body that spends most of its life either committed to a straight line or
+	# climbing away in one. Expect it to read HIGH (easy to hit per shot fired)
+	# for exactly that reason — and expect the duels to disagree, because a
+	# frozen shooter never has to solve the falx's real problem, which is that
+	# it is only in your firing arc for about a second at a time. That gap is
+	# the instrument working: `evasion` measures whether a shot connects, not
+	# whether you got to take it.
+	{"name": "evasion: blaster x falx", "kind": "evasion", "weapon": "blaster",
+			"target": "falx", "seconds": 25.0},
+	{"name": "evasion: missile x falx", "kind": "evasion", "weapon": "missile",
+			"target": "falx", "seconds": 45.0},
+	{"name": "evasion: flak x falx", "kind": "evasion", "weapon": "flak",
+			"target": "falx", "seconds": 25.0},
 	# --- LAYER 3b: the player as a target (Iteration 9 / S3). Six cells: one
 	# control per frame, then each frame against each RANGED threat in the
 	# roster. The aegis is absent on purpose and the absence is a measurement —
@@ -325,6 +341,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 	"res://resources/default_enemy_turret.tres",
 	"res://resources/default_enemy_gnat.tres",
 	"res://resources/default_enemy_aegis.tres",
+	"res://resources/default_enemy_falx.tres",
 ]
 
 ## Bench target name -> EnemyConfig.type_id, so the artifact is keyed by the
@@ -333,10 +350,17 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 ## section instead of the evasion table.
 const TYPE_IDS: Dictionary = {
 	"raider": "raider", "turret": "turret", "gnats": "gnat", "aegis": "aegis",
-	"raiderpack": "raider",
+	"raiderpack": "raider", "falx": "falx",
 }
 
 enum { BUILD, FIRE, GRACE, RECORD }
+
+## The cells this run will actually fly — normally all of CELLS, but a WATCH
+## filter can narrow it (see `_select_cells`).
+var _cells: Array[Dictionary] = []
+## True when the filter narrowed the list, which makes the run a LOOK rather
+## than a MEASUREMENT (see `_write_factors`).
+var _filtered: bool = false
 
 var _pps: float
 var _combat: CombatConfig
@@ -381,11 +405,45 @@ var _last_sting_s: float = -1.0
 var _threat_exclude_rids: Array[RID] = []
 
 
+## Narrow the run to cells whose name contains a substring passed after `--`:
+##
+##   <godot> -s scripts/tests/delivery_bench.gd --path . -- evade
+##
+## THE POINT IS WATCHING. A full run is ~30 cells and the interesting ones are
+## last, so "drop --headless and look at it" cost a quarter of an hour of staring
+## before the cell you wanted appeared — which in practice means nobody looks.
+## This project's founding tenet is that some things are only visible to eyes
+## (BenchView's header says so); a filter is what makes that affordable.
+##
+## A FILTERED RUN NEVER WRITES THE ARTIFACT. A partial measurement overwriting
+## the committed factor table would delete every cell it did not run, and the
+## file gives no hint that it happened. Looking must not be able to damage the
+## ruler.
+func _select_cells() -> void:
+	var filter: String = ""
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.strip_edges() != "":
+			filter = argument.strip_edges().to_lower()
+			break
+	for cell: Dictionary in CELLS:
+		if filter == "" or String(cell["name"]).to_lower().contains(filter):
+			_cells.append(cell)
+	_filtered = _cells.size() != CELLS.size()
+	if _filtered:
+		print("[delivery] FILTERED to %d of %d cells matching '%s' — this run is a LOOK, not a measurement; %s will NOT be written."
+				% [_cells.size(), CELLS.size(), filter,
+				BalancePrediction.FACTORS_PATH])
+	if _cells.is_empty():
+		print("[delivery] FAIL: filter '%s' matched no cells." % filter)
+		quit(1)
+
+
 func _initialize() -> void:
+	_select_cells()
 	_pps = float(Engine.physics_ticks_per_second)
 	_combat = load("res://resources/default_combat_config.tres") as CombatConfig
 	print("[delivery] %d cells  (pilot v%d — aim and Layer 3b cells depend on it, evasion cells do not)"
-			% [CELLS.size(), ReferencePilot.PILOT_VERSION])
+			% [_cells.size(), ReferencePilot.PILOT_VERSION])
 	BenchView.setup("delivery")
 	physics_frame.connect(_on_physics_frame)
 
@@ -423,7 +481,7 @@ func _on_physics_frame() -> void:
 
 
 func _build_cell() -> void:
-	var cell: Dictionary = CELLS[_cell_i]
+	var cell: Dictionary = _cells[_cell_i]
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	BenchView.build_scenery(_arena)
@@ -608,6 +666,24 @@ func _build_target(type: String) -> Node:
 			_arena.add_child(turret)
 			_count_health_connects(turret.get_node("Health") as Health)
 			return turret
+		"falx":
+			# Immortal like every other single-body evasion target, so the cell
+			# measures a RATE rather than a kill. Seeded 0 for determinism; the
+			# falx's only RNG is its setup-arc side and its aim jitter.
+			_enemy_config = (load("res://resources/default_enemy_falx.tres")
+					as EnemyConfig).duplicate() as EnemyConfig
+			_enemy_config.hull = IMMORTAL_HULL
+			var falx: Node3D = (load(FALX_SCENE) as PackedScene).instantiate() \
+					as Node3D
+			falx.set(&"enemy_config", _enemy_config)
+			falx.set(&"ai_seed", 0)
+			# Started out at its own setup distance rather than at RANGE_M: a
+			# boom-and-zoom type spawned inside its break-off range would begin
+			# mid-recovery and the cell would measure the wrong phase.
+			falx.position = Vector3(0.0, ALTITUDE + 10.0, -70.0)
+			_arena.add_child(falx)
+			_count_health_connects(falx.get_node("Health") as Health)
+			return falx
 		"raiderpack":
 			# The group the splash cell needs: three immortal raiders flying
 			# their real AI at the frozen shooter. They orbit at their own
@@ -690,7 +766,7 @@ func _count_health_connects(health: Health) -> void:
 
 
 func _drive() -> void:
-	var kind: String = CELLS[_cell_i]["kind"]
+	var kind: String = _cells[_cell_i]["kind"]
 	if kind != "evasion":
 		if _pilot != null:
 			_pilot.update(1.0 / _pps)
@@ -734,7 +810,7 @@ func _hold_fire_near_route_end(aim_at: Node3D) -> void:
 		return
 	var eta: float = ((route as Vector3) - aim_at.global_position).length() \
 			/ maxf(_enemy_config.speed, 0.1)
-	match CELLS[_cell_i]["weapon"]:
+	match _cells[_cell_i]["weapon"]:
 		"missile":
 			_missile.fire_override = eta > ROUTE_HOLD_MISSILE_S
 		"flak":
@@ -868,7 +944,7 @@ func _cease_fire() -> void:
 
 
 func _score_cell() -> void:
-	var cell: Dictionary = CELLS[_cell_i]
+	var cell: Dictionary = _cells[_cell_i]
 	var kind: String = cell["kind"]
 	if kind == "survive":
 		_score_survive(cell)
@@ -1021,7 +1097,7 @@ func _flag_control_loss(cell: Dictionary, aim_under_fire: float,
 ## measurements.
 func _clean_aim_rate(frame_id: String, weapon: String) -> float:
 	for i: int in _results.size():
-		var candidate: Dictionary = CELLS[i]
+		var candidate: Dictionary = _cells[i]
 		if candidate["kind"] == "aim" \
 				and String(candidate.get("frame", "")) == frame_id \
 				and String(candidate["weapon"]) == weapon:
@@ -1101,7 +1177,7 @@ func _teardown() -> void:
 
 func _advance() -> void:
 	_cell_i += 1
-	if _cell_i >= CELLS.size():
+	if _cell_i >= _cells.size():
 		_report()
 	else:
 		_phase = BUILD
@@ -1110,8 +1186,8 @@ func _advance() -> void:
 func _report() -> void:
 	print("[delivery] ---- Layer 2 factors (pilot v%d) ----"
 			% ReferencePilot.PILOT_VERSION)
-	for i: int in CELLS.size():
-		var cell: Dictionary = CELLS[i]
+	for i: int in _cells.size():
+		var cell: Dictionary = _cells[i]
 		if cell["kind"] == "contact":
 			print("[delivery] %-28s %.2f stings/s  (transit %.1fs)"
 					% [cell["name"], _results[i]["rate"],
@@ -1148,6 +1224,11 @@ func _report() -> void:
 ## was measured under written inside it. A factors file whose pilot_version
 ## does not match the code is stale by construction and says so.
 func _write_factors() -> void:
+	if _filtered:
+		# See _select_cells: a partial run would silently delete every factor it
+		# did not measure, and the file would look complete afterwards.
+		print("[delivery] filtered run — factors NOT written (nothing was overwritten).")
+		return
 	var aim: Dictionary = {}
 	var evasion: Dictionary = {}
 	var control: Dictionary = {}
@@ -1155,8 +1236,8 @@ func _write_factors() -> void:
 	var player_evasion: Dictionary = {}
 	var steady: Dictionary = {}
 	var contact: Dictionary = {}
-	for i: int in CELLS.size():
-		var cell: Dictionary = CELLS[i]
+	for i: int in _cells.size():
+		var cell: Dictionary = _cells[i]
 		var rate: float = snappedf(float(_results[i]["rate"]), 0.01)
 		var yield_per_burst: float = snappedf(float(_results[i]["splash"]), 0.01)
 		var weapon: String = cell["weapon"]

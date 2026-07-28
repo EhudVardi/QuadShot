@@ -175,6 +175,33 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Atlas x Aegis", "frame": Frames.ATLAS, "weapon": "missile",
 			"type": "aegis", "enemy": "res://scenes/combat/aegis.tscn",
 			"paper": "++", "mode": "frame", "datum": "Missile x Aegis"},
+	# --- THE FALX (P4.2, roster type five — M6a step 5, v1.80). Paper bands are
+	# read straight off P4.3's Falx row, no proposals needed: chip gun `-`,
+	# missile `+`, flak `++`. The row is the counter-web's clearest statement
+	# about a fast committed attacker — you cannot track it, so you either lead
+	# it with a homing weapon or put a cloud of fragments across the line it has
+	# already committed to.
+	#
+	# Flak x Falx is the cell that matters. It is the type's designed answer, and
+	# if it does not read dominant then either the pass is too fast to catch or
+	# hull 26 is too high — both are config problems this row exists to surface.
+	{"name": "Blaster x Falx", "weapon": "blaster", "type": "falx",
+			"enemy": "res://scenes/combat/falx.tscn",
+			"paper": "-", "mode": "win"},
+	{"name": "Missile x Falx", "weapon": "missile", "type": "falx",
+			"enemy": "res://scenes/combat/falx.tscn",
+			"paper": "+", "mode": "win"},
+	{"name": "Flak x Falx", "weapon": "flak", "type": "falx",
+			"enemy": "res://scenes/combat/falx.tscn",
+			"paper": "++", "mode": "win"},
+	# P4.4's heavy column: `--`, "can't refuse the pass". The Atlas cannot turn
+	# to face a 25 m/s attacker, so this is the cell where the frame axis should
+	# finally read NEGATIVE — the Atlas has been winning or drawing every frame
+	# cell so far, and a roster with no bad matchup for the heavy frame would
+	# mean P4.4's table is decoration.
+	{"name": "Atlas x Falx", "frame": Frames.ATLAS, "weapon": "flak",
+			"type": "falx", "enemy": "res://scenes/combat/falx.tscn",
+			"paper": "--", "mode": "frame", "datum": "Flak x Falx"},
 	# --- THE CONCURRENCY AXIS (Iteration 9 / S5, v1.78). Not a fourth delivery
 	# factor and not a new matrix: the SAME cells, run at N. It lands here rather
 	# than in the delivery bench because what it changes is exposure, and exposure
