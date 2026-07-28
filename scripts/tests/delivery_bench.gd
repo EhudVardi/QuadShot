@@ -285,8 +285,10 @@ const CELLS: Array[Dictionary] = [
 	#
 	# So each pair is measured THREE times, and only one of them is a factor:
 	#   [auto]   — THE SHIPPED BRAIN, and the number the model composes with.
-	#              Under PILOT_VERSION 5 this is the tactical jink: dodge under
-	#              fire, hold steady to take the shot.
+	#              Under PILOT_VERSION 6 that brain asks the AIRFRAME: a Kestrel
+	#              flies the tactical jink (dodge under fire, hold steady to take
+	#              the shot), an Atlas holds the line, because `evasion_style` is
+	#              now a frame property (FrameConfig).
 	#   [steady] — never dodges. The datum "what does flying straight cost me".
 	#   [jink]   — dodges without pause. The datum "what would never stopping
 	#              cost me", and the cell that proved the Atlas cannot fly a
@@ -294,6 +296,16 @@ const CELLS: Array[Dictionary] = [
 	# The model uses [auto] because that is what the game flies; the two extremes
 	# exist to PRICE it, since "what does dodging cost" is meaningless without
 	# both ends of the choice beside it.
+	#
+	# THE FORCED MODES DELIBERATELY IGNORE `evasion_style`. `atlas x raider [jink]`
+	# saturating is the evidence the frame property was built ON, so switching it
+	# off with the property would delete the finding and leave the field resting on
+	# nothing. A datum must stay measurable after the design it produced ships.
+	#
+	# WHICH MAKES TWO ATLAS CELLS AGREE BY CONSTRUCTION NOW, and that is a feature:
+	# `[auto]` and `[steady]` are the same flying for a `hold` frame, so if they
+	# ever disagreed the property is not wired. Enforced exactly (jink duty must
+	# read 0.00) rather than by comparing two noisy rates — see _check_jink_duty.
 	{"name": "evade: kestrel x static", "kind": "survive", "threat": "raider",
 			"frame": Frames.KESTREL, "weapon": "blaster", "target": "static",
 			"seconds": 10.0, "frozen": true, "control": true},
@@ -1062,6 +1074,7 @@ func _score_survive(cell: Dictionary) -> void:
 	print("[delivery] %-28s %4d at you, %4d taken -> %.2f  (jink duty %.2f, aim under fire %d/%d = %.2f, hull %.0f%%)"
 			% [cell["name"], _threat_shots, _taken, rate, duty, _connects,
 			gun_shots, aim_under_fire, hull_spent * 100.0])
+	_check_jink_duty(cell, duty)
 	if _threat_shots == 0:
 		_failures.append("%s: the threat fired nothing — rig broken" % cell["name"])
 	elif cell.get("control", false) and rate < CONTROL_MIN_RATE:
@@ -1091,6 +1104,41 @@ func _score_survive(cell: Dictionary) -> void:
 				print("[delivery] %-28s   ^ SATURATED: no round landed in %d, and the gun scored %d/%d. This datum has no number; that it has none is the result."
 						% ["", _threat_shots, _connects, gun_shots])
 		_flag_control_loss(cell, aim_under_fire, gun_shots)
+
+
+## THE JINK DUTY IS A CHECK, NOT A CAVEAT — enforced here rather than merely
+## documented (it was only ever documented until v1.82, which is how a state that
+## did not take would have printed a plausible number and passed).
+##
+## A forced cell has exactly one right answer: 1.00 on `[jink]`, 0.00 on
+## `[steady]`. Anything between means the force did not take and the cell is back
+## to being the feedback loop the forcing exists to break.
+##
+## AND ONE MORE, AS OF v1.82: an `[auto]` cell on a frame whose `evasion_style` is
+## `hold` must also read 0.00. That is the structural proof that the frame
+## property is wired — without it, "the Atlas no longer jinks" would be a claim
+## resting on two survivability cells agreeing to two decimal places, which is
+## exactly the kind of evidence BALANCE.md spends its length warning about.
+func _check_jink_duty(cell: Dictionary, duty: float) -> void:
+	var mode: String = String(cell.get("jink", "auto"))
+	var expected: float = -1.0
+	var why: String = ""
+	match mode:
+		"always":
+			expected = 1.0
+			why = "the cell forces ALWAYS"
+		"never":
+			expected = 0.0
+			why = "the cell forces NEVER"
+		_:
+			if not Frames.config(String(cell["frame"])).jinks():
+				expected = 0.0
+				why = "%s's evasion_style is `hold`, so AUTO must never dodge" \
+						% cell["frame"]
+	if expected < 0.0 or absf(duty - expected) <= 0.01:
+		return
+	_failures.append("%s: jink duty %.2f, expected %.2f — %s"
+			% [cell["name"], duty, expected, why])
 
 
 ## IS THIS FRAME EVADING, OR IS IT COMING APART? The two look identical in the

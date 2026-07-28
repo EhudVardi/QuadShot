@@ -44,6 +44,42 @@ extends TunableConfig
 ## roster that carries any; 0 for everyone else.
 @export var armor: float = 0.0
 
+## Break, settle, fire, break — the PILOT_VERSION 5 tactical jink. Dodge while
+## under fire, hold the line while the gun is on the target.
+const STYLE_JINK: StringName = &"jink"
+## Hold the line and eat it. The heavy frame's answer: its survival comes from
+## hull and armor, not from throwing 1.9x the mass around on softer rates.
+const STYLE_HOLD: StringName = &"hold"
+const EVASION_STYLES: Array[StringName] = [STYLE_JINK, STYLE_HOLD]
+
+@export_group("Evasion")
+## HOW THIS AIRFRAME DODGES — a roster identity trait (P3.3), not a tuning knob.
+##
+## Measured, not assumed (v1.81, three cells per frame in one run): the tactical
+## jink beats both extremes for the Kestrel on BOTH axes at once — fewest rounds
+## taken and the most shots at the best accuracy. For the Atlas it does neither:
+## the same rounds land whether it dodges or not (0.11 either way) while its gun
+## falls from 0.11-0.17 to 0.03. **Dodging buys the heavy frame nothing and costs
+## it nearly all of its output**, even at a 23% duty.
+##
+## The user's reading, which this field is: *"the atlas, and any heavy moving
+## frame cannot use jink as an evading means. maybe it should not even try."* So
+## evasion style stops being one behaviour for every airframe and becomes part of
+## what a frame IS — the same move P3.9 already made for the flight model.
+##
+## WHO READS IT: `ReferencePilot`, the measuring brain (BALANCE.md's pinned
+## ruler), and any future AI that flies a player frame. It is deliberately NOT in
+## the overlay: the human's evasion is the human's hands, and a slider that moved
+## nothing under a human pilot would be a dead tunable (FlightConfig's own rule).
+@export var evasion_style: StringName = STYLE_JINK
+
+
+## Does this airframe dodge at all? One place asks the question, so an unknown
+## style reads as "does not dodge" rather than as whatever a string comparison
+## happened to do at the call site.
+func jinks() -> bool:
+	return evasion_style == STYLE_JINK
+
 
 func save_path() -> String:
 	return "user://frame_%s.tres" % frame_id

@@ -155,6 +155,18 @@ virtue lives in the hull term, and nothing measured the hull term.
     `PILOT_VERSION` 5 the tactical jink beats both extremes on both axes at once
     — fewest rounds taken AND the most shots at the best accuracy — while
     dodging 17% of the time.
+  - **EVASION STYLE IS A FRAME PROPERTY** (`FrameConfig.evasion_style`, v1.82).
+    `[auto]` now asks the AIRFRAME whether it dodges at all, because v1.81
+    measured that the answer differs by frame: the tactical jink is best on both
+    axes for the Kestrel and worth nothing to the Atlas. So the `[auto]` column
+    is no longer one behaviour — it is each frame's own, which is what makes it
+    the shipped brain rather than a shipped constant. **The forced modes
+    deliberately ignore the field**: `atlas × raider [jink]` saturating is the
+    evidence the property was built on, and a datum that the design it produced
+    can switch off is not a datum. Consequence worth knowing before reading a
+    board: for a `hold` frame `[auto]` and `[steady]` are the same flying and must
+    agree — the bench enforces it exactly, on the jink duty (0.00), rather than
+    by comparing two rates that carry noise.
   - **COMPARE MODES WITHIN ONE RUN, NEVER ACROSS RUNS.** All three cells of a
     pair share a run, and that is the only fair comparison: the ORDERING is
     stable, the absolute values are not. Two runs of the same command reproduced
@@ -207,6 +219,19 @@ the economy) to go model or accept. NOT for: populating the table.
   that deliberate: every report prints the pilot version it was measured
   under; numbers from different pilot versions never share a table. Bump the
   version whenever pilot behavior changes, then re-measure on purpose.
+  - **BATCH THE BEHAVIOUR EDITS, BUMP ONCE.** A bump costs a full deliberate
+    re-measure (~an hour), so two pilot edits landed separately cost two of them
+    and make neither attributable. v6 carries both of its edits for exactly that
+    reason (frame-keyed evasion + the iron trigger), and each was verified before
+    the bump by **filtered** bench runs — `-- <substring>`, minutes rather than an
+    hour, a LOOK that cannot write the artifact. **Verify narrow, measure once.**
+  - **`Weapon.director_active()` is the pilot's trigger rule** (v6, P3.6's iron
+    trigger): use the gun director while there is one, pull the trigger by hand
+    when there is not. Before it, anything that switched the director off made the
+    pilot fire *nothing* — a cell that reads as a hard-countered weapon while
+    actually reporting a brain standing still. Any bench that turns the director
+    off is measuring the manual path now, and a manual hit rate is not comparable
+    with a directed one: read the DUTY beside it (the flak-column rule again).
 - **The config stamp** (`BalancePrediction.config_stamp`): the *other* ruler.
   Delivery factors are measured against specific muzzle speeds, lock cones and
   enemy speeds, so retuning any of those invalidates them even though the pilot

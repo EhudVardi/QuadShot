@@ -7138,6 +7138,77 @@ prevent.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-28 — v1.82. M6a step 6: EVASION BECOMES A FRAME TRAIT, and the pilot
+  learns the iron trigger. `PILOT_VERSION` 5 → 6, bumped ONCE for both.** Two
+  behaviour edits landed in one commit pair on purpose: a bump costs a full
+  deliberate re-measure, and two bumps would have cost two of them while making
+  neither attributable.
+  - **STEP 1 — heavy frames do not jink (`FrameConfig.evasion_style`).** v1.81
+    measured the case and this spends it. The field carries two styles: `jink`
+    (the v5 tactical break-settle-fire-break) and `hold` (fly the line, spend the
+    hull you were bought with). Kestrel `jink`, Atlas `hold`, both stated in the
+    `.tres` so a roster's evasion identity is readable in the roster's own files.
+    - **The pilot ASKS THE AIRFRAME** (`ReferencePilot.frame_jinks`), inside AUTO
+      only. The forced modes deliberately ignore the field, because
+      `atlas × raider [jink]` saturating is the evidence the field was built on —
+      a datum that the design it produced can switch off stops being a datum.
+    - **Verified narrow, before the bump** (filtered bench runs, minutes not an
+      hour — and a filtered run is a LOOK that cannot write the artifact):
+
+      | Atlas cell (same run, so comparable) | rounds taken | its own gun |
+      |---|---|---|
+      | `raider [auto]` — v6, holds the line | **3 / 38 = 0.08** | **9/49 = 0.18** |
+      | `raider [jink]` — what AUTO used to fly | 0 / 38 (saturated) | 1/26 = **0.03** |
+      | `turret [auto]` — v6, holds the line | 8 / 50 = 0.16 | **11/63 = 0.17** |
+      | `turret [jink]` — what AUTO used to fly | 5 / 50 = 0.10 | 0/28 = **0.00** |
+
+      **The Atlas got its gun back.** Against the raider it takes FEWER rounds
+      while shooting six times better; against the turret it takes more (0.16 vs
+      0.10) and shoots where it previously scored nothing at all in 28 tries. That
+      is the trade the design asks a heavy frame to make — durability is what its
+      190 hull and armor 3 were bought for, and a cell reading "untouchable and
+      harmless at once" was never an airframe doing anything.
+      *(v1.81's published v5 `[auto]` figures — 0.11 taken with the gun at 0.03 —
+      came from a different run and are quoted here only as direction, per the
+      compare-within-one-run rule.)*
+      The Kestrel is unmoved: `raider [auto]` 4/38 = 0.11 at a 0.09 jink duty with
+      its gun at 0.18, still the best of its three modes on both axes.
+    - **Both Atlas `[auto]` cells now read byte-identical to their `[steady]`
+      twins**, which is the property working rather than a coincidence, and the
+      bench asserts it EXACTLY — on the jink duty (must be 0.00), not by comparing
+      two rates that carry noise. The duty check was documented since v1.78 and
+      unenforced until now; a state that failed to take would have printed a
+      plausible number and passed.
+  - **STEP 2 — the pilot can pull its own trigger (P3.6's iron trigger).** The
+    brain handed its trigger to the gun director unconditionally, so anything that
+    turned the director off made it fire NOTHING. The rule it was missing:
+    **use the director while there is a director, pull the trigger yourself when
+    there is not** — `Weapon.director_active()`, one question with one answer
+    instead of a judgement at each call site.
+    - **`DIRECTOR_MIN_M` = 0.25 m is a deliberate STEP at the bottom of a slope.**
+      A director whose solution window has been squeezed below a quarter of a
+      metre is demanding an intersection tighter than the target's own hitbox: it
+      is not assisting, it is silent. Without a defined edge a degraded director
+      produces a pilot holding a trigger it will never pull — S7's "never smear a
+      step into a slope", applied to where the slope ends.
+    - **It moves nothing that exists today, and that was the prediction.** Every
+      shipped cell either has a live director or flies a weapon that never had
+      one. Confirmed: all six aim cells came back unchanged (0.17 / 1.00 / 0.99 /
+      0.19 / 1.00 / 1.00). The edit is a PREREQUISITE — S.q10 said the Screamer's
+      bump "is not incidental to the Screamer, it is the same fact as the
+      Screamer", and this is that fact: a measuring pilot that cannot hand-fire
+      cannot measure the type at all.
+    - **The two trigger paths are not comparable as hit rates**, and every future
+      jammed cell has to be read with that in mind. The director fires on any arc
+      solution and takes many marginal shots (duty ~0.4, aim 0.17); the manual
+      cone is 6° wide and fires far less often at far better odds — the flak pod's
+      policy exactly. Read the DUTY beside the rate, or repeat the
+      Blaster × Raider mistake in a third column.
+  - **Regression:** full check suite PASS, twelve checks. The committed delivery
+    factors are stale by construction (pilot v5 → v6) and the predicted column
+    blanks until the deliberate re-measure, which is held until the Screamer lands
+    so that one re-measure covers all of it.
+
 - **2026-07-28 — v1.81. THE TACTICAL JINK WORKS, and it is the user's design.
   `PILOT_VERSION` 5.** Plus the Falx's fourth bug, found from the cockpit.
   - **The user's rule, implemented:** jink while under fire, **stop jinking

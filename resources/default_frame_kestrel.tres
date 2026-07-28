@@ -1,3 +1,13 @@
+; The Kestrel (GAMEPLAY-DESIGN P3.3): the all-rounder, and the frame axis's own
+; origin — P3.4 defines its whole column as zeros ("the frame you fly when intel
+; is stale"), so the balance instrument bands every other frame as a delta
+; against it.
+;
+; evasion_style "jink" is stated rather than left to the default, because a
+; roster's evasion identity should be readable in the roster's own files. It
+; flies the PILOT_VERSION 5 tactical jink — break, settle, fire, break — which is
+; measured as best on both axes at once for this airframe (v1.81), and which the
+; Atlas is measured as unable to fly at all.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
@@ -9,3 +19,4 @@ frame_id = &"kestrel"
 display_name = "Kestrel"
 flight_config = ExtResource("2_flight")
 hull = 100.0
+evasion_style = &"jink"

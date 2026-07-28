@@ -13,6 +13,13 @@
 ; reduction is worth most against many small hits and least against few big ones,
 ; so ONE number reproduces P4.4's shape for the heavy column — great on gnat days,
 ; unimpressed by turrets — with nothing special-cased per enemy.
+;
+; evasion_style "hold" — the Atlas does not jink, and that is MEASURED (v1.81,
+; three forced cells in one run): dodging changed nothing about what landed on it
+; (0.11 taken either way) and cut its own gun from 0.11-0.17 down to 0.03. A
+; 1.9x mass on softer rates cannot break a firing solution before it can no
+; longer shoot back, so its survival is spent where it was bought — in hull 190
+; and armor 3. The Kestrel keeps the tactical jink; see FrameConfig.evasion_style.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
@@ -25,3 +32,4 @@ display_name = "Atlas"
 flight_config = ExtResource("2_flight")
 hull = 190.0
 armor = 3.0
+evasion_style = &"hold"

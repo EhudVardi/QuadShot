@@ -68,7 +68,34 @@ extends RefCounted
 ## The trade is now explicit and one constant wide (`jink_hold_cone_deg`): the
 ## pilot gives up dodging only while its gun line is genuinely on the target, and
 ## resumes the moment it is not.
-const PILOT_VERSION: int = 5
+## v6 (v1.82) = TWO EDITS, LANDED TOGETHER SO THE RULER MOVES ONCE.
+##
+## 1. EVASION STYLE IS THE FRAME'S, NOT THE PILOT'S (`FrameConfig.evasion_style`).
+##    v5 measured the answer and this spends it: the tactical jink is best on both
+##    axes for the Kestrel and worth nothing to the Atlas, which keeps the same
+##    rounds landing on it while losing nearly all of its gun. So the pilot now
+##    ASKS THE AIRFRAME whether it dodges. The Kestrel jinks; the Atlas holds the
+##    line and spends the hull and armor it was bought with. Nothing about HOW the
+##    jink flies changed — a jinking Kestrel under v6 is a jinking Kestrel under
+##    v5, tick for tick.
+##
+## 2. THE IRON TRIGGER (P3.6). Until now this brain handed its trigger to the gun
+##    director unconditionally, so the moment anything turned the director off it
+##    fired NOTHING — and the cell measured a pilot standing still rather than a
+##    pilot under a jam. The manual path already existed (`fire_cone_deg`); what
+##    was missing was the rule for reaching for it. Now: use the director while
+##    the director is working, pull the trigger yourself when it is not.
+##
+##    This is a PREREQUISITE, not a flourish. The Screamer's entire design purpose
+##    is that "the manual fallback stays a skill path forever", so a measuring
+##    pilot that cannot hand-fire cannot measure that type at all — the bump is
+##    the same fact as the Screamer, which is what S.q10 said it would be.
+##
+## Prediction accompanying the bump, stated so it can be wrong: edit 2 moves
+## nothing that exists today (every shipped cell either has a live director or is
+## flying a weapon that never had one), and edit 1 moves the ATLAS's cells and
+## only the Atlas's. Anything else that moves is a finding.
+const PILOT_VERSION: int = 6
 
 var drone: FlightController
 var weapon: Weapon
@@ -170,6 +197,12 @@ var fire_range: float = 55.0
 ## Hand-rolling the trigger here meant re-deriving that solution badly and
 ## firing 679 rounds at a raider for zero hits, while the correct solver sat
 ## unused three metres away in weapon.gd.
+##
+## PERMISSION, NOT A PROMISE (v6). This says the pilot is WILLING to hand over the
+## trigger; `Weapon.director_active()` says whether there is anything to hand it
+## to. When there is not — the director unequipped, or a screamer's jam shrinking
+## its solution window below the point where it would ever fire — the pilot falls
+## back to the manual cone below. See `_fire_blaster`.
 var use_director: bool = true
 ## Recover if the ground is this close, meters. A firing solution is worth
 ## nothing to a pilot who is about to be part of the scenery — and a rig that
@@ -406,13 +439,8 @@ func update(_delta: float) -> void:
 		if flak != null:
 			flak.fire_override = on_target and in_reach
 		_hold_blaster()
-	elif use_director:
-		# Hands off the trigger: weapon.gd fires itself whenever its own arc
-		# solution says a hostile is about to be hit. Keeping the gun pointed
-		# somewhere useful is this loop's entire contribution.
-		_hold_blaster()
 	else:
-		weapon.fire_override = on_target and in_reach
+		_fire_blaster(on_target and in_reach)
 
 
 ## Bench override for the hit gate. AUTO is the shipped brain and the default,
@@ -446,6 +474,13 @@ var jink_mode: int = Jink.AUTO
 ## v5 design — see PILOT_VERSION — and it means this can flicker several times
 ## inside one engagement, which is the intent: break, settle, fire, break.
 ##
+## AUTO also asks the AIRFRAME first (v6): a frame whose `evasion_style` is `hold`
+## never dodges, because for it dodging is measured as pure cost. That gate sits
+## inside AUTO alone and NOT in the forced modes on purpose — ALWAYS and NEVER are
+## the bench's deliberate extremes, and `atlas x raider [jink]` saturating is the
+## very evidence this field was built on. A datum that could be silently switched
+## off by the thing it is evidence for would stop being a datum.
+##
 ## Public so a bench can report the DUTY of the evasion rather than inferring it,
 ## the same honesty the delivery bench applies to trigger duty — and under v5
 ## that duty finally carries information, because it is no longer pinned to 0 or
@@ -456,7 +491,19 @@ func jinking() -> bool:
 			return true
 		Jink.NEVER:
 			return false
+	if not frame_jinks():
+		return false
 	return _since_hit <= jink_memory_s and not _shot_lined_up
+
+
+## Does the airframe this pilot is flying dodge at all (v6)? Read live off the
+## frame rather than cached at setup: benches assign the drone before the node
+## enters the tree (Frames.build), and a cached copy would be one more thing that
+## can silently describe the wrong aircraft.
+func frame_jinks() -> bool:
+	if drone == null or drone.frame == null:
+		return true
+	return drone.frame.jinks()
 
 
 ## Watch our own hull. Polled rather than signal-wired so the pilot works
@@ -510,3 +557,33 @@ func _hold_fire() -> void:
 func _hold_blaster() -> void:
 	if weapon != null:
 		weapon.fire_override = false
+
+
+## THE CHIP GUN'S TRIGGER, and the one rule v6 added (P3.6, "the iron trigger").
+##
+## Use the director while there IS a director: `weapon.gd` sweeps the true
+## ballistic arc against the target's predicted motion and fires the instant they
+## intersect, which is both better than anything this loop would re-derive and
+## how the game is actually played. Pull the trigger by hand when there is not.
+##
+## Two things turn the director off, and the pilot must survive both identically:
+## the equipment being absent (`fire_assist_miss_m` 0 — every bench that isolates
+## the manual path), and a SCREAMER shrinking its solution window until it would
+## never fire (P4.2). Before this rule the second case produced a pilot that flew
+## a perfect gun run and never pulled the trigger — a cell reporting zero, which
+## reads exactly like a hard-countered weapon and is in fact a broken brain.
+##
+## THE TWO PATHS ARE NOT COMPARABLE AS AIM NUMBERS, and that is expected rather
+## than a defect. The director fires on any arc solution and so takes many
+## marginal shots (duty ~0.4, aim 0.17); the manual cone is 6 degrees wide and
+## fires far less often at far better odds — the flak pod's trigger policy exactly
+## (duty ~0.7, aim ~1.0). The delivery bench prints a duty beside every rate for
+## this reason, and a jammed aim cell must be read against the clear cell's DUTY,
+## never against its hit rate alone.
+func _fire_blaster(manual_solution: bool) -> void:
+	if weapon == null:
+		return
+	if use_director and weapon.director_active():
+		weapon.fire_override = false
+		return
+	weapon.fire_override = manual_solution
