@@ -2,7 +2,8 @@ extends SceneTree
 
 ## Layer 2 delivery benches (GAMEPLAY-DESIGN v1.23 Phase 3.5 step 3,
 ## BALANCE.md): the two factors of "can the shot actually land", each measured
-## in the isolation that gives it meaning.
+## in the isolation that gives it meaning — plus, since v1.78, the same question
+## asked in the other direction (Layer 3b, Iteration 9 / S3).
 ##
 ## AIM BENCH — agent vs STATIC target. The reference pilot flies the real
 ## drone against a target that cannot move, cannot shoot and cannot die, so
@@ -38,6 +39,41 @@ extends SceneTree
 ## the prediction layer divides the pack bill by the second. For a weapon that
 ## damages one body per connect, splash is 1.0 and nothing changes.
 ##
+## PLAYER-EVASION BENCH (Layer 3b, `kind: survive`) — the evasion bench with
+## the arrow reversed: a fixed perfect-aim THREAT firing at the reference pilot
+## while it flies the aim bench's own task. Output: hits-taken per shot-fired-at-
+## you, per THREAT x FRAME. Frame-keyed, unlike its enemy-side twin, because
+## nothing freezes the player — the frame is what the pilot is dodging in, and
+## that is the axis the Atlas has never been legible on (S1).
+##
+## THE THREAT HAS NO BODY, and that is the isolation. It is a bare position that
+## emits the threat type's real rounds (its damage, cadence, muzzle speed and
+## lifetime) on an exact firing solution — so the pilot cannot acquire it, cannot
+## shoot it, and cannot orbit it. The cell measures the pilot dodging fire and
+## nothing else. A `frozen: true` control parks the drone in front of that
+## shooter first: if a perfect solution cannot hit a stationary player, the rig
+## is broken before any airframe is credited with "evading".
+##
+## Its second output is free and worth as much as the first: the pilot is flying
+## the AIM task while it dodges, so the same cell reports hits-per-shot on the
+## static target UNDER FIRE. Against the undisturbed aim cell that is the price
+## of the jink, measured directly instead of inferred from duels (v1.77).
+##
+## OUT OF SCOPE, and newly conspicuous: the D2 damage model. `apply_hit_to_motors`
+## is wired in main.gd alone, so no bench in this folder has ever flown a wounded
+## quad — which cost nothing while the player was never shot at, and is a stated
+## limit now that it is. Every Layer 3b number describes an undamaged airframe
+## dodging; a frame whose motors fray under fire would do worse in the game than
+## it reads here.
+##
+## CONTACT BENCH (`kind: contact`) — the gnat is not a cadence and cannot be
+## measured as one. A body that arrives always stings (`_resolve_stings` spends
+## it on contact), so there is no connect fraction to report; the delivery term
+## is the arrival RATE. Layer 1's `incoming()` refuses to invent that number from
+## a config and names a bench for it — this is that bench. The pilot's trigger is
+## LOCKED in these cells: let the gun director shoot the cloud and the rig stops
+## measuring arrival and starts refighting Flak x Gnats.
+##
 ## What these numbers are NOT (BALANCE.md): win predictions. They multiply
 ## with Layer 1 lethality into the predicted product that the duel harness
 ## VALIDATES; divergence there names an un-modeled factor.
@@ -71,6 +107,44 @@ const ROUTE_HOLD_BOLT_S: float = 1.0
 const ROUTE_HOLD_MISSILE_S: float = 3.0
 ## Control-cell floor: below this the perfect shooter's own solver is broken.
 const CONTROL_MIN_RATE: float = 0.9
+## The Layer 3b threat STATION-KEEPS: it holds a stated range and bearing off the
+## player every tick rather than sitting at an arena coordinate.
+##
+## MEASURED THE OTHER WAY FIRST, and the discarded attempt is the reason this is
+## a constant. Parking the threat at a fixed point ~30 m from where the pilot
+## works produced connect rates of 0.03-0.08 — which compose into a Kestrel
+## surviving a raider for over four minutes, against duels that show it losing
+## a fifth of its hull in ten seconds. That gap is not an un-modeled factor, it
+## is a bench measuring the wrong thing: RANGE dominates everything else here
+## (a linear lead against a quad under aim-driven lateral acceleration misses by
+## roughly the flight time squared), so a rig that lets arena geometry pick the
+## range is reporting the arena.
+##
+## Fixing the range makes the type axis mean what it should: two threat cells now
+## differ by their WEAPON — damage, cadence, muzzle speed — and by nothing else.
+## Where the type would choose to fight from is real, but it is a BEHAVIOR
+## property and it belongs to the duel, not to a per-type delivery factor.
+##
+## 18 m is the roster's ranged standoff (the raider's own `preferred_range`) and
+## sits beside this pilot's 16 m orbit, so the number describes the range the
+## game's fights actually happen at.
+const THREAT_RANGE_M: float = 18.0
+## Abeam, slightly high and slightly behind: the incoming line and the aiming
+## line must not be the same line, or one dodge serves both jobs and every frame
+## reads better than it is.
+const THREAT_BEARING: Vector3 = Vector3(0.88, 0.22, 0.42)
+## The contact cloud spawns on the OPPOSITE flank, far enough out to have a real
+## approach: a pack already on top of the pilot would report a spend rate with
+## the transit — the thing a frame's speed actually changes — edited out.
+const CONTACT_SPAWN: Vector3 = Vector3(-32.0, ALTITUDE, -30.0)
+## Enemy bolts fly flat (both `enemy_drone._try_fire` and `turret._fire` pass
+## gravity_scale 0.0), so the threat's solution carries no drop term. Named
+## rather than inlined because if the bestiary ever gains a lobbed weapon, this
+## is the line that has to stop being a constant.
+const THREAT_GRAVITY: float = 0.0
+## Contact cells need the cloud to arrive AND spend itself inside the window;
+## below ~2 stings there is no interval to measure a rate from.
+const CONTACT_MIN_STINGS: int = 3
 
 const RAIDER_SCENE: String = "res://scenes/combat/enemy_drone.tscn"
 const SWARM_SCENE: String = "res://scenes/combat/gnat_swarm.tscn"
@@ -173,6 +247,74 @@ const CELLS: Array[Dictionary] = [
 			"frame": Frames.ATLAS, "target": "static", "seconds": 45.0},
 	{"name": "aim: atlas/flak", "kind": "aim", "weapon": "flak",
 			"frame": Frames.ATLAS, "target": "static", "seconds": 40.0},
+	# --- LAYER 3b: the player as a target (Iteration 9 / S3). Six cells: one
+	# control per frame, then each frame against each RANGED threat in the
+	# roster. The aegis is absent on purpose and the absence is a measurement —
+	# Layer 3a reports it `none` (no weapon at all), so a cell would fire nothing
+	# and report a rate over zero shots. The gnat is absent for the opposite
+	# reason: it has a weapon but no cadence, so it gets the contact cells below.
+	#
+	# THE CONTROL COMES FIRST in each frame's block, deliberately: it is the cell
+	# that proves the threat solver before any airframe is credited with dodging
+	# it, and a control printed after the thing it guards is a control nobody
+	# reads in time.
+	# EVERY CELL FORCES THE JINK STATE, and that is the difference between a
+	# factor and a coin toss. The shipped gate is "I have been hit recently",
+	# which is the right rule for a pilot and a ruinous one for a bench: what is
+	# being measured (do rounds connect) decides the behaviour (am I jinking), so
+	# an un-forced cell is a feedback loop. Measured on this rig, one unrelated
+	# change between two runs: `kestrel x raider` settled at 25 hits / 0.87 duty
+	# once and 4 hits / 0.23 duty the next — a 6x swing — while
+	# `kestrel x turret` reproduced to the integer. Two of four cells moved.
+	#
+	# So each pair is measured TWICE, at both extremes, and neither number is a
+	# blend: `[jink]` is the factor the model composes with (a pilot being shot at
+	# has tripped the gate), `[steady]` is the datum it is worth against. Their
+	# DIFFERENCE is what the jink actually buys — the question S3 asked, which the
+	# gated cell could only answer by accident.
+	{"name": "evade: kestrel x static", "kind": "survive", "threat": "raider",
+			"frame": Frames.KESTREL, "weapon": "blaster", "target": "static",
+			"seconds": 10.0, "frozen": true, "control": true},
+	{"name": "evade: kestrel x raider [jink]", "kind": "survive",
+			"threat": "raider", "frame": Frames.KESTREL, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "always"},
+	{"name": "evade: kestrel x raider [steady]", "kind": "survive",
+			"threat": "raider", "frame": Frames.KESTREL, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "never"},
+	{"name": "evade: kestrel x turret [jink]", "kind": "survive",
+			"threat": "turret", "frame": Frames.KESTREL, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "always"},
+	{"name": "evade: kestrel x turret [steady]", "kind": "survive",
+			"threat": "turret", "frame": Frames.KESTREL, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "never"},
+	{"name": "evade: atlas x static", "kind": "survive", "threat": "raider",
+			"frame": Frames.ATLAS, "weapon": "blaster", "target": "static",
+			"seconds": 10.0, "frozen": true, "control": true},
+	{"name": "evade: atlas x raider [jink]", "kind": "survive",
+			"threat": "raider", "frame": Frames.ATLAS, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "always"},
+	{"name": "evade: atlas x raider [steady]", "kind": "survive",
+			"threat": "raider", "frame": Frames.ATLAS, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "never"},
+	{"name": "evade: atlas x turret [jink]", "kind": "survive",
+			"threat": "turret", "frame": Frames.ATLAS, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "always"},
+	{"name": "evade: atlas x turret [steady]", "kind": "survive",
+			"threat": "turret", "frame": Frames.ATLAS, "weapon": "blaster",
+			"target": "static", "seconds": 25.0, "jink": "never"},
+	# --- The CONTACT mode's delivery term (the promise Layer 3a's `incoming`
+	# makes in code: "the arrival rate is a DELIVERY property, measured by a
+	# bench, never read from a config"). 45 s because transit turned out to be
+	# the long pole and to vary hugely by frame — a first pass measured 18.5 s of
+	# chase before the Kestrel's first sting against 5.4 s for the Atlas, which is
+	# the frame's speed showing up honestly but leaves a 30 s window with almost
+	# no measurement in it.
+	{"name": "contact: kestrel x gnats", "kind": "contact", "threat": "gnat",
+			"frame": Frames.KESTREL, "weapon": "blaster", "target": "static",
+			"seconds": 45.0, "jink": "always"},
+	{"name": "contact: atlas x gnats", "kind": "contact", "threat": "gnat",
+			"frame": Frames.ATLAS, "weapon": "blaster", "target": "static",
+			"seconds": 45.0, "jink": "always"},
 ]
 
 ## Every roster config whose numbers can move a measured delivery factor —
@@ -218,11 +360,31 @@ var _fire_ticks: int = 0
 var _grace_ticks: int = 0
 var _swarm_spawns: int = 0
 
+# Layer 3b live cell: the bodiless threat shooting AT the pilot, and what it and
+# the pilot did to each other.
+var _pool: ProjectilePool
+var _threat_config: EnemyConfig
+var _threat_position: Vector3
+var _threat_cooldown: float = 0.0
+var _threat_shots: int = 0
+## Rounds that reached the player (its own Health.struck) — the Layer 3b numerator
+## and, in a contact cell, the sting count.
+var _taken: int = 0
+## Ticks the pilot spent evading, so the cell reports the DUTY of the evasion
+## rather than implying it jinked throughout (the jink is hit-gated, so it cannot
+## have been on before the first round landed).
+var _jink_ticks: int = 0
+## Contact timing: seconds to the first sting, and to the last.
+var _first_sting_s: float = -1.0
+var _last_sting_s: float = -1.0
+## Bodies the threat's rounds pass straight through (see _threat_exclude).
+var _threat_exclude_rids: Array[RID] = []
+
 
 func _initialize() -> void:
 	_pps = float(Engine.physics_ticks_per_second)
 	_combat = load("res://resources/default_combat_config.tres") as CombatConfig
-	print("[delivery] %d cells  (pilot v%d — aim cells depend on it, evasion cells do not)"
+	print("[delivery] %d cells  (pilot v%d — aim and Layer 3b cells depend on it, evasion cells do not)"
 			% [CELLS.size(), ReferencePilot.PILOT_VERSION])
 	BenchView.setup("delivery")
 	physics_frame.connect(_on_physics_frame)
@@ -265,8 +427,8 @@ func _build_cell() -> void:
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	BenchView.build_scenery(_arena)
-	var pool := ProjectilePool.new()
-	_arena.add_child(pool)
+	_pool = ProjectilePool.new()
+	_arena.add_child(_pool)
 
 	# Evasion cells freeze the shooter, so the airframe cannot reach the result;
 	# they fly the Kestrel to have something concrete to freeze.
@@ -278,9 +440,10 @@ func _build_cell() -> void:
 	_missile = _drone.get_node("FpvCamera/MissileSystem") as MissileSystem
 	_flak = _drone.get_node("FpvCamera/FlakPod") as FlakPod
 
+	var kind: String = cell["kind"]
 	var weapon_id: String = cell["weapon"]
 	var is_missile: bool = weapon_id == "missile"
-	if cell["kind"] == "aim":
+	if kind != "evasion":
 		_drone.prime_motors(_drone.hover_throttle())
 		# The gun director belongs to the CHIP GUN cell only. The missile has
 		# its own launch logic and the flak pod has none by design, so arming it
@@ -296,6 +459,8 @@ func _build_cell() -> void:
 		_pilot.cruise_altitude = ALTITUDE
 		if is_missile:
 			_missile.fire_override = true
+		if kind != "aim":
+			_build_threat(cell)
 	else:
 		# The fixed shooter: frozen in space, immortal (a raider shoots back
 		# and gnats would otherwise win the bench by attrition), trigger held
@@ -332,6 +497,81 @@ func _build_cell() -> void:
 	_grace_ticks = int(grace_s * _pps)
 	_ticks = 0
 	_connects = 0
+	_taken = 0
+	_threat_shots = 0
+	_threat_cooldown = 0.0
+	_jink_ticks = 0
+	_first_sting_s = -1.0
+	_last_sting_s = -1.0
+	_threat_exclude_rids = []
+
+
+## The Layer 3b threat: a bodiless emitter of one enemy type's real rounds, and
+## the player made immortal so the cell measures a RATE instead of a death.
+##
+## Immortality is the same choice every evasion target already gets, pointed the
+## other way — and it is load-bearing rather than cosmetic. A Kestrel eats a
+## perfect raider's 12 dps in 8 s, so a 25 s window would end with a corpse and a
+## connect rate computed over whichever fraction of the window the pilot happened
+## to survive. Frames with different hulls would then be measured over different
+## windows, which is exactly the confound the frame axis exists to avoid.
+##
+## What immortality does NOT switch off is the jink: PILOT_VERSION 4 gates on
+## hull DROPPING, not on hull being low, so a pilot with a billion hit points
+## still notices the first round that lands and starts evading. That is why
+## `armor` had to join the config stamp — a threat whose damage sits at or under
+## the frame's armor produces no drop, hence no jink, hence a different
+## measurement from a config edit the stamp used to be blind to.
+func _build_threat(cell: Dictionary) -> void:
+	_threat_config = load("res://resources/default_enemy_%s.tres"
+			% String(cell["threat"])) as EnemyConfig
+	_threat_position = _threat_station()
+	var drone_health: Health = _drone.get_node("Health") as Health
+	drone_health.max_health = IMMORTAL_HULL
+	drone_health.revive()
+	drone_health.struck.connect(_on_player_struck)
+	if bool(cell.get("frozen", false)):
+		# The control: a parked player. No pilot at all, rather than a pilot told
+		# not to jink — a brain that is present but restrained is one flag away
+		# from silently flying the cell it was meant to be the datum for.
+		_drone.freeze = true
+		_pilot = null
+		_weapon.combat_config.fire_assist_miss_m = 0.0
+		return
+	# Break the feedback loop: the cell states the flight mode instead of letting
+	# the incoming fire decide it (see ReferencePilot.Jink).
+	match String(cell.get("jink", "")):
+		"always":
+			_pilot.jink_mode = ReferencePilot.Jink.ALWAYS
+		"never":
+			_pilot.jink_mode = ReferencePilot.Jink.NEVER
+	if cell["kind"] == "contact":
+		# The trigger is locked, not merely un-aimed. A gnat that drifts through
+		# the gun director's arc would be shot down, and a cloud the pilot is
+		# thinning is not a cloud whose arrival rate you are measuring.
+		_weapon.combat_config.fire_assist_miss_m = 0.0
+		_pilot.use_director = false
+		_pilot.fire_range = 0.0
+		var swarm: Node3D = (load(SWARM_SCENE) as PackedScene).instantiate() \
+				as Node3D
+		swarm.set(&"enemy_config", _threat_config)
+		swarm.set(&"ai_seed", 0)
+		swarm.position = CONTACT_SPAWN
+		_arena.add_child(swarm)
+
+
+## Every round that reached the player. In a ranged cell this is the Layer 3b
+## numerator; in a contact cell it is a sting, and the two timestamps below are
+## what turn a count into the arrival rate Layer 3a asks for.
+func _on_player_struck(_amount: float) -> void:
+	_taken += 1
+	# Timestamps run through GRACE too — `_ticks` is monotonic across both
+	# phases, and a cloud still spending itself when the window closes is
+	# arriving, not missing.
+	var now: float = float(_ticks) / _pps
+	if _first_sting_s < 0.0:
+		_first_sting_s = now
+	_last_sting_s = now
 
 
 ## Build the cell's target. All single-body targets are immortal so one rig
@@ -450,9 +690,18 @@ func _count_health_connects(health: Health) -> void:
 
 
 func _drive() -> void:
-	if CELLS[_cell_i]["kind"] == "aim":
+	var kind: String = CELLS[_cell_i]["kind"]
+	if kind != "evasion":
 		if _pilot != null:
 			_pilot.update(1.0 / _pps)
+			if _pilot.jinking():
+				_jink_ticks += 1
+		# The threat's trigger is released at the end of FIRE, exactly like the
+		# player-side triggers, and GRACE exists to let its last rounds arrive:
+		# a shot fired on the final tick would otherwise book as a miss it never
+		# had time to disprove.
+		if kind == "survive" and _phase == FIRE:
+			_fire_threat(1.0 / _pps)
 		return
 	# Perfect shooter: re-lay the gun (and the lock cone) onto the solution.
 	var aim_at: Node3D = _live_target_body()
@@ -510,11 +759,17 @@ func _live_target_body() -> Node3D:
 ## not the blaster's.
 func _ballistic_aim_point(body: Node3D, muzzle_speed: float,
 		gravity_scale: float) -> Vector3:
-	var origin: Vector3 = _weapon.global_position
-	var target_velocity: Vector3 = Vector3.ZERO
-	var raw: Variant = body.get(&"velocity")
-	if raw is Vector3:
-		target_velocity = raw as Vector3
+	return _solution_from(_weapon.global_position, body, muzzle_speed,
+			gravity_scale)
+
+
+## The same solver from an arbitrary muzzle, so Layer 3b's threat is laid by the
+## exact code that lays the enemy-evasion bench's shooter. One definition of
+## "perfect", used in both directions — otherwise the two halves of the model
+## would be measured against two different ideas of a good shot.
+func _solution_from(origin: Vector3, body: Node3D, muzzle_speed: float,
+		gravity_scale: float) -> Vector3:
+	var target_velocity: Vector3 = _velocity_of(body)
 	var predicted: Vector3 = body.global_position
 	var flight_time: float = 0.0
 	for _i: int in 4:
@@ -523,6 +778,86 @@ func _ballistic_aim_point(body: Node3D, muzzle_speed: float,
 	var drop: float = float(ProjectSettings.get_setting(
 			"physics/3d/default_gravity")) * gravity_scale
 	return predicted + Vector3.UP * (0.5 * drop * flight_time * flight_time)
+
+
+## Whatever this body calls its velocity. The bestiary flies CharacterBody3D
+## (`velocity`); the player is a RigidBody3D (`linear_velocity`), and reading
+## only the first would hand the Layer 3b threat a zero lead against the one
+## target in the game that never stops moving — a "perfect" shooter that in fact
+## aims where the player used to be, crediting every frame with an evasion it did
+## not earn.
+func _velocity_of(body: Node3D) -> Vector3:
+	var rigid: Variant = body.get(&"linear_velocity")
+	if rigid is Vector3:
+		return rigid as Vector3
+	var kinematic: Variant = body.get(&"velocity")
+	if kinematic is Vector3:
+		return kinematic as Vector3
+	return Vector3.ZERO
+
+
+## One tick of the bodiless threat: hold cadence, lay the exact solution, fire
+## the type's own round. Deliberately NOT the enemy's own `_try_fire` — that path
+## carries `aim_jitter_deg` and a tracking loop, which are the THREAT's
+## marksmanship and belong to a factor nobody is measuring here (see
+## BalancePrediction.survive, assumption 2). Mixing them in would repeat the
+## Blaster x Raider mistake with the arrow reversed: a number that reads as the
+## player's evasion while reporting the enemy's aim.
+## The threat's muzzle for this tick — a stated range and bearing off the player
+## (see THREAT_RANGE_M). Kept as a plain position rather than a node so the pilot
+## cannot acquire it, orbit it or shoot it: the cell measures dodging, and a
+## threat with a body is a second fight.
+func _threat_station() -> Vector3:
+	return _drone.global_position \
+			+ THREAT_BEARING.normalized() * THREAT_RANGE_M
+
+
+## THE PILOT MUST NOT BE ABLE TO HIDE BEHIND ITS OWN PRACTICE TARGET.
+##
+## `Projectile._resolve_hit` fizzles a round on ANY collider — a same-team body
+## takes no damage but still stops the shot. The pilot's task target is an enemy
+## body and the blaster path closes to nearly touching it (the pilot's own trace:
+## 0.3 m), so for much of a cell the target sits on the line between the threat
+## and the player. Every round it absorbs would have been scored as a miss the
+## airframe never earned, and the contamination is largest exactly where the
+## pilot spends most of its time.
+##
+## Excluding it is what `exclude` is for, and it is the same discipline as every
+## other isolation in this file: the cell must measure the pilot dodging, not the
+## scenery it happens to be standing behind. Built lazily because the threat is
+## constructed before the target is.
+func _threat_exclude() -> Array[RID]:
+	if not _threat_exclude_rids.is_empty() or _target == null \
+			or not is_instance_valid(_target):
+		return _threat_exclude_rids
+	if _target is CollisionObject3D:
+		_threat_exclude_rids.append((_target as CollisionObject3D).get_rid())
+	return _threat_exclude_rids
+
+
+func _fire_threat(delta: float) -> void:
+	_threat_position = _threat_station()
+	_threat_cooldown -= delta
+	if _threat_cooldown > 0.0 or _pool == null:
+		return
+	var muzzle: float = maxf(_threat_config.muzzle_speed, 1.0)
+	var solution: Vector3 = _solution_from(_threat_position, _drone, muzzle,
+			THREAT_GRAVITY)
+	var direction: Vector3 = (solution - _threat_position).normalized()
+	# Lifetime sized exactly as the shipped types size theirs, so a round that
+	# expires short here would have expired short in the game too.
+	var lifetime: float = _threat_config.sight_range / muzzle * 1.6
+	# `ProjectilePool.fire` DROPS the shot when the pool is empty, and the count
+	# below would book it as a miss. Left unguarded because the headroom is 5x —
+	# the pilot's gun carries ~20 rounds in flight and this threat ~3, against a
+	# pool of 128 — and a guard for a condition that cannot occur is a branch
+	# nobody can ever test. If a future cell fires two threats at a higher
+	# cadence, revisit this line first.
+	_pool.fire(_threat_position + direction * 0.6, direction * muzzle,
+			_threat_config.damage, &"enemy", _threat_exclude(), THREAT_GRAVITY,
+			lifetime)
+	_threat_shots += 1
+	_threat_cooldown = 1.0 / maxf(_threat_config.fire_rate, 0.001)
 
 
 func _cease_fire() -> void:
@@ -534,6 +869,13 @@ func _cease_fire() -> void:
 
 func _score_cell() -> void:
 	var cell: Dictionary = CELLS[_cell_i]
+	var kind: String = cell["kind"]
+	if kind == "survive":
+		_score_survive(cell)
+		return
+	if kind == "contact":
+		_score_contact(cell)
+		return
 	var weapon_id: String = cell["weapon"]
 	var shots: int = 0
 	var connects: int = 0
@@ -579,6 +921,142 @@ func _score_cell() -> void:
 				% [cell["name"], rate, CONTROL_MIN_RATE])
 
 
+## LAYER 3b (`kind: survive`). The factor is `taken / fired_at_you` — the same
+## connect-rate convention the enemy rows use, and stored the same way round:
+## LOW IS EVASIVE. It reads backwards from the word "evasion" and always has;
+## the compensation is that it multiplies straight into a hit rate on either
+## side of the model instead of needing a `1 -` somewhere that nobody remembers.
+##
+## Three numbers accompany it, and each exists because leaving it out would let
+## the headline be misread:
+##  - JINK DUTY. Now a CHECK rather than a caveat: every cell forces its state,
+##    so this must read 1.00 on a `[jink]` row and 0.00 on a `[steady]` one. Any
+##    value in between means the force did not take and the cell is back to being
+##    the feedback loop the forcing exists to break.
+##  - AIM UNDER FIRE. The pilot is flying the aim bench's own task, so the same
+##    cell reports what its gun did while dodging. Against the undisturbed aim
+##    cell (kestrel/blaster 0.17) that difference is the PRICE of the jink,
+##    measured rather than inferred from duels.
+##  - HULL SPENT. Diagnostic only — the player is immortal here, so this is what
+##    the rounds WOULD have cost a mortal frame over the window, and it is the
+##    one number that shows armor working (a Kestrel and an Atlas can take the
+##    same count of hits for very different damage).
+func _score_survive(cell: Dictionary) -> void:
+	var rate: float = float(_taken) / float(_threat_shots) \
+			if _threat_shots > 0 else 0.0
+	# Over the WHOLE measured window, firing plus grace — the pilot flies through
+	# both and the rounds still in the air during grace are being dodged like any
+	# other. Dividing by the firing window alone would let a long grace push the
+	# duty of a fraction past 1.0.
+	var duty: float = float(_jink_ticks) \
+			/ float(maxi(_fire_ticks + _grace_ticks, 1))
+	var gun_shots: int = _weapon.shots_fired
+	var aim_under_fire: float = float(_connects) / float(gun_shots) \
+			if gun_shots > 0 else 0.0
+	var frame: FrameConfig = Frames.config(String(cell["frame"]))
+	var per_hit: float = maxf(_threat_config.damage - frame.armor, 0.0)
+	var hull_spent: float = per_hit * float(_taken) / maxf(frame.hull, 1.0)
+	_results.append({"shots": _threat_shots, "connects": _taken, "rate": rate,
+			"splash": 1.0, "duty": duty, "aim_under_fire": aim_under_fire,
+			"hull_spent": hull_spent, "valid": _taken > 0})
+	# The gun's shot count rides along with its rate, because the aim-under-fire
+	# figure comes off a 25 s window at a ~0.3 duty: that is single-digit-to-tens
+	# of shots, and a bare "0.30" from three hits in ten reads as a measurement
+	# when it is a coin toss. Print the fraction and let the reader see the n.
+	print("[delivery] %-28s %4d at you, %4d taken -> %.2f  (jink duty %.2f, aim under fire %d/%d = %.2f, hull %.0f%%)"
+			% [cell["name"], _threat_shots, _taken, rate, duty, _connects,
+			gun_shots, aim_under_fire, hull_spent * 100.0])
+	if _threat_shots == 0:
+		_failures.append("%s: the threat fired nothing — rig broken" % cell["name"])
+	elif cell.get("control", false) and rate < CONTROL_MIN_RATE:
+		_failures.append("%s: control rate %.2f under %.2f — a perfect solution cannot hit a PARKED player; fix the threat before reading any frame's evasion"
+				% [cell["name"], rate, CONTROL_MIN_RATE])
+	elif not cell.get("control", false):
+		if _taken == 0:
+			# ZERO HITS IS NOT A FACTOR OF 0.00, it is a cell with no measurement
+			# in it — and 0.00 is the single most dangerous number this table can
+			# carry, because it composes into "this frame is invulnerable to this
+			# threat, forever". Whatever the cause (a geometry bug, or an airframe
+			# thrown around so hard that a perfect solution cannot find it), the
+			# bench must refuse rather than publish. `valid` below keeps it out of
+			# the artifact as well as failing the run: a FAIL nobody reads still
+			# leaves a poisoned file behind.
+			_failures.append("%s: nothing landed in %d shots — no measurement in this cell, and 0.00 must never reach the factor table (see the gun figure: %d/%d)"
+					% [cell["name"], _threat_shots, _connects, gun_shots])
+		_flag_control_loss(cell, aim_under_fire, gun_shots)
+
+
+## IS THIS FRAME EVADING, OR IS IT COMING APART? The two look identical in the
+## headline number — both read as "hard to hit" — and they mean opposite things
+## for the frame axis. One is the airframe's virtue; the other is the pilot's
+## jink being too much aircraft for it.
+##
+## The cell already contains the discriminator, because the pilot is flying the
+## AIM task while it dodges: **a frame that is evading keeps shooting.** Compare
+## this cell's hits-per-shot against the same frame's undisturbed aim cell and
+## the two cases separate cleanly — which is not a hypothetical, it is what the
+## first measured run did (v1.78): the Kestrel held 0.17 against 0.17 while the
+## Atlas fell from 0.19 to 0.00 across 47 shots in two cells.
+##
+## A WARNING, never a failure. The number is real and gets committed either way;
+## what must not happen is a reader taking a collapsed cell for good news about
+## an airframe. Tuning the jink until this stops printing would be tuning the
+## ruler to flatter the thing it measures.
+func _flag_control_loss(cell: Dictionary, aim_under_fire: float,
+		gun_shots: int) -> void:
+	var clean: float = _clean_aim_rate(String(cell["frame"]),
+			String(cell["weapon"]))
+	if clean <= 0.05 or gun_shots <= 0:
+		return
+	if aim_under_fire >= clean * 0.25:
+		return
+	print("[delivery] %-28s   ^ WARNING: gun collapsed under fire (%.2f vs %.2f clean) — a frame that is EVADING keeps shooting, so read this cell's low hit rate as possible LOSS OF CONTROL, not as durability"
+			% ["", aim_under_fire, clean])
+
+
+## This run's undisturbed aim rate for a frame+weapon, or -1.0 when the aim cell
+## has not run yet. Addressed BY NAME through the cell list rather than by index,
+## the same rule the harness's asserts follow — and read from THIS run rather
+## than from the committed artifact, so the comparison cannot straddle two
+## measurements.
+func _clean_aim_rate(frame_id: String, weapon: String) -> float:
+	for i: int in _results.size():
+		var candidate: Dictionary = CELLS[i]
+		if candidate["kind"] == "aim" \
+				and String(candidate.get("frame", "")) == frame_id \
+				and String(candidate["weapon"]) == weapon:
+			return float(_results[i]["rate"])
+	return -1.0
+
+
+## THE CONTACT MODE'S DELIVERY TERM (Layer 3a's named gap). Not a fraction: a
+## gnat that arrives always stings, so there is nothing to miss with. What varies
+## is WHEN — the cloud's approach against the frame's speed — so this cell reports
+## a rate, in bodies per second, measured between the first sting and the last.
+##
+## Transit is reported separately and NOT folded in. Time-to-first-sting is a
+## property of where this bench parked the cloud as much as of the frame, while
+## the spend rate is a property of the pack meeting the aircraft; averaging one
+## into the other would bake an arena constant into a roster number.
+func _score_contact(cell: Dictionary) -> void:
+	var span: float = maxf(_last_sting_s - _first_sting_s, 0.0)
+	var rate: float = float(_taken - 1) / span if _taken >= 2 and span > 0.0 \
+			else 0.0
+	var transit: float = _first_sting_s if _first_sting_s >= 0.0 else -1.0
+	var frame: FrameConfig = Frames.config(String(cell["frame"]))
+	var per_hit: float = maxf(_threat_config.damage - frame.armor, 0.0)
+	var hull_spent: float = per_hit * float(_taken) / maxf(frame.hull, 1.0)
+	_results.append({"shots": int(_threat_config.pack_size), "connects": _taken,
+			"rate": rate, "splash": 1.0, "duty": 0.0, "transit": transit,
+			"hull_spent": hull_spent})
+	print("[delivery] %-28s %2d of %d bodies stung in %.1fs -> %.2f stings/s  (transit %.1fs, hull %.0f%%)"
+			% [cell["name"], _taken, int(_threat_config.pack_size), span, rate,
+			transit, hull_spent * 100.0])
+	if _taken < CONTACT_MIN_STINGS:
+		_failures.append("%s: only %d stings landed (need %d) — the cloud never resolved inside the window, so there is no rate to read"
+				% [cell["name"], _taken, CONTACT_MIN_STINGS])
+
+
 ## Shots taken as a fraction of shots the cadence ALLOWED in the window.
 ##
 ## Reported because the flak column made an old conflation visible: `aim` is
@@ -617,6 +1095,8 @@ func _teardown() -> void:
 	_flak = null
 	_target = null
 	_enemy_config = null
+	_pool = null
+	_threat_config = null
 
 
 func _advance() -> void:
@@ -631,13 +1111,26 @@ func _report() -> void:
 	print("[delivery] ---- Layer 2 factors (pilot v%d) ----"
 			% ReferencePilot.PILOT_VERSION)
 	for i: int in CELLS.size():
+		var cell: Dictionary = CELLS[i]
+		if cell["kind"] == "contact":
+			print("[delivery] %-28s %.2f stings/s  (transit %.1fs)"
+					% [cell["name"], _results[i]["rate"],
+					float(_results[i].get("transit", -1.0))])
+			continue
+		if cell["kind"] == "survive":
+			print("[delivery] %-28s %.2f  (jink duty %.2f)"
+					% [cell["name"], _results[i]["rate"], _results[i]["duty"]])
+			continue
 		var splash: float = float(_results[i]["splash"])
-		print("[delivery] %-28s %.2f  (duty %.2f)%s" % [CELLS[i]["name"],
+		print("[delivery] %-28s %.2f  (duty %.2f)%s" % [cell["name"],
 				_results[i]["rate"], _results[i]["duty"],
 				"   x %.2f bodies/burst" % splash if splash != 1.0 else ""])
 	print("[delivery] duty = shots taken / shots the cadence allowed. Aim cells with")
 	print("[delivery] different duty measured under different TRIGGER policies, so their")
 	print("[delivery] hit rates are not directly comparable (see _duty_cycle).")
+	print("[delivery] Layer 3b rows read the other way round: `at you / taken`, and their")
+	print("[delivery] duty is the JINK's, not a trigger's. Contact rows are a RATE, not a")
+	print("[delivery] fraction — a gnat that arrives always stings (see _score_contact).")
 	_write_factors()
 	if _failures.is_empty():
 		print("[delivery] PASS")
@@ -659,11 +1152,44 @@ func _write_factors() -> void:
 	var evasion: Dictionary = {}
 	var control: Dictionary = {}
 	var splash: Dictionary = {}
+	var player_evasion: Dictionary = {}
+	var steady: Dictionary = {}
+	var contact: Dictionary = {}
 	for i: int in CELLS.size():
 		var cell: Dictionary = CELLS[i]
 		var rate: float = snappedf(float(_results[i]["rate"]), 0.01)
 		var yield_per_burst: float = snappedf(float(_results[i]["splash"]), 0.01)
 		var weapon: String = cell["weapon"]
+		if cell["kind"] == "survive":
+			# The control parks the player, so its rate describes the BENCH, not
+			# a frame. It rides in the same `control` section the enemy-side
+			# controls use rather than in the factor table, on the same rule:
+			# a datum that proves the rig is not a measurement of the thing.
+			var frame_id: String = String(cell["frame"])
+			var key: String = BalancePrediction.player_evasion_key(
+					String(cell["threat"]), frame_id)
+			if not bool(_results[i].get("valid", true)):
+				# The cell scored nothing and said so loudly (see _score_survive).
+				# Omitting it leaves the model with no factor for this pair, which
+				# blanks the survival line — the same honest degradation a missing
+				# aim factor already gets. Writing 0.00 instead would publish
+				# "invulnerable" as a measurement.
+				continue
+			if cell.get("control", false):
+				control[BalancePrediction.player_evasion_key(
+						"parked", frame_id)] = rate
+			elif String(cell.get("jink", "")) == "never":
+				# The datum, not the factor: what this frame eats flying straight.
+				# Kept in its own table so nothing can compose with it by
+				# accident — the model's pilot is always the jinking one.
+				steady[key] = rate
+			else:
+				player_evasion[key] = rate
+			continue
+		if cell["kind"] == "contact":
+			contact[BalancePrediction.contact_key(String(cell["threat"]),
+					String(cell["frame"]))] = rate
+			continue
 		if cell["kind"] == "aim":
 			aim[BalancePrediction.aim_key(String(cell["frame"]), weapon)] = rate
 		elif cell.get("splash_only", false):
@@ -701,6 +1227,16 @@ func _write_factors() -> void:
 		"evasion": evasion,
 		"splash": splash,
 		"control": control,
+		# Layer 3b (v1.78). Same file, because it is the same kind of thing
+		# measured by the same bench under the same two rulers — splitting it out
+		# would have given the model two artifacts that can go stale
+		# independently, which is how half a table gets quoted.
+		"player_evasion": player_evasion,
+		# The same pairs flown STRAIGHT. Never composed with — it is the datum
+		# `player_evasion` is worth against, and the pair's difference is the
+		# only honest statement of what the jink buys.
+		"player_evasion_steady": steady,
+		"contact_rate": contact,
 	}
 	DirAccess.make_dir_recursive_absolute(
 			BalancePrediction.FACTORS_PATH.get_base_dir())

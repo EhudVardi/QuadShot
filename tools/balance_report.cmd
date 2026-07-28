@@ -6,10 +6,14 @@ REM
 REM   1. lethality_check  - Layer 1. Verifies the config-derived kill
 REM                         arithmetic still matches the shipped Health code.
 REM                         If this fails, nothing downstream means anything.
-REM   2. delivery_bench   - Layer 2. Measures aim_quality and evasion in
-REM                         isolation and writes balance/delivery_factors.json.
+REM   2. delivery_bench   - Layers 2 and 3b. Measures aim_quality and evasion
+REM                         (your shots on them) AND player evasion + the
+REM                         contact arrival rate (their shots on you) in
+REM                         isolation, then writes balance/delivery_factors.json.
 REM   3. matchup_harness  - Validation. Duels the integrated fight and prints
-REM                         the mini-web as paper -> predicted -> validated.
+REM                         the mini-web as paper -> predicted -> validated,
+REM                         with a Layer 3 survival line per cell and the
+REM                         concurrency axis (cells re-run at N bodies).
 REM
 REM Read BALANCE.md before acting on the output. In particular: a
 REM predicted-vs-validated gap is the instrument's OUTPUT, not its error --
@@ -38,14 +42,14 @@ if errorlevel 1 (
 
 echo.
 echo ============================================================
-echo  LAYER 2 - delivery (aim quality, evasion)
+echo  LAYERS 2 + 3b - delivery, both directions
 echo ============================================================
 "%GODOT%" --headless -s scripts/tests/delivery_bench.gd --path .
 if errorlevel 1 (
 	echo.
-	echo [balance_report] Layer 2 FAILED - a control cell missed, so the bench
+	echo [balance_report] Delivery FAILED - a control cell missed, so the bench
 	echo [balance_report] itself is broken. Fix the rig before reading any
-	echo [balance_report] target's evasion. Stopping.
+	echo [balance_report] target's evasion - or the player's. Stopping.
 	exit /b 1
 )
 

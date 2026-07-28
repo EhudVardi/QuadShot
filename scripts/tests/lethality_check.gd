@@ -93,6 +93,7 @@ func _initialize() -> void:
 	_add_incoming_cells()
 	_verify_weaponless()
 	_verify_contact()
+	_verify_survive()
 	print("[lethality] Layer 1 table (config arithmetic, %d cells):"
 			% _cells.size())
 	for cell: Dictionary in _cells:
@@ -199,6 +200,59 @@ func _print_combos() -> void:
 							"%s->%s combo (%d hits, %.2fs) != %s solo (%d hits, %.2fs)"
 							% [strip, finish, result["shots"], result["ttk"],
 							strip, solo["shots"], solo["ttk"]])
+
+
+## LAYER 3 COMPOSED (`BalancePrediction.survive`, v1.78). Nothing here plants a
+## shot: the composition is pure arithmetic over `incoming`, which the planted
+## cells above already verify against the shipped `Health`. What can still go
+## wrong is the composition itself, so it is checked the way S12 checks a source
+## of truth — against **properties that can fail**, each cheap and each capable
+## of catching a real inversion:
+##
+##  1. IDENTITY. At a perfect connect rate and one attacker, survival must be the
+##     Layer 1 ttk exactly. A composition that quietly rescales would drift here
+##     first, and it is the only anchor that ties Layer 3b's number to verified
+##     damage code.
+##  2. MONOTONICITY IN CONCURRENCY. More shooters can never mean more life.
+##  3. MONOTONICITY IN EVASION. A worse connect rate can never mean less life.
+##     Both directions matter because the factor is stored as a CONNECT rate
+##     (low = evasive), which reads backwards from its own name — the exact
+##     shape of mistake that makes a sign error survive review.
+##  4. LINEARITY IS A CLAIM, NOT A CHECK. Doubling the count halves the clock by
+##     construction here, and that is deliberately NOT asserted against anything:
+##     `survival_seconds`' own header calls it falsifiable by the concurrency
+##     bench, and asserting a model against itself would launder an assumption
+##     into a verified fact.
+func _verify_survive() -> void:
+	for enemy_path: String in ENEMIES:
+		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
+		for frame_id: String in Frames.ROSTER:
+			var frame: FrameConfig = Frames.config(frame_id)
+			var solo: Dictionary = Lethality.incoming(enemy, frame)
+			if solo["mode"] != &"ranged" or not bool(solo["kills"]):
+				continue
+			var perfect: Dictionary = BalancePrediction.survive(enemy, frame,
+					1.0, 1)
+			if not is_equal_approx(float(perfect["seconds"]),
+					float(solo["ttk"])):
+				_failures.append("survive(%s <- %s) at a perfect connect reads %.2fs, but Layer 1 says %.2fs"
+						% [frame_id, enemy.type_id, perfect["seconds"],
+						solo["ttk"]])
+			var crowd: Dictionary = BalancePrediction.survive(enemy, frame,
+					1.0, 3)
+			if float(crowd["seconds"]) > float(perfect["seconds"]) + 0.001:
+				_failures.append("survive(%s <- %s) says 3 attackers are LESS deadly than 1 (%.2fs vs %.2fs)"
+						% [frame_id, enemy.type_id, crowd["seconds"],
+						perfect["seconds"]])
+			var dodging: Dictionary = BalancePrediction.survive(enemy, frame,
+					0.25, 1)
+			if float(dodging["seconds"]) < float(perfect["seconds"]) - 0.001:
+				_failures.append("survive(%s <- %s) says dodging three shots in four SHORTENS your life (%.2fs vs %.2fs)"
+						% [frame_id, enemy.type_id, dodging["seconds"],
+						perfect["seconds"]])
+	print("[lethality]   survive(): identity vs Layer 1, and monotone in both "
+			+ "concurrency and connect rate (linearity is a claim for the "
+			+ "concurrency bench, not an assert)")
 
 
 ## The v1.72 finding, as an assertion rather than a paragraph: a type carrying

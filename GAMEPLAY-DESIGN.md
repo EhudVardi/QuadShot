@@ -3658,6 +3658,63 @@ Two refinements, recorded so the idea does not overreach:
   slow to run is a suite that rots — H8's red-rots argument applied to wall
   clock.
 
+### S14 — The Screamer's FCS question (PROPOSED, 2026-07-28 — awaiting steering)
+
+S.q1 decided the roster (raider, turret, gnat, aegis + **Falx** + **Screamer**).
+Building Layer 3b (v1.78) surfaced a question about the Screamer that the roster
+decision could not have anticipated, and it has to be settled *before* the type
+is built rather than discovered halfway through. Three sub-questions,
+**S.q8–S.q10**; react by ID.
+
+**Why the Screamer is different from every type shipped so far.** It is the
+first roster member whose effect is neither damage nor durability but **a
+multiplier on the player's own delivery factors.** Run it through the three
+layers and it disappears from two of them:
+
+| layer | what the Screamer does |
+|---|---|
+| **1 — lethality** | nothing. `damage` 0. |
+| **3a — incoming** | nothing. `mode: none` — it prices no frame's durability, which is the Aegis's illegibility (v1.72) exactly. |
+| **2 — delivery** | **everything.** The jam is a degradation of `aim_quality` and an outright refusal of the missile lock. |
+
+- **S.q8 — What does a jam DO, mechanically?** (a) **Binary**: inside the
+  bubble the gun director is off, the missile lock refuses, and the flak fuse
+  degrades to contact-only — the design's own prose (P4.2, P3.6's flak note),
+  taken literally. (b) **Graded**: scale the director's solution window and the
+  lock time with distance from the screamer. My lean: **(a), with the telegraph
+  carrying the softness.** S7's rule is that a step must never be smeared into a
+  slope to look continuous, and the design already specifies HUD fuzz at the
+  bubble edge — the warning is the gradient, the effect is the step.
+- **S.q9 — Does the instrument grow a JAM STATE axis, or does the screamer get
+  a column?** BALANCE.md's own FCS rule says equipment shifts a delivery factor
+  and never adds a matrix dimension; the screamer is the *negative* FCS, so the
+  same rule points the same way. My lean: **a state axis on aim** —
+  `<frame>:<weapon>:<clear|jammed>` — on the exact precedent of `Lethality.
+  STATES` (shielded/cracked), which is how the Aegis was absorbed without a
+  column. **Cost, stated:** the aim cells double, six to twelve.
+- **S.q10 — Does the Screamer force `PILOT_VERSION` 5?** This is the expensive
+  one and it was not visible from the roster decision. The reference pilot hands
+  its trigger to the gun director (`use_director = true`). Turn the director off
+  and **it fires nothing at all** — the manual path exists (`fire_cone_deg`) but
+  there is no rule for falling back to it. Teaching it that switch is a
+  behavioral edit, which is a version bump, which is a full deliberate
+  re-measure — and **S.q5 promised the pilot would not be bumped again for the
+  roster build.** Options: accept the bump and schedule it deliberately; or find
+  a jam model the current brain survives. My lean: **accept it, and let the
+  promise break loudly rather than quietly.** The Screamer's entire design
+  purpose is that "the manual fallback stays a skill path forever" (P3.6, the
+  iron trigger), so a measuring pilot that cannot hand-fire *cannot measure this
+  type at all* — the bump is not incidental to the Screamer, it is the same
+  fact as the Screamer.
+
+**Sequencing lean, which follows from the above: build the Falx FIRST and
+alone.** The Falx is a conventional flyer — an open-approach interceptor — and
+costs the model nothing new: one evasion row, some lethality column entries,
+exactly like the raider. The Screamer costs an axis *and* a pilot bump. Landing
+them in one step would put two invalidations in one re-measure and make neither
+attributable, which is the mistake the pinned-ruler discipline exists to
+prevent.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -7080,6 +7137,126 @@ Two refinements, recorded so the idea does not overreach:
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-28 — v1.79. THE JINK IS A NET LOSS, and v1.77's two findings are
+  narrower than they read.** The measurement that Layer 3b was built to make
+  possible, made — and it points at the pilot rather than the roster.
+  - **Forced-state cells, Kestrel, perfect-aim threat at 18 m:**
+
+    | pair | steady | jink | gun (steady → jink) |
+    |---|---|---|---|
+    | kestrel × raider | 0.18 | **0.29** | 0.17 (17/99) → 0.11 (7/64) |
+    | kestrel × turret | 0.22 | **0.36** | 0.17 (17/99) → 0.11 (7/64) |
+
+    **Jinking makes the Kestrel ~60% EASIER to hit and cuts its own hits by
+    ~2.4×** (accuracy 0.17 → 0.11 *and* trigger rate 99 → 64 shots). Strictly
+    worse on both axes, consistently across two threat types.
+  - **The rig proves the jink mode is the only variable**: aim-under-fire is
+    byte-identical across both threats within each mode (17/99 steady, 7/64
+    jink), because the pilot's gun depends only on its own flying and the
+    immortal player cannot be perturbed.
+  - **The likely mechanism, stated as a hypothesis:** the jink REPLACES chaotic
+    gun-platform flying with a periodic sinusoid, and a 1.2 s sinusoid is easier
+    to lead over a 0.4 s flight time than an erratic pursuit is. Evasion that is
+    regular is not evasion.
+  - **THE ATLAS CANNOT FLY IT AT ALL.** `atlas × raider [jink]` took **0 of 38**
+    rounds while its gun scored **0 of 28** — untouchable and harmless at once,
+    a cell with no measurement in it. `atlas × turret [jink]` is the same story
+    at 0.10 with a dead gun. Flying STEADY the Atlas is fine: 0.11 / 0.16, gun
+    0.17, identical to the Kestrel's. **`jink_bank` is tuned to the Kestrel and
+    is too much aircraft for a 1.9× mass on softer rates.**
+  - **This does NOT overturn v1.77 — it bounds it.** Those duels fought a REAL
+    raider carrying `aim_jitter_deg` 3.0 and its own tracking loop, at whatever
+    range the fight produced; this bench fights a PERFECT solution at a fixed
+    18 m. Both can be true, and together they bracket the answer: **the jink pays
+    against a threat that aims badly and costs against one that aims well.**
+    Which end the game sits at is decided by the threat's own marksmanship —
+    the un-measured mirror of `aim_quality`, whose trigger (P4.q2 veterancy) just
+    became a lot more interesting.
+  - **The board is RED and deliberately so.** `tools/balance_report` now stops
+    at the delivery bench, because `atlas × raider [jink]` produces no
+    measurement and 0.00 must never reach the factor table — it composes into
+    "this frame is invulnerable to this threat, forever", which the smoke harness
+    printed verbatim before the guard landed. **Open for steering: retune
+    `jink_bank` per frame, gate the jink on something better, or withdraw it and
+    return the pilot to v3 behaviour.** Any of the three is a `PILOT_VERSION`
+    event, so it should be decided once and measured once.
+
+- **2026-07-28 — v1.78. M6a step 4: LAYER 3b + the concurrency axis — the model
+  becomes symmetric, and the instrument caught three defects in itself before it
+  would produce a number.**
+  - **Layer 3b lands as a measured factor.** `player_evasion`, keyed THREAT ×
+    FRAME (the mirror of `evasion`'s WEAPON × TARGET — the key order says which
+    side owns which half), measured by new `survive` cells in the delivery
+    bench: a BODILESS perfect-aim threat emitting one enemy type's real rounds
+    while the pilot flies the aim bench's own task. Bodiless is the isolation —
+    the pilot cannot acquire, orbit or shoot what has no collider. Frame-keyed,
+    unlike its enemy-side twin, because nothing freezes the player.
+  - **The contact mode gets its delivery term too** (`contact_rate`, stings per
+    second). Layer 3a's `incoming()` refuses to invent an arrival rate from a
+    config and names a bench for it; this is that bench, discharging a promise
+    the code itself made.
+  - **`BalancePrediction.survive` composes the two**, and assumption 3 ("nobody
+    shoots back") is now true only of the BAND: a survival time is printed
+    beside every cell whose enemy can shoot, never folded in, because a ttk band
+    and a survival band are two rulers. **The frame axis is legible in the
+    predicted column for the first time** — `kestrel 4.5s, atlas 46.5s under 3x
+    turret`.
+  - **The concurrency axis (S5)** is a `count: N` key on a matchup row, plus
+    three cells (`Blaster x Turrets`, `Atlas x Turrets`, `Atlas x Raiders`). The
+    frame-datum assert was extended: a datum must now match its cell's
+    CONCURRENCY as well as its weapon and type, or the axis added to isolate
+    exposure would be reported in the frame column.
+  - **The stamp gotcha, discharged — with a twist worth recording.** Four fields
+    joined: enemy `damage`/`fire_rate`/`muzzle_speed`/`sight_range`, and
+    `FrameConfig.hull`/`armor`, **which the stamp had never read at all**. Under
+    Layer 3b's first design all of them were load-bearing. Forcing the jink state
+    (below) then removed that coupling, so `damage`, `hull` and `armor` are inert
+    again and stay listed as a **deliberate conservatism**, not a necessity — a
+    false positive costs one re-measure, a false negative costs a quoted stale
+    number.
+  - **THREE DEFECTS THE INSTRUMENT FOUND IN ITSELF**, each caught before a number
+    was committed, and each generalizing:
+    1. **The arena was picking the range.** A threat parked at a fixed arena
+       point measured 0.03–0.08, composing into a Kestrel that survives a raider
+       for four minutes against duels spending a fifth of its hull in ten. Range
+       dominates this factor; the threat now station-keeps at a stated 18 m.
+    2. **The pilot could hide behind its own practice target.**
+       `Projectile._resolve_hit` fizzles a round on ANY collider, and the blaster
+       path closes to nearly touching its target — so incoming rounds were being
+       absorbed and scored as evasion the airframe never earned. Fixed with the
+       shot's `exclude` list.
+    3. **The factor fed back into itself.** The jink is hit-gated, so what is
+       measured (do rounds connect) decides the behaviour (am I jinking). That
+       loop is BISTABLE: `kestrel × raider` settled at 25 hits / 0.87 duty in one
+       run and 4 hits / 0.23 duty in the next, a 6× swing, while `kestrel ×
+       turret` reproduced to the integer. `ReferencePilot.Jink`
+       (AUTO/ALWAYS/NEVER) forces it — **AUTO is the default and the shipped
+       brain, so this is NOT a `PILOT_VERSION` event** — and every pair is now
+       measured twice, `[jink]` and `[steady]`, whose difference is what the jink
+       actually buys. Forcing it also retired a "counterintuitive" turret-vs-
+       raider inversion I had flagged: it was the bistability, not the bestiary.
+  - **A zero-hit cell is refused, not published.** 0.00 is the most dangerous
+    number this table can carry, and the smoke harness demonstrated it verbatim
+    before the guard landed: `atlas never (nothing connects: this threat cannot
+    reach this frame)`. Such a cell now fails the run AND is omitted from the
+    artifact, because a FAIL nobody reads still leaves a poisoned file behind.
+  - **`survive()` is verified by properties that can fail** (S12's discipline
+    applied to arithmetic): identity against Layer 1 at a perfect connect,
+    monotone in concurrency, monotone in connect rate. Linearity in `count` is
+    deliberately NOT asserted — it is a claim for the concurrency bench to
+    falsify, and asserting a model against itself launders an assumption.
+  - **Every pre-existing delivery factor reproduced byte-identically** across
+    four bench runs under the new stamp (aim 0.17/1.00/0.99/0.19/1.00/1.00,
+    every evasion cell, splash 3.42 and 1.90). The one wobble was
+    `aim: atlas/flak` reading 0.90 in a single run against 1.00 in the others —
+    the flak instability BALANCE.md already documents, not a change.
+  - **Regression:** the full check suite (combat, wave, missile, run, hover,
+    repair, motor_damage, menu, manifest, sortie_compose, lethality) PASS.
+  - **S14 added, awaiting steering:** the Screamer's FCS question (S.q8–S.q10),
+    surfaced by this work — it is the first roster member whose entire effect is
+    a multiplier on the player's delivery factors, and it forces a jam-state axis
+    on `aim_quality` plus, probably, `PILOT_VERSION` 5.
 
 - **2026-07-27 — v1.77. The v1.76 noise caveat CORRECTED, and the two jink
   findings confirmed real.** A second v4 run at identical settings was made

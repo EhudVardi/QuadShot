@@ -370,10 +370,36 @@ func update(_delta: float) -> void:
 		weapon.fire_override = on_target and in_reach
 
 
+## Bench override for the hit gate. AUTO is the shipped brain and the default,
+## so **this is not a `PILOT_VERSION` event**: the pin covers how the pilot
+## flies, and at AUTO it flies exactly as v4 did, byte for byte.
+##
+## It exists because the gate makes the jink UNMEASURABLE as a factor. "I have
+## been hit recently" is the right rule for a pilot and a ruinous one for a
+## bench: the thing being measured (do rounds connect) is the thing that decides
+## the behaviour (am I jinking), so the cell is a feedback loop — and it is
+## bistable in practice. Measured 2026-07-28, same rig, one unrelated change
+## between runs: `kestrel x raider` settled at 25 hits / 0.87 duty in one run and
+## 4 hits / 0.23 duty in the next, a 6x swing in the factor, while
+## `kestrel x turret` reproduced to the integer. A factor that depends on which
+## side of a knife edge the first round landed is not a factor.
+##
+## Forcing the state breaks the loop and buys something better than stability:
+## ALWAYS and NEVER are two clean measurements whose DIFFERENCE is what the jink
+## is actually worth — which is the question S3 asked in the first place.
+enum Jink { AUTO, ALWAYS, NEVER }
+var jink_mode: int = Jink.AUTO
+
+
 ## Is the pilot currently evading? True for `jink_memory_s` after any hull
 ## loss. Public so a bench can report the duty cycle of the evasion rather than
 ## inferring it — the same honesty the delivery bench applies to trigger duty.
 func jinking() -> bool:
+	match jink_mode:
+		Jink.ALWAYS:
+			return true
+		Jink.NEVER:
+			return false
 	return _since_hit <= jink_memory_s
 
 

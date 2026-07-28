@@ -48,6 +48,8 @@ const BOMB_TARGET_Z: float = 20.0
 ## the chip gun's `++` against raiders ASSUMES the director. That assumption is
 ## now explicit here rather than hidden.
 const DIRECTOR_MISS_M: float = 1.2
+## Degrees between neighbours when a cell spawns a GROUP (see _spawn_point).
+const GROUP_SPREAD_DEG: float = 40.0
 
 # One entry per measured cell. weapon: blaster|missile|flak; enemy scene;
 # "frame" is the airframe flying it (default Kestrel); "paper" is the spec band
@@ -173,6 +175,41 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Atlas x Aegis", "frame": Frames.ATLAS, "weapon": "missile",
 			"type": "aegis", "enemy": "res://scenes/combat/aegis.tscn",
 			"paper": "++", "mode": "frame", "datum": "Missile x Aegis"},
+	# --- THE CONCURRENCY AXIS (Iteration 9 / S5, v1.78). Not a fourth delivery
+	# factor and not a new matrix: the SAME cells, run at N. It lands here rather
+	# than in the delivery bench because what it changes is exposure, and exposure
+	# is a fight property.
+	#
+	# S4 is why these rows exist at all. The Kestrel spends 0% hull in four of its
+	# measured cells, which pins the arithmetic ceiling for the Atlas at 0.00 —
+	# the frame axis was structurally unable to report a win. The cause is not
+	# marksmanship but TIME IN THE ENVELOPE: a turret that would take 12% of an
+	# Atlas never touches a Kestrel that kills it in 1.3 s. Three turrets are the
+	# cheapest honest way to buy that time, because a duel ends when the enemy
+	# dies and no clock extension can change that.
+	#
+	# PAPER BANDS ARE PROPOSED, not inherited — P4.3 has no turret-group row, the
+	# same standing the raider-pack rows were added under (v1.33; react if wrong).
+	# Blaster `-`: the chip gun's per-body time is unchanged while incoming triples.
+	# Atlas `0`: P3.4 gives the Atlas `-` against a turret, and being outnumbered
+	# is exactly the case flat armor and a deep hull were bought for, so the
+	# expectation is that it reads BETTER outnumbered than alone, not worse.
+	{"name": "Blaster x Turrets", "weapon": "blaster", "type": "turret",
+			"enemy": "res://scenes/combat/turret.tscn", "count": 3,
+			"paper": "-", "mode": "pack", "bodies": 3.0},
+	{"name": "Atlas x Turrets", "frame": Frames.ATLAS, "weapon": "blaster",
+			"type": "turret", "enemy": "res://scenes/combat/turret.tscn",
+			"count": 3, "paper": "0", "mode": "frame",
+			"datum": "Blaster x Turrets"},
+	# The raider axis at N, using the pack the matrix already measures. Its datum
+	# is the Kestrel's N=3 row, NOT the N=1 one: comparing an Atlas at three
+	# against a Kestrel at one would report concurrency and label it an airframe,
+	# which is the same error as comparing two loadouts (asserted structurally in
+	# _report, extended for exactly this row).
+	{"name": "Atlas x Raiders", "frame": Frames.ATLAS, "weapon": "missile",
+			"type": "raider", "enemy": "res://scenes/combat/raider_pack.tscn",
+			"paper": "0", "mode": "frame", "datum": "Missile x Raiders",
+			"bodies": 3.0},
 ]
 
 ## H4 banding, fixed stated thresholds (H.q1: a ruler that does not drift).
@@ -211,7 +248,13 @@ var _rep: int = 0
 # Live duel.
 var _arena: Node3D
 var _drone: FlightController
+## The cell's enemy UNIT. At `count: 1` this is the enemy; at N it is the first
+## of them, kept because the route and the pilot's opening target still need one
+## concrete node to name.
 var _enemy: Node
+## Every body the cell spawned (one entry unless the cell carries `count`). The
+## pilot retargets across this list, and the cell is won when it empties.
+var _enemies: Array[Node] = []
 var _health: Health
 var _pilot: ReferencePilot
 var _duel_ticks: int = 0
@@ -241,6 +284,23 @@ func _initialize() -> void:
 	print("[matchup] %d matchups x %d reps, %ds cap  (pilot v%d)"
 			% [MATCHUPS.size(), REPS, int(MAX_SECONDS),
 			ReferencePilot.PILOT_VERSION])
+	# A GROUP cell only measures a group if its dead bodies stay dead. The turret
+	# is the one shipped type that returns (`respawn_delay` 20 s, comfortably past
+	# the cap) and a solo cell never noticed, because the duel ends the instant
+	# its one enemy dies. At N it would: a body that comes back mid-duel makes the
+	# kill count exceed the unit size and the cell unwinnable. Checked here rather
+	# than in the report so a tuning edit costs a second, not a full run.
+	for matchup: Dictionary in MATCHUPS:
+		if int(matchup.get("count", 1)) <= 1:
+			continue
+		var config: EnemyConfig = load("res://resources/default_enemy_%s.tres"
+				% matchup["type"]) as EnemyConfig
+		if config.respawn_delay > 0.0 and config.respawn_delay <= MAX_SECONDS:
+			print("[matchup] FAIL: rig broken: %s spawns %d %ss whose respawn_delay (%.1fs) is inside the %.0fs cap — a body returning mid-duel breaks the group unit"
+					% [matchup["name"], int(matchup["count"]), matchup["type"],
+					config.respawn_delay, MAX_SECONDS])
+			quit(1)
+			return
 	BenchView.setup("matchup")
 	physics_frame.connect(_on_physics_frame)
 
@@ -311,29 +371,6 @@ func _build_duel() -> void:
 	weapon.combat_config.fire_assist_miss_m = \
 			DIRECTOR_MISS_M if matchup["weapon"] == "blaster" else 0.0
 
-	_enemy = (load(matchup["enemy"]) as PackedScene).instantiate()
-	# Per-rep determinism (P4.8): flyers self-randomize in _ready, so the seed
-	# must be set before the node enters the tree. Rep index = seed, so rep 3
-	# of a cell is the same fight every run and across balance edits.
-	var seeded: bool = _enemy.get(&"ai_seed") != null
-	if seeded:
-		_enemy.set(&"ai_seed", _rep)
-	# Whether this cell's reps carry real variation at all (see _deterministic).
-	while _seeded.size() <= _matchup_i:
-		_seeded.append(true)
-	_seeded[_matchup_i] = seeded
-	# Placed BEFORE entering the tree: types read their own position in _ready
-	# (the swarm spawns its pack around it, the raider takes its wander home
-	# from it), so positioning afterwards would build them around the origin.
-	# The arena sits at the origin, so local position is the global one.
-	(_enemy as Node3D).position = Vector3(0.0, ARENA_ALTITUDE, -ENGAGE_DISTANCE)
-	# The bomber's route runs past the player and ends behind them, which makes
-	# the duel a real intercept clock rather than a health bar: ~60 m at its
-	# route speed, comfortably inside the duel cap, so "did you kill it in
-	# time" is a question the harness can actually answer.
-	if _enemy.get(&"route_end") != null:
-		_enemy.set(&"route_end", Vector3(0.0, ARENA_ALTITUDE, BOMB_TARGET_Z))
-	_arena.add_child(_enemy)
 	# Win = the ENEMY is defeated, which for a distributed type means the whole
 	# pack (P4.q5: the cloud is the unit, so one dead gnat is not a win). Types
 	# that can be cleared say so with `cleared`; single-body types win on their
@@ -344,17 +381,50 @@ func _build_duel() -> void:
 	# leave the field by spending every body on the player's hull.
 	_kills = 0
 	_bombed = false
-	(_enemy as Object).connect(&"destroyed",
-			func(_points: float) -> void: _kills += 1)
-	if (_enemy as Object).has_signal(&"cleared"):
-		(_enemy as Object).connect(&"cleared", func() -> void: _won = true)
-	else:
-		(_enemy as Object).connect(&"destroyed",
-				func(_points: float) -> void: _won = true)
-	# A bomber that reaches its target is a LOSS with the player still at full
-	# hull — the one outcome a health-bar-only harness would score as a win.
-	if (_enemy as Object).has_signal(&"detonated"):
-		(_enemy as Object).connect(&"detonated", func() -> void: _bombed = true)
+	_enemies.clear()
+	var count: int = maxi(int(matchup.get("count", 1)), 1)
+	var scene: PackedScene = load(matchup["enemy"]) as PackedScene
+	var seeded: bool = false
+	for i: int in count:
+		var body: Node = scene.instantiate()
+		# Per-rep determinism (P4.8): flyers self-randomize in _ready, so the seed
+		# must be set before the node enters the tree. Rep index = seed, so rep 3
+		# of a cell is the same fight every run and across balance edits. At N the
+		# bodies must differ from each other as well as from other reps, or three
+		# raiders fly one trajectory in triplicate — hence the rep-major stride
+		# rather than a bare index.
+		seeded = body.get(&"ai_seed") != null
+		if seeded:
+			body.set(&"ai_seed", _rep * count + i)
+		# Placed BEFORE entering the tree: types read their own position in _ready
+		# (the swarm spawns its pack around it, the raider takes its wander home
+		# from it), so positioning afterwards would build them around the origin.
+		# The arena sits at the origin, so local position is the global one.
+		(body as Node3D).position = _spawn_point(i, count)
+		# The bomber's route runs past the player and ends behind them, which makes
+		# the duel a real intercept clock rather than a health bar: ~60 m at its
+		# route speed, comfortably inside the duel cap, so "did you kill it in
+		# time" is a question the harness can actually answer.
+		if body.get(&"route_end") != null:
+			body.set(&"route_end", Vector3(0.0, ARENA_ALTITUDE, BOMB_TARGET_Z))
+		_arena.add_child(body)
+		_enemies.append(body)
+		(body as Object).connect(&"destroyed",
+				func(_points: float) -> void: _kills += 1)
+		if (body as Object).has_signal(&"cleared"):
+			(body as Object).connect(&"cleared", _on_body_gone.bind(body))
+		else:
+			(body as Object).connect(&"destroyed",
+					func(_points: float) -> void: _on_body_gone(body))
+		# A bomber that reaches its target is a LOSS with the player still at full
+		# hull — the one outcome a health-bar-only harness would score as a win.
+		if (body as Object).has_signal(&"detonated"):
+			(body as Object).connect(&"detonated", func() -> void: _bombed = true)
+	_enemy = _enemies[0]
+	# Whether this cell's reps carry real variation at all (see _deterministic).
+	while _seeded.size() <= _matchup_i:
+		_seeded.append(true)
+	_seeded[_matchup_i] = seeded
 
 	_pilot = ReferencePilot.new()
 	_pilot.drone = _drone
@@ -392,15 +462,54 @@ func _update_hud() -> void:
 	_hud.call(&"set_health", _health.current, _player_max)
 
 
+## Where body `index` of `count` starts. A solo cell keeps its exact historic
+## spawn point (the early return is load-bearing: shifting it by a metre would
+## re-measure every committed cell), and a group fans out across an arc of the
+## forward bearing at the same range.
+##
+## An arc, not a ring. Surrounding the pilot would measure its inability to look
+## two ways at once — a real thing, but a SENSOR/awareness property, not the
+## durability that S5 is after. A firing line in front holds "how long am I in
+## the envelope" as the only variable that moved.
+func _spawn_point(index: int, count: int) -> Vector3:
+	if count <= 1:
+		return Vector3(0.0, ARENA_ALTITUDE, -ENGAGE_DISTANCE)
+	var step: float = deg_to_rad(GROUP_SPREAD_DEG)
+	var bearing: Vector3 = Vector3.FORWARD.rotated(Vector3.UP,
+			(float(index) - float(count - 1) * 0.5) * step)
+	return bearing * ENGAGE_DISTANCE + Vector3.UP * ARENA_ALTITUDE
+
+
+## One body left the field. The cell is won only when the LAST one has: at N the
+## unit is the group, exactly as the cloud is the unit for a swarm (P4.q5).
+func _on_body_gone(body: Node) -> void:
+	_enemies.erase(body)
+	if _enemies.is_empty():
+		_won = true
+
+
 ## A distributed enemy has no single position to aim at, so the pilot is fed
 ## the nearest live body each tick — the same choice a player makes when a
-## cloud arrives, and the reason gnats bankrupt single-target answers.
+## cloud arrives, and the reason gnats bankrupt single-target answers. At N the
+## same rule spans the group: nearest live body of any of them.
 func _retarget() -> void:
-	if _enemy == null or not is_instance_valid(_enemy):
-		return
-	if not _enemy.has_method("nearest_body"):
-		return
-	_pilot.target = _enemy.call("nearest_body", _drone.global_position) as Node3D
+	var best: Node3D = null
+	var best_distance: float = INF
+	for body: Node in _enemies:
+		if body == null or not is_instance_valid(body):
+			continue
+		var candidate: Node3D = body as Node3D
+		if body.has_method("nearest_body"):
+			candidate = body.call("nearest_body", _drone.global_position) as Node3D
+		if candidate == null or not is_instance_valid(candidate):
+			continue
+		var distance: float = _drone.global_position.distance_squared_to(
+				candidate.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = candidate
+	if best != null:
+		_pilot.target = best
 
 
 func _record(outcome: String) -> void:
@@ -442,6 +551,7 @@ func _teardown() -> void:
 	_arena = null
 	_drone = null
 	_enemy = null
+	_enemies.clear()
 	_health = null
 
 
@@ -535,6 +645,19 @@ func _report() -> void:
 					% [matchup["name"], matchup["weapon"], matchup["type"],
 					matchup["datum"], MATCHUPS[datum]["weapon"],
 					MATCHUPS[datum]["type"]])
+		elif not is_equal_approx(_bodies(_matchup_index(String(matchup["name"]))),
+				_bodies(datum)) \
+				or MATCHUPS[datum]["enemy"] != matchup["enemy"]:
+			# CONCURRENCY is the second thing that must be held still (v1.78).
+			# The whole point of the S5 axis is that being outnumbered changes the
+			# exchange, so an Atlas at N=3 banded against a Kestrel at N=1 would
+			# report the axis it was added to isolate and print it in the frame
+			# column. Same rule as the loadout check above, one dimension over.
+			_failures.append("rig broken: %s (%.0f bodies of %s) bands against '%s' (%.0f bodies of %s) — the datum must differ ONLY by frame, concurrency included"
+					% [matchup["name"],
+					_bodies(_matchup_index(String(matchup["name"]))),
+					matchup["enemy"], matchup["datum"], _bodies(datum),
+					MATCHUPS[datum]["enemy"]])
 
 	if _failures.is_empty():
 		print("[matchup] PASS")
@@ -638,7 +761,7 @@ func _print_banded_matrix() -> void:
 				# resolution limit for a measurement.
 				if _deterministic(i):
 					detail += " (deterministic enemy: %d identical reps, so this cell can only read ++ or --)" % REPS
-		var prediction: Dictionary = _predict(matchup, factors)
+		var prediction: Dictionary = _predict(i, factors)
 		var predicted: String = String(prediction.get("band", "?"))
 		# Where P4.3's band covers a COMBO, this cell is held to the solo band
 		# instead — measuring one weapon against a band earned by two would
@@ -649,6 +772,17 @@ func _print_banded_matrix() -> void:
 		if matchup.has("paper_solo"):
 			print("[matchup] %-18s   paper %s is a COMBO band; this cell is solo, held to %s"
 					% ["", paper, held_to])
+		# THE OTHER HALF (v1.78). Printed for every cell whose enemy can shoot
+		# back, and printed BESIDE the bands rather than folded into them:
+		# survival seconds and a ttk band are two rulers, and H.q1 forbids
+		# drifting one to make the other agree. Outside `if not prediction
+		# .is_empty()` on purpose — a cell the outgoing model cannot resolve
+		# (flak vs a shielded aegis) still has a perfectly readable answer to
+		# "what is it doing to you", and that is exactly the cell where knowing
+		# costs the most to lose.
+		var survival: String = _survival_line(i, factors)
+		if survival != "":
+			print("[matchup] %-18s   %s" % ["", survival])
 		if not prediction.is_empty():
 			print("[matchup] %-18s   model: %s" % ["", prediction["note"]])
 			var ttk_line: String = _ttk_line(i, prediction)
@@ -666,7 +800,7 @@ func _print_banded_matrix() -> void:
 			if matchup["mode"] == "frame":
 				print("[matchup] %-18s   ^ predicted is ABSOLUTE ttk on this frame; paper and validated are DELTAS vs the Kestrel — not comparable"
 						% "")
-				print("[matchup] %-18s     (no survival term in the model, so a frame's durability can only show in the validated column)"
+				print("[matchup] %-18s     (the BAND still has no survival term; durability is on the `survival:` line above, and in the validated column)"
 						% "")
 			elif predicted != held_to:
 				print("[matchup] %-18s   ^ PAPER vs PREDICTED: shipped numbers disagree with P4.3"
@@ -703,9 +837,10 @@ func _print_banded_matrix() -> void:
 
 ## Predict one cell from the layered model. Returns {} when the delivery
 ## factors for it are unavailable — a blank column, never a guessed one.
-func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
+func _predict(matchup_i: int, factors: Dictionary) -> Dictionary:
 	if factors.is_empty():
 		return {}
+	var matchup: Dictionary = MATCHUPS[matchup_i]
 	var weapon: String = matchup["weapon"]
 	var type_id: String = matchup["type"]
 	var aim_table: Dictionary = factors.get("aim", {})
@@ -727,8 +862,10 @@ func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
 	# The unit is the CLOUD for distributed types (P4.q5): killing it means
 	# killing every body, which is where the pack's economy bites — and where an
 	# area weapon stops paying it.
-	var bodies: float = maxf(float(matchup["bodies"]), 1.0) \
-			if matchup.has("bodies") else maxf(enemy.pack_size, 1.0)
+	# Taken from `_bodies` rather than re-derived here, so a concurrency cell
+	# (`count: N`) can never predict against one body while the duel validates
+	# against N. The two columns must always mean the same unit.
+	var bodies: float = _bodies(matchup_i)
 	var prediction: Dictionary = BalancePrediction.predict(
 			weapon, combat, enemy, aim, evasion, bodies, splash)
 	var splash_note: String = " x splash %.2f" % splash if splash != 1.0 else ""
@@ -742,6 +879,78 @@ func _predict(matchup: Dictionary, factors: Dictionary) -> Dictionary:
 				" (%d bodies)" % int(bodies) if bodies > 1.0 else "",
 				prediction["cadence"], prediction["ttk"]]
 	return prediction
+
+
+## LAYER 3, composed: how long this cell's frame should last under this cell's
+## threat at this cell's concurrency, next to what the duels actually spent.
+## Returns "" when the pair has no measured player-evasion factor — blank, never
+## guessed, on the same rule the predicted column follows.
+##
+## On a FRAME cell it prints both frames, and that line is the one the frame axis
+## has been missing since it was built. BALANCE.md's standing caveat — "the
+## predicted column cannot express a frame at all", because the model has no
+## survival term — was true of the BAND and is still true of the band. It is no
+## longer true of the model: durability now has a number before the duel is run,
+## so a frame cell can be predicted and then checked instead of only observed.
+func _survival_line(matchup_i: int, factors: Dictionary) -> String:
+	if factors.is_empty():
+		return ""
+	var matchup: Dictionary = MATCHUPS[matchup_i]
+	var enemy: EnemyConfig = load("res://resources/default_enemy_%s.tres"
+			% matchup["type"]) as EnemyConfig
+	# Frames in datum-first order, so a frame cell reads "Kestrel then Atlas" —
+	# the direction the delta is taken in.
+	var frame_ids: PackedStringArray = []
+	if matchup["mode"] == "frame":
+		var datum: int = _matchup_index(String(matchup["datum"]))
+		if datum >= 0:
+			frame_ids.append(String(MATCHUPS[datum].get("frame", Frames.KESTREL)))
+	frame_ids.append(String(matchup.get("frame", Frames.KESTREL)))
+	var parts: PackedStringArray = []
+	var mode: StringName = &""
+	var count: int = 1
+	for frame_id: String in frame_ids:
+		var frame: FrameConfig = Frames.config(frame_id)
+		mode = Lethality.incoming(enemy, frame)["mode"]
+		if mode == &"none":
+			# The v1.72 finding, stated before the duel instead of discovered
+			# after it: an enemy with no weapon prices no frame's durability, so
+			# there is nothing here to report and nothing a frame can win.
+			return "survival: %s carries no weapon — this cell cannot price durability (Layer 3a: mode `none`)" \
+					% enemy.type_id
+		# A CONTACT cloud is measured as a whole pack arriving, so its rate is
+		# already the unit's; a RANGED group multiplies, one shooter each.
+		count = 1 if mode == &"contact" else int(_bodies(matchup_i))
+		var rate: float = _player_factor(factors, String(matchup["type"]),
+				frame_id, mode)
+		if rate < 0.0:
+			return ""
+		var survival: Dictionary = BalancePrediction.survive(enemy, frame, rate,
+				count)
+		if not is_finite(float(survival["seconds"])):
+			parts.append("%s never (%s)" % [frame_id,
+					String(survival["why"]) if String(survival["why"]) != ""
+					else "outlives the threat"])
+		else:
+			parts.append("%s %.1fs" % [frame_id, float(survival["seconds"])])
+	return "survival: %s under %dx %s  (measured: hull spent %.0f%% over %.1fs)" \
+			% [", ".join(parts), count, enemy.type_id,
+			_mean(matchup_i, "hull_frac") * 100.0, _mean(matchup_i, "ttk")]
+
+
+## The measured Layer 3b factor for one threat x frame, or -1.0 when the bench
+## has not measured that pair. The two tables are NOT interchangeable — one holds
+## a connect fraction and the other a sting rate — so the delivery mode picks the
+## table rather than a fallback chain that would happily read the wrong units.
+func _player_factor(factors: Dictionary, type_id: String, frame_id: String,
+		mode: StringName) -> float:
+	if mode == &"contact":
+		var contact: Dictionary = factors.get("contact_rate", {})
+		var contact_key: String = BalancePrediction.contact_key(type_id, frame_id)
+		return float(contact[contact_key]) if contact.has(contact_key) else -1.0
+	var table: Dictionary = factors.get("player_evasion", {})
+	var key: String = BalancePrediction.player_evasion_key(type_id, frame_id)
+	return float(table[key]) if table.has(key) else -1.0
 
 
 ## Predicted ttk vs the ttk the duels actually measured — the like-for-like
@@ -775,6 +984,11 @@ func _bodies(matchup_i: int) -> float:
 	var matchup: Dictionary = MATCHUPS[matchup_i]
 	if matchup.has("bodies"):
 		return maxf(float(matchup["bodies"]), 1.0)
+	# A `count` cell spawns its own unit size (S5's concurrency axis), so it
+	# needs no separate declaration — and deriving it here rather than trusting
+	# the two keys to agree removes a way for a row to contradict itself.
+	if int(matchup.get("count", 1)) > 1:
+		return float(int(matchup["count"]))
 	var enemy: EnemyConfig = load("res://resources/default_enemy_%s.tres"
 			% matchup["type"]) as EnemyConfig
 	return maxf(enemy.pack_size, 1.0)

@@ -20,10 +20,17 @@ extends RefCounted
 ##      This is the whole reason a 3 s missile bankrupts against nine gnats it
 ##      hits every single time: delivery 1.00, durability 1 hit, and still a
 ##      24 s engagement.
-##   3. NOBODY SHOOTS BACK. There is no survival term here at all. A cell the
-##      player would predictably die in still predicts a clean band, so a
-##      predicted-good / validated-bad divergence is the instrument working:
-##      it has just named survival as the missing factor.
+##   3. NOBODY SHOOTS BACK — in the BAND. A cell the player would predictably
+##      die in still predicts a clean band, so a predicted-good / validated-bad
+##      divergence is the instrument working: it has just named survival as the
+##      missing factor.
+##      PARTIALLY DISCHARGED (Iteration 9 / S3, v1.78): `survive()` below now
+##      states, in seconds, how long a frame lasts under a named threat at a
+##      named concurrency — Layer 3a's arithmetic times Layer 3b's measured
+##      connect rate. What is deliberately NOT done is folding that number into
+##      the predicted BAND: a ttk band and a survival band are two rulers, and
+##      H.q1 forbids drifting one to make the other agree. So the survival term
+##      is printed BESIDE the band, and assumption 3 still describes the band.
 ##   3b. SPLASH IS A DIVISOR ON THE PACK BILL, not a multiplier on damage. An
 ##      area weapon is paid per BURST while the target is priced per BODY, and
 ##      `splash` (bodies covered by one arriving burst, MEASURED against a real
@@ -99,10 +106,34 @@ const DELIVERY_FIELDS_COMBAT: Array[String] = [
 	"flak_fire_rate", "flak_arm_distance", "flak_fuse_radius",
 	"flak_burst_radius",
 ]
+## The BESTIARY's half. THE WEAPON HALF WAS MISSING UNTIL v1.78, and Layer 3b
+## is what made it a hole
+## rather than a correct omission. While the benches only ever pointed the
+## player's guns outward, an enemy's `damage`/`fire_rate` moved nothing measured
+## — they are Layer 1 terms, recomputed live. The player-evasion bench changed
+## that in three separate ways, and each one is a field below:
+##   - `fire_rate` sets how many rounds the threat sends in the window, which is
+##     the cell's SAMPLE SIZE and (through the jink's hit-gated memory) the duty
+##     cycle of the evasion being measured.
+##   - `damage` is the CONSERVATIVE entry, and the reasoning behind it changed
+##     mid-build — recorded because the change is instructive. Under the first
+##     Layer 3b design it was strictly load-bearing: the jink was hit-gated, so a
+##     threat whose damage sat at or under the frame's armor produced a pilot
+##     that never evaded, a completely different measurement from a config edit
+##     the stamp could not see. Forcing the jink state (ReferencePilot.Jink)
+##     broke that coupling along with the bistability it caused, so today damage
+##     moves only the cell's diagnostic hull figure. It stays listed anyway: a
+##     false positive costs one re-measure, a false negative costs a quoted stale
+##     number, and the AUTO gate is one bench edit away from being load-bearing
+##     again.
+##   - `muzzle_speed` and `sight_range` are the perfect shooter's own ballistics:
+##     the lead solution and the round's lifetime. A slower round is a longer
+##     flight time, which is exactly what a jink is racing.
 const DELIVERY_FIELDS_ENEMY: Array[String] = [
 	"speed", "accel", "turn_speed_deg", "pack_size", "swarm_spacing",
 	"swarm_separation_gain", "swarm_cohesion_gain", "swarm_jitter",
 	"swarm_sting_radius",
+	"damage", "fire_rate", "muzzle_speed", "sight_range",
 ]
 ## The AIRFRAME's half of aim (Phase 4b): what the pilot is flying decides how
 ## well it can hold a line, so a frame's flight model is a delivery input in the
@@ -113,10 +144,12 @@ const DELIVERY_FIELDS_ENEMY: Array[String] = [
 ## stamped, so retuning the drone's PID silently invalidated every factor while
 ## the stamp reported a match. Vector fields are stamped componentwise.
 ##
-## FrameConfig.hull and .armor are deliberately absent: no bench that measures a
-## delivery factor can be affected by them (the aim bench's target cannot shoot,
-## the evasion bench's shooter is immortal). They move VALIDATED results, which
-## are re-measured every run and so cannot go stale.
+## `aim_jitter_deg` is deliberately absent from the list above, and the reason is
+## the whitelist discipline rather than an oversight: the player-evasion bench
+## lays a PERFECT solution, exactly as the enemy-evasion bench does, so the
+## threat's own marksmanship is by construction outside the factor. Nothing
+## measured reads that field, so nothing measured goes stale when it moves. It is
+## the un-measured mirror of `aim_quality` — see `survive`'s assumption 2.
 const DELIVERY_FIELDS_FLIGHT: Array[String] = [
 	"mass", "arm_length", "thrust_to_weight_ratio", "motor_lag_tau",
 	"motor_idle", "yaw_authority", "max_rate_deg", "expo",
@@ -124,6 +157,34 @@ const DELIVERY_FIELDS_FLIGHT: Array[String] = [
 	"rate_p", "rate_i", "rate_d", "rate_ff", "ff_lpf_hz", "integral_limit",
 	"drag_coefficient", "angular_damping", "fpv_uptilt_deg", "fpv_fov_deg",
 ]
+## The FRAME's durability, read off FrameConfig itself rather than its flight
+## model. Phase 4b left these out with a stated reason — "no bench that measures
+## a delivery factor can be affected by them (the aim bench's target cannot
+## shoot, the evasion bench's shooter is immortal)" — and that reason was true
+## right up until a bench pointed a gun at the player.
+##
+## HOW STRONG THAT CLAIM IS CHANGED DURING THE BUILD, and the honest version is
+## worth more than the tidy one. Layer 3b's first design gated the jink on having
+## been hit, which made both fields strictly load-bearing: `armor` decided
+## whether the pilot ever started evading (a hit that does not reduce hull never
+## trips the gate) and `hull` decided whether it survived the window. That gate
+## also made the cell a feedback loop and bistable, so it was replaced by a
+## forced jink state — and forcing it removed the coupling that justified these
+## two fields in the first place. Under the shipped bench they are once again
+## inert: the player is immortal for the measurement and the flight mode is
+## stated by the cell.
+##
+## They stay listed as a DELIBERATE CONSERVATISM, not a necessity, because the
+## asymmetry is stark: a false positive costs one re-measure, a false negative
+## costs a quoted stale number, and the AUTO gate is one bench edit away from
+## making them load-bearing again. Drop them if the strict whitelist rule is
+## preferred — but drop them knowingly.
+##
+## They are stamped GLOBALLY, like every other field here, so retuning the
+## Atlas's armor invalidates the Kestrel's aim cells too. Same trade: one stamp
+## with a false positive is honest, two stamps that each cover half the file are
+## how a stale number gets quoted.
+const DELIVERY_FIELDS_FRAME: Array[String] = ["hull", "armor"]
 
 
 ## A stamp over every config value the delivery benches are sensitive to.
@@ -150,6 +211,9 @@ static func config_stamp(combat: CombatConfig, enemies: Array[EnemyConfig],
 			parts.append("%s.%s=%s"
 					% [frame.frame_id, field, _stamp_value(
 					frame.flight_config.get(field))])
+		for field: String in DELIVERY_FIELDS_FRAME:
+			parts.append("%s.%s=%s"
+					% [frame.frame_id, field, _stamp_value(frame.get(field))])
 	return String(", ".join(parts)).sha256_text()
 
 
@@ -195,6 +259,33 @@ static func evasion_key(weapon: String, type_id: String) -> String:
 ## cloud swallows three gnats and exactly one aegis.
 static func splash_key(weapon: String, type_id: String) -> String:
 	return "%s:%s" % [weapon, type_id]
+
+
+## LAYER 3b (Iteration 9 / S3): the player as a target, keyed THREAT x FRAME.
+##
+## The mirror image of `evasion_key`, and the key order says which side owns
+## which half: an enemy row is `<weapon>:<type>` because the shot is ours and the
+## dodge is theirs; a player row is `<type>:<frame>` because the shot is theirs
+## and the dodge is ours.
+##
+## FRAME-KEYED, unlike the enemy-side evasion it mirrors — and that asymmetry is
+## structural rather than an inconsistency. The enemy-evasion bench freezes the
+## shooter, so a frozen Atlas and a frozen Kestrel fire identical shots and the
+## airframe is inert BY CONSTRUCTION. Nothing freezes the player here: the frame
+## is what the pilot is dodging in. This is the axis that makes an Atlas legible.
+static func player_evasion_key(type_id: String, frame_id: String) -> String:
+	return "%s:%s" % [type_id, frame_id]
+
+
+## Stings landed per second of exposure, per CONTACT threat x frame. A separate
+## table from `player_evasion` because it is a different QUANTITY, not a
+## different value of the same one: a contact type has no cadence to miss with
+## (`gnat_swarm._resolve_stings` spends a body the instant it arrives), so its
+## delivery term is an arrival RATE, not a connect fraction. Layer 3a refuses to
+## invent that number from a config and points at a bench for it; this is the
+## key that bench writes to.
+static func contact_key(type_id: String, frame_id: String) -> String:
+	return "%s:%s" % [type_id, frame_id]
 
 
 ## A missing splash entry means 1.0, not "unknown". Every weapon before the flak
@@ -250,6 +341,73 @@ static func predict(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 	return {"band": band_for(ttk), "ttk": ttk, "shots_fired": shots_fired,
 			"hit_rate": hit_rate, "cadence": cadence, "splash": splash,
 			"why": ""}
+
+
+## THE SYMMETRIC HALF (Iteration 9 / S1-S3, S5): how long this frame lives under
+## `count` bodies of one threat type — Layer 3a's arithmetic (their damage vs
+## your hull and armor) times Layer 3b's measured connect rate (how much of it
+## you actually eat). The exact mirror of `predict` above, arrow reversed, and it
+## reuses that function's own shot-counting convention deliberately: one
+## arithmetic, read in both directions.
+##
+##   shots_at_you = ceil(hits_to_kill_you / connect_rate)
+##   seconds      = (shots_at_you - 1) * interval / count
+##
+## Three assumptions, named like the outgoing four:
+##   1. CONCURRENCY IS LINEAR. `count` divides the clock and nothing else. Focus
+##      fire, overkill on the last hit and armor's per-hit nature all bend that,
+##      which is precisely why S5 makes concurrency a BENCH AXIS: this line is a
+##      claim the duels can falsify, not a convenience.
+##   2. THE THREAT AIMS PERFECTLY. `connect_rate` is measured against a bench
+##      shooter laying an exact solution, so the enemy's own marksmanship —
+##      `aim_jitter_deg`, its tracking loop, its lead logic — is NOT in this
+##      number. That term is the un-measured mirror of `aim_quality`, and until
+##      something varies it (P4.q2's veterancy is the stated trigger) it has one
+##      value and would measure nothing. So a survival time here is a FLOOR: the
+##      real threat aims worse than the bench does, and you live longer.
+##   3. EXPOSURE IS CONTINUOUS. This is seconds spent inside the envelope with
+##      the threat firing, not wall clock. S4's whole finding is that the two are
+##      different — the Kestrel takes 0% hull off a turret it kills in 1.3 s not
+##      by dodging but by not being there.
+##
+## Returns: mode, seconds (INF when it cannot kill you), shots_at_you, per_hit,
+## hull_fraction, why.
+static func survive(enemy: EnemyConfig, frame: FrameConfig,
+		connect_rate: float, count: int = 1) -> Dictionary:
+	var incoming: Dictionary = Lethality.incoming(enemy, frame)
+	var bodies: int = maxi(count, 1)
+	var out: Dictionary = {
+		"mode": incoming["mode"],
+		"seconds": INF,
+		"shots_at_you": 0.0,
+		"per_hit": float(incoming["per_hit"]),
+		"hull_fraction": float(incoming.get("hull_fraction", 0.0)),
+		"count": bodies,
+		"why": String(incoming["why"]),
+	}
+	if not bool(incoming["kills"]):
+		return out
+	if incoming["mode"] == &"contact":
+		# `connect_rate` is a RATE here (stings/second), not a fraction — the
+		# contact_key table, not the player_evasion one. Feeding one where the
+		# other belongs is the single way to misread this function, so it is
+		# guarded rather than trusted: a rate under this floor means no bench
+		# measurement was supplied.
+		if connect_rate <= 0.001:
+			out["why"] = "no measured sting rate for this pair"
+			return out
+		out["shots_at_you"] = float(incoming["shots"])
+		out["seconds"] = float(incoming["shots"]) \
+				/ (connect_rate * float(bodies))
+		return out
+	if connect_rate <= 0.0:
+		out["why"] = "nothing connects: this threat cannot reach this frame"
+		return out
+	var shots_at_you: float = ceilf(float(incoming["shots"]) / connect_rate)
+	out["shots_at_you"] = shots_at_you
+	out["seconds"] = (shots_at_you - 1.0) * float(incoming["interval"]) \
+			/ float(bodies)
+	return out
 
 
 static func band_for(ttk: float) -> String:

@@ -64,7 +64,8 @@ duty ~0.7, aim 0.99). The delivery bench prints a **duty cycle** beside every
 rate for exactly this reason. Reading 0.99 against 0.17 as "flak aims better"
 is the Blaster×Raider mistake wearing a new column's name.
 
-**Layer 3 — survivability** (Iteration 9 / S1–S3, added 2026-07-27). The
+**Layer 3 — survivability** (Iteration 9 / S1–S3; 3a 2026-07-27, 3b and the
+concurrency axis 2026-07-28). The
 mirror of Layers 1–2: *their* output on *you*. Layers 1 and 2 were one half of
 a symmetric model for a year, and that omission is why the frame axis was
 illegible — a frame cell bands "destroyed minus hull spent", the Atlas's whole
@@ -81,11 +82,94 @@ virtue lives in the hull term, and nothing measured the hull term.
   v1.72 finding in arithmetic). **Never read `fire_rate == 0` as harmless**:
   the gnat carries damage 7.0 at fire_rate 0.0 and is the type flat armor
   exists for.
-- **3b — player evasion.** Per PILOT × FRAME, the twin of `aim_quality` and of
-  the per-target `evasion` the enemy rows already carry — the player is a
-  target too, and was the one nobody ever measured. Requires a pilot that
-  tries to survive (`PILOT_VERSION` 4's jink); a pilot that never evades makes
-  this unmeasurable by construction.
+- **3b — player evasion** (measured since v1.78). Per THREAT × FRAME — the twin
+  of `aim_quality` and of the per-target `evasion` the enemy rows already carry.
+  The player is a target too, and was the one nobody ever measured. Measured by
+  the `survive` cells in the delivery bench: a bodiless perfect-aim threat
+  emitting one enemy type's real rounds at the reference pilot while it flies
+  the aim bench's own task. Stored as a **connect rate** like every other
+  delivery factor, so **low is evasive** — it reads backwards from the word, and
+  the compensation is that it multiplies straight into a hit rate on either side
+  of the model. Frame-keyed, unlike its enemy-side twin, and that asymmetry is
+  structural: the enemy-evasion bench freezes the shooter, so the airframe is
+  inert by construction there; nothing freezes the player here.
+  - **Every cell FORCES the jink state, and that is what makes it a factor.**
+    The shipped gate is "I have been hit recently" — the right rule for a pilot
+    and a ruinous one for a bench, because the thing being measured (do rounds
+    connect) decides the behaviour (am I jinking). An un-forced cell is a
+    feedback loop and it is **bistable in practice**: measured on this rig with
+    one unrelated change between two runs, `kestrel x raider` settled at 25 hits
+    / 0.87 duty once and 4 hits / 0.23 duty the next — a 6× swing — while
+    `kestrel x turret` reproduced to the integer. Two of four cells moved.
+    `ReferencePilot.Jink` (AUTO / ALWAYS / NEVER) forces it; **AUTO is the
+    default and the shipped brain, so this is not a `PILOT_VERSION` event.**
+    Each pair is measured twice: `[jink]` is the factor the model composes with
+    (a pilot under fire has tripped the gate), `[steady]` is the datum it is
+    worth against, in its own `player_evasion_steady` table so nothing can
+    compose with it by accident. **Their difference is the only honest statement
+    of what the jink buys** — and the gated cell could only ever answer that by
+    accident. Jink duty is now a CHECK: 1.00 or 0.00, never in between.
+  - **The threat station-keeps at a stated 18 m.** RANGE dominates this factor —
+    a linear lead against a quad under aim-driven lateral acceleration misses by
+    roughly the flight time squared — so the first attempt, which parked the
+    threat at an arena coordinate ~30 m out, measured 0.03–0.08 and composed
+    into a Kestrel surviving a raider for four minutes against duels that spend
+    a fifth of its hull in ten. **That was not an un-modeled factor; it was a rig
+    letting the arena pick the number.** Holding the range fixed makes the type
+    axis mean the type's WEAPON. Where a type would *choose* to fight from is
+    real and belongs to the duel.
+  - **Its second output is the price of the jink — and it doubles as the cell's
+    own lie detector.** The pilot flies the aim bench's task while dodging, so
+    the same cell reports hits-per-shot under fire against the undisturbed aim
+    cell. Read the printed fraction, not the rate: it is tens of shots, not
+    hundreds. **A frame that is EVADING keeps shooting; a frame whose gun
+    collapses is not dodging, it is coming apart** — and the two look identical
+    in the headline "hard to hit" number while meaning opposite things about an
+    airframe. The bench prints a WARNING (never a failure) when a cell's gun
+    falls under a quarter of its clean aim rate.
+  - **The threat's rounds pass THROUGH the pilot's own task target.**
+    `Projectile._resolve_hit` fizzles a round on any collider — a same-team body
+    takes no damage but still stops the shot — and the blaster path closes to
+    nearly touching its target, so for much of a cell that target sits on the
+    line of fire. Every round it absorbed would have scored as evasion the
+    airframe never earned. The target is passed in the shot's `exclude` list for
+    exactly this reason. **Generalize it: any bench that shoots at the pilot must
+    ask what else is standing in the way.**
+  - **Contact types get a RATE, not a fraction** (`contact_rate`). A gnat that
+    arrives always stings, so there is nothing to miss with; the delivery term
+    is arrival, in stings per second, and Layer 3a's `incoming()` refuses to
+    invent it from a config and names this bench for it.
+  - **The threat's own marksmanship is NOT in this number.** The bench lays a
+    perfect solution, so `aim_jitter_deg`, tracking and lead logic sit outside
+    the factor — the un-measured mirror of `aim_quality`. Until something varies
+    it (P4.q2's veterancy is the stated trigger) it has one value and would
+    measure nothing. **A survival time is therefore a FLOOR**: the real threat
+    aims worse, and you live longer.
+  - **No bench flies a wounded quad.** `apply_hit_to_motors` is wired in main.gd
+    alone, which cost nothing while the player was never shot at and is a stated
+    limit now that it is.
+  - **What it said first, and why the board is currently RED** (v1.79). Against
+    a perfect solution at 18 m the jink is a **net loss on both axes**: the
+    Kestrel is ~60% easier to hit (0.18 → 0.29 vs a raider, 0.22 → 0.36 vs a
+    turret) and lands ~2.4× fewer of its own hits (0.17 → 0.11 accuracy, 99 → 64
+    shots). **The Atlas cannot fly it at all** — `atlas × raider [jink]` took 0
+    of 38 while its gun scored 0 of 28, a cell with no measurement in it, so the
+    delivery bench FAILS and `tools/balance_report` stops there by design. That
+    is not a contradiction of v1.77's duel finding: those fought a real raider
+    with 3° jitter and its own tracking loop, so the two **bracket** the answer —
+    the jink pays against a threat that aims badly and costs against one that
+    aims well. Resolving it means retuning `jink_bank` per frame, re-gating the
+    jink, or withdrawing it — each a `PILOT_VERSION` event, so decide once and
+    measure once.
+
+**The concurrency axis** (S5). Not a fourth factor and not a new matrix: the
+**same cells, run at N**. It lives in the duel harness (`count` on a matchup
+row), because what it changes is EXPOSURE and exposure is a fight property.
+S4 is why it exists — the Kestrel spends 0% hull in four cells, which pins the
+Atlas's arithmetic ceiling at 0.00, and the cause is time-in-the-envelope, not
+marksmanship. A longer cap cannot fix that (a duel ends when the enemy dies);
+more enemies can. A frame cell's datum must therefore match its concurrency as
+well as its weapon and type, and the harness asserts that structurally.
 
 **Validation — the duel harness** (`matchup_harness.gd`). The integrated
 fight, demoted from source-of-truth to cross-check: predicted product
@@ -111,6 +195,25 @@ the economy) to go model or accept. NOT for: populating the table.
   FlightConfig too — mass and rate gains were always delivery inputs and went
   unstamped until Phase 4b, so retuning the drone's PID silently invalidated
   every factor while the stamp reported a match.
+  - **Layer 3b added four fields** (v1.78): the enemy's `fire_rate` and
+    `muzzle_speed`/`sight_range` — cadence is the cell's sample size, and the
+    other two are the threat's own ballistics and round lifetime — plus
+    `damage`, and **`FrameConfig.hull`/`armor`, which the stamp had never read
+    at all.** Phase 4b left those last two out with a stated reason (no bench
+    that measures a delivery factor could be affected by them), and that reason
+    was true right up until a bench pointed a gun at the player.
+  - **Two of them are a conservatism, and the reasoning changed mid-build.**
+    Under Layer 3b's first design `damage`, `hull` and `armor` were strictly
+    load-bearing, because the jink was hit-gated: armor decided whether the pilot
+    ever started evading, hull whether it survived the window. Forcing the jink
+    state fixed the bistability *and* removed that coupling — under the shipped
+    bench the player is immortal and the flight mode is stated by the cell, so
+    those three are inert again. **They stay listed knowingly, not by
+    necessity**: a false positive costs one re-measure, a false negative costs a
+    quoted stale number, and the AUTO gate is one bench edit from making them
+    load-bearing again. The general lesson survives the reversal intact: **a
+    field is "inert to delivery" only for as long as no bench reads it, and
+    adding or redesigning a bench is exactly the event that changes that.**
 - **The third ruler is the checkout.** Benches build drones through
   `Frames.build`, which sets `load_user_overrides = false`. Before Phase 4b
   they instantiated `drone.tscn` directly, which auto-loads `user://` — so
@@ -182,12 +285,17 @@ worth knowing before reading one:
 - **A frame cell's datum must differ ONLY by frame.** Picking each row's *best*
   weapon would measure a loadout and label it an airframe. The harness asserts
   this structurally.
-- **The predicted column cannot express a frame at all.** Prediction has no
-  survival term (assumption 3: nobody shoots back), so it bands an absolute
-  ttk while paper and validated are both deltas. Those three letters are not
-  comparable, and the report says so on every frame cell rather than inviting
-  the read. Durability — the point of the Atlas — is visible only in the
-  validated column.
+- **The predicted BAND cannot express a frame — the model now can** (v1.78).
+  Prediction still bands an absolute ttk while paper and validated are both
+  deltas, so those three letters remain incomparable and the report still says
+  so on every frame cell. What changed is that assumption 3 ("nobody shoots
+  back") is now only true of the BAND: `BalancePrediction.survive` composes
+  Layer 3a's arithmetic with Layer 3b's measured connect rate into a survival
+  time, printed BESIDE the bands on every cell whose enemy can shoot. So a
+  frame's durability can be predicted and then checked, instead of only observed
+  after the fact. **Not folded into the band, deliberately** — a ttk band and a
+  survival band are two rulers, and H.q1 forbids drifting one to make the other
+  agree.
 
 Relative banding also *rescues* the cells the win ruler cannot resolve: an
 unseeded enemy (turret, aegis) can only ever read `++` or `--` on win rate,
