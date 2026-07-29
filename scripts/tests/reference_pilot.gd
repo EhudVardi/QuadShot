@@ -95,7 +95,27 @@ extends RefCounted
 ## nothing that exists today (every shipped cell either has a live director or is
 ## flying a weapon that never had one), and edit 1 moves the ATLAS's cells and
 ## only the Atlas's. Anything else that moves is a finding.
-const PILOT_VERSION: int = 6
+## v7 (v1.84) = THE IRON TRIGGER, FIXED — and the fix came out of the re-measure
+## v6 was bumped for, which is the instrument working on itself.
+##
+## v6 decided "is the director working" by thresholding its solution WINDOW at
+## 0.25 m. The duels showed that to be measured wrong in the most direct way
+## available: `Blaster x Screamer` spent **one round in ten seconds** across six
+## reps, against 17 for the same gun versus a falx and 24 for the director-less
+## flak pod in the same matchup. At a mean jam of 0.64 the window sits at 0.43 m —
+## above the threshold, so the pilot dutifully deferred to a director that had
+## essentially stopped firing.
+##
+## The window was the wrong quantity. It is an INPUT to the director's decision;
+## what a pilot needs to know is whether the director is DECIDING TO FIRE, which
+## is observable and needs no guess: `Weapon.director_idle_s` counts seconds since
+## its last solution, and the pilot takes the trigger back after
+## `director_patience_s`. A threshold on metres became a measurement of silence.
+##
+## Recorded as a defect in v6 rather than a refinement of it. The lesson is the
+## one this project keeps relearning: a constant chosen by reasoning about
+## geometry is a hypothesis, and it stays one until a bench disagrees with it.
+const PILOT_VERSION: int = 7
 
 var drone: FlightController
 var weapon: Weapon
@@ -199,11 +219,44 @@ var fire_range: float = 55.0
 ## unused three metres away in weapon.gd.
 ##
 ## PERMISSION, NOT A PROMISE (v6). This says the pilot is WILLING to hand over the
-## trigger; `Weapon.director_active()` says whether there is anything to hand it
-## to. When there is not — the director unequipped, or a screamer's jam shrinking
-## its solution window below the point where it would ever fire — the pilot falls
-## back to the manual cone below. See `_fire_blaster`.
+## trigger; `Weapon.director_active()` says whether one is equipped, and
+## `Weapon.director_idle_s` says whether it is actually doing anything. When it is
+## not — unequipped, or a screamer's jam squeezing its solutions away — the pilot
+## falls back to the manual cone. See `_fire_blaster`.
 var use_director: bool = true
+## How long the pilot lets a silent gun director stay silent before taking the
+## trigger back, seconds (v7).
+##
+## THIS NUMBER REPLACED A GUESS ABOUT METRES, and the guess is worth recording.
+## v6 fell back when the director's solution WINDOW dropped under 0.25 m, on the
+## reasoning that such a window is tighter than the target's own hitbox. The duels
+## then showed the pilot deferring to a 0.43 m window and firing ONE round in ten
+## seconds at a screamer — the exact "brain standing still" the fallback exists to
+## prevent, relocated from full jam to about 0.6. The window was the wrong thing
+## to threshold: it is an INPUT to the director's decision, while what the pilot
+## needs to know is whether the director is deciding to fire at all.
+##
+## MEASURED, not chosen — and the first attempt repeated v6's mistake in miniature
+## by guessing again. It must exceed the longest gap a HEALTHY director leaves, or
+## the pilot starts hand-firing inside CLEAN cells and every factor in the table
+## moves. Swept against the two clear blaster cells, whose committed values are
+## 81 shots / 0.17 (Kestrel) and 57 / 0.19 (Atlas):
+##
+##   1.0 s   kestrel 115 shots / 0.13,  atlas 53 / 0.19   — contaminated
+##   2.0 s   kestrel  90 shots / 0.17,  atlas 50 / 0.18   — still contaminated
+##   3.0 s   kestrel  81 shots / 0.17,  atlas 57 / 0.19   — byte-identical
+##
+## So a working director goes quiet for over two seconds at a stretch while the
+## pilot repositions, and nothing under three seconds can tell that apart from a
+## director that has stopped for good.
+##
+## The cost of that margin, stated rather than hidden: in a 10 s duel the pilot
+## spends the first three seconds deferring before it takes its own trigger, so
+## every jammed cell is PESSIMISTIC by about that much. Buying it back needs a
+## better signal than silence — the director knowing it had a solution and
+## declined it, rather than merely having none — which is a change to the
+## director, not to this constant.
+var director_patience_s: float = 3.0
 ## Recover if the ground is this close, meters. A firing solution is worth
 ## nothing to a pilot who is about to be part of the scenery — and a rig that
 ## flies itself into the floor measures the floor, not the balance.
@@ -594,7 +647,8 @@ func _hold_blaster() -> void:
 func _fire_blaster(manual_solution: bool) -> void:
 	if weapon == null:
 		return
-	if use_director and weapon.director_active():
+	if use_director and weapon.director_active() \
+			and weapon.director_idle_s < director_patience_s:
 		weapon.fire_override = false
 		return
 	weapon.fire_override = manual_solution

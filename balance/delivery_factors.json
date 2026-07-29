@@ -1,13 +1,19 @@
 {
 	"aim": {
-		"atlas:blaster": 0.19,
-		"atlas:flak": 1.0,
-		"atlas:missile": 1.0,
-		"kestrel:blaster": 0.17,
-		"kestrel:flak": 0.99,
-		"kestrel:missile": 1.0
+		"atlas:blaster:clear": 0.19,
+		"atlas:blaster:jammed": 0.2,
+		"atlas:flak:clear": 1.0,
+		"atlas:flak:jammed": 0.1,
+		"atlas:missile:clear": 1.0,
+		"atlas:missile:jammed": 0.0,
+		"kestrel:blaster:clear": 0.17,
+		"kestrel:blaster:jammed": 0.1,
+		"kestrel:flak:clear": 0.99,
+		"kestrel:flak:jammed": 0.09,
+		"kestrel:missile:clear": 1.0,
+		"kestrel:missile:jammed": 0.0
 	},
-	"config_stamp": "78378e741df0630e2ad45f2fffbc2514165f32c7257cad0d9c48c734b4df3119",
+	"config_stamp": "7b4e1a73e0cabd9eb39e10b0109858a05c48348038c704fc3fbef4b61fa16663",
 	"contact_rate": {
 		"gnat:atlas": 0.91,
 		"gnat:kestrel": 3.22
@@ -21,26 +27,38 @@
 	},
 	"evasion": {
 		"blaster:aegis": 0.99,
+		"blaster:falx": 0.41,
 		"blaster:gnat": 0.12,
 		"blaster:raider": 0.96,
+		"blaster:screamer": 0.92,
 		"blaster:turret": 0.99,
 		"flak:aegis": 0.98,
+		"flak:falx": 0.56,
 		"flak:gnat": 1.0,
 		"flak:raider": 1.0,
+		"flak:screamer": 1.0,
 		"flak:turret": 1.0,
 		"missile:aegis": 1.0,
+		"missile:falx": 1.0,
 		"missile:gnat": 1.0,
-		"missile:raider": 1.0
+		"missile:raider": 1.0,
+		"missile:screamer": 1.0
 	},
-	"pilot_version": 4,
+	"pilot_version": 6,
 	"player_evasion": {
+		"raider:atlas": 0.11,
+		"raider:kestrel": 0.24,
+		"turret:atlas": 0.16,
+		"turret:kestrel": 0.24
+	},
+	"player_evasion_constant": {
 		"raider:kestrel": 0.29,
 		"turret:atlas": 0.1,
 		"turret:kestrel": 0.36
 	},
 	"player_evasion_steady": {
-		"raider:atlas": 0.11,
-		"raider:kestrel": 0.18,
+		"raider:atlas": 0.08,
+		"raider:kestrel": 0.26,
 		"turret:atlas": 0.16,
 		"turret:kestrel": 0.22
 	},

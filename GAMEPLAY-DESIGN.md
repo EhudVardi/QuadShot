@@ -7178,16 +7178,20 @@ prevent.
   - **S.q10 DISCHARGED, and it was the same fact as the Screamer** — the pilot
     bump landed one step early (v1.82) precisely so it could be batched with the
     frame-evasion edit instead of costing a second re-measure.
-  - **WHAT THE JAM ACTUALLY DOES, measured** (filtered LOOKs, pilot v6, full jam
-    against the aim bench's static target):
+  - **WHAT THE JAM ACTUALLY DOES, measured.** *(Figures below are the COMMITTED
+    full run — `balance/delivery_factors.json`, pilot v6. The filtered looks taken
+    while building read 0.12 / 0.15 / 0.23 / 0.12 on the four jammed gun cells;
+    those were LOOKs, they are superseded, and the ~0.03–0.06 spread between them
+    and the measurement is the ordinary run-to-run movement BALANCE.md warns
+    about. The ORDERING is identical in both.)*
 
     | cell | clear | jammed |
     |---|---|---|
-    | `kestrel/blaster` | 14/81 = **0.17**, duty 0.41 | 16/135 = **0.12**, duty 0.68 |
-    | `kestrel/flak` | 67/68 = **0.99**, duty 0.68 | 10/68 = **0.15**, duty 0.68 |
+    | `kestrel/blaster` | 14/81 = **0.17**, duty 0.41 | 14/135 = **0.10**, duty 0.68 |
+    | `kestrel/flak` | 67/68 = **0.99**, duty 0.68 | 7/77 = **0.09**, duty 0.77 |
     | `kestrel/missile` | 15/15 = **1.00** | **0 shots fired** |
-    | `atlas/blaster` | 11/57 = 0.19, duty 0.28 | 12/52 = 0.23, duty 0.26 |
-    | `atlas/flak` | 17/17 = 1.00 | 2/17 = 0.12 |
+    | `atlas/blaster` | 11/57 = 0.19, duty 0.28 | 11/54 = 0.20, duty 0.27 |
+    | `atlas/flak` | 17/17 = 1.00 | 2/20 = 0.10 |
     | `atlas/missile` | 11/11 = 1.00 | **0 shots fired** |
 
     - **The missile is deleted, and that is P4.3's `--` arriving as arithmetic
@@ -7198,13 +7202,14 @@ prevent.
       "invulnerable forever".
     - **The flak pair is where the jam really bites, and it is the only honest
       apples-to-apples comparison in the table** — the pod never had a director,
-      so its trigger and duty are identical in both states and **0.99 → 0.15** is
-      the fuse degrading to contact-only and nothing else. P3.6's promise
-      ("a screamer degrades it to contact-only, gracefully"), measured.
+      so its trigger and duty are near-identical in both states (0.68 → 0.77) and
+      **0.99 → 0.09** is the fuse degrading to contact-only and nothing else.
+      P3.6's promise ("a screamer degrades it to contact-only, gracefully"),
+      measured — and it is the largest single effect the jam has on any weapon.
     - **THE BLASTER RESULT WENT THE OTHER WAY FROM MY PREDICTION, and I am
       recording the wrong guess because it is the more useful half.** I expected
       the manual cone to fire less and hit better — the flak pod's shape. It fires
-      **67% MORE** and hits slightly worse. The two triggers ask different
+      **67% MORE (81 → 135 rounds) for exactly the same 14 hits.** The two triggers ask different
       questions: the director demands a real ballistic intersection inside 1.2 m
       including drop, while `fire_cone_deg` asks only whether the gun line is
       within 6° — a 4 m circle at 40 m, with no drop term at all. The manual
@@ -7306,11 +7311,23 @@ prevent.
       came from a different run and are quoted here only as direction, per the
       compare-within-one-run rule.)*
       The Kestrel is unmoved: `raider [auto]` 4/38 = 0.11 at a 0.09 jink duty with
-      its gun at 0.18, still the best of its three modes on both axes.
-    - **Both Atlas `[auto]` cells now read byte-identical to their `[steady]`
-      twins**, which is the property working rather than a coincidence, and the
-      bench asserts it EXACTLY — on the jink duty (must be 0.00), not by comparing
-      two rates that carry noise. The duty check was documented since v1.78 and
+      its gun at 0.18, still the best of its three modes on both axes. *(The
+      committed run reads 9/38 = 0.24, duty 0.19, gun 0.25 — a 2x swing in the
+      absolute value, and the CONCLUSION holds unchanged: 0.24 beats steady's 0.26
+      and jink's 0.29 while out-shooting both. This is the jinking-cell
+      amplification of v1.80, and it is why the rule is compare-within-a-run.)*
+    - **Both Atlas `[auto]` cells read identically to their `[steady]` twins in
+      the filtered run** — which is the property working, since for a `hold` frame
+      the two are the same flying. **CORRECTED by the full re-measure below:** in
+      the committed run the turret pair still matches exactly (8/50 both, gun
+      11/63 both) while the raider pair reads 4/38 against 3/38. So "identical" was
+      the filtered run's luck, not a law: two cells at different positions in a
+      run list inherit different float state from the physics server (v1.80's
+      amplification finding), and one round of 38 is exactly that size of
+      difference. **The claim that survives is the one the bench actually
+      asserts** — on the jink duty, which must be 0.00 and is exact — not on the
+      rates, which carry the same noise everything else here does. The duty check
+      was documented since v1.78 and
       unenforced until now; a state that failed to take would have printed a
       plausible number and passed.
   - **STEP 2 — the pilot can pull its own trigger (P3.6's iron trigger).** The

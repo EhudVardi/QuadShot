@@ -128,8 +128,15 @@ func _physics_process(delta: float) -> void:
 	if _player == null:
 		_player = get_tree().get_first_node_in_group(&"player") as FlightController
 	var desired_point: Vector3
-	if _can_engage():
-		desired_point = _standoff_point()
+	if _player_in_reach():
+		# COVER FREEZES IT, it does not send it home. Losing sight of you never
+		# weakens the jam (see the header) — what it costs the screamer is the
+		# ability to REPOSITION, which is the whole of P4.3's terrain `+` for this
+		# row: a masked approach is how you close on a thing that would otherwise
+		# back away from you forever. Steering at its own position bleeds to a
+		# stop through the same arrive-easing everything else uses.
+		desired_point = _standoff_point() if _has_line_of_sight() \
+				else global_position
 	else:
 		if global_position.distance_to(_wander_target) < 3.0:
 			_pick_wander_target()
@@ -141,19 +148,19 @@ func _physics_process(delta: float) -> void:
 	_update_telegraph(delta)
 
 
-## It repositions only against a player it can SEE (see the header's LOS note).
-## Losing sight of you does not weaken the jam; it just stops the screamer from
-## backing away, which is how a masked approach beats it.
-func _can_engage() -> bool:
+## Is there a live player close enough to hold a standoff against at all? Split
+## from the line-of-sight test on purpose (they used to be one function): losing
+## SIGHT of the player must freeze the screamer where it is, while losing the
+## PLAYER entirely is what sends it back to loitering. Collapsing the two made
+## cover send it home, which is the opposite of the counterplay.
+func _player_in_reach() -> bool:
 	if _player == null:
 		return false
 	# visible=false is the player's death state (main.gd).
 	if not _player.armed or not _player.visible:
 		return false
-	if global_position.distance_to(_player.global_position) \
-			> enemy_config.sight_range:
-		return false
-	return _has_line_of_sight()
+	return global_position.distance_to(_player.global_position) \
+			<= enemy_config.sight_range
 
 
 func _has_line_of_sight() -> bool:

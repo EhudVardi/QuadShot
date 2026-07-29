@@ -50,7 +50,12 @@ const CROWD_RANGE: float = 8.0
 ## runner keeps accelerating.
 const STANDOFF_TOLERANCE_M: float = 25.0
 
-enum { PATROL, JAM, CROWD, DONE }
+## Seconds each lock phase runs. `missile_lock_time` is 0.9 s, so a clear lock
+## has time to complete nearly three times over — which is what makes "it never
+## completed" mean something rather than "we did not wait".
+const LOCK_SECONDS: float = 2.5
+
+enum { PATROL, LOCK_CLEAR, JAM, CROWD, DONE }
 
 var _pps: float
 var _phase: int = PATROL
@@ -64,16 +69,18 @@ var _flak: FlakPod
 var _pool: ProjectilePool
 var _config: EnemyConfig
 var _home: Vector3
-## Phase 3: the closest and the furthest the screamer got from the parked player.
+## Phase 4: the closest and the furthest the screamer got from the parked player.
 var _closest: float = INF
 var _furthest: float = 0.0
+## Peak missile lock progress reached in the current lock phase.
+var _peak_lock: float = 0.0
 var _failures: PackedStringArray = []
 
 
 func _initialize() -> void:
 	_pps = float(Engine.physics_ticks_per_second)
 	_config = load(CONFIG) as EnemyConfig
-	print("[screamer] three phases: does it stay, does its jam fade, does it hold its distance")
+	print("[screamer] four phases: does it stay, does a lock work at all, does its jam fade, does it hold its distance")
 	if _config.jam_range <= _config.jam_full_range:
 		# Checked before anything flies, because every later assertion assumes an
 		# ordering that a tuning edit could invert in one keystroke, and a
@@ -92,14 +99,23 @@ func _on_physics_frame() -> void:
 			if _ticks >= int(PATROL_SECONDS * _pps):
 				_score_patrol()
 				_teardown()
-				_build_jam()
+				_build_lock_phase(_config.jam_range + 3.0)
+				_phase = LOCK_CLEAR
+				_ticks = 0
+		LOCK_CLEAR:
+			_place(_config.jam_range + 3.0)
+			_peak_lock = maxf(_peak_lock, _missile.lock_progress)
+			if _ticks >= int(LOCK_SECONDS * _pps):
+				_score_lock_clear()
+				_teardown()
+				_build_lock_phase(_config.jam_full_range * 0.5)
 				_phase = JAM
 				_ticks = 0
+				_peak_lock = 0.0
 		JAM:
-			# One settled tick is enough: the jam is a pure function of position,
-			# and the drone's systems are read after a frame of physics so the
-			# weapon nodes have had their `_physics_process`.
-			if _ticks >= 4:
+			_place(_config.jam_full_range * 0.5)
+			_peak_lock = maxf(_peak_lock, _missile.lock_progress)
+			if _ticks >= int(LOCK_SECONDS * _pps):
 				_score_jam()
 				_teardown()
 				_build_crowd()
@@ -140,13 +156,25 @@ func _score_patrol() -> void:
 				% [drift, PATROL_SECONDS, leash])
 
 
-## PHASE 2: an armed player and a screamer placed at TWO stated ranges in turn,
-## so the field is read where its two ends live.
+## PHASES 2 AND 3: an armed, parked player with a screamer held at a stated range
+## on the MISSILE'S OWN BORESIGHT, run long enough for a lock to complete.
 ##
-## No pilot: the drone is parked and immortal, because what is being checked is
-## what the JAM does to its systems, and a brain flying the aircraft would move
-## the range this measurement is a function of.
-func _build_jam() -> void:
+## No pilot: what is being checked is what the JAM does to the drone's systems,
+## and a brain flying the aircraft would move the range the whole measurement is
+## a function of.
+##
+## ON THE BORESIGHT, not simply "in front". The seeker sits under the FPV camera
+## and inherits its ~44 degree uptilt, so a target placed level with the drone
+## sits far outside a 12 degree lock cone and NO LOCK IS EVER ATTEMPTED. An
+## earlier draft of this file did exactly that, and its "no lock under jam"
+## assertion passed while proving nothing — the vacuous-guard failure this
+## project keeps catching in its own instruments. Placing along
+## `-missile.global_basis.z` guarantees the cone is not the reason.
+##
+## And that is why phase 2 exists at all: it is the CONTROL. "The lock refused"
+## only means something once "the lock completes when nothing is jamming it" has
+## been shown on the same rig, a few seconds earlier.
+func _build_lock_phase(range_m: float) -> void:
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	_pool = ProjectilePool.new()
@@ -164,10 +192,30 @@ func _build_jam() -> void:
 	_flak = _drone.get_node("FpvCamera/FlakPod") as FlakPod
 	# The human's own play setting, as everywhere else that measures the director.
 	_weapon.combat_config.fire_assist_miss_m = 1.2
-	_screamer = _spawn(Vector3(0.0, ALTITUDE, -_config.preferred_range))
+	_screamer = _spawn(Vector3.ZERO)
+	_place(range_m)
+
+
+## PHASE 2's verdict: the CONTROL. Outside the field entirely, a lock must
+## complete — otherwise phase 3's refusal proves nothing about the jam.
+func _score_lock_clear() -> void:
+	var range_m: float = _config.jam_range + 3.0
+	print("[screamer] control: at %.0f m (outside the %.0f m field) peak lock progress %.2f after %.1fs"
+			% [range_m, _config.jam_range, _peak_lock, LOCK_SECONDS])
+	if _peak_lock < 1.0:
+		_failures.append("CONTROL FAILED: no lock completed in %.1fs at %.0f m with nothing jamming (peak %.2f) — the rig cannot lock at all, so the jam phase below would prove nothing"
+				% [LOCK_SECONDS, range_m, _peak_lock])
+	if Jamming.level_at(_drone) > 0.001:
+		_failures.append("CONTROL FAILED: the control range %.0f m is still inside the jam field (%.2f)"
+				% [range_m, Jamming.level_at(_drone)])
 
 
 func _score_jam() -> void:
+	print("[screamer] pressed: peak lock progress %.2f after %.1fs at %.0f m"
+			% [_peak_lock, LOCK_SECONDS, _config.jam_full_range * 0.5])
+	if _peak_lock > 0.001:
+		_failures.append("A MISSILE LOCK BUILT INSIDE A FULL JAM (peak %.2f) — P4.3's `--` for missile-vs-screamer IS this refusal; without it the row is just a hull number"
+				% _peak_lock)
 	var standoff: float = _jam_at(_config.preferred_range)
 	var outside: float = _jam_at(_config.jam_range + 5.0)
 	var point_blank: float = _jam_at(_config.jam_full_range * 0.5)
@@ -193,18 +241,16 @@ func _score_jam() -> void:
 	_place(_config.jam_full_range * 0.5)
 	var window: float = _weapon.director_window()
 	var fuse: float = _flak.fuse_radius()
-	print("[screamer] pressed to %.0f m: director window %.2f m (config %.2f), flak fuse %.2f m (config %.2f), lock progress %.2f"
+	print("[screamer] pressed to %.0f m: director window %.2f m (config %.2f), flak fuse %.2f m (config %.2f)"
 			% [_config.jam_full_range * 0.5, window,
 			_weapon.combat_config.fire_assist_miss_m, fuse,
-			_weapon.combat_config.flak_fuse_radius, _missile.lock_progress])
+			_weapon.combat_config.flak_fuse_radius])
 	if _weapon.director_active():
 		_failures.append("the gun director survives a full jam (window %.2f m) — the pilot would never reach for the manual trigger, which is the whole type"
 				% window)
 	if fuse > 0.001:
 		_failures.append("the flak fuse survives a full jam (%.2f m) — P3.6 says a screamer degrades it to contact-only"
 				% fuse)
-	if _missile.is_locked():
-		_failures.append("a missile lock completed inside a full jam — P4.3's `--` for missile-vs-screamer is this refusal, and without it the row is just a hull number")
 	# The other end, and the reason this check is not two asserts on one number: a
 	# jam stuck ON is as broken as one stuck OFF, and it would read as "the FCS is
 	# gear that never works" rather than as a screamer.
@@ -214,12 +260,14 @@ func _score_jam() -> void:
 				% _weapon.director_window())
 
 
-## PHASE 3: the screamer spawned WELL inside its standoff against a parked player.
+## PHASE 4: the screamer spawned WELL inside its standoff against a parked player.
 ## It must back away — and then stop.
 func _build_crowd() -> void:
-	_build_jam()
-	_drone.freeze = true
-	_place(CROWD_RANGE)
+	_build_lock_phase(CROWD_RANGE)
+	# Level with the player rather than up the boresight: this phase is about
+	# horizontal standoff, and starting it 8 m up a 44-degree line would hand the
+	# type most of its separation before it had done anything.
+	_screamer.global_position = Vector3(0.0, ALTITUDE, -CROWD_RANGE)
 
 
 func _score_crowd() -> void:
@@ -249,8 +297,22 @@ func _jam_at(range_m: float) -> float:
 	return Jamming.level_at(_drone)
 
 
+## Hold the screamer at `range_m` along the seeker's boresight (see
+## _build_lock_phase). Distance is what the jam is a function of, so this places
+## the field reads exactly where they claim to be AND keeps the lock cone out of
+## the argument.
+##
+## RE-APPLIED EVERY TICK during the lock phases, for two reasons that both cost a
+## debugging round to find. The screamer is ALIVE — it flies to its own standoff
+## against a parked player, so a one-shot placement measures wherever it drifted
+## to by the time anything is scored (58 m read back as 40 m and 0.37 jam). And
+## the camera's uptilt is applied in `_process`, not `_ready`, so the boresight
+## does not exist yet on the frame the arena is built: a one-shot placement aims
+## down an UNTILTED axis, lands the target 44 degrees off the seeker, and the lock
+## never even attempts to build.
 func _place(range_m: float) -> void:
-	_screamer.global_position = Vector3(0.0, ALTITUDE, -range_m)
+	_screamer.global_position = _missile.global_position \
+			+ (-_missile.global_basis.z) * range_m
 
 
 func _spawn(at: Vector3) -> Node3D:

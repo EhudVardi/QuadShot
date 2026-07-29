@@ -5,21 +5,27 @@ extends Node3D
 ## axis — the screen-center reticle is always truthful, regardless of camera
 ## uptilt. Fires only while armed.
 
-## Below this effective solution window the gun director is not assisting, it is
-## silent: it would be demanding an intersection tighter than the target's own
-## hitbox, so it fires essentially never.
-##
-## It exists so "is the director working" has ONE answer instead of a different
-## judgement at each call site, and so the manual fallback (P3.6's iron trigger)
-## has a defined edge to switch at. A gradient that never reaches a decision is
-## how a jammed pilot ends up holding a trigger it will not pull — S7's rule that
-## a step must not be smeared into a slope, applied at the bottom of one.
-const DIRECTOR_MIN_M: float = 0.25
-
 @export var combat_config: CombatConfig
 
 ## Test hook (scripts/tests/combat_check.gd): forces the trigger down.
 var fire_override: bool = false
+
+## Seconds since the gun director last had a firing solution; 0 at spawn (the
+## director gets the benefit of the doubt) and growing whenever it is silent.
+##
+## THIS IS THE HONEST SIGNAL FOR "IS THE DIRECTOR WORKING", and it replaced a
+## threshold on the solution WINDOW that was measured wrong. v1.83 guessed that a
+## window under 0.25 m meant a silent director; the duels then showed the pilot
+## deferring to a 0.43 m window and firing **one round in ten seconds** against a
+## screamer — nominally assisted, actually mute. A window is an input to the
+## director's decision; how often it decides to fire is the thing that matters,
+## and only one of those two can be observed without guessing.
+##
+## Deliberately NOT affected by anyone pulling the trigger manually: it counts the
+## DIRECTOR's solutions, so a pilot that has taken the trigger back cannot make
+## the director look busy and flip itself back — the feedback loop that a
+## shots-fired counter would have created.
+var director_idle_s: float = 0.0
 
 ## Bolts fired since spawn — the delivery benches' denominator (BALANCE.md
 ## Layer 2: aim_quality and evasion are both hits-per-shot ratios).
@@ -40,8 +46,15 @@ func _physics_process(delta: float) -> void:
 		_pool = get_tree().get_first_node_in_group(&"projectile_pool") as ProjectilePool
 		if _pool == null:
 			return
+	# Evaluated every tick rather than short-circuited behind the trigger, so
+	# `director_idle_s` describes the DIRECTOR and not "the director on the ticks
+	# nobody happened to be shooting". Costs one extra sweep per tick while a
+	# trigger is held; the sweep is already bounded and skipped entirely when the
+	# director is unequipped (the first line of _assist_solution).
+	var assist: bool = _assist_solution()
+	director_idle_s = 0.0 if assist else director_idle_s + delta
 	var trigger_down: bool = fire_override or Input.is_action_pressed(&"fire")
-	if _drone.armed and _cooldown <= 0.0 and (trigger_down or _assist_solution()):
+	if _drone.armed and _cooldown <= 0.0 and (trigger_down or assist):
 		_fire()
 		_cooldown = 1.0 / (combat_config.fire_rate * RunMods.current.fire_rate_mult)
 
@@ -59,11 +72,11 @@ func director_window() -> float:
 			* (1.0 - Jamming.level_at(self))
 
 
-## Is there a gun director to hand a trigger to? Asked by any brain that would
-## otherwise sit on the trigger waiting for an assist that is not coming — see
-## ReferencePilot._fire_blaster and P3.6's iron trigger.
+## Is there a gun director EQUIPPED at all? A different and much weaker question
+## than "is it working" — see `director_idle_s`, which is the one a brain deciding
+## whether to take its own trigger should be asking.
 func director_active() -> bool:
-	return director_window() > DIRECTOR_MIN_M
+	return director_window() > 0.0
 
 
 ## Fire-control assist (FCS prototype): true when some hostile's predicted
