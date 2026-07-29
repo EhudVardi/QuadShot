@@ -7148,6 +7148,120 @@ prevent.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-29 — v1.84. THE RE-MEASURE, and it found a defect in the pilot it was
+  run to validate. `PILOT_VERSION` 6 → 7.** Two full three-layer runs were spent
+  rather than the one planned, and the second was worth it: the first showed four
+  harness cells measuring the BOT rather than the game.
+  - **THE DEFECT: `Blaster × Screamer` spent ONE ROUND IN TEN SECONDS** across six
+    reps, against 17 for the same gun versus a falx and 24 for the director-less
+    flak pod in the same matchup. v6's iron trigger decided "is the director
+    working" by thresholding its solution WINDOW at 0.25 m, reasoning that such a
+    window is tighter than the target's own hitbox. At a mean jam of 0.64 the
+    window sits at **0.43 m** — above the threshold, so the pilot dutifully
+    deferred to a director that had effectively stopped firing. **The exact "brain
+    standing still" the fallback was built to prevent, relocated from full jam to
+    about 0.6.**
+    - **The window was the wrong quantity.** It is an INPUT to the director's
+      decision; what a pilot needs to know is whether the director is DECIDING to
+      fire, which is observable and needs no guess. `Weapon.director_idle_s` counts
+      seconds since its last solution — driven purely by the director, so a pilot
+      that has taken the trigger back cannot make it look busy again — and the
+      pilot falls back after `director_patience_s`.
+    - **The replacement constant was MEASURED, after the first attempt guessed
+      again and failed the same way.** It must exceed the longest gap a HEALTHY
+      director leaves, or the pilot hand-fires inside clean cells and moves every
+      factor in the table. Swept against the committed clear blaster cells:
+
+      | patience | `kestrel/blaster` clear | `atlas/blaster` clear | verdict |
+      |---|---|---|---|
+      | 1.0 s | 115 shots / 0.13 | 53 / 0.19 | contaminated |
+      | 2.0 s | 90 shots / 0.17 | 50 / 0.18 | still contaminated |
+      | **3.0 s** | **81 shots / 0.17** | **57 / 0.19** | byte-identical |
+
+      So a working director goes quiet for **over two seconds at a stretch** while
+      the pilot repositions, and nothing shorter can tell that apart from a
+      director that has stopped for good. The margin's cost is stated rather than
+      hidden: a 10 s duel spends its first three seconds deferring, so every
+      jammed cell reads PESSIMISTIC by about that much.
+    - **The lesson, which outlives the constant:** a threshold chosen by reasoning
+      about geometry is a HYPOTHESIS, and it stays one until a bench disagrees.
+      Both of this session's guesses about the trigger were wrong in the same
+      direction, and both were caught by counting rounds fired — the cheapest
+      diagnostic in the file and the one neither guess would have survived.
+  - **THE SCREAMER'S ROW IS INVERTED FROM PAPER, and the cause is the bot, not the
+    balance.** Under v7 (trigger fixed, 69 rounds now spent in that cell):
+
+    | cell | paper | validated |
+    |---|---|---|
+    | `Blaster × Screamer` | `+` | **`--`** (0/6, 69 rounds) |
+    | `Missile × Screamer` | `--` | **`++`** (6/6 at 2.9 s) |
+    | `Flak × Screamer` | `0` | **`--`** (0/6, 24 shells) |
+
+    - **`screamer_check` grew a fifth phase to separate the three
+      indistinguishable causes**, because a results table cannot tell "it outran
+      me" from "I could not aim at it" from "it is simply tough". A real pilot
+      chasing a real screamer for 18 s: **closes 40 m → 30 m and stalls, fires 145
+      rounds, lands ZERO.** So the type does not outrun a committed pursuit —
+      **the bot cannot hand-aim.** Its manual trigger is a 6° cone with no
+      ballistic solution in it, which is a 3 m circle at 30 m: it scores 0.10
+      against a STATIC target and approximately nothing against a mover.
+    - **Phase 4 passed while the type was unwinnable, and that is the instructive
+      part.** "Does it hold a standoff against a PARKED player" is a real question
+      with a real answer (it settles at exactly 40 m) and it says nothing whatever
+      about a player who is chasing. **A behaviour check is only as good as the
+      behaviour it puts on the other side of the arena.**
+    - **THE OPEN QUESTION THIS NAMES, and it is a good one.** P4.3 rates chip gun
+      `+` against a screamer because "the manual fallback stays a skill path
+      forever" (P3.6, the iron trigger). That is a claim about a HUMAN's hand-aim
+      — and H.q4's drill was flown with the gun director ON (human 0.21 against the
+      bot's 0.17), so the one number that would settle this row **has never been
+      taken.** The drill it names: the aim bench with `fire_assist_miss_m` at 0.
+      Until that exists, `--` in those cells is a fact about the bot's trigger and
+      not about the weapon, and both rows are recorded as bot-bounded — the same
+      standing `Blaster × Raider` has carried since v1.22, for a deeper reason.
+    - **Not tuned, deliberately.** Nothing about the screamer's config was moved to
+      make these cells read better. The measurement is of the ruler, and drifting a
+      roster type to flatter a ruler is the mistake H.q1 exists to forbid.
+  - **`Missile × Screamer` predicted `--` and duelled `++`, and that divergence is
+    MINE rather than the model's.** The row is keyed `jammed` (aim 0.00, no lock
+    possible) while the duels flew a mean jam of **0.51** — enough to double the
+    lock time, nowhere near enough to refuse it. So either P4.3's `--` describes a
+    fight inside the full-jam bubble that the config does not produce, or
+    `jam_full_range` (20 m) is too tight to be met at the type's own 40 m standoff.
+    **A one-line change either way, and a design call rather than a measurement.**
+    The harness now prints the mean jam per row so the choice can be made on
+    evidence: 0.51 / 0.64 / 0.65 / 0.56 across the four screamer cells.
+  - **THE ATLAS FINALLY HAS A BAD DAY, and it is in the concurrency rows.** The
+    frame axis was structurally unable to report a loss before S5; now it does:
+
+    | cell | vs Kestrel |
+    |---|---|
+    | `Atlas × Raiders` (3) | **−0.67** |
+    | `Atlas × Turrets` (3) | **−0.31** |
+    | `Atlas × Turret` (1) | −0.10 |
+    | `Atlas × Raider` (1) | −0.01 |
+
+    P3.4's paper says `0` for both group rows — being outnumbered is precisely the
+    case flat armor and a deep hull were bought for, so the expectation was that it
+    reads BETTER outnumbered rather than far worse. **That is the sharpest
+    paper-vs-measured disagreement on the board** and it is now the frame axis's
+    open question, replacing "the frame axis cannot report a loss at all".
+  - **Every other cell reproduced across the v6 and v7 runs**, which is what makes
+    the v7 bump provably narrow: it can only act when a director goes quiet for
+    three seconds, and outside a jam that never happens. The two readable movers
+    were `Blaster × Turrets` exchange +0.60 → +0.55 and `Atlas × Turrets` −0.40 →
+    −0.31, both at or inside the ~0.09 floor v1.77 established, and neither is
+    quotable as a change.
+  - **Also fixed, found by re-reading rather than by measuring:** the screamer's
+    header claimed that losing sight of the player only stops it backing away,
+    while the code sent it wandering home — the opposite of P4.3's terrain `+` for
+    the row, since a masked approach is how you close on something that would
+    otherwise retreat forever. `_can_engage` split into `_player_in_reach` +
+    `_has_line_of_sight` so the two conditions can mean different things. **Cover
+    freezes it now; it does not send it home.**
+  - **Regression:** full check suite PASS, thirteen checks, twice (once per pilot
+    version). `balance/delivery_factors.json` carries pilot_version 7.
+
 - **2026-07-28 — v1.83. M6a step 7: THE SCREAMER SHIPS (P4.2, roster type six),
   and S14 is discharged — S.q8, S.q9 and S.q10 all built as steered.** The first
   roster member whose entire effect is a multiplier on the player's delivery, and

@@ -55,7 +55,12 @@ const STANDOFF_TOLERANCE_M: float = 25.0
 ## completed" mean something rather than "we did not wait".
 const LOCK_SECONDS: float = 2.5
 
-enum { PATROL, LOCK_CLEAR, JAM, CROWD, DONE }
+## Seconds the PURSUIT phase runs — a real pilot chasing a real screamer.
+## Comfortably longer than the duel harness's 10 s cap, so "it was never caught"
+## cannot be "the clock ran out".
+const PURSUE_SECONDS: float = 18.0
+
+enum { PATROL, LOCK_CLEAR, JAM, CROWD, PURSUE, DONE }
 
 var _pps: float
 var _phase: int = PATROL
@@ -74,13 +79,17 @@ var _closest: float = INF
 var _furthest: float = 0.0
 ## Peak missile lock progress reached in the current lock phase.
 var _peak_lock: float = 0.0
+## Phase 5: the pursuing pilot, and what the chase produced.
+var _pilot: ReferencePilot
+var _hits: int = 0
+var _start_range: float = 0.0
 var _failures: PackedStringArray = []
 
 
 func _initialize() -> void:
 	_pps = float(Engine.physics_ticks_per_second)
 	_config = load(CONFIG) as EnemyConfig
-	print("[screamer] four phases: does it stay, does a lock work at all, does its jam fade, does it hold its distance")
+	print("[screamer] five phases: does it stay, does a lock work at all, does its jam fade, does it hold its distance, CAN IT BE CAUGHT")
 	if _config.jam_range <= _config.jam_full_range:
 		# Checked before anything flies, because every later assertion assumes an
 		# ordering that a tuning edit could invert in one keystroke, and a
@@ -129,6 +138,19 @@ func _on_physics_frame() -> void:
 				_furthest = maxf(_furthest, range_m)
 			if _ticks >= int(STANDOFF_SECONDS * _pps):
 				_score_crowd()
+				_teardown()
+				_build_pursue()
+				_phase = PURSUE
+				_ticks = 0
+				_closest = INF
+		PURSUE:
+			if _pilot != null:
+				_pilot.update(1.0 / _pps)
+			if is_instance_valid(_screamer) and is_instance_valid(_drone):
+				_closest = minf(_closest, _screamer.global_position.distance_to(
+						_drone.global_position))
+			if _ticks >= int(PURSUE_SECONDS * _pps):
+				_score_pursue()
 				_report()
 
 
@@ -288,6 +310,88 @@ func _score_crowd() -> void:
 				% [final_range, STANDOFF_SECONDS, ceiling])
 
 
+## PHASE 5: CAN IT ACTUALLY BE CAUGHT? A real reference pilot flying a real
+## Kestrel with a real blaster, chasing a real screamer for 18 s.
+##
+## THIS PHASE EXISTS BECAUSE PHASE 4 PASSED WHILE THE TYPE WAS UNWINNABLE. Phase 4
+## asks "does it hold a standoff against a PARKED player", which it does — and that
+## told us nothing about a player who is chasing it. The v7 duels then read
+## `Blaster x Screamer` 0/6 with **69 rounds spent**: the pilot shooting hard and
+## hitting nothing. A results table cannot distinguish "it outran me" from "I could
+## not aim at it", so this phase separates them by measuring both — the closest the
+## chase ever got, and whether anything landed.
+##
+## Diagnostic first, assertion second. It FAILS only on the unambiguous break (the
+## screamer leaves the fight entirely); the interesting middle — caught but not
+## hittable, or hittable but never caught — is PRINTED, because which of those the
+## roster wants is a design call and not a test's business.
+func _build_pursue() -> void:
+	_arena = Node3D.new()
+	root.add_child(_arena)
+	_pool = ProjectilePool.new()
+	_arena.add_child(_pool)
+	_drone = Frames.build(Frames.KESTREL)
+	_arena.add_child(_drone)
+	_drone.global_position = Vector3(0.0, ALTITUDE, 0.0)
+	_drone.arm()
+	_drone.prime_motors(_drone.hover_throttle())
+	# Immortal, because the screamer cannot shoot anyway and a crash mid-chase
+	# would end the measurement early with no way to tell that from being outrun.
+	var health: Health = _drone.get_node("Health") as Health
+	health.max_health = 1.0e9
+	health.revive()
+	_weapon = _drone.get_node("FpvCamera/Weapon") as Weapon
+	_missile = _drone.get_node("FpvCamera/MissileSystem") as MissileSystem
+	_flak = _drone.get_node("FpvCamera/FlakPod") as FlakPod
+	_weapon.combat_config.fire_assist_miss_m = 1.2
+	# The harness's own engagement distance, so this phase and the duel rows it is
+	# diagnosing start from the same geometry.
+	_screamer = _spawn(Vector3(0.0, ALTITUDE, -40.0))
+	# Immortal too: the question is whether the chase CLOSES, and a screamer that
+	# dies at second three stops answering it. Rounds landed are counted instead.
+	var screamer_health: Health = _screamer.get_node("Health") as Health
+	screamer_health.max_health = 1.0e9
+	screamer_health.revive()
+	screamer_health.struck.connect(func(_amount: float) -> void: _hits += 1)
+	_pilot = ReferencePilot.new()
+	_pilot.drone = _drone
+	_pilot.weapon = _weapon
+	_pilot.missile = _missile
+	_pilot.flak = _flak
+	_pilot.weapon_id = "blaster"
+	_pilot.cruise_altitude = ALTITUDE
+	_pilot.target = _screamer
+	_start_range = 40.0
+	_hits = 0
+
+
+func _score_pursue() -> void:
+	var final_range: float = _screamer.global_position.distance_to(
+			_drone.global_position)
+	var shots: int = _weapon.shots_fired
+	print("[screamer] pursuit: started %.0f m, closest %.0f m, ended %.0f m; %d rounds fired, %d landed (jam here %.2f)"
+			% [_start_range, _closest, final_range, shots, _hits,
+			Jamming.level_at(_drone)])
+	if shots == 0:
+		_failures.append("the pursuing pilot fired NOTHING in %.0fs — the iron trigger is broken again (this is the v6 defect, and it is why this phase counts rounds)"
+				% PURSUE_SECONDS)
+	# The unambiguous break, and the only thing asserted here: an EW asset that
+	# simply leaves is unkillable rather than difficult, and every cell against it
+	# reads 0% forever while looking like a hard enemy.
+	if _closest > _start_range:
+		_failures.append("UNCATCHABLE: an 18s chase never got closer than %.0f m from a %.0f m start — it outruns a committed pursuit, so no gun answer to this type can exist"
+				% [_closest, _start_range])
+	# Everything else is a REPORT, not a verdict, because which way the roster wants
+	# it is a design call. Both readings are named so the reader does not have to
+	# infer which one they are looking at.
+	if _hits == 0 and _closest < _start_range:
+		print("[screamer]   ^ caught but not hit: the chase closed to %.0f m and %d rounds still landed nothing. Reads as an AIM problem (stern chase against a body-fixed gun), not a footrace."
+				% [_closest, shots])
+	elif _hits == 0:
+		print("[screamer]   ^ neither caught nor hit: the chase never closed AND nothing landed. Reads as a FOOTRACE — compare `speed` %.0f against the pilot's closing rate."
+				% _config.speed)
+
+
 ## The jam level a player at `range_m` would suffer, read through the same static
 ## the game reads — never by calling the screamer's own method, or this would
 ## check the type against itself and skip the group wiring entirely (a screamer
@@ -326,6 +430,7 @@ func _spawn(at: Vector3) -> Node3D:
 
 
 func _teardown() -> void:
+	_pilot = null
 	if is_instance_valid(_arena):
 		_arena.queue_free()
 	_arena = null

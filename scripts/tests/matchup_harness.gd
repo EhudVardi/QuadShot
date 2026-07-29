@@ -226,6 +226,22 @@ const MATCHUPS: Array[Dictionary] = [
 	# `screamer_check.gd` asserts that a full jam refuses a lock outright, and the
 	# delivery bench's `aim: */missile jammed` cells fire nothing at all. This row
 	# reports what the FIGHT does with a gradient, which is a different question.
+	#
+	# READ THE TWO GUN ROWS AS BOT-BOUNDED (v1.84), the same standing
+	# `Blaster x Raider` has carried since v1.22 — and for a deeper reason than
+	# that one. Measured under pilot v7: the chase closes from 40 m to 30 m and
+	# **145 rounds land nothing** (`screamer_check` phase 5). The screamer does not
+	# outrun a committed pursuit; the BOT CANNOT HAND-AIM. Its manual trigger is a
+	# 6-degree cone with no ballistic solution in it — a 3 m circle at 30 m — which
+	# scores 0.10 against a STATIC target and approximately nothing against a mover.
+	#
+	# So these rows measure the reference pilot's hand-aim, and P4.3's chip-gun `+`
+	# rests on a HUMAN's hand-aim, for which there is no datum: H.q4's drill was
+	# flown with the gun director ON (human 0.21 vs bot 0.17), so the one number
+	# that would settle this row has never been taken. **The drill it names: the aim
+	# bench with the director OFF.** Until that exists, `--` here is a fact about
+	# the bot's trigger, not about the weapon — and the honest fix is a human datum
+	# or hand-mode banding, which is the user's call and not the rig's.
 	{"name": "Blaster x Screamer", "weapon": "blaster", "type": "screamer",
 			"enemy": "res://scenes/combat/screamer.tscn",
 			"paper": "+", "mode": "win", "jam": "jammed"},

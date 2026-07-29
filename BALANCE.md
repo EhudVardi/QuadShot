@@ -332,6 +332,16 @@ the economy) to go model or accept. NOT for: populating the table.
   agree on both weapons, so the flak-vs-gun gap is the WEAPONS, not the bot,
   and those comparisons are no longer provisional. ~0.2 hits-per-shot is
   simply what a ballistic chip gun costs against a small hitbox.
+- **What H.q4 also did NOT settle, and the Screamer made it urgent (v1.84):
+  hand-aim with the DIRECTOR OFF.** The drill was flown with it on — human 0.21
+  against the bot's 0.17 — so both figures describe an *assisted* trigger. Turn
+  the director off and the bot's manual path is a 6° cone with no ballistic
+  solution in it: 0.10 against a static target, and **0 hits from 145 rounds**
+  against a screamer it had chased down to 30 m (`screamer_check` phase 5). P4.3
+  rates chip gun `+` against a screamer because "the manual fallback stays a skill
+  path forever" — that is a claim about a HUMAN's hand-aim, and it has never been
+  measured. **The drill this names: the aim bench with `fire_assist_miss_m` at 0.**
+  Until it is flown, every jammed gun cell is bot-bounded and must be read as one.
 - **What H.q4 did NOT settle: tracking a maneuvering target.** The drill's
   ruler is a *static* raider, so it validates the aim datum and nothing past
   it. `Blaster × Raider` remains rig-unflyable and hand-banded — the pilot
