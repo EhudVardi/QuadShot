@@ -7304,6 +7304,57 @@ paper is grammar for later.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-30 — v1.89. THE SCREAMER CLOAKS (the user's ask, handoff ITEM 2):
+  *"maybe since it doesnt engage, maybe we should give it a new equipment of
+  invisibility... like the predator from the movie, where reality is ever so
+  slightly distorted."*** A screen-space refraction on the hull and mast
+  (`resources/cloak.gdshader`), no textures and no assets — the pixels behind
+  the surface, sampled at an offset weighted by the view-space normal and a
+  fresnel term so the edges bend hardest.
+  - **THE WHOLE TRICK IS THAT ZERO DISTORTION MEANS INVISIBLE.** At `shimmer` 0
+    the offset is zero, so every fragment samples exactly the pixel it covers
+    and the body is gone — not faded, not ghosted, *gone*. One number therefore
+    spans "cannot be seen at all" to "unmissable heat haze", and the script
+    hands that number **the jam level**. The interference wrecking your gear is
+    the same thing that shows you where it is coming from: **what hides it is
+    what finds it.** Deliberately not a distance curve of its own, for the same
+    reason the audio tone is not left to 3D attenuation — a second curve that
+    disagreed with the jam would teach the wrong edge, and here the wrong edge
+    is *"I can see it, so my gun must work"*.
+  - **The cloak drops on every hit** (`CLOAK_REVEAL_S` 0.3 s), and this was
+    non-negotiable rather than polish: without it the player is firing at
+    something they cannot see with no confirmation of contact, which reads as a
+    broken weapon rather than a cloaked enemy. It fires on contact, not on
+    damage — a round that glances off armor still has to *look* like it landed.
+  - **The palette rule survives** (CLAUDE.md: red = threat). Two things keep the
+    type legible as hostile: a faint hot rim on the silhouette that only appears
+    where the cloak is already shimmering — so it never gives away a screamer
+    the jam has not already announced — and the dish emitter, which was left
+    un-cloaked and already ramps its emission with the same jam level. **A
+    cloaked screamer at range is a floating red glint and nothing else**, which
+    is exactly the read the item asked for and needed no new code.
+  - **IT WAS LOOKED AT, NOT REASONED ABOUT.** A throwaway rig parked a camera
+    3.2 m off the dev-room specimen against the ground grid and saved a frame
+    per state. That is how two things were caught that a headless pass cannot
+    see: the rig was silently fighting the screamer's own per-tick uniform
+    writes (every "state" was rendering at the same shimmer floor until the
+    specimen was frozen), and `unshaded` — required, since a lit surface would
+    light the *screen sample* — means no light ever reaches the revealed hull,
+    so the honest albedo read as a black cut-out and `body_color` was lifted to
+    compensate. Neither was visible in the code.
+  - **Confirmed visual-only.** All 14 checks pass, and a filtered duel LOOK at
+    the four screamer cells reproduces v1.84 exactly (`Blaster --` 0%,
+    `Missile ++` 100%, `Flak --` 0%). That was the stated bar: a "visual-only"
+    change that moved a measured cell would not have been visual-only.
+  - **PROVISIONAL, and the whole of it is the user's:** `distortion` 0.045,
+    `edge_energy` 0.55, `CLOAK_REVEAL_S` 0.3, and `CLOAK_FLOOR` 0.15 — a floor
+    under the shimmer so a screamer at the very edge of its field is *faint*
+    rather than mathematically invisible. **Set the floor to 0.0 for the pure
+    version**, where a screamer outside its own jam range genuinely cannot be
+    seen and only the dish gives it away. Also unflown, and only the hands can
+    judge it: the cloak and `jam_video_glitch` fight for the same screen, and
+    they have to be read together rather than separately.
+
 - **2026-07-30 — v1.88. Iteration 10 PROPOSED (R1–R8, R.q1–R.q6): AMMO & THE
   RESUPPLY GATES, opened by the user from the cockpit.** *"maybe we can have the
   ammo counter, maybe a gate type for each weapon ammo."* Written as a proposal

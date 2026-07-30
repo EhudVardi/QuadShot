@@ -1,11 +1,21 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/screamer.gd" id="1_scream"]
 [ext_resource type="Resource" path="res://resources/default_enemy_screamer.tres" id="2_ecfg"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
+[ext_resource type="Shader" path="res://resources/cloak.gdshader" id="4_cloak"]
 
+; The un-cloaked hull. Kept as the mesh material even though the cloak
+; overrides it: it is what body_color mirrors, and deleting the two
+; material_override lines is all it takes to fly this type bare.
 [sub_resource type="StandardMaterial3D" id="mat_body"]
 albedo_color = Color(0.13, 0.12, 0.15, 1)
+
+; Local to the scene, so one screamer taking a hit does not un-cloak its
+; escort partner — the same reason the aegis's shield shell is local.
+[sub_resource type="ShaderMaterial" id="mat_cloak"]
+resource_local_to_scene = true
+shader = ExtResource("4_cloak")
 
 [sub_resource type="StandardMaterial3D" id="mat_emitter"]
 albedo_color = Color(1, 0.24, 0.2, 1)
@@ -41,10 +51,12 @@ enemy_config = ExtResource("2_ecfg")
 
 [node name="Body" type="MeshInstance3D" parent="Visual"]
 mesh = SubResource("mesh_body")
+material_override = SubResource("mat_cloak")
 
 [node name="Mast" type="MeshInstance3D" parent="Visual"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 mesh = SubResource("mesh_mast")
+material_override = SubResource("mat_cloak")
 
 [node name="Dish" type="Node3D" parent="Visual"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)

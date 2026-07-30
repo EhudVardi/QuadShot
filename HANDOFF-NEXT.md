@@ -144,7 +144,14 @@ Constraints that are not negotiable:
 
 ---
 
-## ITEM 2 — Screamer cloak (Predator-style)
+## ITEM 2 — Screamer cloak ✅ *(DONE 2026-07-30, v1.89)*
+
+Built as `resources/cloak.gdshader` + four constants in `screamer.gd`. Every
+design decision the brief asked to be made deliberately was made the way it
+recommended: strength tied to the jam level, a 0.3 s reveal on every hit, and
+the dish left un-cloaked so the type still reads red. See GAMEPLAY-DESIGN v1.89
+— including the two defects that only a screenshot could have caught, and the
+four provisional numbers waiting on the user's hands.
 
 ### The user's ask, verbatim
 

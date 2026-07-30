@@ -64,6 +64,16 @@ const WANDER_RADIUS: float = 22.0
 ## Seconds per full sweep of the dish. Cosmetic, and the readability the type
 ## needs: a thing that is doing something to you should visibly be doing it.
 const DISH_SPIN_S: float = 2.6
+## How long the cloak stays down after a hit. NON-NEGOTIABLE for feel: without
+## it the player is shooting at a thing they cannot see and gets no confirmation
+## their rounds are landing, which reads as a broken weapon rather than a
+## cloaked enemy.
+const CLOAK_REVEAL_S: float = 0.3
+## Floor under the cloak's shimmer, so a screamer at the very edge of its own
+## field is *faint* rather than mathematically invisible. PROVISIONAL: set it to
+## 0.0 for the pure version, where a screamer outside its jam range cannot be
+## seen at all and only the dish gives it away.
+const CLOAK_FLOOR: float = 0.15
 
 @export var enemy_config: EnemyConfig
 ## Fixed RNG seed for the harness (P4.8 determinism): -1 randomizes. Must be set
@@ -76,6 +86,7 @@ var team: StringName = &"enemy"
 @onready var _visual: Node3D = $Visual
 @onready var _dish: Node3D = $Visual/Dish
 @onready var _emitter: MeshInstance3D = $Visual/Dish/Emitter
+@onready var _body_mesh: MeshInstance3D = $Visual/Body
 @onready var _health: Health = $Health
 @onready var _tone: AudioStreamPlayer3D = $JamTone
 
@@ -85,6 +96,10 @@ var _wander_target: Vector3
 var _orbit_sign: float = 1.0
 var _rng := RandomNumberGenerator.new()
 var _emitter_material: StandardMaterial3D
+## The cloak, shared by the hull and the mast and local to this instance.
+var _cloak_material: ShaderMaterial
+## Cloak-down fraction, 1 on the frame of a hit and decaying to 0.
+var _reveal: float = 0.0
 
 
 func _ready() -> void:
@@ -104,10 +119,18 @@ func _ready() -> void:
 		_emitter_material = (_emitter.mesh.material as StandardMaterial3D).duplicate() \
 				as StandardMaterial3D
 		_emitter.material_override = _emitter_material
+	# Already local to the scene (screamer.tscn), so no duplicate here — the
+	# mast shares this exact material and must un-cloak with the hull.
+	_cloak_material = _body_mesh.material_override as ShaderMaterial
 	_start_tone()
 
 
 func take_hit(damage: float) -> void:
+	# The cloak drops on contact. Nothing else in this file cares whether the
+	# round did damage, and neither does this: a shot that glances off armor
+	# still has to LOOK like it connected, or the player learns to stop firing
+	# at something they cannot see.
+	_reveal = 1.0
 	_health.take(damage)
 
 
@@ -234,6 +257,7 @@ func _update_telegraph(delta: float) -> void:
 		_emitter_material.emission_energy_multiplier = lerpf(
 				_emitter_material.emission_energy_multiplier,
 				0.5 + 5.0 * level, 1.0 - exp(-5.0 * delta))
+	_update_cloak(level, delta)
 	if _tone == null or _tone.stream == null:
 		return
 	# Silent outside the field entirely, rather than fading to inaudible: a bus
@@ -243,6 +267,25 @@ func _update_telegraph(delta: float) -> void:
 		return
 	_tone.volume_db = lerpf(-34.0, -6.0, level)
 	_tone.pitch_scale = 0.8 + 0.5 * level
+
+
+## THE CLOAK IS THE JAM, SEEN. `level` is the same scalar the tone sings and the
+## feed breaks up on, and handing it straight to the shader is the whole design:
+## far out, zero shimmer means the refraction offset is zero, so the hull
+## samples exactly the pixels behind it and is *perfectly* invisible; close in,
+## the interference wrecking your gear is also the heat-haze that shows you
+## where it is. **The thing that hides it is the thing that finds it.**
+##
+## Deliberately NOT a distance falloff of its own, for the same reason the tone
+## is not left to 3D attenuation (see `_update_telegraph`): a second curve that
+## disagreed with the jam by even a little would teach the player a wrong edge —
+## and here the wrong edge is "I can see it, so my gun must work".
+func _update_cloak(level: float, delta: float) -> void:
+	_reveal = maxf(_reveal - delta / CLOAK_REVEAL_S, 0.0)
+	if _cloak_material == null:
+		return
+	_cloak_material.set_shader_parameter(&"shimmer", lerpf(CLOAK_FLOOR, 1.0, level))
+	_cloak_material.set_shader_parameter(&"reveal", _reveal)
 
 
 func _start_tone() -> void:
