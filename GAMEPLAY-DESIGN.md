@@ -3725,6 +3725,162 @@ them in one step would put two invalidations in one re-measure and make neither
 attributable, which is the mistake the pinned-ruler discipline exists to
 prevent.
 
+## Iteration 10 — R: Ammo & the Resupply Gates (PROPOSED, 2026-07-30 — user-initiated, awaiting steering)
+
+> Opened by the user after the first flight of the composed roster (v1.85):
+>
+> > *"i feel now that we can add more 'challanges' to get more 'resources', for
+> > example flying through the green big gate repair, maybe now we can fly
+> > through the smaller blue gates and get energy, so now maybe we can have the
+> > ammo counter, maybe a gate type for each weapon ammo. the flak is effective
+> > and once the fire rate is high it starts to be buffed, so we may limit its
+> > usage to shorter bursts."*
+>
+> Sections **R1–R8**, open questions **R.q1–R.q6**; react by ID. Per 2.4 this
+> paper fixes the *grammar* — what is consumable, what refills it, what the HUD
+> owes you — **not** absolute magazine sizes. Every number lands in
+> `CombatConfig` and gets bench-tuned like a flight gain.
+
+### R1 — This is not a new pillar; it is a referent P2.6 has been missing
+
+The design already assumes ammunition exists. **P2.6 says pads "repair hull +
+**re-arm magazines**"; P5.6 prices a between-sortie "re-arm"; `SortieComposer`
+already emits a `pads: int` per sortie, scaled inversely with node difficulty.**
+None of it means anything today, because there are no magazines to re-arm — the
+blaster, the flak pod and the missile rack all fire forever. The whole "pad-poor
+node makes every spent magazine count" clause is currently a promise about a
+resource that does not exist.
+
+So this is not a new economy. It is the moment the *tactical* consumable becomes
+real, which is what makes P2.6 a difficulty knob instead of a word.
+
+**And the form factor is already decided, by playtest.** D5 revised the repair
+**pad** into the repair **gate** for a stated reason: *"holding station on a
+wounded quad under fire is a death sentence — you recover by flying through,
+keeping your speed and your life."* Everything below inherits that. Resupply is
+a gate you thread, never a pad you land on. The user asked for exactly this
+shape, independently, which is a good sign the lesson generalised.
+
+### R2 — The grammar: what is consumable, and what is not
+
+The proposal's spine, and the one place I would push back on a literal reading
+of the ask ("a gate type for each weapon ammo"):
+
+| weapon | consumable? | why |
+|---|---|---|
+| **Blaster** | **No — infinite** | It is the floor. A pilot who runs out of everything must still be able to fight, or a dry run is an unlosable-but-unwinnable stalemate with the gate shut. It is also the weapon the whole balance instrument is calibrated around. |
+| **Flak pod** | **Yes — magazine + reload** | Its power is uptime (see v1.86), and the user's own read is that it wants shortening. A magazine is the *right-shaped* limit: it caps a burst without touching damage or fuse, so the type stays exactly as good and stops being always-on. |
+| **Missile** | **Yes — a small count** | Already cooldown-limited, which is a *rate* limit; a rack is a *quantity* limit, and they do different jobs. Four missiles that must be spent well is a better decision than infinite missiles on a timer. |
+
+**Three consumables would be two too many.** One counter per weapon that has one
+is legible; a fourth "energy" pool that also gates something is a second
+currency inside a fight, and P5.1's whole discipline is that currencies stay
+walled and few.
+
+### R3 — The gate family: one verb, colour-coded by payload
+
+The palette rule (CLAUDE.md) already assigns meaning to colour, and the two
+existing gates use it: **blue = navigation (exit), green = repair.** The family
+extends without inventing a new visual language:
+
+- **Green — repair** *(exists)*: engines + hull.
+- **Amber — flak resupply**: refills the pod's magazine.
+- **Violet — missile resupply**: refills the rack.
+
+Small, unmissable, and different from the exit gate at a glance, which is the
+one confusion that would actually cost a run. **They should be smaller than the
+exit gate and require more precision to thread** — that is the "challenge to get
+resources" the user asked for, and it is the flight model advertising itself
+(P2.6's original argument for landing skill, transposed onto the verb that
+survived playtest).
+
+### R4 — Where gates come from
+
+The wave director already places a composition; resupply is the same table one
+column over. A `GATES` plan beside `PLAN`, spawned per sortie rather than per
+wave, so a sortie has a *layout* you learn and route around rather than a stream
+of pickups.
+
+**Pad-poor is the difficulty knob P2.6 promised**: gate count falls as the
+sortie number rises. Sortie 1 is generous; sortie 5 gives you one violet gate
+and a decision about when to spend it.
+
+### R5 — The flak's burst problem, answered without a nerf
+
+The user's *"limit its usage to shorter bursts"* is achievable three ways, and
+they are not equivalent:
+
+1. **Lower `flak_fire_rate`** — makes the weapon worse everywhere, including the
+   cells the harness already validated. Rejected.
+2. **Overheat** — a second resource with its own recovery curve, invisible to
+   the resupply loop. Rejected: it solves the same problem while sharing nothing
+   with the rest of the proposal.
+3. **A magazine** *(recommended)* — caps the burst, leaves the weapon's
+   per-shell numbers untouched, and *feeds the gates*. The pod becomes a thing
+   you spend and go refill, which is precisely the loop being asked for.
+
+Note the interaction with v1.86 and take it deliberately: the pod already got a
+real nerf when it stopped riding the blaster's cards. **Fly that before stacking
+a magazine on top**, or two changes land in one feel judgement and neither is
+attributable — the same discipline as batching pilot behaviour edits.
+
+### R6 — What the HUD owes
+
+Two counters, and only for weapons that have one. The absence of a blaster
+counter is information: it says *that one never runs out*. A magazine you cannot
+see is a magazine that will run dry at the worst moment and read as a bug — the
+same argument the aegis's shield bubble won (v1.25: "a player whose shots do
+nothing must be able to SEE why").
+
+### R7 — What this does to the balance instrument, stated before it is built
+
+**Layer 1 assumes infinite ammunition.** `Lethality.versus` answers "how many
+shots and how long to kill this", with no term for whether you *have* that many
+shots. Magazines add one, and it is the same shape as the arithmetic that
+already makes a swarm expensive for a missile (P4.3's bankruptcy row) — only now
+it applies to every weapon that has a count.
+
+The honest consequence: **a matchup can become unwinnable-per-magazine while
+staying winnable**, and the instrument should say which. That is a Layer 1
+addition (shots-to-kill vs magazine size), not a new layer, and it is cheap —
+but it must land *with* the feature, or the first bench run after this ships
+will report numbers that quietly assume a resource the game no longer gives you.
+
+### R8 — The vertical-slice cut
+
+Smallest thing that delivers the loop: **flak magazine + amber gate + one HUD
+counter.** One weapon, one gate type, one number on screen. Missiles and the
+violet gate follow only if the flak version feels right. Everything else in this
+paper is grammar for later.
+
+### Open questions (R.q1–R.q6)
+
+- **R.q1 — Does the blaster stay infinite?** My strong lean: yes (R2). The
+  counter-case is that a fully consumable arsenal makes every gate matter and
+  turns ammo discipline into the run's core tension — a real design, but a
+  different game, and one where a bad draft can strand you.
+- **R.q2 — Magazine-and-reload, or a pool that only gates refill?** A pod that
+  reloads itself after a pause is a *burst* limit; a pod that only refills at a
+  gate is a *sortie* resource. My lean: **sortie resource**, because it is the
+  one that makes the gates matter. Burst-limit-only would deliver the flak fix
+  without ever needing this iteration.
+- **R.q3 — Does a wave-clear top you up?** Free re-arm between waves is
+  forgiving and removes most of the tension; no top-up makes a long sortie a
+  genuine attrition problem. My lean: **no top-up in the run loop**, since the
+  gates are the answer.
+- **R.q4 — Do gates respawn?** The repair gate has a 1.5 s cooldown and is
+  permanent, which is spam-camp-proof but infinitely generous over a sortie. My
+  lean: **finite charges per gate** (2–3), so route planning is real.
+- **R.q5 — Is "energy" a third thing you meant, distinct from ammo?** The ask
+  mentions energy *and* ammo. If energy is a separate resource (boost? shields?
+  the video link?) it is a different paper; if it was a word for ammo, R2 covers
+  it. **This one I genuinely cannot infer.**
+- **R.q6 — Do enemies drop resupply?** P5.2 already says combatants drop
+  salvage in the campaign. Drops-from-kills and gates are two answers to the
+  same question and the run loop should probably pick one. My lean: **gates
+  only**, because a drop rewards killing and a gate rewards *flying*, and this
+  project's north star is the flight model.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -7147,6 +7303,40 @@ prevent.
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-30 — v1.88. Iteration 10 PROPOSED (R1–R8, R.q1–R.q6): AMMO & THE
+  RESUPPLY GATES, opened by the user from the cockpit.** *"maybe we can have the
+  ammo counter, maybe a gate type for each weapon ammo."* Written as a proposal
+  and NOT built, because the ask carries four "maybe"s and at least one fork I
+  cannot infer from it (R.q5: whether "energy" is a third resource or another
+  word for ammo).
+  - **The finding that shaped the paper: this is not a new pillar.** P2.6 has
+    said pads *"repair hull + re-arm magazines"* since Iteration 5, P5.6 prices a
+    between-sortie re-arm, and `SortieComposer` already emits a difficulty-scaled
+    `pads` count. **None of it means anything, because there are no magazines.**
+    The user has independently asked for the referent those three sections have
+    been missing — which is why the proposal is short: the grammar was already
+    written, it just had nothing to point at.
+  - **The form factor was already decided by playtest, and the user re-derived
+    it.** D5 turned the repair PAD into the repair GATE because *"holding station
+    on a wounded quad under fire is a death sentence."* The ask says "flying
+    through" without prompting. Resupply is a gate you thread, never a pad you
+    land on.
+  - **The one place the paper pushes back on a literal reading**: "a gate type
+    for each weapon" would give the blaster a magazine too, and the blaster is
+    the floor — a pilot out of everything must still be able to fight or a dry
+    run is an unwinnable stalemate with the gate shut. Recommended split: blaster
+    infinite, flak and missile consumable.
+  - **Flagged before anyone builds it: Layer 1 assumes infinite ammunition.**
+    `Lethality.versus` answers "how many shots to kill this" with no term for
+    whether you have that many. Magazines add one — the same arithmetic that
+    already makes a swarm bankrupt a missile, generalised. It must ship WITH the
+    feature, or the first bench run afterwards reports numbers that quietly
+    assume a resource the game stopped giving you.
+  - **Sequencing warning carried over from v1.86:** the pod already took a real
+    nerf when it stopped riding the blaster's draft cards. Fly that before
+    stacking a magazine on it, or two changes land inside one feel judgement and
+    neither is attributable.
 
 - **2026-07-30 — v1.87. The plan cashes its own promise: GNATS EVERYWHERE.**
   From the same flight: *"the gnats does not show too much and i really like
