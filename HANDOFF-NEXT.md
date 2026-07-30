@@ -1,4 +1,4 @@
-# HANDOFF-NEXT.md — three items, paste-ready
+# HANDOFF-NEXT.md — two items, paste-ready
 
 A self-contained brief for a fresh session. Everything needed is here; read
 [CLAUDE.md](CLAUDE.md), [TESTING.md](TESTING.md) and [BALANCE.md](BALANCE.md)
@@ -56,7 +56,7 @@ before starting, and the tail of [GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md)
    provisional, and flag it for them to fly. Never tune a roster number to make
    a bench cell read better.
 
-### Open questions from that session (not part of these three items)
+### Open questions from that session (not part of these two items)
 
 - **`jam_range` (55 m) is smaller than `missile_lock_range` (60 m)**, so a
   missile can lock from outside the Screamer's bubble entirely. This is why
@@ -185,54 +185,21 @@ Design decisions to make deliberately, not by default:
 
 ---
 
-## ITEM 3 — Building path arrows
+## DROPPED — building path arrows *(considered 2026-07-30, dropped by the user)*
 
-### What the user actually asked for
-
-> *"small change to the buildings generator, make the paths with arrows, like the
-> main menu building floors showing the path"*
-
-**Read this before starting:** the menu tower already does it, and the word
-"arrows" has history here. `MenuFloorFrame._build_chevrons`
+Recorded so it is not rediscovered and re-proposed. The request was "make the
+paths with arrows, like the main menu building floors showing the path", and
+looking into it turned up that **the menu tower already solved this and arrows
+were already tried and rejected**: `MenuFloorFrame._build_chevrons`
 ([`scripts/menu/menu_floor_frame.gd:396`](scripts/menu/menu_floor_frame.gd#L396))
-builds **chevrons** marching toward the far window, on the floor *and* the
-ceiling, in the navigation palette, flat, never obstacles. The comment records
-that *"the arrow experiment retired at the user's call"* in v1.42 — chevrons
-replaced arrows. So the ask is: **give world buildings the menu tower's
-chevrons.**
+builds chevrons marching toward the far window on the floor and ceiling, and its
+comment records *"the arrow experiment retired at the user's call"* (v1.42).
 
-### The gap
-
-`InteriorBuilder._wayfinding`
+The real gap it exposed is still real and still unfixed: `InteriorBuilder
+._wayfinding`
 ([`scripts/menu/interior_builder.gd:36`](scripts/menu/interior_builder.gd#L36))
-currently draws a **plain emissive strip** down each keep-clear channel — a line,
-with no direction in it. The menu floors get directional chevrons; generated
-world-building interiors get an undirected stripe.
-
-### What to build
-
-Replace the strip with chevrons marching **window → hub** along each channel,
-matching the menu tower's spacing and palette so the two read as one language.
-
-Notes that will save time:
-
-- Channels are axis-aligned (`_wayfinding` relies on this — `a.x ≈ 0` means a
-  front/back window). A chevron is two rotated boxes; `BoxBatcher.add` takes a
-  rotation, and `menu_floor_frame._build_chevrons` shows the exact 45° arm
-  construction.
-- **Direction matters and the strip has none.** Point them toward the hub (the
-  interior origin), since that is where the player is flying.
-- Floor *and* ceiling in the menu tower, "so the exit vector is readable
-  whichever surface the pilot's eye hugs". Consider whether world interiors want
-  both or just the floor — the menu tower's floors are small rooms, city
-  interiors are larger.
-- Batch them. `InteriorBuilder` commits one `BoxBatcher` per interior for LOD
-  reasons; chevrons are several times more boxes than a strip, so check the
-  interior LOD checks still pass.
-
-### Verification
-
-- `interior_gen_check.gd`, `interior_lod_check.gd`, `building_gen_check.gd`,
-  `city_layout_check.gd` — all four exist and all four must pass.
-- Fly `scenes/city_map.tscn` and look. This is a readability item; the number
-  that matters is whether the exit vector reads **at speed**.
+gives generated world-building interiors a **plain emissive strip** down each
+keep-clear channel — a line with no direction in it — while menu floors get
+directional chevrons. **The user dropped it anyway.** Do not re-open it without
+being asked; if it ever does come back, the job is "give world buildings the
+menu tower's chevrons", not "add arrows".
