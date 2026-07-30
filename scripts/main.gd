@@ -71,6 +71,9 @@ func _ready() -> void:
 	_wave_director.wave_changed.connect(_hud.set_wave)
 	_wave_director.sortie_cleared.connect(_on_sortie_cleared)
 	_wave_director.run_ended.connect(_on_run_ended)
+	# A unit can leave a wave without dying (a bomber that got through), and a
+	# counter that silently ticks down reads as a bug rather than a loss.
+	_wave_director.announced.connect(_hud.add_kill_feed)
 	_exit_gate.entered.connect(_on_gate_entered)
 	_draft.picked.connect(_on_upgrade_picked)
 	# Hull comes from the FRAME now (P3.9) and the drone applies it to itself in

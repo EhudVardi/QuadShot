@@ -2,17 +2,40 @@ class_name WaveDirector
 extends Node
 
 ## Encounter director (roadmap M3/M4). A run is a chain of sorties: each
-## sortie is a few escalating waves of enemy drones spawned in a ring around
-## the arena; clearing the last wave opens the exit gate, and flying through
-## it starts the next, harder sortie. Player death ends the run. Kill
-## accounting flows through here so main only sees score events.
+## sortie is a few escalating waves spawned in a ring around the arena;
+## clearing the last wave opens the exit gate, and flying through it starts the
+## next, harder sortie. Player death ends the run. Kill accounting flows
+## through here so main only sees score events.
+##
+## WAVES ARE COMPOSED, NOT COUNTED. Until now this file held exactly one enemy
+## scene, so every wave of every sortie was raiders and five of the six roster
+## types had never once appeared in a run — the dev room had a specimen of each
+## and the actual game had none of them. A wave is now a BUDGET of units filled
+## from a PLAN: named types taken OUT of the budget, raiders filling whatever
+## is left.
+##
+## "Out of, never on top of" is SortieComposer's discipline for reserves (P2.3)
+## borrowed deliberately. The war sim is NOT wired in — M4's run is not the M6
+## campaign and must not quietly become it — but the two share a vocabulary so
+## they cannot drift apart conceptually.
+##
+## Adding a bestiary type to the run is a ROSTER row plus a PLAN slot. If it
+## ever needs more than that, this file has the wrong shape.
+##
+## THE UNIT IS THE UNIT (P4.q5). `remaining` counts units, not bodies: a gnat
+## cloud is one, and it is gone when it emits `cleared`, not when its first
+## body dies. Types that can leave the field WITHOUT dying report that too — a
+## bomber that reached its target ends its unit exactly as a dead one does, or
+## the wave it belonged to could never clear and the gate would never open.
 
 signal wave_changed(sortie: int, wave: int, remaining: int)
 signal enemy_destroyed(points: float)
 signal sortie_cleared(sortie: int)
 signal run_ended(sorties_cleared: int, waves_cleared: int, kills: int)
+## Something about the wave itself the pilot needs told. Kills already speak
+## for themselves through the score; a bomber that got through does not.
+signal announced(text: String)
 
-const ENEMY_SCENE: PackedScene = preload("res://scenes/combat/enemy_drone.tscn")
 ## Spawn ring around the arena's rough center (encounter-design constants,
 ## not flight/input physics).
 const ARENA_CENTER := Vector3(-18.0, 0.0, -15.0)
@@ -20,6 +43,78 @@ const SPAWN_RADIUS_MIN: float = 40.0
 const SPAWN_RADIUS_MAX: float = 70.0
 const SPAWN_HEIGHT_MIN: float = 6.0
 const SPAWN_HEIGHT_MAX: float = 18.0
+## Emplacements sit closer in. The turret's 45 m sight range makes one dropped
+## on the flyer ring a decoration rather than a threat.
+const GROUND_RADIUS_MIN: float = 22.0
+const GROUND_RADIUS_MAX: float = 38.0
+## A ground unit is seated on whatever is actually under it, probed from here
+## down — a rooftop emplacement is a good outcome, a turret buried inside a
+## city box is not.
+const GROUND_PROBE_HEIGHT: float = 60.0
+## The bomb run: a level pass over the arena's centre, flown ABOVE the skyline
+## (the greybox tops out at 24 m). Height is the whole readability of the type
+## — you can see exactly where it is going and exactly how long you have — and
+## it is also why the run does not wedge itself against a tower, which would
+## turn an intercept clock into a wave that never clears.
+const BOMB_RUN_HEIGHT: float = 26.0
+
+## One unit of each roster type: what to build, and the handful of facts the
+## director needs to place it and to know when it is gone. Everything else the
+## type knows about itself. `height` overrides the ring's random altitude for
+## types that fly a set profile.
+##
+## `threat` is the escort flag, and the screamer is the only false: it carries
+## no weapon at all, so a wave made only of screamers is a wave with no fight
+## in it (P4.3 — it is an escort, and pairing it with something that shoots is
+## the point of the type).
+const ROSTER: Dictionary = {
+	&"raider": {
+		"scene": "res://scenes/combat/enemy_drone.tscn",
+		"ground": false, "threat": true,
+	},
+	&"falx": {
+		"scene": "res://scenes/combat/falx.tscn",
+		"ground": false, "threat": true,
+	},
+	&"gnats": {
+		"scene": "res://scenes/combat/gnat_swarm.tscn",
+		"ground": false, "threat": true,
+	},
+	&"turret": {
+		"scene": "res://scenes/combat/turret.tscn",
+		"ground": true, "threat": true,
+	},
+	# Carries no gun, but it is on a clock against you — a wave with a bomber
+	# in it is a wave you can lose without ever being shot at.
+	&"aegis": {
+		"scene": "res://scenes/combat/aegis.tscn",
+		"ground": false, "threat": true, "height": BOMB_RUN_HEIGHT,
+	},
+	&"screamer": {
+		"scene": "res://scenes/combat/screamer.tscn",
+		"ground": false, "threat": false,
+	},
+}
+
+## Composition by sortie (rows) and wave (entries): the named units this wave
+## spends its budget on, raiders filling the rest. Past the last row the plan
+## repeats it, so a long run keeps the hardest mix and only grows.
+##
+## PROVISIONAL — this is pacing, and pacing is the human's call (handoff §14).
+## The ordering argues with the brief's sketch on one point: the falx lands
+## before the cloud, because one fast body teaches "bait the pass, kill it in
+## the recovery" without also multiplying the body count, and the cloud is a
+## better sortie finale than a mid-sortie surprise.
+const PLAN: Array = [
+	# Sortie 1 — raiders, then the interceptor, then the swarm.
+	[{}, {&"falx": 1}, {&"gnats": 1}],
+	# Sortie 2 — ground fire you have to go and dig out, a real pair of falx,
+	# and the first EW escort: your gun goes manual while a cloud arrives.
+	[{&"turret": 1}, {&"falx": 2}, {&"gnats": 1, &"screamer": 1}],
+	# Sortie 3+ — the intercept clock, then P4.3's first designed pair: a
+	# bomber you must kill in time, escorted by the thing that takes your lock.
+	[{&"falx": 1, &"turret": 1}, {&"aegis": 1}, {&"aegis": 1, &"screamer": 1}],
+]
 
 @export var combat_config: CombatConfig
 
@@ -31,8 +126,14 @@ var kills: int = 0
 var running: bool = false
 ## True between clearing a sortie's last wave and the player taking the gate.
 var awaiting_gate: bool = false
+## Units still up in the current wave. UNITS, not bodies — a nine-strong gnat
+## cloud is 1. This is the wave's clock and the number the HUD shows.
+var remaining: int = 0
 
-var _remaining: int = 0
+## The live units of the current wave, read-only outside this file (the
+## headless checks read it to kill exactly the wave and nothing else).
+var units: Array[Node] = []
+
 var _rng := RandomNumberGenerator.new()
 
 
@@ -49,6 +150,7 @@ func start_run() -> void:
 	waves_cleared = 0
 	kills = 0
 	awaiting_gate = false
+	units.clear()
 	_next_wave()
 
 
@@ -60,10 +162,17 @@ func end_run() -> void:
 	var sorties_cleared: int = sortie if awaiting_gate else sortie - 1
 	awaiting_gate = false
 	run_ended.emit(maxi(sorties_cleared, 0), waves_cleared, kills)
-	# Quiet despawn: queue_free without take_hit awards no points.
+	# Quiet despawn: queue_free without take_hit awards no points. Tracked
+	# units go first — a cloud's container is not in the `enemies` group and an
+	# emplacement is in `turrets`, so a group sweep alone would leave both
+	# standing after the run ended.
+	for unit: Node in units:
+		if is_instance_valid(unit):
+			unit.queue_free()
+	units.clear()
 	for enemy: Node in get_tree().get_nodes_in_group(&"enemies"):
 		enemy.queue_free()
-	_remaining = 0
+	remaining = 0
 
 
 ## Called by main after the player flies the exit gate (and, once drafts
@@ -77,39 +186,160 @@ func advance_sortie() -> void:
 	_next_wave()
 
 
+## The wave's unit list, in spawn order. Static and side-effect free, so a
+## check can assert on a composition without building an arena — which is the
+## only way to cover sorties nobody has time to fly to.
+static func compose(sortie_n: int, wave_n: int, budget: int) -> Array[StringName]:
+	var slots: int = maxi(budget, 1)
+	var named: Dictionary = plan_entry(sortie_n, wave_n)
+	var composed: Array[StringName] = []
+	# Named units come OUT of the budget and never take its last slot: every
+	# wave keeps at least one raider. That is what makes the budget honest (it
+	# is the whole wave, not a base the plan adds to) and it is what guarantees
+	# the escort rule below can always be satisfied.
+	var room: int = maxi(slots - 1, 0)
+	for type_id: StringName in named:
+		if not ROSTER.has(type_id):
+			push_warning("[waves] plan names unknown roster type %s" % type_id)
+			continue
+		for i: int in int(named[type_id]):
+			if composed.size() >= room:
+				break
+			composed.append(type_id)
+	while composed.size() < slots:
+		composed.append(&"raider")
+	# The escort rule. It cannot fire while the raider backbone above exists —
+	# it is here because PLAN is data, and data gets edited by someone who is
+	# not reading this function.
+	if not has_threat(composed):
+		composed[0] = &"raider"
+	return composed
+
+
+## The plan's named units for a sortie/wave, clamped: past the table's last
+## row a run keeps flying its hardest mix.
+static func plan_entry(sortie_n: int, wave_n: int) -> Dictionary:
+	var row: Array = PLAN[clampi(sortie_n - 1, 0, PLAN.size() - 1)]
+	return row[clampi(wave_n - 1, 0, row.size() - 1)]
+
+
+## Does this composition contain anything that puts the player under pressure?
+static func has_threat(composed: Array[StringName]) -> bool:
+	for type_id: StringName in composed:
+		if ROSTER.has(type_id) and bool(ROSTER[type_id]["threat"]):
+			return true
+	return false
+
+
+## How many units wave `wave_n` of sortie `sortie_n` is worth. Unchanged from
+## the count it has always been — what changed is that it now buys units of
+## whatever type the plan names, rather than raiders by construction.
+func wave_budget(sortie_n: int, wave_n: int) -> int:
+	return maxi(int(combat_config.wave_base_enemies
+			+ combat_config.wave_growth * float(wave_n - 1)
+			+ combat_config.sortie_enemy_bonus * float(sortie_n - 1)), 1)
+
+
 func _next_wave() -> void:
 	if not running or awaiting_gate:
 		return
 	wave += 1
-	var count: int = maxi(int(combat_config.wave_base_enemies
-			+ combat_config.wave_growth * float(wave - 1)
-			+ combat_config.sortie_enemy_bonus * float(sortie - 1)), 1)
-	_remaining = count
-	for i: int in count:
-		_spawn_enemy()
-	Blackbox.log_event(&"wave", "s%d w%d" % [sortie, wave], float(_remaining))
-	wave_changed.emit(sortie, wave, _remaining)
+	units.clear()
+	for type_id: StringName in compose(sortie, wave, wave_budget(sortie, wave)):
+		_spawn_unit(type_id)
+	remaining = units.size()
+	Blackbox.log_event(&"wave", "s%d w%d" % [sortie, wave], float(remaining))
+	wave_changed.emit(sortie, wave, remaining)
 
 
-func _spawn_enemy() -> void:
-	var enemy: EnemyDrone = ENEMY_SCENE.instantiate() as EnemyDrone
-	get_parent().add_child(enemy)
+func _spawn_unit(type_id: StringName) -> void:
+	var row: Dictionary = ROSTER[type_id]
+	var unit: Node = (load(row["scene"]) as PackedScene).instantiate()
+	var point: Vector3 = _ground_point() if bool(row["ground"]) \
+			else _air_point(row.get("height", -1.0))
+	# Placed BEFORE entering the tree. Every type reads its own position in
+	# _ready — the raider takes its wander home from it, the swarm builds its
+	# pack around it, the falx centres its patrol on it — so positioning after
+	# add_child builds them all around the origin instead. (This file did
+	# exactly that until now, which is why every wave raider in the game's
+	# history wandered home to 0,0,0.) Local == global: our parent is the
+	# scene root, which sits at the origin.
+	(unit as Node3D).position = point
+	# The bomber is a CLOCK, not a health bar. Without a route it flies its own
+	# heading into empty sky and the wave becomes a fetch quest; with one it
+	# runs level from the ring to the middle of the arena, and the wave becomes
+	# "kill it in time".
+	if unit.get(&"route_end") != null:
+		unit.set(&"route_end", ARENA_CENTER + Vector3.UP * BOMB_RUN_HEIGHT)
+	# A body that comes back makes its wave permanently unclearable. The
+	# arena's own turrets keep their cycle; a wave's emplacement is spent.
+	if unit.get(&"respawns") != null:
+		unit.set(&"respawns", false)
+	get_parent().add_child(unit)
+	units.append(unit)
+	unit.connect(&"destroyed", _on_points_scored)
+	# The unit is over when the UNIT is over. A cloud says so with `cleared`;
+	# for a single body its own death is the same event.
+	if (unit as Object).has_signal(&"cleared"):
+		unit.connect(&"cleared", _on_unit_gone.bind(unit))
+	else:
+		unit.connect(&"destroyed",
+				func(_points: float) -> void: _on_unit_gone(unit))
+	# Left the field without dying: the bomber got through. Opposite outcome,
+	# same bookkeeping — the wave has one fewer unit either way.
+	if (unit as Object).has_signal(&"detonated"):
+		unit.connect(&"detonated", func() -> void:
+			announced.emit("bomber reached its target")
+			_on_unit_gone(unit))
+	Blackbox.log_event(&"spawn", String(type_id), 0.0, point)
+
+
+## Somewhere on the flyer ring. A negative `height` means "anywhere in the
+## band"; a type that flies a set profile names its own.
+func _air_point(height: float) -> Vector3:
 	var angle: float = _rng.randf_range(0.0, TAU)
 	var radius: float = _rng.randf_range(SPAWN_RADIUS_MIN, SPAWN_RADIUS_MAX)
-	enemy.global_position = ARENA_CENTER + Vector3(
+	return ARENA_CENTER + Vector3(
 			cos(angle) * radius,
-			_rng.randf_range(SPAWN_HEIGHT_MIN, SPAWN_HEIGHT_MAX),
+			height if height >= 0.0 \
+					else _rng.randf_range(SPAWN_HEIGHT_MIN, SPAWN_HEIGHT_MAX),
 			sin(angle) * radius)
-	enemy.destroyed.connect(_on_enemy_destroyed)
-	Blackbox.log_event(&"spawn", "raider", 0.0, enemy.global_position)
 
 
-func _on_enemy_destroyed(points: float) -> void:
+func _ground_point() -> Vector3:
+	var angle: float = _rng.randf_range(0.0, TAU)
+	var radius: float = _rng.randf_range(GROUND_RADIUS_MIN, GROUND_RADIUS_MAX)
+	var at: Vector3 = ARENA_CENTER + Vector3(
+			cos(angle) * radius, 0.0, sin(angle) * radius)
+	var space: PhysicsDirectSpaceState3D = get_tree().root.world_3d.direct_space_state
+	if space == null:
+		return at
+	var query := PhysicsRayQueryParameters3D.create(
+			at + Vector3.UP * GROUND_PROBE_HEIGHT, at + Vector3.DOWN * 5.0)
+	var hit: Dictionary = space.intersect_ray(query)
+	# Only solid scenery seats an emplacement. A hit on a flyer that happens to
+	# be overhead is traffic, not ground.
+	if not hit.is_empty() and hit["collider"] is StaticBody3D:
+		return hit["position"]
+	return at
+
+
+## A body died and paid out. Bodies, not units: a gnat is worth its points and
+## its place in the combo even though nine of them are one unit.
+func _on_points_scored(points: float) -> void:
 	kills += 1
-	_remaining -= 1
 	enemy_destroyed.emit(points)
-	wave_changed.emit(sortie, wave, _remaining)
-	if _remaining > 0 or not running:
+
+
+## One unit left the field — killed, cleared, or spent. This is the only thing
+## the wave's clock listens to.
+func _on_unit_gone(unit: Node) -> void:
+	if not units.has(unit):
+		return
+	units.erase(unit)
+	remaining = units.size()
+	wave_changed.emit(sortie, wave, remaining)
+	if remaining > 0 or not running:
 		return
 	waves_cleared += 1
 	if wave >= int(combat_config.sortie_waves):

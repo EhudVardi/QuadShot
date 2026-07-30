@@ -7148,6 +7148,70 @@ prevent.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-30 — v1.85. M6a step 8: RUN MODE GETS THE ROSTER. Six types existed;
+  one of them had ever been in a run.** The user flew the game and said it "might
+  be stale". It was, and the cause was a single line: `wave_director.gd` held one
+  `const ENEMY_SCENE`, so **every wave of every sortie was raiders** while the
+  gnat swarm, aegis, falx, screamer and turret lived only in the dev room. A year
+  of bestiary work had never reached the thing you actually play.
+  - **A wave is now a BUDGET filled from a PLAN.** `WaveDirector.ROSTER` maps a
+    type to its scene plus the three facts the director needs (air or ground, and
+    whether it threatens you at all); `PLAN` is sortie × wave → the named units
+    that wave spends its budget on; raiders fill the rest. **Adding a bestiary
+    type to the run is a ROSTER row and a PLAN slot — if it ever needs code, the
+    file has the wrong shape.** That is `matchup_harness.MATCHUPS`' discipline
+    applied to the run.
+  - **Named units come OUT of the budget, never on top of it** — SortieComposer's
+    reserve rule (P2.3) borrowed on purpose. The war sim itself is deliberately
+    NOT wired in: M4's run is not the M6 campaign and must not quietly become it.
+    Only the vocabulary is shared, so the two cannot drift apart conceptually
+    while they are still separate systems.
+  - **THE UNIT IS THE UNIT, and three types can deadlock a wave in a way a body
+    count cannot see.** `remaining` counts units, not bodies. A gnat **cloud** is
+    one unit and nine bodies and announces its end with `cleared`, not
+    `destroyed` — a director counting `destroyed` clears the wave eight bodies
+    early and then never again. A **turret** respawns on a 20 s timer, so a wave
+    holding one is unclearable for as long as the run lasts (it gained a
+    per-instance `respawns` flag; arena furniture cycles, a wave's emplacement is
+    spent). An **aegis** can leave the field WITHOUT dying, by reaching its
+    target — the one exit that fires no `destroyed` and pays no points, and the
+    one that would have hung a wave forever with the gate never opening.
+  - **The escort rule is ENFORCED, not stated.** The screamer carries no weapon,
+    so a wave of nothing but screamers is a wave with no fight in it. `compose()`
+    reserves the budget's last slot for a raider and then re-checks the result,
+    because PLAN is data and data gets edited by someone who is not reading
+    `compose()`.
+  - **Two latent bugs fell out of the rewrite, both invisible from the old code.**
+    (1) The director positioned enemies AFTER `add_child`, so every wave raider in
+    the game's history read its wander home as `(0,0,0)` — the harness had already
+    learned to place before entering the tree and had written down why; this file
+    never got the lesson. (2) The bomb run now flies level at **26 m, above the
+    greybox's 24 m skyline**, because a bomber routed through the city at gate
+    height can wedge against a tower, and an intercept clock that cannot arrive is
+    a wave that cannot clear.
+  - **`composition_check.gd` is the fourteenth check**, and it is the behaviour
+    check the roster rule demands. Part A sweeps 320 compositions with no arena at
+    all — the only way to cover sorties nobody has time to fly to — asserting that
+    every wave spends its whole budget, names only real types, holds a threat, and
+    that **every roster type actually reaches a wave**, which is precisely the bug
+    being fixed and is invisible from anywhere else. Part B flies three real
+    sorties, checks the arena against the table wave by wave, and **deliberately
+    lets both bombers through** so the detonation path is the one under test.
+    `wave_check` and `run_check` now assert on units rather than raw bodies; their
+    flow assertions are untouched.
+  - **NOTHING WAS RE-MEASURED, and nothing is owed.** Neither the duel harness nor
+    the delivery bench goes anywhere near the wave director — they build their own
+    arenas. No cell moved, no `PILOT_VERSION` bump.
+  - **PROVISIONAL, and flagged for hands: the plan IS the pacing, and pacing is
+    the user's call.** The table argues with the handoff's sketch on one point —
+    the falx lands before the cloud, because one fast body teaches "bait the pass,
+    kill it in the recovery" without also multiplying the body count, and a cloud
+    is a better sortie finale than a mid-sortie surprise. Two things to watch
+    while flying it: sortie 1 wave 3 is three raiders plus a nine-body cloud (12
+    bodies, the run's first real jump), and **a bomber that gets through currently
+    costs nothing but its points** — whether the player should take a hit for
+    losing an intercept is a design decision, not a bug, and it is not mine.
+
 - **2026-07-29 — v1.84. THE RE-MEASURE, and it found a defect in the pilot it was
   run to validate. `PILOT_VERSION` 6 → 7.** Two full three-layer runs were spent
   rather than the one planned, and the second was worth it: the first showed four

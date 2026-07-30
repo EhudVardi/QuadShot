@@ -94,7 +94,7 @@ the city block around the middle.
 
 ---
 
-## 4. The check suite — 13 headless checks
+## 4. The check suite — 14 headless checks
 
 Run all of them before believing anything:
 
@@ -103,18 +103,29 @@ Run all of them before believing anything:
 ```
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
-`manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`.
+`manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`.
 
-The last two are **behaviour checks**, and every new enemy type gets one the day
-it lands. The reason is scar tissue: the harness can only ever say *"this cell
-reads 0%"*, which is equally consistent with a tough enemy, a broken enemy, and
-an enemy that has flown out of the level. Four separate Falx bugs looked
+`falx` and `screamer` are **behaviour checks**, and every new enemy type gets one
+the day it lands. The reason is scar tissue: the harness can only ever say *"this
+cell reads 0%"*, which is equally consistent with a tough enemy, a broken enemy,
+and an enemy that has flown out of the level. Four separate Falx bugs looked
 identical from the results table.
 
 `screamer_check` is the current example of how much that buys — five phases:
 does it stay put, does a missile lock work at all (control), does its jam fade
 across both ends of its field, does it hold a standoff, and **can it actually be
 caught** by a pursuing pilot.
+
+`composition_check` is the same idea one level up, for the wave director's
+roster (v1.85). Part A sweeps 320 compositions with no arena at all — every wave
+spends its whole budget, names only real types, and contains something that
+threatens you — and asserts that **every roster type actually reaches a wave**,
+which is the exact bug the item fixed. Part B flies three real sorties, clears
+every wave, and checks the arena against the table. Three types can deadlock a
+wave in a way a body count cannot see, so all three are exercised on purpose: a
+gnat **cloud** is one unit and nine bodies and reports `cleared`, a **turret**
+respawns on a timer, and an **aegis** can leave the field without dying — the
+bombers are deliberately let through so the detonation path is under test.
 
 ---
 

@@ -36,8 +36,11 @@ func _enemy_count() -> int:
 func _on_physics_frame() -> void:
 	_ticks += 1
 	if _ticks >= _ticks_max:
-		print("[wave_check] FAIL: timed out in phase %d (enemies %d)"
-				% [_phase, _enemy_count()])
+		var where: String = "no director yet" if _director == null \
+				else "s%d w%d, %d units" % [_director.sortie, _director.wave,
+				_director.remaining]
+		print("[wave_check] FAIL: timed out in phase %d (%s, %d bodies)"
+				% [_phase, where, _enemy_count()])
 		quit(1)
 		return
 	match _phase:
@@ -47,16 +50,18 @@ func _on_physics_frame() -> void:
 			_setup()
 			_phase = 1
 		1:
-			# Run started on arm; wave 1 should spawn base_enemies.
-			if _enemy_count() == 2 and _director.wave == 1:
-				print("[wave_check] wave 1 spawned (%d enemies)" % _enemy_count())
+			# Run started on arm; wave 1 should spawn base_enemies. Counted in
+			# UNITS (director.remaining), not bodies: a wave can now contain a
+			# gnat cloud, which is one unit and nine nodes in the group.
+			if _director.remaining == 2 and _director.wave == 1:
+				print("[wave_check] wave 1 spawned (%d units)" % _director.remaining)
 				for enemy: Node in get_nodes_in_group(&"enemies"):
 					enemy.call(&"take_hit", 99999.0)
 				_phase = 2
 		2:
-			# Intermission (shortened) then wave 2 with one more enemy.
-			if _director.wave == 2 and _enemy_count() == 3:
-				print("[wave_check] wave 2 spawned (%d enemies)" % _enemy_count())
+			# Intermission (shortened) then wave 2 with one more unit.
+			if _director.wave == 2 and _director.remaining == 3:
+				print("[wave_check] wave 2 spawned (%d units)" % _director.remaining)
 				_drone.take_hit(99999.0)
 				_phase = 3
 		3:
@@ -74,6 +79,7 @@ func _setup() -> void:
 	# pilot's saved combat config, which can carry any difficulty tuning.
 	config.wave_intermission = 0.25
 	(load("res://resources/default_enemy_raider.tres") as EnemyConfig).damage = 0.0
+	(load("res://resources/default_enemy_falx.tres") as EnemyConfig).damage = 0.0
 	(load("res://resources/default_enemy_turret.tres") as EnemyConfig).sight_range = 0.0
 	config.wave_base_enemies = 2.0
 	config.wave_growth = 1.0

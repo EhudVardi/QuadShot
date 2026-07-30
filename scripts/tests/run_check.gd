@@ -42,8 +42,11 @@ func _enemy_count() -> int:
 func _on_physics_frame() -> void:
 	_ticks += 1
 	if _ticks >= _ticks_max:
-		print("[run_check] FAIL: timed out in phase %d (enemies %d)"
-				% [_phase, _enemy_count()])
+		var where: String = "no director yet" if _director == null \
+				else "s%d w%d, %d units" % [_director.sortie, _director.wave,
+				_director.remaining]
+		print("[run_check] FAIL: timed out in phase %d (%s, %d bodies)"
+				% [_phase, where, _enemy_count()])
 		_finish(false)
 		return
 	match _phase:
@@ -53,9 +56,12 @@ func _on_physics_frame() -> void:
 			_setup()
 			_phase = 1
 		1:
-			# Sortie 1 has a single (shortened) wave of base_enemies.
+			# Sortie 1 has a single (shortened) wave of base_enemies. Counted
+			# in UNITS: a wave's composition can include an emplacement (group
+			# `turrets`) or a cloud (nine bodies, one unit), so a raw body
+			# count is no longer the wave's clock — director.remaining is.
 			if _director.sortie == 1 and _director.wave == 1 \
-					and _enemy_count() == 2:
+					and _director.remaining == 2:
 				print("[run_check] sortie 1 wave 1 spawned")
 				for enemy: Node in get_nodes_in_group(&"enemies"):
 					enemy.call(&"take_hit", 99999.0)
@@ -72,8 +78,9 @@ func _on_physics_frame() -> void:
 				_draft.pick(0)
 				_phase = 4
 		4:
-			# Sortie 2 wave 1: base 2 + sortie_enemy_bonus 1 = 3 hostiles.
-			if _director.sortie == 2 and _enemy_count() == 3:
+			# Sortie 2 wave 1: base 2 + sortie_enemy_bonus 1 = 3 units, which
+			# the plan spends on an emplacement plus two raiders.
+			if _director.sortie == 2 and _director.remaining == 3:
 				if not _mods_changed():
 					print("[run_check] FAIL: draft pick left RunMods at defaults")
 					_finish(false)

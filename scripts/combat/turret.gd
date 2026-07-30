@@ -12,6 +12,11 @@ signal destroyed(points: float)
 const AIM_TOLERANCE_DEG: float = 4.0
 
 @export var enemy_config: EnemyConfig
+## Arena furniture cycles back; an emplacement that belongs to a WAVE is spent
+## when it dies. A respawning body would make its wave permanently unclearable
+## — the gate would never open — so the wave director turns this off for the
+## ones it spawns.
+@export var respawns: bool = true
 
 ## Read by projectiles: enemy fire never damages enemy structures.
 var team: StringName = &"enemy"
@@ -69,6 +74,9 @@ func _on_died() -> void:
 	destroyed.emit(enemy_config.points)
 	visible = false
 	_collision.set_deferred(&"disabled", true)
+	if not respawns:
+		queue_free()
+		return
 	get_tree().create_timer(enemy_config.respawn_delay).timeout.connect(_respawn)
 
 

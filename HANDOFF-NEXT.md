@@ -72,7 +72,13 @@ before starting, and the tail of [GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md)
 
 ---
 
-## ITEM 1 — Run mode gets the roster *(recommended first; biggest gap)*
+## ITEM 1 — Run mode gets the roster ✅ *(DONE 2026-07-30, v1.85)*
+
+Built as `WaveDirector.ROSTER` + `PLAN`, unit-based bookkeeping, and a
+fourteenth check (`composition_check.gd`). See GAMEPLAY-DESIGN v1.85 for the
+full record, including the two latent bugs it surfaced and the two things
+flagged for the user's hands. The brief below is kept as written, because the
+constraints it lists are the reason the implementation has the shape it does.
 
 ### The problem, verified
 
