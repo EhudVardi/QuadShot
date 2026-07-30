@@ -98,6 +98,8 @@ func _mods_changed() -> bool:
 	var fresh := RunMods.new()
 	return mods.fire_rate_mult != fresh.fire_rate_mult \
 			or mods.damage_mult != fresh.damage_mult \
+			or mods.flak_fire_rate_mult != fresh.flak_fire_rate_mult \
+			or mods.flak_damage_mult != fresh.flak_damage_mult \
 			or mods.missile_cooldown_mult != fresh.missile_cooldown_mult \
 			or mods.lock_time_mult != fresh.lock_time_mult \
 			or mods.lock_cone_mult != fresh.lock_cone_mult \

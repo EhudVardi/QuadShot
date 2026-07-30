@@ -7,8 +7,17 @@ extends RefCounted
 
 static var current: RunMods = RunMods.new()
 
+## Blaster only. These two were read by the flak pod as well until v1.86, so
+## one card labelled "blaster" silently upgraded two weapons — and because the
+## pod's cadence is its whole power curve, the free half of the buff was the
+## larger half. The cards always said "blaster"; the fields were named
+## generically and the pod, added later, simply reused them.
 var fire_rate_mult: float = 1.0
 var damage_mult: float = 1.0
+## Flak pod. Its own cards now, so the pod's power curve is something the
+## player spends a draft pick on rather than something they inherit.
+var flak_fire_rate_mult: float = 1.0
+var flak_damage_mult: float = 1.0
 var missile_cooldown_mult: float = 1.0
 var lock_time_mult: float = 1.0
 var lock_cone_mult: float = 1.0

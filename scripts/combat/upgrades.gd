@@ -8,6 +8,8 @@ extends Object
 const POOL: Array[Dictionary] = [
 	{"id": &"rapid_blaster", "title": "Rapid Blaster", "desc": "+35% blaster fire rate"},
 	{"id": &"heavy_bolts", "title": "Heavy Bolts", "desc": "+40% blaster damage"},
+	{"id": &"autoloader", "title": "Autoloader", "desc": "+35% flak fire rate"},
+	{"id": &"dense_frag", "title": "Dense Fragments", "desc": "+40% flak damage"},
 	{"id": &"twin_racks", "title": "Twin Racks", "desc": "-50% missile cooldown"},
 	{"id": &"seeker_optics", "title": "Seeker Optics", "desc": "35% faster missile lock, +25% lock cone"},
 	{"id": &"armor_plating", "title": "Armor Plating", "desc": "+40 max hull"},
@@ -22,6 +24,14 @@ static func apply(id: StringName, mods: RunMods) -> void:
 			mods.fire_rate_mult *= 1.35
 		&"heavy_bolts":
 			mods.damage_mult *= 1.4
+		# The pod's own curve (v1.86). Both cards used to be free riders on the
+		# two above: one "blaster" pick bought the flak the same buff, and
+		# cadence is where a burst weapon's power actually lives, so the half
+		# nobody paid for was the bigger half.
+		&"autoloader":
+			mods.flak_fire_rate_mult *= 1.35
+		&"dense_frag":
+			mods.flak_damage_mult *= 1.4
 		&"twin_racks":
 			mods.missile_cooldown_mult *= 0.5
 		&"seeker_optics":

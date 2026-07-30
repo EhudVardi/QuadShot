@@ -56,9 +56,15 @@ const WEAPONS: Array[String] = ["blaster", "missile", "flak"]
 ##                     economy term: what makes nine gnats expensive for a
 ##                     3 s missile is this, not durability and not delivery.
 ##   why: String     — human-readable note when kills is false
-## `damage_mult` is the RunMods layer; the baseline table uses 1.0. It applies
-## to the two GUN-family weapons only (blaster, flak) — missile.gd reads
-## missile_damage raw, and this mirrors that, faithfully including the asymmetry.
+## `damage_mult` is the RunMods layer; the baseline table uses 1.0, and every
+## bench in the project passes 1.0, so the split below moved nothing here.
+## It applies to the two GUN-family weapons only — missile.gd reads
+## missile_damage raw, and this mirrors that, faithfully including the
+## asymmetry. **The two guns have separate mods** (`damage_mult` for the
+## blaster, `flak_damage_mult` for the pod, v1.86): a caller that ever passes a
+## live RunMods must pass the one belonging to the weapon it named, or it will
+## quietly model a blaster upgrade landing on flak — which is the exact bug the
+## split fixed in the game.
 static func versus(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		damage_mult: float = 1.0) -> Dictionary:
 	return _fire(weapon, combat, enemy, damage_mult, false)

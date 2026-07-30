@@ -56,7 +56,7 @@ func _physics_process(delta: float) -> void:
 	if _drone.armed and _cooldown <= 0.0 and trigger_down:
 		_fire()
 		_cooldown = 1.0 / maxf(
-				combat_config.flak_fire_rate * RunMods.current.fire_rate_mult,
+				combat_config.flak_fire_rate * RunMods.current.flak_fire_rate_mult,
 				0.001)
 
 
@@ -101,5 +101,6 @@ func _fire() -> void:
 	_drone.get_parent().add_child(shell)
 	shell.global_position = origin
 	shell.setup(combat_config, self, _drone.team, [_drone.get_rid()], velocity,
-			combat_config.flak_damage * RunMods.current.damage_mult, fuse_radius())
+			combat_config.flak_damage * RunMods.current.flak_damage_mult,
+			fuse_radius())
 	SoundBank.play_at(&"shot", origin, -3.0, 0.3)
