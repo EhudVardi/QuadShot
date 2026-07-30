@@ -21,7 +21,9 @@ REM Close the window at any time; the run is a measurement, not a save.
 setlocal
 set GODOT=C:\Tools\Godot\Godot_v4.7-stable_win64_console.exe
 cd /d "%~dp0.."
-"%GODOT%" -s scripts/tests/delivery_bench.gd --path .
+REM Any words you pass are a WATCH FILTER: only cells whose name contains them
+REM run. `watch_delivery screamer` is a minute; the whole thing is not.
+"%GODOT%" -s scripts/tests/delivery_bench.gd --path . -- %*
 echo.
 echo [watch] finished - press any key to close.
 pause >nul

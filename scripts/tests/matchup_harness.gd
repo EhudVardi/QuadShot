@@ -324,6 +324,13 @@ const FRAME_BANDS: Array = [[0.30, "++"], [0.10, "+"], [-0.10, "0"], [-0.30, "-"
 
 enum { BUILD, RUN, RECORD }
 
+## The cells this run will actually fly — normally all of MATCHUPS, but a WATCH
+## filter can narrow it (see `_select_matchups`).
+var _matchups: Array[Dictionary] = []
+## True when the filter narrowed the list, which makes the run a LOOK rather than
+## a board — and skips every assert, since they address cells by name.
+var _filtered: bool = false
+
 var _pps: float
 var _ticks_max: int
 var _phase: int = BUILD
@@ -364,13 +371,47 @@ var _watching: bool = BenchView.watching()
 var _hud: Node = null
 
 
+## Narrow the run to matchups whose name contains a substring passed after `--`:
+##
+##   <godot> -s scripts/tests/matchup_harness.gd --path . -- screamer
+##
+## THE POINT IS WATCHING, exactly as it is for the delivery bench's twin of this
+## (v1.80). A full run is 29 cells x 6 reps and the interesting one is usually
+## last, so "drop --headless and look at it" cost half an hour of staring before
+## the duel you wanted appeared — which in practice means nobody looks. This
+## project's founding tenet is that some things are only visible to eyes.
+##
+## A FILTERED RUN IS A LOOK, NOT A MEASUREMENT. It writes no artifact (this file
+## never did), but it also SKIPS the rig-sanity and structural asserts, because
+## those address cells by name and a narrowed matrix would fail them for being
+## absent rather than for being wrong. The banner says so, loudly, so a filtered
+## matrix is never mistaken for a board.
+func _select_matchups() -> void:
+	var filter: String = ""
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.strip_edges() != "":
+			filter = argument.strip_edges().to_lower()
+			break
+	for matchup: Dictionary in MATCHUPS:
+		if filter == "" or String(matchup["name"]).to_lower().contains(filter):
+			_matchups.append(matchup)
+	_filtered = _matchups.size() != MATCHUPS.size()
+	if _filtered:
+		print("[matchup] FILTERED to %d of %d cells matching '%s' — this run is a LOOK, not a board; the rig-sanity and structural asserts are SKIPPED."
+				% [_matchups.size(), MATCHUPS.size(), filter])
+	if _matchups.is_empty():
+		print("[matchup] FAIL: filter '%s' matched no cells." % filter)
+		quit(1)
+
+
 func _initialize() -> void:
 	_pps = float(Engine.physics_ticks_per_second)
 	_ticks_max = int(MAX_SECONDS * _pps)
-	for _i: int in MATCHUPS.size():
+	_select_matchups()
+	for _i: int in _matchups.size():
 		_results.append([])
 	print("[matchup] %d matchups x %d reps, %ds cap  (pilot v%d)"
-			% [MATCHUPS.size(), REPS, int(MAX_SECONDS),
+			% [_matchups.size(), REPS, int(MAX_SECONDS),
 			ReferencePilot.PILOT_VERSION])
 	# A GROUP cell only measures a group if its dead bodies stay dead. The turret
 	# is the one shipped type that returns (`respawn_delay` 20 s, comfortably past
@@ -378,7 +419,7 @@ func _initialize() -> void:
 	# its one enemy dies. At N it would: a body that comes back mid-duel makes the
 	# kill count exceed the unit size and the cell unwinnable. Checked here rather
 	# than in the report so a tuning edit costs a second, not a full run.
-	for matchup: Dictionary in MATCHUPS:
+	for matchup: Dictionary in _matchups:
 		if int(matchup.get("count", 1)) <= 1:
 			continue
 		var config: EnemyConfig = load("res://resources/default_enemy_%s.tres"
@@ -431,7 +472,7 @@ func _on_physics_frame() -> void:
 
 
 func _build_duel() -> void:
-	var matchup: Dictionary = MATCHUPS[_matchup_i]
+	var matchup: Dictionary = _matchups[_matchup_i]
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	if _watching:
@@ -617,7 +658,7 @@ func _record(outcome: String) -> void:
 	# times — the first is a delivery/acquisition problem, the second a
 	# lethality one, and without this number they look identical in a report.
 	var spent: int = 0
-	match MATCHUPS[_matchup_i]["weapon"]:
+	match _matchups[_matchup_i]["weapon"]:
 		"missile":
 			spent = (_drone.get_node("FpvCamera/MissileSystem") \
 					as MissileSystem).launches
@@ -658,14 +699,14 @@ func _advance() -> void:
 	if _rep >= REPS:
 		_rep = 0
 		_matchup_i += 1
-	if _matchup_i >= MATCHUPS.size():
+	if _matchup_i >= _matchups.size():
 		_report()
 	else:
 		_phase = BUILD
 
 
 func _report() -> void:
-	for i: int in MATCHUPS.size():
+	for i: int in _matchups.size():
 		var runs: Array = _results[i]
 		var wins: int = 0
 		var ttk_sum: float = 0.0
@@ -682,7 +723,7 @@ func _report() -> void:
 		var win_rate: float = float(wins) / float(runs.size())
 		var mean_ttk: String = "%.1fs" % (ttk_sum / float(wins)) if wins > 0 else "-"
 		print("[matchup] %-18s win %2d/%d (%.0f%%)  ttk %s  dmg-taken %.1f  kills %.1f  spent %.1f"
-				% [MATCHUPS[i]["name"], wins, runs.size(), win_rate * 100.0,
+				% [_matchups[i]["name"], wins, runs.size(), win_rate * 100.0,
 				mean_ttk, dmg_sum / float(runs.size()),
 				kill_sum / float(runs.size()), _mean(i, "spent")])
 		# How a cell FAILS is the diagnosis: timing out (could not finish it),
@@ -695,6 +736,15 @@ func _report() -> void:
 				% ["", ", ".join(outcomes)])
 
 	_print_banded_matrix()
+
+	if _filtered:
+		# A narrowed run cannot be judged. Every assert below addresses a cell BY
+		# NAME, so on a filtered run they would fail for absence rather than for
+		# anything being wrong — which would teach the reader that red means
+		# nothing, the one thing H8 says never to teach.
+		print("[matchup] FILTERED LOOK — asserts skipped, no verdict. Run without a filter for a board.")
+		quit(0)
+		return
 
 	# Rig-sanity asserts — what the RIG genuinely proves: the reference pilot
 	# flies the real physics, engages, and its two aim paths both land — homing
@@ -727,25 +777,25 @@ func _report() -> void:
 	# datum it is a delta from, and a missing datum must fail loudly rather than
 	# print "?" in a column someone reads as a measurement. Same discipline as
 	# the by-name asserts above — a relative ruler with no origin is not a ruler.
-	for matchup: Dictionary in MATCHUPS:
+	for matchup: Dictionary in _matchups:
 		if matchup["mode"] != "frame":
 			continue
 		var datum: int = _matchup_index(String(matchup["datum"]))
 		if datum < 0:
 			_failures.append("rig broken: %s bands against datum '%s', which is not in the matrix"
 					% [matchup["name"], matchup["datum"]])
-		elif MATCHUPS[datum]["weapon"] != matchup["weapon"] \
-				or MATCHUPS[datum]["type"] != matchup["type"]:
+		elif _matchups[datum]["weapon"] != matchup["weapon"] \
+				or _matchups[datum]["type"] != matchup["type"]:
 			# The delta is only "what the frame did" if everything else is held
 			# still. Comparing an Atlas flak cell against a Kestrel missile cell
 			# would report the loadout and label it the airframe.
 			_failures.append("rig broken: %s (%s vs %s) bands against '%s' (%s vs %s) — the datum must differ ONLY by frame"
 					% [matchup["name"], matchup["weapon"], matchup["type"],
-					matchup["datum"], MATCHUPS[datum]["weapon"],
-					MATCHUPS[datum]["type"]])
+					matchup["datum"], _matchups[datum]["weapon"],
+					_matchups[datum]["type"]])
 		elif not is_equal_approx(_bodies(_matchup_index(String(matchup["name"]))),
 				_bodies(datum)) \
-				or MATCHUPS[datum]["enemy"] != matchup["enemy"]:
+				or _matchups[datum]["enemy"] != matchup["enemy"]:
 			# CONCURRENCY is the second thing that must be held still (v1.78).
 			# The whole point of the S5 axis is that being outnumbered changes the
 			# exchange, so an Atlas at N=3 banded against a Kestrel at N=1 would
@@ -755,7 +805,7 @@ func _report() -> void:
 					% [matchup["name"],
 					_bodies(_matchup_index(String(matchup["name"]))),
 					matchup["enemy"], matchup["datum"], _bodies(datum),
-					MATCHUPS[datum]["enemy"]])
+					_matchups[datum]["enemy"]])
 
 	if _failures.is_empty():
 		print("[matchup] PASS")
@@ -820,8 +870,8 @@ func _print_banded_matrix() -> void:
 	# ruler to make the columns match, so the honest move is to name the
 	# mismatch and compare the NUMBERS underneath, which the model line prints.
 	print("[matchup] (predicted = modeled ttk; validated = H4 outcome ruler — compare the numbers, not just the bands)")
-	for i: int in MATCHUPS.size():
-		var matchup: Dictionary = MATCHUPS[i]
+	for i: int in _matchups.size():
+		var matchup: Dictionary = _matchups[i]
 		var paper: String = matchup["paper"]
 		var validated: String
 		var detail: String
@@ -941,7 +991,7 @@ func _print_banded_matrix() -> void:
 func _predict(matchup_i: int, factors: Dictionary) -> Dictionary:
 	if factors.is_empty():
 		return {}
-	var matchup: Dictionary = MATCHUPS[matchup_i]
+	var matchup: Dictionary = _matchups[matchup_i]
 	var weapon: String = matchup["weapon"]
 	var type_id: String = matchup["type"]
 	var aim_table: Dictionary = factors.get("aim", {})
@@ -997,7 +1047,7 @@ func _predict(matchup_i: int, factors: Dictionary) -> Dictionary:
 func _survival_line(matchup_i: int, factors: Dictionary) -> String:
 	if factors.is_empty():
 		return ""
-	var matchup: Dictionary = MATCHUPS[matchup_i]
+	var matchup: Dictionary = _matchups[matchup_i]
 	var enemy: EnemyConfig = load("res://resources/default_enemy_%s.tres"
 			% matchup["type"]) as EnemyConfig
 	# Frames in datum-first order, so a frame cell reads "Kestrel then Atlas" —
@@ -1006,7 +1056,7 @@ func _survival_line(matchup_i: int, factors: Dictionary) -> String:
 	if matchup["mode"] == "frame":
 		var datum: int = _matchup_index(String(matchup["datum"]))
 		if datum >= 0:
-			frame_ids.append(String(MATCHUPS[datum].get("frame", Frames.KESTREL)))
+			frame_ids.append(String(_matchups[datum].get("frame", Frames.KESTREL)))
 	frame_ids.append(String(matchup.get("frame", Frames.KESTREL)))
 	var parts: PackedStringArray = []
 	var mode: StringName = &""
@@ -1059,7 +1109,7 @@ func _survival_line(matchup_i: int, factors: Dictionary) -> String:
 ## Silent on the 20-odd rows with no EW anywhere near them.
 func _jam_line(matchup_i: int) -> String:
 	var mean: float = _mean(matchup_i, "jam")
-	var keyed: String = String(MATCHUPS[matchup_i].get("jam", "clear"))
+	var keyed: String = String(_matchups[matchup_i].get("jam", "clear"))
 	if mean < 0.005 and keyed == "clear":
 		return ""
 	return "jam: keyed `%s`, duels flew a mean of %.2f (delivery measures the two ends; the fight lives on the gradient)" \
@@ -1109,7 +1159,7 @@ func _ttk_line(matchup_i: int, prediction: Dictionary) -> String:
 ## (raiders are solo entities the game happens to spawn several of), so the
 ## unit size is the cell's statement, not the roster's.
 func _bodies(matchup_i: int) -> float:
-	var matchup: Dictionary = MATCHUPS[matchup_i]
+	var matchup: Dictionary = _matchups[matchup_i]
 	if matchup.has("bodies"):
 		return maxf(float(matchup["bodies"]), 1.0)
 	# A `count` cell spawns its own unit size (S5's concurrency axis), so it
@@ -1180,8 +1230,8 @@ func _config_stamp() -> String:
 ## Cell lookup by name — the only way asserts should address a row, so
 ## inserting a matrix row can never silently re-aim one. -1 when absent.
 func _matchup_index(name: String) -> int:
-	for i: int in MATCHUPS.size():
-		if MATCHUPS[i]["name"] == name:
+	for i: int in _matchups.size():
+		if _matchups[i]["name"] == name:
 			return i
 	return -1
 
