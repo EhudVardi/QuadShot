@@ -108,12 +108,17 @@ const ROSTER: Dictionary = {
 const PLAN: Array = [
 	# Sortie 1 — raiders, then the interceptor, then the swarm.
 	[{}, {&"falx": 1}, {&"gnats": 1}],
-	# Sortie 2 — ground fire you have to go and dig out, a real pair of falx,
-	# and the first EW escort: your gun goes manual while a cloud arrives.
-	[{&"turret": 1}, {&"falx": 2}, {&"gnats": 1, &"screamer": 1}],
-	# Sortie 3+ — the intercept clock, then P4.3's first designed pair: a
-	# bomber you must kill in time, escorted by the thing that takes your lock.
-	[{&"falx": 1, &"turret": 1}, {&"aegis": 1}, {&"aegis": 1, &"screamer": 1}],
+	# Sortie 2 — ground fire you have to go and dig out, then the cloud under
+	# escort: first a falx pulling you off it, then the EW asset that takes
+	# your gun director away while it arrives.
+	[{&"turret": 1}, {&"gnats": 1, &"falx": 1}, {&"gnats": 1, &"screamer": 1}],
+	# Sortie 3+ — where a long run actually lives, so every wave carries a
+	# cloud: the pressure that never lets a single-target answer settle. Then
+	# the intercept clock, and P4.3's first designed pair — a bomber you must
+	# kill in time, escorted by the thing that takes your lock away.
+	[{&"gnats": 1, &"falx": 1, &"turret": 1},
+			{&"gnats": 1, &"aegis": 1},
+			{&"gnats": 2, &"aegis": 1, &"screamer": 1}],
 ]
 
 @export var combat_config: CombatConfig

@@ -7148,6 +7148,53 @@ prevent.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-30 — v1.87. The plan cashes its own promise: GNATS EVERYWHERE.**
+  From the same flight: *"the gnats does not show too much and i really like
+  them."* True — v1.85's table put a cloud in 2 of 9 waves. Now 6 of 9, and
+  **every wave of sortie 3+ carries one**, which is where a long run actually
+  lives; the finale carries two. Sortie 1 wave 1 and sortie 2 wave 1 are left
+  clean deliberately: the run's opening and the wave right after a draft are
+  where a cloud reads as noise rather than pressure.
+  - **The change is four lines of table and no code at all**, which is the v1.85
+    shape being cashed in for the first time. `composition_check` re-derived
+    every assertion from the new table without an edit, because it asserts
+    properties (whole budget spent, a threat present, arena agrees with plan)
+    rather than a hard-coded line-up. That is the whole reason it was written
+    that way.
+
+- **2026-07-30 — v1.86. THE FLAK WAS RIDING THE BLASTER'S UPGRADES, and the user
+  caught it from the cockpit.** *"the flak is effective as the fire rate grows
+  (its tied to the fire rate of the blaster, i think by mistake)."* It was, and
+  it was two cards, not one: `Rapid Blaster` ("+35% blaster fire rate") and
+  `Heavy Bolts` ("+40% blaster damage") set `RunMods.fire_rate_mult` and
+  `damage_mult`, and **both `Weapon` and `FlakPod` read them**. One pick, two
+  weapons upgraded, and the card text never said so.
+  - **How it happened, because the shape will recur.** The mods were named
+    generically (`fire_rate_mult`, not `blaster_fire_rate_mult`) at a time when
+    there was one gun. The pod arrived later and reused the field that fit,
+    which is the path of least resistance and reads as correct in the diff. The
+    UI string was the only place the intent was written down, and strings do not
+    fail tests. **A run-scoped modifier should be named for the thing it
+    modifies, and a weapon added later should have to introduce its own.**
+  - **The larger half was the free half.** Cadence is where a burst weapon's
+    power lives — the pod fires 2.5/s against the blaster's 10, so a 1.35x on
+    its interval is worth far more per pick than the same number on the gun that
+    card was sold as. The user felt exactly this: *"once the fire rate is high it
+    starts to be buffed."*
+  - **The fix is the one the user proposed: its own cards.** `flak_fire_rate_mult`
+    and `flak_damage_mult`, read only by the pod, fed by two new draft options
+    (`Autoloader`, `Dense Fragments`). The pool goes 7 → 9. **Decoupling is also
+    the nerf** — the pod's curve now costs a draft pick instead of arriving free
+    — which is worth flying before adding any further limit on top of it.
+  - **Nothing was re-measured, and nothing is owed.** Every bench passes
+    `damage_mult = 1.0`, so Layer 1's table never saw either mod; the split moved
+    no cell. `Lethality`'s header now states which mult belongs to which weapon,
+    so a future caller that does pass live mods cannot repeat the bug inside the
+    instrument that exists to catch it.
+  - **NOT done, deliberately:** the user's *"we may limit its usage to shorter
+    bursts."* That is ammo, and ammo is the proposal in Iteration 10 — building a
+    magazine here would pre-empt a fork that is still open.
+
 - **2026-07-30 — v1.85. M6a step 8: RUN MODE GETS THE ROSTER. Six types existed;
   one of them had ever been in a run.** The user flew the game and said it "might
   be stale". It was, and the cause was a single line: `wave_director.gd` held one
