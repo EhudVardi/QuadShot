@@ -3853,7 +3853,57 @@ counter.** One weapon, one gate type, one number on screen. Missiles and the
 violet gate follow only if the flak version feels right. Everything else in this
 paper is grammar for later.
 
-### Open questions (R.q1–R.q6)
+### R9 — STEERED 2026-07-30 (R.q1–R.q6 answered; this section overrides R2)
+
+The user answered every question. Where an answer overrides this paper, the
+answer wins and the original text is left standing above so the change of mind
+is legible.
+
+| | answer | vs. my lean |
+|---|---|---|
+| **R.q1** blaster | **A rechargeable charge meter that can OVERHEAT, needs cooldown, and is upgradeable** | overrides R2's "infinite" |
+| **R.q2** magazine or pool | **Sortie resource** | agreed |
+| **R.q3** wave-clear top-up | **Free re-arm** | overrides my "no top-up" |
+| **R.q4** gate charges | **Finite per gate**, with the count written beside it | agreed |
+| **R.q5** energy | **PINNED.** "Energy" for now *is* R.q1's blaster charge; a separate definition is a later conversation | deferred by the user |
+| **R.q6** enemy drops | **Yes** — *"it would give the player a reason to take out the infinite turrets"* | overrides my "gates only" |
+
+- **"Three consumables would be two too many." — "why?"** A fair challenge, and
+  the answer is that **R2 counted the wrong thing.** The cost of a consumable is
+  not a counter on the HUD, it is whether running out can STRAND you: a resource
+  only a gate refills turns every empty moment into a forced disengage, and
+  three of those — with your default weapon among them — means the weapon you
+  fight with while hunting for a gate is the one that can be gone. That was the
+  real objection, and it was written as if it were about legibility.
+  - **R.q1's answer dissolves it rather than overruling it.** A self-recharging
+    heat meter is not that kind of resource at all. It never strands you, it
+    PACES you: it is firing discipline, the same family as trigger control, and
+    it needs no gate because it refills itself. So the shape is **two economies
+    and a tempo mechanic**, not three economies — flak and missile are what the
+    gates are for, and heat is what the trigger is for. R2's table stands for
+    the two; its "blaster: infinite" line does not.
+  - **It also gives `Rapid Blaster` a real cost.** Faster fire means faster
+    heat, so the upgrade that was a pure gain becomes a trade — and P4.3's
+    chip-gun `+` against a screamer changes character, since the iron trigger
+    now has a duty cycle. Both are consequences to measure, not to assume.
+- **R.q2 AND R.q3 TOGETHER MOVE THE UNIT OF SCARCITY, and it is worth naming.**
+  "Sortie resource" plus "free re-arm on wave clear" means the thing you can
+  actually run dry inside is the WAVE, not the sortie — a sortie is ~3 waves and
+  each one hands you back a full load. That is coherent and forgiving, and it is
+  probably the better game: ammo becomes mid-fight pressure rather than a
+  bookkeeping tax carried between fights. **But it costs P2.6's "pad-poor node"
+  difficulty knob most of its bite**, because a node's gate count now only
+  matters within a single wave. Recorded so nobody later reads the two answers
+  as contradictory — they are not, they just relocate the pressure.
+- **Gates get the menu tower's glyphs** (the user's ask: *"i want the health/ammo
+  gates to use the text effect on them like the menu room gates. its really
+  nice"*), partially transparent, with R.q4's remaining charges as a number
+  beside the label. `GlowText3D` is the existing primitive — B5's window text —
+  and it is already a MultiMesh of emissive cubes with no font asset. **It has
+  no digits**: the font table is space and A–Z only, so 0–9 land with this work.
+  That is the B8 "word chains" seed growing its first branch outside the tower.
+
+### Open questions (R.q1–R.q6 — ANSWERED, see R9)
 
 - **R.q1 — Does the blaster stay infinite?** My strong lean: yes (R2). The
   counter-case is that a fully consumable arsenal makes every gate matter and
@@ -3880,6 +3930,62 @@ paper is grammar for later.
   same question and the run loop should probably pick one. My lean: **gates
   only**, because a drop rewards killing and a gate rewards *flying*, and this
   project's north star is the flight model.
+
+## Iteration 11 — T: The Transit Gate (PINNED, 2026-07-30 — user-initiated, not scheduled)
+
+> *"idea! a gate which would be a portal to another location on the map, (like
+> the game portal) that forces the pilot to calculate the end's rotation and
+> position so once it passes the physics on it changes according to the
+> destination endpoint of the portal"*
+>
+> Pinned rather than proposed: it is a genuinely good idea and it is also the
+> first mechanic on this list that could fight the flight model, which is the
+> product. Recorded now, with the hard parts named, so that when it comes up
+> it starts from the questions instead of from the shader.
+
+**Why it belongs here at all.** Every mechanic in this project is judged by
+whether it makes the flight model matter more. A transit gate does, in the
+purest way available: a portal whose exit is rotated relative to its entrance
+turns a hole in the air into a **spatial reasoning problem you solve with your
+hands at 20 m/s.** You do not aim at the gate, you aim at what the gate is going
+to make of you. That is P2.7's dare taken to its logical end, and it is the one
+idea on the board that would be *worse* in a game with a lesser flight model.
+
+**T1 — The transform is the whole mechanic.** Passing through maps the drone's
+transform and velocity through `exit * entry.affine_inverse()`. Position and
+orientation are easy. **Velocity is where the design lives**: rotate the vector
+and a portal placed sideways converts your dive into a lateral slingshot with
+the ground now in a direction your inner ear did not vote for. Preserve the
+magnitude and it is a pure redirect; scale it and it becomes a booster, which is
+a different and probably worse mechanic.
+
+**T2 — The things that will actually be hard, in order.**
+
+1. **The camera.** FPV is the product. Rotating the pilot's world 90° in one
+   frame is, in a headset, an assault; on a monitor it is merely disorienting.
+   Whether the transition is instantaneous, blended over ~100 ms, or *only ever
+   yaw-aligned* (exits share the entrance's up-vector) is the first fork, and it
+   is the one that decides whether this ships at all.
+2. **The rate loop.** The controller runs at 240 Hz off measured body rates. A
+   discontinuous basis is a discontinuity in `_measured_rates`, and the D-term
+   will see an infinite derivative. The gyro LPF will smear it into a kick.
+   **This needs an explicit "teleport" path that reseeds the loop's history**,
+   the same way a reset does — not a silent transform swap.
+3. **Seeing through it.** A Portal-style see-through view needs a second camera
+   rendering to a viewport texture on the gate's face. That is affordable for
+   ONE pair; it is not obviously affordable for several, and a portal you cannot
+   see through is a much weaker version of the idea (you would be jumping
+   blind). The `blend_mix` pool surface built for the exit gate in v1.90 is the
+   natural fallback look — and notice it is already the right shape.
+4. **Everything else that moves.** Do projectiles transit? Missiles mid-flight?
+   Do enemies know the gate exists? "No" is a legitimate answer to all three and
+   should be the starting assumption, but it has to be *decided*, because a
+   player will absolutely try to shoot through it in the first minute.
+
+**T3 — What it is NOT.** Not a resupply gate (Iteration 10) and not the exit
+gate (M4). Three fly-through objects with three meanings is already the ceiling
+for one arena; a fourth needs its own colour and its own unmistakable silhouette
+before it can exist.
 
 ## Decision Log
 
@@ -7303,6 +7409,66 @@ paper is grammar for later.
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-30 — v1.90. THE FIRST FLIGHT OF THE CLOAK, Iteration 10 STEERED in
+  full, and Iteration 11 PINNED.** All from one round of cockpit feedback.
+  - **THE CLOAK'S OWN ANTENNA WAS GIVING IT AWAY** — *"its antena might be more
+    invisible, maybe as a difficulty axis"*, and both halves of that were right.
+    v1.89 left the dish emitter untouched at up to 5.5 energy, which is a bright
+    red lamp towing an invisible aircraft: the hull's shimmer was decorative
+    because the thing was findable at any range anyway. The dish now dims too.
+    - **And the dial is the user's second half, taken literally.**
+      `EnemyConfig.cloak_strength` (0..1, screamer ships at 0.8) scales BOTH the
+      floor under the hull's shimmer and how far the dish may dim, so the two
+      halves of "how hidden is it" can never disagree. It is one number in the
+      overlay's BESTIARY block and it is a real difficulty axis: turn it down to
+      make a sortie kinder. `DISH_HIDE_MAX` 0.88 stops even a full cloak from
+      taking the last ember, because the palette rule (red = threat) outranks
+      the dial — an enemy with no colour has no role written on it.
+    - **Gotcha for anyone with saved bestiary tunings:** a `user://` EnemyConfig
+      written before today has no `cloak_strength` and will load it as 0.0,
+      which is the *uncloaked* dish. Defaults restores it.
+  - **THE EXIT GATE IS A STARGATE NOW** — *"can we replace the exit gate from a
+    2d whirrpul into something like the movie stargate, like a face of a quiet
+    pool."* Done, and the reason it is an improvement rather than a reskin: a
+    whirlpool SPINS, and spin reads as hazard, which is the wrong sentence for
+    the one object in the arena that is a reward for clearing a sortie. A quiet
+    pool reads as arrival. Same fly-through, opposite invitation.
+    - **Three passes, and every one of them was a thing only a screenshot could
+      say.** (1) Every colour was above the 1.0 bloom threshold, so the gate
+      rendered as a featureless white disc — glow had eaten the ripples that
+      were the entire point. The fix is a rule worth keeping: **the water stays
+      under the threshold and only the caustic glints and the rim are allowed to
+      burn**, because the glow pass blurs whatever it catches. (2) The frame
+      bars at energy 3.0 bloomed into one white slab; a frame brighter than the
+      surface it frames is not a frame. (3) `ripple_scale` was being read as
+      RADIANS, which put one and a half broad bands across the whole disc — a
+      radial gradient, not a pool. As a ring count times TAU it became water.
+    - **The rig that caught them also had to be fixed twice**, and both are
+      worth writing down: a camera transform set this frame does not reach the
+      rendering server until the frame flushes, so `force_draw()` photographs
+      the PREVIOUS aim; and the screamer overwrites its own shader uniforms
+      every physics tick, so a rig that sets them in `process_frame` silently
+      photographs the live value instead of the one it asked for. Both produce
+      plausible screenshots of the wrong thing, which is the worst failure mode
+      a look check has.
+  - **Iteration 10 steered in full (R9): every R.q answered, and R2 overridden.**
+    The blaster gets a rechargeable, overheatable, upgradeable charge meter
+    instead of being infinite. **My "three consumables would be two too many"
+    was challenged and it was wrong as written** — it counted HUD counters when
+    the real cost is whether running dry can *strand* you. A self-recharging
+    heat meter never strands, it paces: two economies (flak, missile) and a
+    tempo mechanic (heat), which is a shape the objection does not touch.
+    Flagged in the same pass: R.q2 + R.q3 together relocate the unit of scarcity
+    from the sortie to the wave, which is likely the better game but costs
+    P2.6's pad-poor knob most of its bite.
+  - **Iteration 11 PINNED — the transit gate** (*"like the game portal"*).
+    Pinned rather than proposed because it is the first idea on the board that
+    could fight the flight model: a discontinuous basis at 240 Hz is a
+    discontinuity in `_measured_rates` and an infinite D-term derivative, and a
+    world that rotates 90° in one frame is an assault on an FPV camera. Both are
+    solvable and neither is a shader problem, which is exactly why it is written
+    down before anyone opens one.
 
 - **2026-07-30 — v1.89. THE SCREAMER CLOAKS (the user's ask, handoff ITEM 2):
   *"maybe since it doesnt engage, maybe we should give it a new equipment of
