@@ -89,6 +89,17 @@ extends TunableConfig
 ## engaging it at all costs you part of your FCS and killing it costs you all of
 ## it. See `Jamming.falloff`.
 @export var jam_full_range: float = 0.0
+## How completely this type hides itself, 0..1. 0 = no cloak, which is every
+## roster type but the Screamer.
+##
+## THE DIFFICULTY AXIS (the user's suggestion, v1.90): a cloak is not on or
+## off, it is a dial, and this is the dial. It pulls two things together so
+## they can never disagree — the floor under the hull's shimmer, and how far
+## the dish emitter is allowed to dim. At 0 the dish burns at its old
+## brightness and the hull is faintly visible even outside the field; at 1 the
+## only thing a distant screamer gives you is the audio and the feed breakup,
+## and you hunt it by flying toward the interference.
+@export_range(0.0, 1.0, 0.01) var cloak_strength: float = 0.0
 
 @export_group("Behavior")
 ## Standoff distance the type holds while attacking (orbit radius for flyers).

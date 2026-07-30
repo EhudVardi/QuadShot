@@ -69,11 +69,21 @@ const DISH_SPIN_S: float = 2.6
 ## their rounds are landing, which reads as a broken weapon rather than a
 ## cloaked enemy.
 const CLOAK_REVEAL_S: float = 0.3
-## Floor under the cloak's shimmer, so a screamer at the very edge of its own
-## field is *faint* rather than mathematically invisible. PROVISIONAL: set it to
-## 0.0 for the pure version, where a screamer outside its jam range cannot be
-## seen at all and only the dish gives it away.
+## Floor under the cloak's shimmer at `cloak_strength` 0, scaled away as the
+## cloak dial rises: a fully cloaked screamer outside its own field cannot be
+## seen at all, and an uncloaked one always carries a faint ripple.
 const CLOAK_FLOOR: float = 0.15
+## Emitter brightness at rest and inside full jam, BEFORE the cloak dims it.
+## The bloom threshold is 1.0, so the rest value is a dull red dot and the
+## jammed value is a lamp — the dish lights up as you close, on the same curve
+## as everything else this type does.
+const DISH_ENERGY_REST: float = 0.5
+const DISH_ENERGY_JAMMED: float = 5.5
+## The most of the dish's brightness a full cloak may take. Not 1.0, and that
+## is the palette rule holding the line (CLAUDE.md: red = threat): even at
+## `cloak_strength` 1 there is a red ember left, because an enemy with no
+## colour at all has no role written on it.
+const DISH_HIDE_MAX: float = 0.88
 
 @export var enemy_config: EnemyConfig
 ## Fixed RNG seed for the harness (P4.8 determinism): -1 randomizes. Must be set
@@ -254,9 +264,15 @@ func _update_telegraph(delta: float) -> void:
 		level = jam_level_at(_player.global_position)
 	_dish.rotate_y(TAU / DISH_SPIN_S * delta)
 	if _emitter_material != null:
+		# The dish is cloaked too, just never all the way. It was the one part
+		# of the type the cloak did not touch, and it read as a bright red lamp
+		# towing an invisible aircraft — which gave the screamer away at any
+		# range and made the hull's shimmer decorative.
+		var dimmed: float = lerpf(DISH_ENERGY_REST, DISH_ENERGY_JAMMED, level) \
+				* (1.0 - enemy_config.cloak_strength * DISH_HIDE_MAX)
 		_emitter_material.emission_energy_multiplier = lerpf(
 				_emitter_material.emission_energy_multiplier,
-				0.5 + 5.0 * level, 1.0 - exp(-5.0 * delta))
+				dimmed, 1.0 - exp(-5.0 * delta))
 	_update_cloak(level, delta)
 	if _tone == null or _tone.stream == null:
 		return
@@ -284,7 +300,8 @@ func _update_cloak(level: float, delta: float) -> void:
 	_reveal = maxf(_reveal - delta / CLOAK_REVEAL_S, 0.0)
 	if _cloak_material == null:
 		return
-	_cloak_material.set_shader_parameter(&"shimmer", lerpf(CLOAK_FLOOR, 1.0, level))
+	var floor_level: float = CLOAK_FLOOR * (1.0 - enemy_config.cloak_strength)
+	_cloak_material.set_shader_parameter(&"shimmer", lerpf(floor_level, 1.0, level))
 	_cloak_material.set_shader_parameter(&"reveal", _reveal)
 
 

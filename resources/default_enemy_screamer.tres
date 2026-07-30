@@ -32,6 +32,15 @@
 ; be able to outrun a player who has committed to closing — an EW asset that can
 ; simply leave has no counterplay at all.
 ;
+; cloak_strength 0.8 is THE DIFFICULTY AXIS (v1.90, the user's suggestion), and
+; it is the one number that decides how hard this type is to find at all. It
+; scales the floor under the hull's shimmer AND how far the dish emitter is
+; allowed to dim, so the two can never disagree about how hidden the thing is.
+; At 0 you get a bright red lamp towing an invisible aircraft — which is what
+; shipped in v1.89 and gave the whole cloak away. At 1 a distant screamer is
+; audio and feed breakup only, and you hunt it by flying toward interference.
+; Turn it DOWN to make a sortie kinder, not up.
+;
 ; PROVISIONAL, flagged for hands: jam_range and jam_full_range are FEEL numbers.
 ; They decide how early the feed starts breaking up and how deep you have to press
 ; before the gun goes manual, and neither is a thing a bench can judge. Fly it and
@@ -60,6 +69,7 @@ aim_jitter_deg = 0.0
 pack_size = 0.0
 jam_range = 55.0
 jam_full_range = 20.0
+cloak_strength = 0.8
 preferred_range = 40.0
 respawn_delay = 0.0
 points = 350.0
