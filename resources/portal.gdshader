@@ -16,6 +16,24 @@ render_mode unshaded, blend_mix, cull_disabled;
 // from being perfect circles, and a caustic term that only lights where both
 // trains crest at once — which is the highlight that makes water look like
 // water instead of like a gradient.
+//
+// NOT WHAT THE USER AIMED FOR, and the gap is recorded rather than papered
+// over (v1.91). The reference is the film's event horizon, and the recipe they
+// found for it differs from this one in two structural ways, not in tuning:
+//
+//   1. POLAR UVs. Convert to (angle, radius) and treat that as the sampling
+//      space, so detail wraps seamlessly around the disc. Concentric rings
+//      alone — what is here — read as a struck drum; the film's surface has
+//      ANGULAR structure that churns as well as radial rings.
+//   2. TWO SCROLLING NOISE LAYERS in opposite directions, with the first
+//      layer's value DISPLACING the second's UVs. That domain-warped noise is
+//      what produces the churning-liquid look. `sin()` trains cannot: they are
+//      periodic, and the eye reads periodicity as machinery.
+//
+// Doing it properly needs a noise source, and the house rule is no external
+// assets — so either a `NoiseTexture2D` generated at import (procedural, no
+// file, probably acceptable) or a hash-based value-noise function written
+// here. That choice is the first decision of the rework, not a detail of it.
 // THE BLOOM THRESHOLD IS 1.0, AND THAT IS THE WHOLE BUDGET HERE. The first
 // attempt put every one of these above it and the gate rendered as a
 // featureless white disc — a pool with no surface on it, because glow had
