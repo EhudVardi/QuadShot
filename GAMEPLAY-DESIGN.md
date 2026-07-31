@@ -3974,17 +3974,40 @@ a different and probably worse mechanic.
    Whether the transition is instantaneous, blended over ~100 ms, or *only ever
    yaw-aligned* (exits share the entrance's up-vector) is the first fork, and it
    is the one that decides whether this ships at all.
-2. **The rate loop.** The controller runs at 240 Hz off measured body rates. A
-   discontinuous basis is a discontinuity in `_measured_rates`, and the D-term
-   will see an infinite derivative. The gyro LPF will smear it into a kick.
-   **This needs an explicit "teleport" path that reseeds the loop's history**,
-   the same way a reset does — not a silent transform swap.
+2. **The rate loop — CORRECTED 2026-07-31, and the correction is good news.**
+   This section previously claimed a discontinuous basis would spike the D-term
+   and that the loop's history needed reseeding. **That is wrong**, and reading
+   the code rather than reasoning about it says why:
+   `FlightController._measured_rates()` returns `global_basis.transposed() *
+   angular_velocity`, so under a rigid rotation `R` applied to BOTH the basis
+   and the world-space angular velocity, the body-space rate is invariant —
+   `(RB)ᵀ(Rw) = BᵀRᵀRw = Bᵀw`. The pilot-axis rates the controller filters,
+   differentiates and integrates therefore do not move at all through a
+   transit. `RateController`'s history (`_last_measured`, `_gyro_filtered`, the
+   integrator) is in those same body axes and needs no reseeding either.
+   - **The condition is the whole of it: rotate `angular_velocity` with the
+     basis.** A teleport that moves the transform and leaves angular velocity in
+     the old world frame is the version that spikes.
+   - **THE REAL RESEED IS SOMEWHERE ELSE, and it is one line.**
+     `FlightController._previous_velocity` (declared :66, written :172) is a
+     WORLD-space velocity, and `_on_body_entered` (:317) reports impact severity
+     as `(_previous_velocity - linear_velocity).length()`. Rotate the velocity
+     through a portal and that delta is spurious: 20 m/s through a 90° exit
+     reads as ~28 m/s of delta-v, which is well past `crash_damage_speed` 12 and
+     lands ~96 damage on the first thing clipped after transit. **A transit must
+     rewrite `_previous_velocity` along with the rest, or it hands out a phantom
+     crash.**
 3. **Seeing through it.** A Portal-style see-through view needs a second camera
    rendering to a viewport texture on the gate's face. That is affordable for
    ONE pair; it is not obviously affordable for several, and a portal you cannot
    see through is a much weaker version of the idea (you would be jumping
    blind). The `blend_mix` pool surface built for the exit gate in v1.90 is the
    natural fallback look — and notice it is already the right shape.
+3b. **The signal leash will fight it.** `main.gd`'s link range (`signal_lost_m`,
+   300 m from the origin) drops the feed and yanks the pilot back to the menu
+   tower. A transit gate whose far end is a long way out trips that on arrival,
+   which would read as the portal killing the run. Either the exits stay inside
+   the leash, or the leash learns that a transit is not a stray.
 4. **Everything else that moves.** Do projectiles transit? Missiles mid-flight?
    Do enemies know the gate exists? "No" is a legitimate answer to all three and
    should be the starting assumption, but it has to be *decided*, because a
