@@ -14,6 +14,7 @@ const KILL_FEED_SECONDS: float = 3.0
 @onready var _wave_label: Label = $WaveLabel
 @onready var _health_bar: ProgressBar = $HealthBar
 @onready var _heat_bar: ProgressBar = $HeatBar
+@onready var _ammo_label: Label = $AmmoLabel
 @onready var _damage_flash: ColorRect = $DamageFlash
 @onready var _death_label: Label = $DeathLabel
 @onready var _kill_feed: VBoxContainer = $KillFeed
@@ -359,6 +360,21 @@ func set_heat(fraction: float, overheated: bool) -> void:
 		_heat_bar.modulate = Color(1.0, 0.22, 0.16).lerp(Color(1.0, 0.75, 0.3), pulse)
 		return
 	_heat_bar.modulate = Color(0.95, 0.9, 0.35).lerp(Color(1.0, 0.45, 0.15), fraction)
+
+
+## The two magazines. A weapon passing -1 has no magazine at all and is left
+## off the readout entirely — the ABSENCE of a number is information: it says
+## that weapon never runs out, which is exactly the blaster's contract.
+func set_ammo(flak: int, missile: int) -> void:
+	var parts: PackedStringArray = []
+	if flak >= 0:
+		parts.append("FLAK %d" % flak)
+	if missile >= 0:
+		parts.append("MSL %d" % missile)
+	_ammo_label.text = "   ".join(parts)
+	# Dry is a state you must notice mid-fight, not one you read.
+	var dry: bool = (flak == 0) or (missile == 0)
+	_ammo_label.modulate = Color(1.0, 0.35, 0.25) if dry else Color(0.85, 0.85, 0.9)
 
 
 func set_motor_health(healths: PackedFloat32Array, vtx_health: float = 1.0) -> void:

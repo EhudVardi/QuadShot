@@ -36,6 +36,7 @@ const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
 @onready var _exit_gate: ExitGate = $ExitGate
 @onready var _draft: DraftScreen = $DraftScreen
 @onready var _weapon: Weapon = $Drone/FpvCamera/Weapon
+@onready var _flak: FlakPod = $Drone/FpvCamera/FlakPod
 
 var score: int = 0
 
@@ -67,6 +68,11 @@ func _ready() -> void:
 	for scorer: Node in get_tree().get_nodes_in_group(&"targets") \
 			+ get_tree().get_nodes_in_group(&"turrets"):
 		scorer.connect(&"destroyed", _on_scorer_destroyed)
+		# THE POINT OF R.q6, in one line: the arena's turrets respawn forever
+		# and were worth points nobody needed, so they were scenery you flew
+		# around. Salvage makes killing one an ammunition decision, which is
+		# the first time that 20 s respawn timer has meant anything.
+		scorer.connect(&"destroyed", _on_scorer_salvage.bind(scorer))
 	_wave_director.enemy_destroyed.connect(_on_scorer_destroyed)
 	_wave_director.wave_changed.connect(_hud.set_wave)
 	_wave_director.sortie_cleared.connect(_on_sortie_cleared)
@@ -74,6 +80,7 @@ func _ready() -> void:
 	# A unit can leave a wave without dying (a bomber that got through), and a
 	# counter that silently ticks down reads as a bug rather than a loss.
 	_wave_director.announced.connect(_hud.add_kill_feed)
+	_wave_director.wave_cleared.connect(_on_wave_cleared)
 	_exit_gate.entered.connect(_on_gate_entered)
 	_draft.picked.connect(_on_upgrade_picked)
 	# Hull comes from the FRAME now (P3.9) and the drone applies it to itself in
@@ -110,6 +117,8 @@ func _process(delta: float) -> void:
 		else:
 			_start_run()
 	_hud.set_heat(_weapon.heat_fraction(), _weapon.overheated)
+	_hud.set_ammo(-1 if _flak.unlimited() else _flak.rounds,
+			-1 if _missiles.unlimited() else _missiles.rounds)
 	_update_lock_indicator()
 	_update_gate_marker()
 	_update_reticle()
@@ -205,6 +214,33 @@ func _start_run() -> void:
 func _on_sortie_cleared(sortie: int) -> void:
 	_exit_gate.activate()
 	_hud.announce_gate(sortie)
+
+
+## Wave down: both magazines come back in full (Iteration 10 R.q3, the user's
+## call). Together with "ammo is a sortie resource" this makes the WAVE the
+## unit you can actually run dry inside — mid-fight pressure rather than
+## bookkeeping carried between fights.
+##
+## Announced rather than silent: a resource that refills without saying so is
+## one the pilot never learns the rules of.
+## `destroyed` carries points and not a place, so the body comes in bound.
+func _on_scorer_salvage(_points: float, scorer: Node) -> void:
+	if is_instance_valid(scorer):
+		Salvage.maybe_drop(self, (scorer as Node3D).global_position,
+				WaveDirector.SALVAGE_CHANCE)
+
+
+func _on_wave_cleared(_sortie: int, _wave: int) -> void:
+	if not combat_config.rearm_on_wave_clear:
+		return
+	var rearmed: bool = false
+	for launcher: Node in get_tree().get_nodes_in_group(&"magazines"):
+		if bool(launcher.call(&"unlimited")):
+			continue
+		launcher.call(&"rearm", 1.0)
+		rearmed = true
+	if rearmed:
+		_hud.add_kill_feed("re-armed")
 
 
 func _on_gate_entered() -> void:

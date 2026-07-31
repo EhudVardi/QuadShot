@@ -95,6 +95,22 @@ mouse_filter = 2
 value = 0.0
 show_percentage = false
 
+; Magazines, beside the bars they belong with. Text rather than a bar because
+; a count you must spend deliberately is a number, not a level.
+[node name="AmmoLabel" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -80.0
+offset_right = 150.0
+offset_bottom = -60.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14
+text = ""
+horizontal_alignment = 1
+
 [node name="Title" type="VBoxContainer" parent="."]
 anchor_left = 0.5
 anchor_top = 0.32

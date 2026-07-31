@@ -27,9 +27,40 @@ var _lock_announced: bool = false
 ## Seconds the current full lock has stayed stable (missile-director timer).
 var _lock_stable: float = 0.0
 
+## Which resupply gate refills this rack, read through the `magazines` group so
+## a gate never needs to know what nodes a drone is built from.
+var ammo_kind: StringName = &"missile"
+## Missiles left; -1 until _ready loads the rack.
+var rounds: int = -1
+
 
 func _ready() -> void:
 	_drone = owner as FlightController
+	add_to_group(&"magazines")
+	rearm()
+
+
+## Capacity. 0 = unlimited, which is what every bench predating the magazine
+## expects and how the whole mechanic is switched off from a config.
+func magazine() -> int:
+	return maxi(int(combat_config.missile_rack), 0)
+
+
+func unlimited() -> bool:
+	return magazine() <= 0
+
+
+func has_ammo() -> bool:
+	return unlimited() or rounds > 0
+
+
+## Put `fraction` of a full rack back, capped at capacity. Gates, drops and the
+## wave-clear re-arm all come through here, so one place knows what full means.
+func rearm(fraction: float = 1.0) -> void:
+	if unlimited():
+		rounds = 0
+		return
+	rounds = clampi(rounds + int(ceil(float(magazine()) * fraction)), 0, magazine()) 			if rounds >= 0 else magazine()
 
 
 func is_locked() -> bool:
@@ -80,7 +111,7 @@ func _physics_process(delta: float) -> void:
 	var auto_ready: bool = _auto_enabled() \
 			and _lock_stable >= combat_config.missile_auto_hold_s
 	var trigger: bool = fire_override or Input.is_action_just_pressed(&"fire_missile")
-	if (trigger or auto_ready) and is_locked() and _cooldown <= 0.0:
+	if (trigger or auto_ready) and is_locked() and has_ammo() and _cooldown <= 0.0:
 		_launch()
 
 
@@ -157,6 +188,8 @@ func _has_line_of_sight(enemy: Node3D) -> bool:
 
 func _launch() -> void:
 	launches += 1
+	if not unlimited():
+		rounds -= 1
 	Blackbox.log_event(&"fired", "missile")
 	var missile: Missile = MISSILE_SCENE.instantiate() as Missile
 	_drone.get_parent().add_child(missile)

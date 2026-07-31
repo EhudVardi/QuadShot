@@ -94,7 +94,7 @@ the city block around the middle.
 
 ---
 
-## 4. The check suite — 15 headless checks
+## 4. The check suite — 16 headless checks
 
 Run all of them before believing anything:
 
@@ -104,7 +104,7 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`.
+`heat`, `ammo`.
 
 `falx` and `screamer` are **behaviour checks**, and every new enemy type gets one
 the day it lands. The reason is scar tissue: the harness can only ever say *"this
@@ -125,6 +125,15 @@ suite would notice, because every other check either kills its enemies with
 that Layer 1's duty-cycle arithmetic matches the real weapon — which
 `lethality_check` structurally cannot do, since that bench plants shots from the
 model itself and would agree with itself all the way to the wrong answer.
+
+`ammo_check` is `heat_check`'s mirror (v1.92): not a gun that never comes back,
+but a magazine that never refills. There are four ways to put rounds back and
+each is a separate way to be silently broken - firing spends and a dry launcher
+refuses, a gate fills only its own kind and spends exactly one charge, a spent
+gate is inert (or R.q4's finite charges mean nothing), and clearing a wave
+re-arms both. Plus the two cases that punish a careful pilot if they regress: a
+gate must not eat a charge against a full magazine, and salvage must not consume
+itself against one.
 
 `composition_check` is the same idea one level up, for the wave director's
 roster (v1.85). Part A sweeps 320 compositions with no arena at all — every wave

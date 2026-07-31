@@ -31,6 +31,11 @@ extends Node
 signal wave_changed(sortie: int, wave: int, remaining: int)
 signal enemy_destroyed(points: float)
 signal sortie_cleared(sortie: int)
+## A wave is down. Separate from `sortie_cleared` because it fires between
+## waves as well as at the end of one, and it is what the magazines re-arm on
+## (Iteration 10 R.q3): ammunition is mid-fight pressure, handed back when the
+## fight pauses.
+signal wave_cleared(sortie: int, wave: int)
 signal run_ended(sorties_cleared: int, waves_cleared: int, kills: int)
 ## Something about the wave itself the pilot needs told. Kills already speak
 ## for themselves through the score; a bomber that got through does not.
@@ -57,6 +62,23 @@ const GROUND_PROBE_HEIGHT: float = 60.0
 ## it is also why the run does not wedge itself against a tower, which would
 ## turn an intercept clock into a wave that never clears.
 const BOMB_RUN_HEIGHT: float = 26.0
+
+## Resupply gates, placed per SORTIE rather than per wave (Iteration 10 R4), so
+## a sortie has a layout you learn and route around instead of a stream of
+## pickups drifting past.
+##
+## PAD-POOR IS THE DIFFICULTY KNOB P2.6 promised and never had: gate count
+## falls as the sortie number rises. Sortie 1 is generous; deep in a run you
+## get one gate and a decision about when to spend it.
+const GATES_BASE: int = 3
+const GATES_DECAY_PER_SORTIE: float = 0.6
+const GATES_MIN: int = 1
+## Ring they sit on: inside the enemy spawn ring, so re-arming is a detour into
+## the middle of the fight rather than a trip to the edge of the map.
+const GATE_RADIUS_MIN: float = 18.0
+const GATE_RADIUS_MAX: float = 34.0
+const GATE_HEIGHT_MIN: float = 5.0
+const GATE_HEIGHT_MAX: float = 14.0
 
 ## One unit of each roster type: what to build, and the handful of facts the
 ## director needs to place it and to know when it is gone. Everything else the
@@ -138,6 +160,9 @@ var remaining: int = 0
 ## The live units of the current wave, read-only outside this file (the
 ## headless checks read it to kill exactly the wave and nothing else).
 var units: Array[Node] = []
+## This sortie's resupply gates. Cleared and rebuilt each sortie, and swept at
+## the end of the run alongside the units.
+var gates: Array[Node] = []
 
 var _rng := RandomNumberGenerator.new()
 
@@ -156,6 +181,7 @@ func start_run() -> void:
 	kills = 0
 	awaiting_gate = false
 	units.clear()
+	_lay_gates()
 	_next_wave()
 
 
@@ -175,6 +201,10 @@ func end_run() -> void:
 		if is_instance_valid(unit):
 			unit.queue_free()
 	units.clear()
+	for gate: Node in gates:
+		if is_instance_valid(gate):
+			gate.queue_free()
+	gates.clear()
 	for enemy: Node in get_tree().get_nodes_in_group(&"enemies"):
 		enemy.queue_free()
 	remaining = 0
@@ -188,6 +218,7 @@ func advance_sortie() -> void:
 	awaiting_gate = false
 	sortie += 1
 	wave = 0
+	_lay_gates()
 	_next_wave()
 
 
@@ -257,6 +288,40 @@ func _next_wave() -> void:
 	wave_changed.emit(sortie, wave, remaining)
 
 
+## How many resupply gates this sortie gets. Falls with the sortie number, so
+## the run gets meaner in a way that is about ROUTE rather than about numbers
+## of enemies — which is the axis P2.6 wanted and the wave budget cannot give.
+func gate_count(sortie_n: int) -> int:
+	return maxi(int(round(float(GATES_BASE)
+			- GATES_DECAY_PER_SORTIE * float(sortie_n - 1))), GATES_MIN)
+
+
+## Fresh gates for a sortie. The old ones go with them: a spent gate is a
+## landmark for the sortie it belonged to, not litter in the next one.
+func _lay_gates() -> void:
+	for gate: Node in gates:
+		if is_instance_valid(gate):
+			gate.queue_free()
+	gates.clear()
+	var kinds: Array[StringName] = []
+	# Alternate, starting with flak: the pod burns its magazine several times
+	# faster than the rack does, so an odd gate count should favour it.
+	for i: int in gate_count(sortie):
+		kinds.append(&"flak" if i % 2 == 0 else &"missile")
+	for kind: StringName in kinds:
+		var gate := ResupplyGate.new()
+		gate.kind = kind
+		var angle: float = _rng.randf_range(0.0, TAU)
+		var radius: float = _rng.randf_range(GATE_RADIUS_MIN, GATE_RADIUS_MAX)
+		gate.position = ARENA_CENTER + Vector3(
+				cos(angle) * radius,
+				_rng.randf_range(GATE_HEIGHT_MIN, GATE_HEIGHT_MAX),
+				sin(angle) * radius)
+		get_parent().add_child(gate)
+		gates.append(gate)
+		Blackbox.log_event(&"gate", String(kind), float(gate.charges), gate.position)
+
+
 func _spawn_unit(type_id: StringName) -> void:
 	var row: Dictionary = ROSTER[type_id]
 	var unit: Node = (load(row["scene"]) as PackedScene).instantiate()
@@ -283,6 +348,12 @@ func _spawn_unit(type_id: StringName) -> void:
 	get_parent().add_child(unit)
 	units.append(unit)
 	unit.connect(&"destroyed", _on_points_scored)
+	# Bound to the unit because `destroyed` carries points and not a place, and
+	# salvage has to land where the body was.
+	unit.connect(&"destroyed", func(_points: float) -> void:
+			if is_instance_valid(unit):
+				Salvage.maybe_drop(get_parent(), (unit as Node3D).global_position,
+						SALVAGE_CHANCE))
 	# The unit is over when the UNIT is over. A cloud says so with `cleared`;
 	# for a single body its own death is the same event.
 	if (unit as Object).has_signal(&"cleared"):
@@ -329,6 +400,12 @@ func _ground_point() -> Vector3:
 	return at
 
 
+## Chance a dead body leaves salvage, and what it leaves. A cloud drops from
+## its individual gnats, which is deliberate: nine cheap bodies at a low rate
+## is a steady trickle, and one raider at a high rate is a decision.
+const SALVAGE_CHANCE: float = 0.35
+
+
 ## A body died and paid out. Bodies, not units: a gnat is worth its points and
 ## its place in the combo even though nine of them are one unit.
 func _on_points_scored(points: float) -> void:
@@ -347,6 +424,7 @@ func _on_unit_gone(unit: Node) -> void:
 	if remaining > 0 or not running:
 		return
 	waves_cleared += 1
+	wave_cleared.emit(sortie, wave)
 	if wave >= int(combat_config.sortie_waves):
 		awaiting_gate = true
 		sortie_cleared.emit(sortie)

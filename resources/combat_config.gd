@@ -55,6 +55,25 @@ extends TunableConfig
 ## the failure mode that makes overheat feel broken rather than tactical.
 @export_range(0.0, 0.9, 0.01) var heat_reset_fraction: float = 0.3
 
+@export_group("Magazines")
+## THE TWO RESOURCES THE GATES SERVE (Iteration 10 R.q2/R.q3). Unlike heat,
+## these do not come back on their own: they are a SORTIE resource, refilled by
+## flying through a resupply gate, by a drop, or by clearing a wave.
+##
+## The blaster deliberately has no entry here. It is the floor — a pilot out of
+## everything must still be able to fight, or a dry run is an unwinnable
+## stalemate with the exit gate shut. What the blaster has instead is heat.
+##
+## 0 disables the magazine entirely (infinite), which is what every bench that
+## predates this feature expects and what `bench_unlimited` states explicitly.
+@export var flak_magazine: float = 24.0
+@export var missile_rack: float = 6.0
+## Wave-clear re-arm (R.q3, the user's call over my "no top-up"): a cleared
+## wave hands both magazines back in full. Together with the sortie-resource
+## rule above this moves the unit of scarcity from the sortie to the WAVE —
+## ammunition is mid-fight pressure, not bookkeeping carried between fights.
+@export var rearm_on_wave_clear: bool = true
+
 @export_group("Flak pod")
 ## The slice's third weapon (GAMEPLAY-DESIGN P3.1 / P4.10): a proximity-fused
 ## burst shell that detonates into a fragment cloud. Its whole reason to exist

@@ -34,12 +34,46 @@ var shots_fired: int = 0
 var bursts_connected: int = 0
 var bodies_struck: int = 0
 
+## Which resupply gate refills this launcher. Read through the `magazines`
+## group, so a gate never needs to know what nodes a drone is built from.
+var ammo_kind: StringName = &"flak"
+## Shells left. -1 until _ready loads the magazine; a magazine of 0 means
+## unlimited (every bench that predates the feature, and the way to switch the
+## whole mechanic off from a config).
+var rounds: int = -1
+
 var _cooldown: float = 0.0
 var _drone: FlightController
 
 
 func _ready() -> void:
 	_drone = owner as FlightController
+	add_to_group(&"magazines")
+	rearm()
+
+
+## Capacity. 0 = unlimited.
+func magazine() -> int:
+	return maxi(int(combat_config.flak_magazine), 0)
+
+
+func unlimited() -> bool:
+	return magazine() <= 0
+
+
+func has_ammo() -> bool:
+	return unlimited() or rounds > 0
+
+
+## Put `fraction` of a full magazine back, capped at capacity. Gates, drops and
+## the wave-clear re-arm all come through here so there is one place that knows
+## what "full" means.
+func rearm(fraction: float = 1.0) -> void:
+	if unlimited():
+		rounds = 0
+		return
+	rounds = clampi(rounds + int(ceil(float(magazine()) * fraction)), 0, magazine()) \
+			if rounds >= 0 else magazine()
 
 
 func _physics_process(delta: float) -> void:
@@ -53,7 +87,7 @@ func _physics_process(delta: float) -> void:
 			or Input.is_action_pressed(&"fire_flak") \
 			or (InputMap.has_action(&"flak_switch")
 					and Input.is_action_pressed(&"flak_switch"))
-	if _drone.armed and _cooldown <= 0.0 and trigger_down:
+	if _drone.armed and _cooldown <= 0.0 and has_ammo() and trigger_down:
 		_fire()
 		_cooldown = 1.0 / maxf(
 				combat_config.flak_fire_rate * RunMods.current.flak_fire_rate_mult,
@@ -90,6 +124,8 @@ func report_burst(bodies: int) -> void:
 
 func _fire() -> void:
 	shots_fired += 1
+	if not unlimited():
+		rounds -= 1
 	Blackbox.log_event(&"fired", "flak")
 	var direction: Vector3 = -global_basis.z
 	var velocity: Vector3 = direction * combat_config.flak_muzzle_speed \

@@ -93,19 +93,24 @@ func _on_physics_frame() -> void:
 				_report()
 
 
+## Did the draft pick change ANY run modifier?
+##
+## Compares every script property instead of a hand-listed set, and the reason
+## is a real intermittent failure: the upgrade pool grew Heat Sinks and Vent
+## Ports, the hand-written list did not, and the check then passed or failed
+## purely on whether `draft()`'s shuffle happened to offer one of them at index
+## 0. It passed alone and failed in a batch, which is the worst way for a
+## regression check to behave. A generic comparison cannot drift out of date.
 func _mods_changed() -> bool:
 	var mods: RunMods = RunMods.current
 	var fresh := RunMods.new()
-	return mods.fire_rate_mult != fresh.fire_rate_mult \
-			or mods.damage_mult != fresh.damage_mult \
-			or mods.flak_fire_rate_mult != fresh.flak_fire_rate_mult \
-			or mods.flak_damage_mult != fresh.flak_damage_mult \
-			or mods.missile_cooldown_mult != fresh.missile_cooldown_mult \
-			or mods.lock_time_mult != fresh.lock_time_mult \
-			or mods.lock_cone_mult != fresh.lock_cone_mult \
-			or mods.max_health_bonus != fresh.max_health_bonus \
-			or mods.regen_rate != fresh.regen_rate \
-			or mods.score_mult != fresh.score_mult
+	for property: Dictionary in fresh.get_property_list():
+		if int(property["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE == 0:
+			continue
+		var name: StringName = property["name"]
+		if mods.get(name) != fresh.get(name):
+			return true
+	return false
 
 
 func _setup() -> void:

@@ -7425,6 +7425,62 @@ before it can exist.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-31 — v1.92. THE MAGAZINES AND THE RESUPPLY GATES SHIP — Iteration 10
+  is built.** Everything R.q2/R.q3/R.q4/R.q6 steered, in one slice, because the
+  four refill paths are only meaningful together.
+  - **The flak pod and the missile rack carry magazines; the blaster does not.**
+    That split is R2's one surviving claim after R9 overrode the rest, and it is
+    the load-bearing one: the blaster is the FLOOR, so a pilot out of everything
+    can still fight rather than being stranded alive with the exit gate shut.
+    A magazine of **0 means unlimited**, which is both the off switch and what
+    every bench predating the feature would want.
+  - **`ResupplyGate` is a gate, not a pad, and the user re-derived that
+    unprompted.** D5 turned the repair pad into a gate because *"holding station
+    on a wounded quad under fire is a death sentence"*; the ask for these said
+    "flying through" without being told. Amber = flak, violet = missile, both
+    colours nothing else in the palette claims, and the ring is deliberately
+    **smaller than the exit gate's opening** — threading it IS the challenge the
+    ask wanted ("more challanges to get more resources"), which is the flight
+    model advertising itself.
+  - **Finite charges, and the count is on the gate** (R.q4). A gate that
+    refilled forever would delete P2.6's pad-poor difficulty knob before it ever
+    got a referent, so the wave director now lays **fewer gates as the sortie
+    number rises** — the first time this project has had a difficulty axis about
+    ROUTE rather than about how many enemies arrive. A spent gate goes dark and
+    **stays in the world**: a landmark for where you have already been, not
+    litter that vanishes.
+  - **The gates wear the menu tower's glyphs**, per the ask, which is why
+    `GlowText3D` grew **digits** the same day. Its font table was space and A–Z
+    only — B5's floors are words — so a charge count would have rendered as a
+    row of hollow unknown-glyph boxes. First branch of B8's word chains outside
+    the tower.
+  - **Salvage drops, and the user's reason is the better argument.** I had
+    leaned gates-only on the grounds that a drop rewards killing where a gate
+    rewards flying. Their counter: *"it would give the player a reason to take
+    out the infinite turrets."* The arena's turrets respawn on a 20 s cycle and
+    were worth points nobody needed, so they were scenery you flew around —
+    **this is the first time that respawn timer has meant anything.** A drop is
+    a quarter magazine, drifts down, and expires, so a kill you do not go and
+    take is a kill you did not finish.
+  - **Two guards that exist to protect a careful pilot**, and both are asserted:
+    a gate must not spend a charge against an already-full magazine, and salvage
+    must not consume itself against one. Either would punish exactly the player
+    who routed well, and both would read as the feature being broken.
+  - **`ammo_check.gd` is the sixteenth check**, and it is `heat_check`'s mirror:
+    not a gun that never comes back, but a magazine that never refills.
+  - **IT CAUGHT A PRE-EXISTING INTERMITTENT FAILURE ON THE WAY IN**, which is
+    the useful part. `run_check` asserts a draft pick changed `RunMods` by
+    comparing a HAND-LISTED set of fields; the pool had grown four cards
+    (v1.86's two flak, v1.91's two heat) that the list did not name, so the
+    check passed or failed purely on whether `draft()`'s shuffle offered one at
+    index 0. **It passed alone and failed in a batch** — the worst way for a
+    regression check to behave. It now compares every script property
+    generically and cannot drift out of date again.
+  - **PROVISIONAL, all of it, and this is the part that needs hands:** 24 flak
+    shells, a 6-missile rack, 3 gates at sortie 1 decaying to 1, 2 charges each,
+    a 35% drop chance split 70/30 toward flak. None of these can be judged from
+    a bench — they are pacing, and pacing is the user's call.
+
 - **2026-07-31 — v1.91. THE BLASTER GETS A DUTY CYCLE (Iteration 10, R.q1 built),
   and Layer 1 stops assuming infinite ammunition.** The first slice of the ammo
   work, and deliberately the one that needs no gates: heat refills itself.
