@@ -3725,7 +3725,15 @@ them in one step would put two invalidations in one re-measure and make neither
 attributable, which is the mistake the pinned-ruler discipline exists to
 prevent.
 
-## Iteration 10 — R: Ammo & the Resupply Gates (PROPOSED, 2026-07-30 — user-initiated, awaiting steering)
+## Iteration 10 — R: Ammo & the Resupply Gates (BUILT, 2026-07-31 — proposed 2026-07-30, steered same day)
+
+> **STATUS: BUILT.** Proposed 2026-07-30 (v1.88), steered in full the same day
+> (R9 / v1.90), and shipped across v1.91 (the blaster's heat sink and Layer 1's
+> duty cycle) and v1.92 (magazines, resupply gates, salvage drops). **R2's
+> "blaster: infinite" line is superseded by R9 — read R9 first.** Everything
+> below stands as the reasoning that produced the build, including the parts
+> the user overruled, because a paper that quietly edits itself to agree with
+> the outcome stops being a record.
 
 > Opened by the user after the first flight of the composed roster (v1.85):
 >
