@@ -79,6 +79,20 @@ const GATE_RADIUS_MIN: float = 18.0
 const GATE_RADIUS_MAX: float = 34.0
 const GATE_HEIGHT_MIN: float = 5.0
 const GATE_HEIGHT_MAX: float = 14.0
+## Metres between gates. The first version placed them by pure random sample and
+## the user flew into the result: "the ammo gates were spawned clipping into
+## each other". Rejection sampling is the whole fix, and this is the distance it
+## enforces - comfortably more than two gate widths, so two of them can never
+## read as one confusing object.
+const GATE_MIN_SEPARATION: float = 16.0
+## Clear space a gate needs around it. Checked against real scenery with a
+## sphere cast, because a gate half-buried in a tower is worse than no gate: it
+## looks flyable and is not.
+const GATE_CLEARANCE: float = 3.4
+## Placement attempts before giving up on a gate. Failing to place is a fine
+## outcome - one fewer gate is a sortie that is slightly harder, where a badly
+## placed one is a sortie that lies to you.
+const GATE_PLACE_TRIES: int = 40
 
 ## One unit of each roster type: what to build, and the handful of facts the
 ## director needs to place it and to know when it is gone. Everything else the
@@ -308,18 +322,61 @@ func _lay_gates() -> void:
 	# faster than the rack does, so an odd gate count should favour it.
 	for i: int in gate_count(sortie):
 		kinds.append(&"flak" if i % 2 == 0 else &"missile")
+	var placed: Array[Vector3] = []
 	for kind: StringName in kinds:
+		var at: Vector3 = _gate_point(placed)
+		if at == Vector3.INF:
+			push_warning("[waves] no clear spot for a %s gate this sortie" % kind)
+			continue
+		placed.append(at)
 		var gate := ResupplyGate.new()
 		gate.kind = kind
+		gate.position = at
+		get_parent().add_child(gate)
+		# Faced at the middle of the arena, so the approach is a line you fly
+		# rather than an angle you have to discover. Done after add_child
+		# because look_at needs the node in a tree.
+		var flat := Vector3(ARENA_CENTER.x - at.x, 0.0, ARENA_CENTER.z - at.z)
+		if flat.length() > 0.1:
+			gate.look_at(gate.global_position + flat, Vector3.UP)
+		gates.append(gate)
+		Blackbox.log_event(&"gate", String(kind), float(gate.charges), at)
+
+
+## A spot for a gate that is clear of the other gates AND of the scenery, or
+## Vector3.INF if the arena is too crowded to find one.
+func _gate_point(placed: Array[Vector3]) -> Vector3:
+	var space: PhysicsDirectSpaceState3D = get_tree().root.world_3d.direct_space_state
+	var probe := SphereShape3D.new()
+	probe.radius = GATE_CLEARANCE
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = probe
+	for attempt: int in GATE_PLACE_TRIES:
 		var angle: float = _rng.randf_range(0.0, TAU)
 		var radius: float = _rng.randf_range(GATE_RADIUS_MIN, GATE_RADIUS_MAX)
-		gate.position = ARENA_CENTER + Vector3(
+		var at: Vector3 = ARENA_CENTER + Vector3(
 				cos(angle) * radius,
 				_rng.randf_range(GATE_HEIGHT_MIN, GATE_HEIGHT_MAX),
 				sin(angle) * radius)
-		get_parent().add_child(gate)
-		gates.append(gate)
-		Blackbox.log_event(&"gate", String(kind), float(gate.charges), gate.position)
+		var clear: bool = true
+		for other: Vector3 in placed:
+			if at.distance_to(other) < GATE_MIN_SEPARATION:
+				clear = false
+				break
+		if not clear:
+			continue
+		if space != null:
+			query.transform = Transform3D(Basis.IDENTITY, at)
+			# Static scenery only: a raider drifting past is not a reason to
+			# reject a spot that will be empty a second later.
+			var hits: Array[Dictionary] = space.intersect_shape(query, 4)
+			for hit: Dictionary in hits:
+				if hit["collider"] is StaticBody3D:
+					clear = false
+					break
+		if clear:
+			return at
+	return Vector3.INF
 
 
 func _spawn_unit(type_id: StringName) -> void:

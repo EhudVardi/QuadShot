@@ -7433,6 +7433,64 @@ before it can exist.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-07-31 — v1.93. THREE ROUNDS FLOWN, and the ammo economy gets its first
+  real corrections. R.q3 is RETRACTED.**
+  - **THE WAVE-CLEAR RE-ARM IS GONE, and it is the most important change here.**
+    v1.90 flagged the tension in writing — R.q2 makes ammo a sortie resource and
+    R.q3 hands it all back every wave, so the unit of scarcity quietly became
+    the wave and P2.6's pad-poor knob lost its bite. The user flew it and
+    agreed: *"lets drop the wave clear refills, and only keep the gates/kills to
+    provide ammo."* **Gates and kills are now the only ways to put rounds back**,
+    and both cost you something — a route, or a body you have to go and stand
+    over. `ammo_check` asserts the retraction rather than just deleting the code,
+    because a free refill creeping back is the kind of regression that makes a
+    whole economy feel pointless without any single line looking wrong.
+    - Salvage was raised 0.25 → 0.34 of a magazine in the same breath. With the
+      free refill gone, a drop has to be worth breaking off for.
+  - **THE GATES ARE SOLID FRAMES NOW** (*"they should be like the small rectangle
+    blue gates we already have. they should be collidable just like those small
+    gates"*). They are the same body as `environment/gate.tscn` — four bars, four
+    collision shapes — which reverses the hoop they shipped as. **A fly-through
+    reward you cannot miss is not a piece of flying**; the frame is what makes
+    taking a gate a thing you did.
+  - **THE EXIT GATE IS CIRCULAR AND SOLID**, reversing a deliberate old choice:
+    it was a "magic gate, not an obstacle" and is now a ring you can clip. Its
+    collision is a **fan of 16 boxes** rather than a trimesh of the torus, and
+    the segments overlap by 15% because the seam between two collision boxes is
+    exactly where a fast body squeezes through. It goes non-solid while
+    deactivated — an invisible gate must never be an invisible wall.
+  - **PLACEMENT WAS BROKEN AND IS NOW REJECTION-SAMPLED.** *"the ammo gates were
+    spawned clipping into each other."* They were sampled purely at random. Each
+    candidate must now clear every already-placed gate by 16 m AND clear real
+    scenery by a sphere cast, with 40 tries before giving up — **and failing to
+    place is a fine outcome**: one fewer gate is a sortie that is slightly
+    harder, where a badly placed one is a sortie that lies to you. Gates also
+    face the arena centre, so the approach is a line you fly rather than an angle
+    you have to discover.
+  - **THE LABEL MOVED INSIDE THE FRAME, and the first attempt was wrong in an
+    instructive way.** Two labels, one per face, renders as garbage: `GlowText3D`
+    glyphs are emissive cubes with no backface culling, so from behind you read
+    the far label MIRRORED and superimposed on the near one. It is one label,
+    snapped to whichever face the pilot is on — not freely billboarded, because a
+    sign that swivels inside a doorway reads as a loose object rather than as
+    part of the gate. **Caught by a screenshot; invisible in the code.**
+  - **SALVAGE GOT A BEACON** (*"i like the little ammo drops... they should be
+    more visible, they are easy to miss"*). The cube went 0.36 → 0.55 m and now
+    stands under a 9 m column of additive light that pulses while the cube spins:
+    **the cube says WHAT it is, the beacon says WHERE it is.** Pickup radius went
+    1.6 → 3.2 m, because half of missing a drop is flying near one without
+    tripping it, which reads as the pickup being broken rather than the pass
+    being wide. And to answer the question directly: **yes, they fall** — 2.2 m/s
+    from wherever the body died down to 1.2 m, then they hang.
+  - **THE REPAIR GATE IS IN A TUNNEL** (*"so the player will have to fly through
+    a tunnel to get the health"*), a 26 m box around it in the greybox. The heal
+    stops being something you drift over on the way somewhere and becomes a
+    committed run with no room to correct — the flight model charging a price for
+    what it hands you, which is the same argument D5 made when the repair PAD
+    became a gate.
+  - **Still provisional and still the user's:** every number in v1.92's list,
+    minus the wave-clear line.
+
 - **2026-07-31 — v1.92. THE MAGAZINES AND THE RESUPPLY GATES SHIP — Iteration 10
   is built.** Everything R.q2/R.q3/R.q4/R.q6 steered, in one slice, because the
   four refill paths are only meaningful together.

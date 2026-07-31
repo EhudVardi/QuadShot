@@ -80,7 +80,6 @@ func _ready() -> void:
 	# A unit can leave a wave without dying (a bomber that got through), and a
 	# counter that silently ticks down reads as a bug rather than a loss.
 	_wave_director.announced.connect(_hud.add_kill_feed)
-	_wave_director.wave_cleared.connect(_on_wave_cleared)
 	_exit_gate.entered.connect(_on_gate_entered)
 	_draft.picked.connect(_on_upgrade_picked)
 	# Hull comes from the FRAME now (P3.9) and the drone applies it to itself in
@@ -216,31 +215,11 @@ func _on_sortie_cleared(sortie: int) -> void:
 	_hud.announce_gate(sortie)
 
 
-## Wave down: both magazines come back in full (Iteration 10 R.q3, the user's
-## call). Together with "ammo is a sortie resource" this makes the WAVE the
-## unit you can actually run dry inside — mid-fight pressure rather than
-## bookkeeping carried between fights.
-##
-## Announced rather than silent: a resource that refills without saying so is
-## one the pilot never learns the rules of.
 ## `destroyed` carries points and not a place, so the body comes in bound.
 func _on_scorer_salvage(_points: float, scorer: Node) -> void:
 	if is_instance_valid(scorer):
 		Salvage.maybe_drop(self, (scorer as Node3D).global_position,
 				WaveDirector.SALVAGE_CHANCE)
-
-
-func _on_wave_cleared(_sortie: int, _wave: int) -> void:
-	if not combat_config.rearm_on_wave_clear:
-		return
-	var rearmed: bool = false
-	for launcher: Node in get_tree().get_nodes_in_group(&"magazines"):
-		if bool(launcher.call(&"unlimited")):
-			continue
-		launcher.call(&"rearm", 1.0)
-		rearmed = true
-	if rearmed:
-		_hud.add_kill_feed("re-armed")
 
 
 func _on_gate_entered() -> void:

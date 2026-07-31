@@ -16,8 +16,9 @@ extends SceneTree
 ##      (a gate that eats a charge for nothing punishes good routing);
 ##   3. a SPENT gate is inert — R.q4's finite charges are the difficulty knob,
 ##      and a gate that quietly kept working would delete it;
-##   4. clearing a WAVE re-arms both (R.q3), which is what makes the WAVE the
-##      unit of scarcity rather than the sortie.
+##   4. clearing a wave re-arms NOTHING (R.q3 retracted in v1.93 after the user
+##      flew it), so ammunition is a genuine sortie resource and the gates keep
+##      their teeth.
 ##
 ## Plus salvage (R.q6): a drop tops up, and a full magazine leaves it alone.
 ##
@@ -68,7 +69,7 @@ func _on_physics_frame() -> void:
 			_check_spending()
 			_check_gate()
 			_check_salvage()
-			_check_wave_rearm()
+			_check_no_free_rearm()
 			_report()
 
 
@@ -160,17 +161,21 @@ func _check_salvage() -> void:
 			% expected)
 
 
-## 4. Clearing a wave re-arms both (R.q3).
-func _check_wave_rearm() -> void:
-	_flak.rounds = 0
-	_missiles.rounds = 0
+## 4. Clearing a wave re-arms NOTHING. R.q3 answered "free re-arm" and was
+## retracted after three rounds of play: I had flagged that R.q2 and R.q3
+## together moved the unit of scarcity from the sortie to the wave, and flying
+## it confirmed the gates went slack. This asserts the retraction, because a
+## free refill quietly creeping back is exactly the kind of regression that
+## makes a whole economy feel pointless without any single thing looking wrong.
+func _check_no_free_rearm() -> void:
+	_flak.rounds = 3
+	_missiles.rounds = 1
 	_director.wave_cleared.emit(_director.sortie, _director.wave)
-	if _flak.rounds != _flak.magazine() or _missiles.rounds != _missiles.magazine():
-		_fail("wave clear left flak %d/%d, missiles %d/%d"
-				% [_flak.rounds, _flak.magazine(),
-				_missiles.rounds, _missiles.magazine()])
+	if _flak.rounds != 3 or _missiles.rounds != 1:
+		_fail("clearing a wave re-armed for free (flak %d, missiles %d) — R.q3 was retracted"
+				% [_flak.rounds, _missiles.rounds])
 	else:
-		print("[ammo_check] wave clear re-armed both magazines")
+		print("[ammo_check] a cleared wave re-arms nothing: gates and kills only")
 	# And the gates the director lays are real, keyed, and countable.
 	if _director.gates.is_empty():
 		_fail("the sortie laid no resupply gates")
@@ -181,6 +186,55 @@ func _check_wave_rearm() -> void:
 	else:
 		print("[ammo_check] sortie %d laid %d gates (pad-poor decay: sortie 6 gets %d)"
 				% [_director.sortie, _director.gates.size(), _director.gate_count(6)])
+	_check_gate_spacing()
+
+
+## Gates must not overlap each other, and must not be laid inside scenery.
+##
+## This is a REPORTED bug turned into an assertion: "the ammo gates were spawned
+## clipping into each other". Placement is rejection-sampled now, and a sample
+## that keeps its own constraint is exactly the kind of thing that quietly stops
+## doing so when the arena, the radii or the gate count change. Re-laid many
+## times because one lay of three gates passing proves very little.
+func _check_gate_spacing() -> void:
+	var laid: int = 0
+	var overlaps: int = 0
+	var buried: int = 0
+	var space: PhysicsDirectSpaceState3D = _main.get_world_3d().direct_space_state
+	var probe := SphereShape3D.new()
+	probe.radius = WaveDirector.GATE_CLEARANCE
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = probe
+	for sortie_n: int in range(1, 7):
+		_director.sortie = sortie_n
+		_director.call(&"_lay_gates")
+		var points: Array[Vector3] = []
+		for gate: Node in _director.gates:
+			points.append((gate as Node3D).global_position)
+		laid += points.size()
+		for i: int in points.size():
+			for j: int in range(i + 1, points.size()):
+				if points[i].distance_to(points[j]) < WaveDirector.GATE_MIN_SEPARATION:
+					overlaps += 1
+			query.transform = Transform3D(Basis.IDENTITY, points[i])
+			# The gates themselves are StaticBody3D now, so exclude them or every
+			# gate reports as buried inside itself.
+			var excludes: Array[RID] = []
+			for gate: Node in _director.gates:
+				excludes.append((gate as CollisionObject3D).get_rid())
+			query.exclude = excludes
+			for hit: Dictionary in space.intersect_shape(query, 4):
+				if hit["collider"] is StaticBody3D:
+					buried += 1
+					break
+	if overlaps > 0:
+		_fail("%d gate pairs closer than %.0f m across 6 sorties"
+				% [overlaps, WaveDirector.GATE_MIN_SEPARATION])
+	if buried > 0:
+		_fail("%d gates laid inside scenery across 6 sorties" % buried)
+	if overlaps == 0 and buried == 0:
+		print("[ammo_check] %d gates over 6 sorties: none overlapping, none buried"
+				% laid)
 
 
 func _setup() -> void:
@@ -193,7 +247,6 @@ func _setup() -> void:
 	# auto-loads the pilot's saved combat config, which can carry any tuning.
 	_combat.flak_magazine = 24.0
 	_combat.missile_rack = 6.0
-	_combat.rearm_on_wave_clear = true
 	# Arming starts a real run, and a real run shoots back; this check is about
 	# bookkeeping, not a fight.
 	for type_id: StringName in WaveDirector.ROSTER:

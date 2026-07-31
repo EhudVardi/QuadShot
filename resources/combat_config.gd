@@ -68,11 +68,18 @@ extends TunableConfig
 ## predates this feature expects and what `bench_unlimited` states explicitly.
 @export var flak_magazine: float = 24.0
 @export var missile_rack: float = 6.0
-## Wave-clear re-arm (R.q3, the user's call over my "no top-up"): a cleared
-## wave hands both magazines back in full. Together with the sortie-resource
-## rule above this moves the unit of scarcity from the sortie to the WAVE —
-## ammunition is mid-fight pressure, not bookkeeping carried between fights.
-@export var rearm_on_wave_clear: bool = true
+## R.q3 originally answered "free re-arm on wave clear", and it was RETRACTED
+## after three rounds of play (v1.93). I had flagged that R.q2 and R.q3 together
+## moved the unit of scarcity from the sortie to the wave; the user flew it and
+## agreed the gates went slack — "lets drop the wave clear refills, and only
+## keep the gates/kills to provide ammo".
+##
+## So ammunition is a genuine SORTIE resource again, and the only ways to put
+## rounds back are the two that cost you something: fly a gate, or go and take
+## a drop off something you killed. Nothing here re-arms for free.
+##
+## Running dry is still never fatal, and that is the whole reason the blaster
+## was left as the floor with heat instead of a magazine.
 
 @export_group("Flak pod")
 ## The slice's third weapon (GAMEPLAY-DESIGN P3.1 / P4.10): a proximity-fused

@@ -24,13 +24,29 @@ const PALETTE: Dictionary = {
 }
 ## Fraction of a magazine a single pickup is worth. Small on purpose: a drop is
 ## a top-up that rewards aggression, not a substitute for routing to a gate.
-const REFILL_FRACTION: float = 0.25
-const LIFETIME_S: float = 14.0
-const PICKUP_RADIUS: float = 1.6
+##
+## RAISED with the wave-clear re-arm's removal (v1.93): gates and kills are now
+## the ONLY ways to put rounds back, so a drop has to be worth breaking off for.
+const REFILL_FRACTION: float = 0.34
+const LIFETIME_S: float = 18.0
+## Generous, and deliberately so. The user's report was "they are easy to miss",
+## and half of missing one is flying near it without tripping it — which reads
+## as the pickup being broken rather than as the pass being wide.
+const PICKUP_RADIUS: float = 3.2
+## Yes, it falls: this is the answer to "do they fall slowly to the ground? or
+## am i imagining?" It does, at this rate, from wherever the body died down to
+## REST_HEIGHT, where it hangs for the rest of its life.
 const FALL_SPEED: float = 2.2
 const SPIN_S: float = 1.8
 ## Height above whatever it lands on, so a drop never sinks into the ground.
 const REST_HEIGHT: float = 1.2
+## The core cube's edge. Bigger than the 0.36 it shipped at, because at FPV
+## speeds a 36 cm box against a neon grid is genuinely invisible past 20 m.
+const CORE_SIZE: float = 0.55
+## A column of light standing over the drop, which is what actually makes it
+## findable: the cube says WHAT it is, the beacon says WHERE it is.
+const BEACON_HEIGHT: float = 9.0
+const BEACON_RADIUS: float = 0.13
 
 @export var kind: StringName = &"flak"
 
@@ -51,6 +67,7 @@ static func maybe_drop(parent: Node, at: Vector3, chance: float) -> void:
 var _age: float = 0.0
 var _mesh: MeshInstance3D
 var _material: StandardMaterial3D
+var _beacon_material: StandardMaterial3D
 var _player: FlightController
 
 
@@ -63,11 +80,32 @@ func _ready() -> void:
 	_material.emission = color
 	_material.emission_energy_multiplier = 2.6
 	var box := BoxMesh.new()
-	box.size = Vector3(0.36, 0.36, 0.36)
+	box.size = Vector3.ONE * CORE_SIZE
 	box.material = _material
 	_mesh = MeshInstance3D.new()
 	_mesh.mesh = box
 	add_child(_mesh)
+
+	# The beacon. Unshaded and additive so it reads as light rather than as a
+	# thin post, and it does NOT spin with the cube — a still column beside a
+	# turning core is easier to pick out of a moving frame than either alone.
+	_beacon_material = StandardMaterial3D.new()
+	_beacon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_beacon_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_beacon_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_beacon_material.albedo_color = Color(color.r, color.g, color.b, 0.30)
+	_beacon_material.emission_enabled = true
+	_beacon_material.emission = color
+	_beacon_material.emission_energy_multiplier = 2.2
+	var column := CylinderMesh.new()
+	column.top_radius = BEACON_RADIUS
+	column.bottom_radius = BEACON_RADIUS
+	column.height = BEACON_HEIGHT
+	column.material = _beacon_material
+	var beacon := MeshInstance3D.new()
+	beacon.mesh = column
+	beacon.position.y = BEACON_HEIGHT * 0.5
+	add_child(beacon)
 
 
 func _process(delta: float) -> void:
@@ -81,8 +119,12 @@ func _process(delta: float) -> void:
 	# Blink out its last two seconds. A pickup that vanishes without warning
 	# reads as a bug; one that flickers first reads as a deadline.
 	var left: float = LIFETIME_S - _age
-	_material.emission_energy_multiplier = 2.6 if left > 2.0 \
-			else 0.6 + 2.0 * absf(sin(left * 9.0))
+	var energy: float = 2.6 if left > 2.0 else 0.6 + 2.0 * absf(sin(left * 9.0))
+	_material.emission_energy_multiplier = energy
+	# The beacon pulses gently the whole time rather than only at the end: a
+	# static glow blends into a neon skyline, a moving one does not.
+	_beacon_material.emission_energy_multiplier = energy \
+			* (0.75 + 0.25 * sin(_age * 4.0))
 	if _player == null:
 		_player = get_tree().get_first_node_in_group(&"player") as FlightController
 	if _player == null or not _player.visible:

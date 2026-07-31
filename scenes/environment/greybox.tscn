@@ -1,4 +1,4 @@
-[gd_scene load_steps=32 format=3]
+[gd_scene load_steps=36 format=3]
 
 [ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
 [ext_resource type="PackedScene" path="res://scenes/environment/gate.tscn" id="2_gate"]
@@ -30,6 +30,26 @@ size = Vector3(3, 0.12, 3)
 
 [sub_resource type="ShaderMaterial" id="mat_box"]
 shader = ExtResource("5_struct")
+
+; THE REPAIR TUNNEL (v1.93, the user's ask: "we can put the health gate inside
+; a tunnel so the player will have to fly through a tunnel to get the health").
+; The point is that the repair gate stops being a thing you drift over on your
+; way somewhere and becomes a committed run: you enter the mouth, you are in a
+; box with no room to correct, and you come out the far side or you crash. That
+; is the flight model charging a price for the heal it hands you.
+[sub_resource type="BoxMesh" id="mesh_rt_wall"]
+material = SubResource("mat_box")
+size = Vector3(0.8, 7, 26)
+
+[sub_resource type="BoxShape3D" id="shape_rt_wall"]
+size = Vector3(0.8, 7, 26)
+
+[sub_resource type="BoxMesh" id="mesh_rt_roof"]
+material = SubResource("mat_box")
+size = Vector3(8.8, 0.8, 26)
+
+[sub_resource type="BoxShape3D" id="shape_rt_roof"]
+size = Vector3(8.8, 0.8, 26)
 
 [sub_resource type="BoxMesh" id="mesh_box_s"]
 material = SubResource("mat_box")
@@ -327,3 +347,41 @@ transform = Transform3D(0.766044, 0, -0.642788, 0, 1, 0, 0.642788, 0, 0.766044, 
 
 [node name="Gate4" parent="Gates" instance=ExtResource("2_gate")]
 transform = Transform3D(0.819152, 0, 0.573576, 0, 1, 0, -0.573576, 0, 0.819152, -30, 6, 15)
+
+[node name="RepairTunnel" type="Node3D" parent="."]
+
+[node name="LeftWall" type="StaticBody3D" parent="RepairTunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 7, 6)
+
+[node name="Mesh" type="MeshInstance3D" parent="RepairTunnel/LeftWall"]
+mesh = SubResource("mesh_rt_wall")
+
+[node name="Collision" type="CollisionShape3D" parent="RepairTunnel/LeftWall"]
+shape = SubResource("shape_rt_wall")
+
+[node name="RightWall" type="StaticBody3D" parent="RepairTunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 7, 6)
+
+[node name="Mesh" type="MeshInstance3D" parent="RepairTunnel/RightWall"]
+mesh = SubResource("mesh_rt_wall")
+
+[node name="Collision" type="CollisionShape3D" parent="RepairTunnel/RightWall"]
+shape = SubResource("shape_rt_wall")
+
+[node name="Roof" type="StaticBody3D" parent="RepairTunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 10.9, 6)
+
+[node name="Mesh" type="MeshInstance3D" parent="RepairTunnel/Roof"]
+mesh = SubResource("mesh_rt_roof")
+
+[node name="Collision" type="CollisionShape3D" parent="RepairTunnel/Roof"]
+shape = SubResource("shape_rt_roof")
+
+[node name="Floor" type="StaticBody3D" parent="RepairTunnel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 3.1, 6)
+
+[node name="Mesh" type="MeshInstance3D" parent="RepairTunnel/Floor"]
+mesh = SubResource("mesh_rt_roof")
+
+[node name="Collision" type="CollisionShape3D" parent="RepairTunnel/Floor"]
+shape = SubResource("shape_rt_roof")
