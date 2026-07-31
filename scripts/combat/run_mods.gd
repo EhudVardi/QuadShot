@@ -14,6 +14,11 @@ static var current: RunMods = RunMods.new()
 ## generically and the pod, added later, simply reused them.
 var fire_rate_mult: float = 1.0
 var damage_mult: float = 1.0
+## The blaster's duty cycle: how much heat the sink holds, and how fast it
+## sheds. Upgradeable on purpose (R.q1) — the pace of your default weapon
+## should be something you can spend a draft pick on.
+var heat_capacity_mult: float = 1.0
+var heat_cool_mult: float = 1.0
 ## Flak pod. Its own cards now, so the pod's power curve is something the
 ## player spends a draft pick on rather than something they inherit.
 var flak_fire_rate_mult: float = 1.0

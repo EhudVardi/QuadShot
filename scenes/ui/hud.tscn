@@ -80,6 +80,21 @@ mouse_filter = 2
 value = 100.0
 show_percentage = false
 
+; The blaster's duty cycle, sat directly above the hull bar and deliberately
+; thinner: it is a thing you manage, not a thing you lose.
+[node name="HeatBar" type="ProgressBar" parent="."]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -58.0
+offset_right = 150.0
+offset_bottom = -46.0
+mouse_filter = 2
+value = 0.0
+show_percentage = false
+
 [node name="Title" type="VBoxContainer" parent="."]
 anchor_left = 0.5
 anchor_top = 0.32

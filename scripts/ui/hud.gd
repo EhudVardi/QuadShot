@@ -13,6 +13,7 @@ const KILL_FEED_SECONDS: float = 3.0
 @onready var _combo_label: Label = $ComboLabel
 @onready var _wave_label: Label = $WaveLabel
 @onready var _health_bar: ProgressBar = $HealthBar
+@onready var _heat_bar: ProgressBar = $HeatBar
 @onready var _damage_flash: ColorRect = $DamageFlash
 @onready var _death_label: Label = $DeathLabel
 @onready var _kill_feed: VBoxContainer = $KillFeed
@@ -340,6 +341,24 @@ func announce_gate(sortie: int) -> void:
 func set_health(current: float, maximum: float) -> void:
 	_health_bar.max_value = maximum
 	_health_bar.value = current
+
+
+## The blaster's heat, 0..1, and whether it has locked out.
+##
+## Two states that must be tellable apart WITHOUT reading a number, because
+## they mean opposite things to a trigger finger: yellow filling toward red is
+## "you have a burst left", and a pulsing red bar is "the gun is dead, stop
+## pulling". A heat meter you have to interpret is a heat meter that reads as a
+## broken weapon the first time it bites.
+##
+## Yellow because the palette says so (CLAUDE.md): yellow = your fire.
+func set_heat(fraction: float, overheated: bool) -> void:
+	_heat_bar.value = clampf(fraction, 0.0, 1.0) * 100.0
+	if overheated:
+		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018)
+		_heat_bar.modulate = Color(1.0, 0.22, 0.16).lerp(Color(1.0, 0.75, 0.3), pulse)
+		return
+	_heat_bar.modulate = Color(0.95, 0.9, 0.35).lerp(Color(1.0, 0.45, 0.15), fraction)
 
 
 func set_motor_health(healths: PackedFloat32Array, vtx_health: float = 1.0) -> void:

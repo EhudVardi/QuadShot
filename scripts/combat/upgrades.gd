@@ -8,6 +8,8 @@ extends Object
 const POOL: Array[Dictionary] = [
 	{"id": &"rapid_blaster", "title": "Rapid Blaster", "desc": "+35% blaster fire rate"},
 	{"id": &"heavy_bolts", "title": "Heavy Bolts", "desc": "+40% blaster damage"},
+	{"id": &"heat_sinks", "title": "Heat Sinks", "desc": "+45% blaster heat capacity"},
+	{"id": &"vent_ports", "title": "Vent Ports", "desc": "+50% blaster cooling"},
 	{"id": &"autoloader", "title": "Autoloader", "desc": "+35% flak fire rate"},
 	{"id": &"dense_frag", "title": "Dense Fragments", "desc": "+40% flak damage"},
 	{"id": &"twin_racks", "title": "Twin Racks", "desc": "-50% missile cooldown"},
@@ -24,6 +26,14 @@ static func apply(id: StringName, mods: RunMods) -> void:
 			mods.fire_rate_mult *= 1.35
 		&"heavy_bolts":
 			mods.damage_mult *= 1.4
+		# The duty-cycle pair. They are the answer to what Rapid Blaster now
+		# costs: it buys rounds-per-second and spends them out of the same sink,
+		# so a run that stacks fire rate without ever taking one of these is
+		# buying a shorter burst.
+		&"heat_sinks":
+			mods.heat_capacity_mult *= 1.45
+		&"vent_ports":
+			mods.heat_cool_mult *= 1.5
 		# The pod's own curve (v1.86). Both cards used to be free riders on the
 		# two above: one "blaster" pick bought the flak the same buff, and
 		# cadence is where a burst weapon's power actually lives, so the half

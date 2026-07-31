@@ -3982,6 +3982,21 @@ a different and probably worse mechanic.
    should be the starting assumption, but it has to be *decided*, because a
    player will absolutely try to shoot through it in the first minute.
 
+**T2b — The user's own references, kept verbatim-in-substance** (2026-07-31), so
+whoever picks this up starts from the recipe rather than from a blank shader:
+
+- **Structure**: `Area3D` + `CollisionShape3D` for detection; a `Marker3D` child
+  defining the exit point *and facing*; `@export var target_portal: NodePath` so
+  pairs are linked in the inspector rather than in code.
+- **Transfer**: on `body_entered`, set the body's `global_transform` from the
+  destination marker, and **reorient linear and angular velocity relative to the
+  exit's rotation** — momentum conserved, direction rewritten. That is T1's
+  transform, arrived at independently.
+- **The loop guard, which is the bug everyone hits**: a `just_teleported` flag
+  cleared by a short `SceneTreeTimer` (0.5–1 s), **plus** spawning slightly
+  forward along the exit marker's local direction so the body does not
+  immediately re-trigger the destination's own area. Both, not either.
+
 **T3 — What it is NOT.** Not a resupply gate (Iteration 10) and not the exit
 gate (M4). Three fly-through objects with three meanings is already the ceiling
 for one arena; a fourth needs its own colour and its own unmistakable silhouette
@@ -7409,6 +7424,75 @@ before it can exist.
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-31 — v1.91. THE BLASTER GETS A DUTY CYCLE (Iteration 10, R.q1 built),
+  and Layer 1 stops assuming infinite ammunition.** The first slice of the ammo
+  work, and deliberately the one that needs no gates: heat refills itself.
+  - **The model, and why it is shaped for arithmetic.** `heat_per_shot` fills a
+    `heat_capacity` sink; venting begins only after `heat_vent_delay` (0.35 s) of
+    quiet, so **sustained fire never cools** — the gap between bolts at any
+    usable cadence is shorter than the delay. That is not an accident of the
+    numbers, it is what makes a burst an exact integer (`capacity / per_shot`)
+    instead of a simulation, which is what lets Layer 1 model it in closed form.
+    Shipping values: 30 bolts, then a 2.10 s vent. Provisional.
+  - **`heat_reset_fraction` is the part that would be missed.** A lockout that
+    cleared the moment heat dipped under the ceiling would let a held trigger
+    stutter along AT the ceiling forever — one bolt, lock, one bolt, lock — which
+    is the version of overheat that feels broken rather than tactical. The gun
+    stays dead until the sink is back to 30%.
+  - **R7's promise kept the same day, not later.** `Lethality._exchange` now
+    carries a burst term and a REAL CLOCK: it used to report `hits x interval`,
+    which is only correct for a weapon that never stops. A kill that needs more
+    bolts than one burst holds now pays for the vents it crosses — **and because
+    the pause runs through the same clock as the intervals, a shield regenerates
+    during it for free.** That interaction was not designed; it fell out, and it
+    is the right answer.
+    - **No shipped Layer 1 cell moved**, because no blaster kill on the roster
+      is longer than 2 bolts (the aegis's `NEVER` is a threshold verdict, not a
+      long one). The arithmetic is now correct for a case the table does not yet
+      contain, which is the only time it is safe to add.
+  - **`heat_check.gd` is the fifteenth check**, and it exists for the worst
+    failure available: a gun that locks out and never comes back leaves a pilot
+    alive, armed, and unable to clear a wave. Nothing else in the suite would
+    catch it — every other check either kills its enemies with `take_hit` or
+    never holds the trigger long enough. It also asserts Layer 1's arithmetic
+    against the LIVE weapon, which `lethality_check` structurally cannot do:
+    that bench plants shots from the model itself and would agree with itself
+    all the way to a wrong answer.
+    - **It failed twice before passing, and both were the check, not the gun.**
+      First it reported "the gun never came back" — the gun was fine, the drone
+      was dead, because arming starts a real run and a real run shoots back.
+      Then it reported a bolt fired DURING the lockout: it tested for stray
+      bolts before testing whether the lockout had already ended, and the tick a
+      lockout clears is a tick the gun legitimately fires on. **A behaviour
+      check that has never failed has not been tested either.**
+  - **THE BOARD OWES A RE-MEASURE, and this is the flag.** Unlike the cloak,
+    this is not visual: the delivery bench and the duel harness fly the real
+    `Weapon`, so every blaster cell now carries a vent. `PILOT_VERSION` does NOT
+    bump — the pilot's brain is unchanged; the weapon under it is not — but no
+    blaster number measured before today should be compared to one measured
+    after it.
+  - **PROVISIONAL and flagged for hands:** 30 bolts and a 2.10 s vent is a ~59%
+    duty cycle. Two new draft cards answer it (`Heat Sinks` +45% capacity,
+    `Vent Ports` +50% cooling; pool 9 → 11), and they exist because **`Rapid
+    Blaster` now has a real cost** — it buys rounds per second and spends them
+    out of the same sink, so a run that stacks fire rate without ever taking one
+    of these is buying a shorter burst. That is a consequence to measure, not to
+    assume.
+
+- **2026-07-31 — v1.91b. The stargate is NOT what the user aimed for, recorded
+  as a gap rather than closed.** *"its cool but not what i aimed for"*, with
+  references. The difference is structural, not tuning: the reference recipe
+  uses **polar UVs** (so detail wraps angularly around the disc, where concentric
+  `sin()` rings alone read as a struck drum) and **two noise layers scrolling in
+  opposite directions with the first displacing the second's UVs** — domain-warped
+  noise, which is what churns. Periodic trigonometry cannot get there; the eye
+  reads periodicity as machinery. **The blocker is the house rule**: proper noise
+  needs either a procedurally-generated `NoiseTexture2D` (no file on disk, likely
+  acceptable) or a hash-based value-noise function written by hand. That choice
+  is the first decision of the rework and is why this is a note, not a patch.
+  Both references are written into `portal.gdshader`'s header and Iteration 11's
+  T2b, next to the code they would replace.
 
 - **2026-07-30 — v1.90. THE FIRST FLIGHT OF THE CLOAK, Iteration 10 STEERED in
   full, and Iteration 11 PINNED.** All from one round of cockpit feedback.

@@ -31,7 +31,17 @@ var director_idle_s: float = 0.0
 ## Layer 2: aim_quality and evasion are both hits-per-shot ratios).
 var shots_fired: int = 0
 
+## Heat in the sink, 0..capacity. Read by the HUD; see CombatConfig's Heat
+## subgroup for why the blaster gets a duty cycle instead of a magazine.
+var heat: float = 0.0
+## Locked out and venting. Distinct from "heat is high": once this latches, the
+## gun stays dead until heat falls to `heat_reset_fraction` of capacity, so a
+## mashed trigger cannot stutter along at the ceiling.
+var overheated: bool = false
+
 var _cooldown: float = 0.0
+## Quiet time since the last bolt, against `heat_vent_delay`.
+var _since_shot: float = 0.0
 var _drone: FlightController
 var _pool: ProjectilePool
 
@@ -40,8 +50,26 @@ func _ready() -> void:
 	_drone = owner as FlightController
 
 
+## Heat as a 0..1 fraction of the (upgraded) capacity — what the HUD draws.
+func heat_fraction() -> float:
+	return clampf(heat / maxf(_capacity(), 0.001), 0.0, 1.0)
+
+
+## Is the gun able to fire at all right now? The director asks this too: an
+## assist that kept firing through a lockout would make the upgrade that buys
+## capacity meaningless for anyone flying with a director equipped.
+func can_fire() -> bool:
+	return not overheated
+
+
+func _capacity() -> float:
+	return maxf(combat_config.heat_capacity
+			* RunMods.current.heat_capacity_mult, 0.001)
+
+
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
+	_update_heat(delta)
 	if _pool == null:
 		_pool = get_tree().get_first_node_in_group(&"projectile_pool") as ProjectilePool
 		if _pool == null:
@@ -54,9 +82,30 @@ func _physics_process(delta: float) -> void:
 	var assist: bool = _assist_solution()
 	director_idle_s = 0.0 if assist else director_idle_s + delta
 	var trigger_down: bool = fire_override or Input.is_action_pressed(&"fire")
-	if _drone.armed and _cooldown <= 0.0 and (trigger_down or assist):
+	if _drone.armed and _cooldown <= 0.0 and can_fire() and (trigger_down or assist):
 		_fire()
 		_cooldown = 1.0 / (combat_config.fire_rate * RunMods.current.fire_rate_mult)
+
+
+## Vent, then latch or release the lockout.
+##
+## Note what `Rapid Blaster` costs now: fire rate multiplies bolts per second
+## and every bolt is heat, so the card that used to be a pure gain is a trade —
+## the same rounds arrive sooner and the vent arrives sooner with them. That is
+## a consequence to MEASURE, not one to assume; it is the sharpest thing this
+## feature does to the existing upgrade pool.
+func _update_heat(delta: float) -> void:
+	_since_shot += delta
+	if _since_shot >= combat_config.heat_vent_delay:
+		heat = maxf(heat - combat_config.heat_cool_rate
+				* RunMods.current.heat_cool_mult * delta, 0.0)
+	if overheated:
+		if heat <= _capacity() * combat_config.heat_reset_fraction:
+			overheated = false
+	elif heat >= _capacity():
+		overheated = true
+		Blackbox.log_event(&"overheat", "blaster", heat)
+		SoundBank.play_at(&"lock", global_position, -8.0, 0.4)
 
 
 ## The gun director's EFFECTIVE solution window right now, meters. The configured
@@ -131,6 +180,8 @@ func _assist_solution() -> bool:
 
 func _fire() -> void:
 	shots_fired += 1
+	heat += combat_config.heat_per_shot
+	_since_shot = 0.0
 	Blackbox.log_event(&"fired", "blaster")
 	var direction: Vector3 = -global_basis.z
 	var velocity: Vector3 = direction * combat_config.muzzle_speed \

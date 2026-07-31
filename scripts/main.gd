@@ -109,6 +109,7 @@ func _process(delta: float) -> void:
 				_hud.add_kill_feed("free flight — no waves, no score")
 		else:
 			_start_run()
+	_hud.set_heat(_weapon.heat_fraction(), _weapon.overheated)
 	_update_lock_indicator()
 	_update_gate_marker()
 	_update_reticle()

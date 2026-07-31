@@ -278,13 +278,39 @@ static func survival_seconds(enemy: EnemyConfig, frame: FrameConfig,
 	return float(solo["ttk"]) / float(count)
 
 
+## Bolts a held trigger gets before the sink locks out. 0 = no heat model.
+static func burst_shots(combat: CombatConfig) -> int:
+	if combat.heat_per_shot <= 0.0 or combat.heat_capacity <= 0.0:
+		return 0
+	return maxi(int(floor(combat.heat_capacity / combat.heat_per_shot)), 1)
+
+
+## Seconds the gun is dead after a full sink: the quiet time before venting
+## starts, plus the time to shed down to the reset fraction.
+static func vent_seconds(combat: CombatConfig) -> float:
+	if burst_shots(combat) <= 0 or combat.heat_cool_rate <= 0.0:
+		return 0.0
+	var shed: float = combat.heat_capacity * (1.0 - combat.heat_reset_fraction)
+	return combat.heat_vent_delay + shed / combat.heat_cool_rate
+
+
 static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		damage_mult: float, stop_at_shield_down: bool) -> Dictionary:
 	match weapon:
 		"blaster":
+			# THE DUTY CYCLE, and R7's promise kept: this file used to assume
+			# infinite sustained fire, which stopped being true the moment the
+			# blaster grew a heat sink. A kill that needs more bolts than one
+			# burst holds now pays for the vent, and — the interaction worth
+			# having — a shield REGENERATES during that vent, through the same
+			# loop that already credits regen between shots.
+			#
+			# Sustained fire never cools (the gap between bolts is under
+			# `heat_vent_delay`), which is exactly what makes a burst an exact
+			# integer instead of a simulation.
 			return _exchange(combat.projectile_damage * damage_mult,
 					1.0 / maxf(combat.fire_rate, 0.001), target_from_enemy(enemy),
-					stop_at_shield_down)
+					stop_at_shield_down, burst_shots(combat), vent_seconds(combat))
 		"missile":
 			# The launcher's cooldown IS the missile's cadence: unlike the
 			# blaster it cannot volley, which is the whole gnat story.
@@ -319,8 +345,16 @@ static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 ## instead of continuing into the hull — the strip leg of a combo. It shares
 ## this loop rather than getting its own so the two can never drift apart on
 ## the regen rules, which is the whole discipline of this file.
+##
+## `burst_shots` / `burst_pause` model a heat-limited weapon: after every
+## `burst_shots` bolts the clock jumps by `burst_pause` while the gun vents.
+## 0 means no limit, which is every weapon but the blaster. The pause lands
+## BETWEEN bursts, so a kill inside the first one never pays for a vent it
+## never reached — and because the pause goes through the same clock as the
+## intervals, shield regen is credited across it for free.
 static func _exchange(damage: float, interval: float, target: Dictionary,
-		stop_at_shield_down: bool = false) -> Dictionary:
+		stop_at_shield_down: bool = false, burst_shots: int = 0,
+		burst_pause: float = 0.0) -> Dictionary:
 	if damage <= 0.0:
 		return _never("zero damage", interval)
 	var hull: float = float(target["hull"])
@@ -332,12 +366,19 @@ static func _exchange(damage: float, interval: float, target: Dictionary,
 	var shield: float = shield_max
 	# Seconds until regen resumes; only shield-touching hits rewind it.
 	var regen_wait: float = 0.0
+	# A real clock rather than hits x interval, because a vent makes the two
+	# different numbers.
+	var elapsed: float = 0.0
 	for hit: int in MAX_HITS:
 		if hit > 0:
+			var gap: float = interval
+			if burst_shots > 0 and hit % burst_shots == 0:
+				gap += burst_pause
+			elapsed += gap
 			# Time passes between hits: the wait runs down, then regen runs
-			# for whatever is left of the interval.
-			var regen_time: float = maxf(interval - regen_wait, 0.0)
-			regen_wait = maxf(regen_wait - interval, 0.0)
+			# for whatever is left of the gap.
+			var regen_time: float = maxf(gap - regen_wait, 0.0)
+			regen_wait = maxf(regen_wait - gap, 0.0)
 			if regen_time > 0.0:
 				shield = minf(shield + regen * regen_time, shield_max)
 		var amount: float = damage
@@ -353,8 +394,7 @@ static func _exchange(damage: float, interval: float, target: Dictionary,
 			shield = maxf(shield - amount, 0.0)
 			if stop_at_shield_down and shield <= 0.0:
 				return {"kills": true, "shots": hit + 1,
-						"ttk": float(hit) * interval, "interval": interval,
-						"why": ""}
+						"ttk": elapsed, "interval": interval, "why": ""}
 			if excess <= 0.0:
 				continue
 			amount = excess
@@ -381,8 +421,7 @@ static func _exchange(damage: float, interval: float, target: Dictionary,
 		hull -= amount
 		if hull <= 0.0:
 			return {"kills": true, "shots": hit + 1,
-					"ttk": float(hit) * interval, "interval": interval,
-					"why": ""}
+					"ttk": elapsed, "interval": interval, "why": ""}
 	return _never("stalemate: regen outpaces the weapon over %d hits"
 			% MAX_HITS, interval)
 

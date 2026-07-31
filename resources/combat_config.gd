@@ -29,6 +29,32 @@ extends TunableConfig
 ## Hostiles beyond this range are ignored by the fire assist.
 @export var fire_assist_range: float = 55.0
 
+@export_subgroup("Heat")
+## THE BLASTER'S CHARGE METER (Iteration 10 R.q1, the user's call over my
+## "leave it infinite"). The blaster is the only weapon that is never resupplied
+## and never runs out — what it has instead is a DUTY CYCLE. That distinction is
+## the whole design: heat never strands you the way an empty magazine would, it
+## paces you, so it belongs to trigger discipline rather than to the economy
+## the resupply gates serve.
+##
+## Sustained fire never cools, because the gap between bolts (0.1 s at
+## fire_rate 10) is under `heat_vent_delay`. That is deliberate and it is what
+## makes the arithmetic honest enough for Layer 1 to model: a held trigger is
+## exactly `heat_capacity / heat_per_shot` bolts, then a vent.
+@export var heat_per_shot: float = 1.0
+## Heat the sink holds before it locks out. In bolts, since heat_per_shot is 1.
+@export var heat_capacity: float = 30.0
+## Heat shed per second once venting starts.
+@export var heat_cool_rate: float = 12.0
+## Quiet seconds before venting begins — long enough that firing at any usable
+## cadence never cools.
+@export var heat_vent_delay: float = 0.35
+## Once overheated the gun stays locked until heat falls to this FRACTION of
+## capacity. A lockout that cleared the instant heat dipped below the ceiling
+## would let a mashed trigger stutter along at the ceiling forever, which is
+## the failure mode that makes overheat feel broken rather than tactical.
+@export_range(0.0, 0.9, 0.01) var heat_reset_fraction: float = 0.3
+
 @export_group("Flak pod")
 ## The slice's third weapon (GAMEPLAY-DESIGN P3.1 / P4.10): a proximity-fused
 ## burst shell that detonates into a fragment cloud. Its whole reason to exist

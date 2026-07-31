@@ -94,7 +94,7 @@ the city block around the middle.
 
 ---
 
-## 4. The check suite — 14 headless checks
+## 4. The check suite — 15 headless checks
 
 Run all of them before believing anything:
 
@@ -103,7 +103,8 @@ Run all of them before believing anything:
 ```
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
-`manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`.
+`manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
+`heat`.
 
 `falx` and `screamer` are **behaviour checks**, and every new enemy type gets one
 the day it lands. The reason is scar tissue: the harness can only ever say *"this
@@ -115,6 +116,15 @@ identical from the results table.
 does it stay put, does a missile lock work at all (control), does its jam fade
 across both ends of its field, does it hold a standoff, and **can it actually be
 caught** by a pursuing pilot.
+
+`heat_check` guards the blaster's duty cycle (v1.91), and the failure it exists
+for is the worst one available: a gun that locks out and **never comes back**
+leaves a pilot alive, armed, and unable to clear a wave. Nothing else in the
+suite would notice, because every other check either kills its enemies with
+`take_hit` or never holds the trigger long enough to overheat. It also asserts
+that Layer 1's duty-cycle arithmetic matches the real weapon — which
+`lethality_check` structurally cannot do, since that bench plants shots from the
+model itself and would agree with itself all the way to the wrong answer.
 
 `composition_check` is the same idea one level up, for the wave director's
 roster (v1.85). Part A sweeps 320 compositions with no arena at all — every wave
