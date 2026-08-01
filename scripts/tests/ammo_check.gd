@@ -38,6 +38,11 @@ var _ticks_max: int
 var _failures: Array[String] = []
 var _gate: ResupplyGate
 var _started: bool = false
+## Gates this check builds by hand. They are StaticBody3Ds standing in the arena
+## for the rest of the run, so the spacing sweep has to know about them or it
+## measures the director's placement against its own test fixtures.
+var _fixture_gates: Array[RID] = []
+var _shots_before_dry: int = 0
 
 
 func _initialize() -> void:
@@ -66,15 +71,24 @@ func _on_physics_frame() -> void:
 					_report()
 				return
 			_started = true
-			_check_spending()
+			_arm_dry_pod()
+			_phase = 2
+		2:
+			# A WHOLE PHYSICS FRAME LATER, which is the entire point. The pod fires
+			# from _physics_process, so asserting "a dry pod did not fire" in the
+			# same frame that held the trigger down compared a number to itself and
+			# could never fail - failure mode #1 of the four this file names was
+			# unreachable. One frame of a held trigger on an empty magazine is the
+			# smallest thing that actually tests the refusal.
+			_check_dry_refusal()
 			_check_gate()
 			_check_salvage()
 			_check_no_free_rearm()
 			_report()
 
 
-## 1. Firing spends, and a dry launcher refuses.
-func _check_spending() -> void:
+## 1a. Drain the pod and hold the trigger down. Asserted a frame later.
+func _arm_dry_pod() -> void:
 	var full: int = _flak.magazine()
 	if _flak.rounds != full:
 		_fail("flak did not start full (%d of %d)" % [_flak.rounds, full])
@@ -83,13 +97,17 @@ func _check_spending() -> void:
 	_flak.rounds = 0
 	if _flak.has_ammo():
 		_fail("an empty flak pod still reports ammo")
-	var before: int = _flak.shots_fired
+	_shots_before_dry = _flak.shots_fired
 	_flak.fire_override = true
-	# The pod fires from _physics_process, so this frame's call has already
-	# happened; what matters is that the count never moves while dry, which the
-	# next phases keep verifying as the check runs on.
-	if _flak.shots_fired > before:
-		_fail("a dry flak pod fired")
+
+
+## 1b. The refusal itself, with real frames behind it.
+func _check_dry_refusal() -> void:
+	if _flak.shots_fired > _shots_before_dry:
+		_fail("a dry flak pod fired %d shell(s) with the trigger held"
+				% (_flak.shots_fired - _shots_before_dry))
+	else:
+		print("[ammo_check] a dry flak pod refuses the trigger across a live frame")
 	_flak.fire_override = false
 
 
@@ -101,6 +119,7 @@ func _check_gate() -> void:
 	_gate.charges = 1
 	_gate.cooldown = 0.0
 	_main.add_child(_gate)
+	_fixture_gates.append(_gate.get_rid())
 	_flak.rounds = 0
 	_missiles.rounds = 0
 
@@ -128,6 +147,7 @@ func _check_gate() -> void:
 	fresh.charges = 2
 	fresh.cooldown = 0.0
 	_main.add_child(fresh)
+	_fixture_gates.append(fresh.get_rid())
 	_flak.rearm()
 	fresh.call(&"_on_body_entered", _drone)
 	if fresh.charges != 2:
@@ -179,10 +199,21 @@ func _check_no_free_rearm() -> void:
 	# And the gates the director lays are real, keyed, and countable.
 	if _director.gates.is_empty():
 		_fail("the sortie laid no resupply gates")
-	elif _director.gates.size() != _director.gate_count(_director.sortie):
-		_fail("sortie %d laid %d gates, gate_count says %d"
+	elif _director.gates.size() > _director.gate_count(_director.sortie):
+		_fail("sortie %d laid %d gates, gate_count only allows %d"
 				% [_director.sortie, _director.gates.size(),
 				_director.gate_count(_director.sortie)])
+	elif _director.gates.size() < _director.gate_count(_director.sortie):
+		# NOT a failure, and asserting equality here was a second latent flake of
+		# exactly the kind v1.99 fixed one line down. `_lay_gates` gives up after
+		# 40 rejection samples and continues, which the placement code calls a fine
+		# outcome: one fewer gate is a slightly harder sortie, a buried gate is a
+		# lie. The bound that matters is "never MORE than allowed", plus the
+		# non-empty assertion above.
+		print("[ammo_check] sortie %d laid %d of %d gates - placement gave up on %d, which is allowed"
+				% [_director.sortie, _director.gates.size(),
+				_director.gate_count(_director.sortie),
+				_director.gate_count(_director.sortie) - _director.gates.size()])
 	else:
 		print("[ammo_check] sortie %d laid %d gates (pad-poor decay: sortie 6 gets %d)"
 				% [_director.sortie, _director.gates.size(), _director.gate_count(6)])
@@ -221,7 +252,10 @@ func _check_gate_spacing() -> void:
 	# placed correctly; the check was wrong** - the same category as heat_check's
 	# two false failures. In the real game the sorties are seconds apart and the
 	# old gates are long gone.
-	var seen_gates: Array[RID] = []
+	# Seeded with this check's OWN gates: `_gate` lives for the whole run and
+	# `fresh` is queue_freed (deferred, so still solid). Neither belongs to the
+	# director, and both sit in the arena while the sweep samples it.
+	var seen_gates: Array[RID] = _fixture_gates.duplicate()
 	for sortie_n: int in range(1, 7):
 		_director.sortie = sortie_n
 		_director.call(&"_lay_gates")

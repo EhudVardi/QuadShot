@@ -208,8 +208,15 @@ func _setup() -> void:
 				"res://resources/default_enemy_%s.tres" % type_id) as EnemyConfig
 		enemy.damage = 0.0
 		enemy.sight_range = 0.0
+	# FILTERED, not counted. `announced` happens to have exactly one emitter today
+	# - the bomber - so a bare counter was right by accident. The day the director
+	# announces a wave callout, a gate notice or anything else, an un-filtered
+	# count would still read green while proving nothing about the detonation path
+	# it is named for. `SortieRunner` already emits six different announcements,
+	# so the second emitter is a matter of when, not whether.
 	_director.announced.connect(func(text: String) -> void:
-		_detonations += 1
+		if text.to_lower().contains("bomber"):
+			_detonations += 1
 		print("[composition_check] %s" % text))
 	_drone.arm()
 	_drone.throttle_override = _drone.hover_throttle()
