@@ -9951,3 +9951,45 @@ phase that needs them.
   - **W.q8 is deliberately NOT answered here.** It was parked pending a map that
     can show allies moving in; the honest move is to re-ask it once the map
     exists rather than fold it into the proposal for the map.
+
+- **2026-08-01 — v2.04. C steered, and phase 1 flies: THE THEATER HAS A FACE.**
+  Four questions answered by the user (C.q1 the 3D hex table, C.q2 the room owns
+  the loop, C.q3 the unflyable nodes drawn and refused, C.q4 weather gets its own
+  dice), three taken to their leans, and C9's first phase built: `WarView`,
+  `HexTable`, `scenes/war_room.tscn` and `war_room_check`. 19 checks, all green.
+  - **The map adds nothing to the war and nothing to the save.** Two functions
+    changed in `war/` and both were renames: `_supplied_set` → `supplied_set`,
+    `_strike_range` → `strike_range`. The map draws the tick engine's own supply
+    and the tick engine's own reach, because a second implementation of either
+    would eventually promise ground the campaign does not have.
+  - **A CHECK THAT COULD NOT FAIL, CAUGHT BY ITS OWN MUTATION TEST.** The supply
+    assertion was first written as three nodes in a row — player, enemy, player —
+    asserting that severing the middle leaves no supply edges. Deleting the
+    supply test from `WarView` entirely did **not** break it: cutting the middle
+    of three also removes every same-owner adjacency, so the zero it asserted was
+    produced by the geometry rather than by the feature. Four nodes fixes it
+    (home · enemy · player · player): the last two are neighbours AND cut off, so
+    the edge between them must be absent for a reason only supply can supply.
+    Verified failing under mutation, then reverted. **This is v2.01's standard
+    catching a check written the same week the standard was written down** — and
+    it is the second time the cheap mechanical question has paid.
+  - **LOOKING AT IT CHANGED THE DESIGN, exactly as standing rule 6 promises.**
+    The first build was numerically perfect and visually inverted: hex faces are
+    large, the game's bloom threshold is 1.0, and at emission 1.8 every reachable
+    node bloomed into a flat white shape with an unreadable glyph — while the
+    *dimmed* out-of-range hexes, the ones meant to recede, came out as the most
+    legible things on the table. Fixed by a rule worth keeping: **the surfaces do
+    not glow, the marks on them do.** Colour lives in albedo; the glow budget
+    goes to the glyphs, the front line, the spires and the selection ring.
+  - **Two more things only a screenshot could have said.** Fifty-eight supply
+    edges were drawn and not one was visible — they sat in a 0.35 m trench
+    between prisms, invisible at a 62° pitch; they now share the shared-edge slot
+    with the front line, which works because the two are mutually exclusive by
+    construction. And the camera framed on `max(x, z)` against the VERTICAL fov,
+    wasting half a 16:9 screen — a ground extent running away from the camera
+    lands on screen-vertical scaled by `sin(pitch)`, and the across-screen extent
+    gets the wider horizontal angle for free.
+  - **The card withholds the garrison on purpose.** It would have been two lines
+    to print the true number and it is exactly the number P1.3 says the player
+    does not get. Phase 2 shows it fogged, or it does not show it. A placeholder
+    that lies is worse than a placeholder that is quiet.

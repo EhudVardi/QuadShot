@@ -110,8 +110,28 @@ Useful filters: `jammed`, `evade: atlas`, `kestrel x raider`, `flak x gnats`.
 <godot> --path . scenes/dev_map.tscn      the dev room — one of every element
 <godot> --path . scenes/city_map.tscn     the procedural city
 <godot> --path . scenes/sortie.tscn       a COMPOSED SORTIE from the war (see below)
+<godot> --path . scenes/war_room.tscn     the WAR ROOM - the campaign as a map
 <godot> --path . scenes/aim_drill.tscn    the human aim drill (see §5)
 ```
+
+### The war room (Iteration 13, phase 1 of five)
+
+```
+<godot> --path . scenes/war_room.tscn                    resume the saved campaign
+<godot> --path . scenes/war_room.tscn -- --no-persist    look without touching the save
+<godot> --path . scenes/war_room.tscn -- --seed 99       a different theater
+```
+
+The theater as a hex table: **prism height is garrison**, green is yours, red is
+theirs, dim red is out of strike range, slate is an archetype the slice cannot
+build yet, the amber wall is the front line and the thin coloured plates are
+supply. Mouse or arrows select; ESC returns to the menu.
+
+**Phase 1 reads the map and launches nothing.** No sortie starts from here yet,
+the war does not tick, and the save is never written — so opening it cannot cost
+you a campaign. The inspection card deliberately does NOT show the garrison:
+that number belongs behind P1.3's intel fog and it arrives in phase 2 fogged
+rather than here raw.
 
 ### Flying a composed sortie (Iteration 12)
 
@@ -181,7 +201,7 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
-## 4. The check suite — 18 headless checks
+## 4. The check suite — 19 headless checks
 
 Run all of them before believing anything:
 
@@ -191,7 +211,7 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`, `ammo`, `sortie`, `war_loop`.
+`heat`, `ammo`, `sortie`, `war_loop`, `war_room`.
 
 `falx` and `screamer` are **behaviour checks**, and every new enemy type gets one
 the day it lands. The reason is scar tissue: the harness can only ever say *"this
@@ -212,6 +232,18 @@ suite would notice, because every other check either kills its enemies with
 that Layer 1's duty-cycle arithmetic matches the real weapon — which
 `lethality_check` structurally cannot do, since that bench plants shots from the
 model itself and would agree with itself all the way to the wrong answer.
+
+`war_room_check` is the nineteenth (Iteration 13), and it guards the map's
+DERIVATION rather than its pixels — the hex projection tiling without collisions,
+the front line being sound *and* complete, and the room's reach agreeing with the
+war-sim's. Two of its assertions are deliberately awkward to write, because the
+easy versions cannot fail: the strike range is compared against a second,
+independently written walk of the graph rather than against the function under
+test, and the supply check severs a line and asserts the cut edge is **gone**.
+The three-node version of that cut was written first and **passed under
+mutation** — removing the supply test from `WarView` entirely did not break it,
+because severing the middle of three nodes also removes every same-owner
+adjacency. It takes four nodes to make the assertion real.
 
 `war_loop_check` is the eighteenth, and it guards the joint that turns a sortie
 generator into a campaign: the dent reaching the war, the capture gate flipping

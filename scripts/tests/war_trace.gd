@@ -34,7 +34,7 @@ func _snapshot(state: Dictionary, config: WarConfig) -> void:
 	var player_strength: float = 0.0
 	var commands: int = 0
 	var hq_in_range: bool = false
-	var in_range: Dictionary = WarSim._strike_range(state, config)
+	var in_range: Dictionary = WarSim.strike_range(state, config)
 	for node: Dictionary in state["nodes"]:
 		if node["owner"] == &"player":
 			player_nodes += 1

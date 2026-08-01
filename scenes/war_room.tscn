@@ -1,0 +1,113 @@
+[gd_scene load_steps=10 format=3]
+
+; THE WAR ROOM (GAMEPLAY-DESIGN Iteration 13, P1.8). The theater as a hex table
+; under a fixed camera, lit by the same look pass the game flies in — the map is
+; data (WarView) and this scene is only where it gets a body.
+
+[ext_resource type="Script" path="res://scripts/warroom/war_room.gd" id="1_room"]
+[ext_resource type="Script" path="res://scripts/warroom/hex_table.gd" id="2_table"]
+[ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="3_look"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="4_lookcfg"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.04, 0.05, 0.09, 1)
+sky_horizon_color = Color(0.16, 0.14, 0.2, 1)
+sky_curve = 0.15
+ground_horizon_color = Color(0.1, 0.09, 0.12, 1)
+ground_bottom_color = Color(0.03, 0.03, 0.04, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.5
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.15
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.35, 0.34, 0.44, 1)
+fog_sun_scatter = 0.1
+fog_density = 0.004
+fog_aerial_perspective = 0.5
+fog_sky_affect = 0.3
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.1
+
+; The table's surface: dark and matte, so every emissive channel on it reads.
+[sub_resource type="StandardMaterial3D" id="mat_surface"]
+albedo_color = Color(0.045, 0.05, 0.07, 1)
+roughness = 0.95
+
+[sub_resource type="PlaneMesh" id="mesh_surface"]
+material = SubResource("mat_surface")
+size = Vector2(400, 400)
+
+[node name="WarRoom" type="Node3D"]
+script = ExtResource("1_room")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.353553, -0.353553, 0, 0.707107, 0.707107, 0.5, -0.612372, 0.612372, 0, 40, 0)
+light_color = Color(0.72, 0.78, 1, 1)
+light_energy = 0.85
+shadow_enabled = true
+
+[node name="LookController" type="Node" parent="."]
+script = ExtResource("3_look")
+look_config = ExtResource("4_lookcfg")
+
+[node name="Surface" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0)
+mesh = SubResource("mesh_surface")
+
+[node name="Camera" type="Camera3D" parent="."]
+fov = 60.0
+far = 500.0
+
+[node name="HexTable" type="Node3D" parent="."]
+script = ExtResource("2_table")
+
+[node name="Ui" type="CanvasLayer" parent="."]
+
+[node name="Header" type="Label" parent="Ui"]
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 1100.0
+offset_bottom = 74.0
+theme_override_font_sizes/font_size = 17
+
+[node name="Legend" type="Label" parent="Ui"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -116.0
+offset_right = 760.0
+offset_bottom = -20.0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 14
+
+[node name="Card" type="PanelContainer" parent="Ui"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -430.0
+offset_top = -262.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="Text" type="Label" parent="Ui/Card"]
+theme_override_font_sizes/font_size = 16

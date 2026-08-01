@@ -172,7 +172,7 @@ static func _production(state: Dictionary, config: WarConfig) -> void:
 ## sector alive — and killing it starves the sector (P1.2 siege play).
 static func _supply(state: Dictionary, config: WarConfig) -> void:
 	for side: StringName in [&"player", &"enemy"]:
-		var supplied: Dictionary = _supplied_set(state, side)
+		var supplied: Dictionary = supplied_set(state, side)
 		for node: Dictionary in state["nodes"]:
 			if node["owner"] == side and not supplied.has(int(node["id"])):
 				node["garrison"] = float(node["garrison"]) * config.unsupplied_decay
@@ -180,7 +180,7 @@ static func _supply(state: Dictionary, config: WarConfig) -> void:
 
 static func _proxy_sortie(state: Dictionary, config: WarConfig,
 		rng: RandomNumberGenerator, skill: float) -> void:
-	var in_range: Dictionary = _strike_range(state, config)
+	var in_range: Dictionary = strike_range(state, config)
 	var command_alive: int = _command_posts_alive(state)
 	var hq_cell := Vector2i.ZERO
 	for node: Dictionary in state["nodes"]:
@@ -254,7 +254,7 @@ static func _enemy_operations(state: Dictionary, config: WarConfig,
 	var aggression: float = escalation(state, config)
 	# Offensives: enemy frontline garrisons attack weaker player neighbors.
 	var attacks: Array = []
-	var supplied: Dictionary = _supplied_set(state, &"enemy")
+	var supplied: Dictionary = supplied_set(state, &"enemy")
 	for node: Dictionary in state["nodes"]:
 		if node["owner"] != &"enemy" or float(node["garrison"]) < 5.0:
 			continue
@@ -282,7 +282,7 @@ static func _enemy_operations(state: Dictionary, config: WarConfig,
 
 static func _allied_offensive(state: Dictionary, config: WarConfig,
 		rng: RandomNumberGenerator, skill: float) -> void:
-	var supplied: Dictionary = _supplied_set(state, &"player")
+	var supplied: Dictionary = supplied_set(state, &"player")
 	var best_from: Dictionary = {}
 	var best_to: Dictionary = {}
 	# Ordering an assault demands clear superiority; sharper players read
@@ -402,7 +402,12 @@ static func has_adjacent_owner(state: Dictionary, node: Dictionary,
 
 
 ## BFS over owned nodes from the side's supply sources.
-static func _supplied_set(state: Dictionary, side: StringName) -> Dictionary:
+##
+## Public because the war room DRAWS it (Iteration 13, C2): a supply edge on the
+## map and a supply edge in the tick engine have to be the same edge, and the
+## only way to guarantee that is for there to be one function. It was private
+## purely because nothing outside this file had ever needed it.
+static func supplied_set(state: Dictionary, side: StringName) -> Dictionary:
 	var frontier: Array = []
 	for node: Dictionary in state["nodes"]:
 		if node["owner"] != side:
@@ -446,7 +451,12 @@ static func _distance_to_owner(state: Dictionary, side: StringName) -> Dictionar
 ## hexes cost 1 — so captured ground genuinely extends your reach and the
 ## drive toward the HQ can always project power past its own front line.
 ## 0/1-cost BFS (deque: free hops expand first).
-static func _strike_range(state: Dictionary, config: WarConfig) -> Dictionary:
+##
+## Public for the same reason as `supplied_set`: the war room's range shading and
+## the proxy sortie's target list must be the same set of nodes, or the map
+## promises reach the campaign does not have. `war_trace` was already reaching
+## through the underscore to call it.
+static func strike_range(state: Dictionary, config: WarConfig) -> Dictionary:
 	var distance: Dictionary = {}
 	var frontier: Array = []
 	for node: Dictionary in state["nodes"]:
