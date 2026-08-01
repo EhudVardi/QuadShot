@@ -56,6 +56,33 @@ const BOMB_RUN_HEIGHT: float = 26.0
 ## Where the objective's structures sit relative to the sortie's centre.
 const OBJECTIVE_SPREAD: float = 13.0
 
+## PADS (P2.6, W.q4). `spec["pads"]` has been emitted since v1.71 with nothing
+## in the project consuming it, and Iteration 10 then built the hardware for it
+## by accident while solving a different problem. This is where the two meet.
+##
+## THE ORDER IS THE DESIGN: the first pad is always the REPAIR gate, and only
+## then do resupply gates alternate flak/missile. Hull is the resource you
+## cannot fly without — a pilot out of missiles is inconvenienced, a pilot out
+## of hull is dead — so a node generous enough for exactly one pad should hand
+## you the green one. Confirmed the hard way on the first hand-flown strike: a
+## zero-pad node meant flying a broken drone the whole way, which is P2.6
+## working rather than a gap.
+##
+## They ring between the inner and mid layers, so a pad is a DETOUR INTO the
+## fight rather than a trip to the edge of the map — the wave director's
+## reasoning for its own gates, and it applies harder here because the objective
+## is at the centre.
+const PAD_RADIUS_MIN: float = 30.0
+const PAD_RADIUS_MAX: float = 44.0
+const PAD_HEIGHT_MIN: float = 5.0
+const PAD_HEIGHT_MAX: float = 14.0
+const PAD_MIN_SEPARATION: float = 16.0
+## Clear space a pad needs from scenery, and separately from an objective
+## structure (which is 7 m across and 9 m tall, so it needs more room).
+const PAD_CLEARANCE: float = 3.4
+const PAD_OBJECTIVE_CLEARANCE: float = 14.0
+const PAD_PLACE_TRIES: int = 40
+
 ## How far back out you have to get for an egress to count. Comfortably past
 ## the outer ring, so leaving means actually leaving rather than drifting to
 ## the edge of the fight.
@@ -73,6 +100,8 @@ var spec: Dictionary = {}
 ## Live units, and the bookkeeping the outcome is priced from.
 var units: Array[Node] = []
 var objectives: Array[ObjectiveAsset] = []
+## This sortie's repair and resupply gates (P2.6's pads, W.q4).
+var pads: Array[Node3D] = []
 ## type_id -> BODIES killed. What `WarManifest.dent_from_kills` eats, and the
 ## reason a half-cleared gnat pack dents by half a pack rather than by nothing.
 var kills: Dictionary = {}
@@ -99,6 +128,10 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	kills.clear()
 	units.clear()
 	objectives.clear()
+	for pad: Node3D in pads:
+		if is_instance_valid(pad):
+			pad.queue_free()
+	pads.clear()
 	_triggers.clear()
 	_trigger_spent.clear()
 	_objectives_down = 0
@@ -110,6 +143,7 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 		_trigger_spent.append(false)
 
 	_spawn_objectives()
+	_lay_pads()
 	_place_layers()
 	phase = Phase.ENGAGED
 	announced.emit("%s - %s" % [String(spec["archetype"]).to_upper(),
@@ -210,6 +244,90 @@ func _spawn_objectives() -> void:
 		objectives.append(asset)
 		asset.destroyed.connect(_on_objective_destroyed)
 		asset.first_damaged.connect(_on_objective_damaged)
+
+
+## P2.6's difficulty knob, finally connected. A pad-rich node is survivable and
+## a pad-poor one makes every hit count, and NEITHER is authored — the composer
+## derives the count from the node's own garrison and the war's escalation, so
+## "this target is brutal" is a fact about the war rather than a level setting.
+func _lay_pads() -> void:
+	var count: int = int(spec.get("pads", 0))
+	var placed: Array[Vector3] = []
+	for i: int in count:
+		var at: Vector3 = _pad_point(placed)
+		if at == Vector3.INF:
+			# Failing to place is a fine outcome: one fewer pad is a slightly
+			# harder sortie, where a pad buried in a building is a sortie that
+			# lies to you.
+			push_warning("[sortie] no clear spot for pad %d" % i)
+			continue
+		placed.append(at)
+		var gate: Node3D
+		if i == 0:
+			gate = (load("res://scenes/combat/repair_gate.tscn") as PackedScene) \
+					.instantiate() as Node3D
+		else:
+			var resupply := ResupplyGate.new()
+			# Alternate starting with flak: the pod burns its magazine several
+			# times faster than the rack does.
+			resupply.kind = &"flak" if i % 2 == 1 else &"missile"
+			gate = resupply
+		gate.position = at
+		get_parent().add_child(gate)
+		# Faced at the objective, so the approach is a line you fly rather than
+		# an angle you have to discover.
+		var flat := Vector3(center.x - at.x, 0.0, center.z - at.z)
+		if flat.length() > 0.1:
+			gate.look_at(gate.global_position + flat, Vector3.UP)
+		pads.append(gate)
+
+
+## A spot for a pad that clears the other pads, the objective structures, and
+## real scenery.
+##
+## The objective clearance is checked ARITHMETICALLY rather than with the shape
+## cast, deliberately: the structures were added to the tree microseconds ago in
+## the same call, and a body's collision shape is not registered with the
+## physics space until the next physics step — so a cast would sail straight
+## through them and cheerfully park a repair gate inside a factory.
+func _pad_point(placed: Array[Vector3]) -> Vector3:
+	var space: PhysicsDirectSpaceState3D = get_tree().root.world_3d.direct_space_state
+	var probe := SphereShape3D.new()
+	probe.radius = PAD_CLEARANCE
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = probe
+	for attempt: int in PAD_PLACE_TRIES:
+		var angle: float = _rng.randf_range(0.0, TAU)
+		var radius: float = _rng.randf_range(PAD_RADIUS_MIN, PAD_RADIUS_MAX)
+		var at: Vector3 = center + Vector3(
+				cos(angle) * radius,
+				_rng.randf_range(PAD_HEIGHT_MIN, PAD_HEIGHT_MAX),
+				sin(angle) * radius)
+		var clear: bool = true
+		for other: Vector3 in placed:
+			if at.distance_to(other) < PAD_MIN_SEPARATION:
+				clear = false
+				break
+		if not clear:
+			continue
+		for asset: ObjectiveAsset in objectives:
+			if is_instance_valid(asset) \
+					and at.distance_to(asset.position) < PAD_OBJECTIVE_CLEARANCE:
+				clear = false
+				break
+		if not clear:
+			continue
+		if space != null:
+			query.transform = Transform3D(Basis.IDENTITY, at)
+			# Static scenery only: a drifting raider is not a reason to reject a
+			# spot that will be empty a second later.
+			for hit: Dictionary in space.intersect_shape(query, 4):
+				if hit["collider"] is StaticBody3D:
+					clear = false
+					break
+		if clear:
+			return at
+	return Vector3.INF
 
 
 func _place_layers() -> void:

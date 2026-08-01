@@ -87,6 +87,9 @@ func _ready() -> void:
 	_runner.sortie_finished.connect(_on_sortie_finished)
 	_drone_health.damaged.connect(_on_player_damaged)
 	_drone_health.died.connect(_on_player_died)
+	# A repair gate fixes the motors itself; the HUD has to be told, or a pilot
+	# who just got their engines back has no way to know it worked.
+	get_tree().node_added.connect(_on_node_added)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_hud.show_title(_briefing_line())
 
@@ -180,6 +183,12 @@ func _print_briefing() -> void:
 			parts.append("%dx%s" % [int(unit["count"]), unit["type"]])
 		print("[sortie]   reserve on %s after %.1fs: %s"
 				% [trigger["on"], float(trigger["after_s"]), " ".join(parts)])
+	# The pad count is the pilot's single most important planning fact, and it is
+	# derived rather than authored: a heavily garrisoned node earns zero, which
+	# is P2.6's difficulty knob showing its working.
+	var pads: int = int(_spec["pads"])
+	print("[sortie]   pads: %s" % ("NONE - no repair, no resupply" if pads == 0
+			else "%d (repair first, then resupply)" % pads))
 	print("[sortie]   the node is worth %.2f strength; capture=%s"
 			% [SortieComposer.total_strength(_spec), _spec["capture"]])
 
@@ -192,6 +201,19 @@ func _start() -> void:
 	_hud.hide_title()
 	_hud.set_score(0)
 	_runner.start(_spec, _drone)
+
+
+## Pads are laid at sortie start rather than existing in the scene, so they are
+## caught as they arrive instead of being wired in _ready.
+func _on_node_added(node: Node) -> void:
+	if node is RepairGate:
+		(node as RepairGate).repaired.connect(_on_repaired)
+
+
+func _on_repaired() -> void:
+	_hud.set_health(_drone_health.current, _drone_health.max_health)
+	_hud.flash_engines_restored()
+	_hud.add_kill_feed("ENGINES RESTORED")
 
 
 func _on_egress_opened() -> void:

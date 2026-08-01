@@ -154,7 +154,7 @@ func _on_physics_frame() -> void:
 
 
 func _stage_start_dogfight() -> void:
-	_spec = _find_spec(&"dogfight")
+	_spec = _find_spec(&"dogfight", true)
 	if _spec.is_empty():
 		_fail("the theater produced no dogfight to fly")
 		_report()
@@ -163,6 +163,7 @@ func _stage_start_dogfight() -> void:
 	_expect(_runner.remaining() > 0,
 			"a composed dogfight places its garrison (%d units)" % _runner.remaining())
 	_expect(not _runner.has_objective(), "a dogfight has no structure to flatten")
+	_check_pads(_spec)
 	_stage = 1
 
 
@@ -202,7 +203,39 @@ func _stage_start_strike() -> void:
 	_expect(_runner.objectives.size() == int(_spec["objective_assets"]),
 			"one body per objective asset (%d of %d)"
 			% [_runner.objectives.size(), int(_spec["objective_assets"])])
+	_check_pads(_spec)
 	_stage = 3
+
+
+## P2.6 / W.q4. The zero case is the one that matters: a heavily garrisoned node
+## earns no pads, and a runner that quietly handed out a repair gate anyway
+## would delete the composer's only ROUTE-shaped difficulty knob without any
+## single line looking wrong.
+func _check_pads(spec: Dictionary) -> void:
+	var want: int = int(spec["pads"])
+	_expect(_runner.pads.size() == want,
+			"the sortie lays exactly the pads the composer allowed (%d of %d)"
+			% [_runner.pads.size(), want])
+	if want == 0:
+		return
+	# Hull is the resource you cannot fly without, so a one-pad node hands you
+	# the green one.
+	_expect(_runner.pads[0] is RepairGate,
+			"the first pad is the repair gate, whatever else follows")
+	for i: int in range(1, _runner.pads.size()):
+		_expect(_runner.pads[i] is ResupplyGate,
+				"pad %d is a resupply gate" % i)
+	# Placed clear of each other and of the structures, or a pad reads as
+	# flyable and is not.
+	for i: int in _runner.pads.size():
+		for asset: ObjectiveAsset in _runner.objectives:
+			_expect(_runner.pads[i].position.distance_to(asset.position)
+					>= SortieRunner.PAD_OBJECTIVE_CLEARANCE,
+					"pad %d clears the structures" % i)
+		for j: int in range(i + 1, _runner.pads.size()):
+			_expect(_runner.pads[i].position.distance_to(_runner.pads[j].position)
+					>= SortieRunner.PAD_MIN_SEPARATION,
+					"pads %d and %d do not overlap" % [i, j])
 
 
 ## The strike's own deadlock: flatten the objective WITHOUT clearing the
@@ -241,9 +274,15 @@ func _stage_verify() -> void:
 
 ## ---------- helpers ----------
 
-func _find_spec(archetype: StringName) -> Dictionary:
+## `prefer_pads` picks the richest node of that archetype rather than the first.
+## The two stages deliberately take opposite ends of the pad range: pads run 0-2
+## across slice-ready nodes, and without steering this the check drew a 1-pad
+## dogfight and a 0-pad strike, so the resupply-alternation branch never ran once.
+## A branch that never runs is untested however green the board looks.
+func _find_spec(archetype: StringName, prefer_pads: bool = false) -> Dictionary:
 	var config := WarConfig.new()
 	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var best: Dictionary = {}
 	for node: Dictionary in state["nodes"]:
 		var spec: Dictionary = SortieComposer.compose(node, state, config)
 		if spec["archetype"] != archetype or not SortieComposer.is_slice_ready(spec):
@@ -253,9 +292,13 @@ func _find_spec(archetype: StringName) -> Dictionary:
 		for layer: StringName in SortieComposer.LAYER_ORDER:
 			for unit: Dictionary in spec["layers"][layer]:
 				placed += int(unit["count"])
-		if placed > 0:
+		if placed <= 0:
+			continue
+		if not prefer_pads:
 			return spec
-	return {}
+		if best.is_empty() or int(spec["pads"]) > int(best["pads"]):
+			best = spec
+	return best
 
 
 func _kill_one_unit() -> void:
@@ -283,6 +326,9 @@ func _sweep_arena() -> void:
 	for unit: Node in _runner.units:
 		if is_instance_valid(unit):
 			unit.queue_free()
+	for pad: Node3D in _runner.pads:
+		if is_instance_valid(pad):
+			pad.queue_free()
 
 
 func _expect(condition: bool, message: String) -> void:
