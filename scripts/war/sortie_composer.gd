@@ -96,6 +96,16 @@ const LAYERING: Dictionary = {
 	&"gnat": {&"outer": 0.7, &"mid": 0.3},
 	&"turret": {&"mid": 0.7, &"inner": 0.3},
 	&"aegis": {&"inner": 1.0},
+	# The falx holds open approaches (P2.3's doctrine-in-terrain), which is the
+	# outer ring by definition — it is the thing you meet before you have
+	# committed to a line, and the one you are supposed to bait rather than
+	# chase.
+	&"falx": {&"outer": 1.0},
+	# The screamer sits with what it protects, so it rides the mid ring where the
+	# area denial lives. Putting it outer would let a pilot kill the jammer
+	# before entering the bubble, which is the opposite of the type's point;
+	# putting it inner would mean the jam only bites after the hard part.
+	&"screamer": {&"mid": 1.0},
 }
 
 const LAYER_ORDER: Array[StringName] = [&"outer", &"mid", &"inner"]

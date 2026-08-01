@@ -24,7 +24,18 @@ extends RefCounted
 ## which is how "your fights dent the war" actually gets paid.
 
 ## The slice roster (P4.10). A type joins the manifest the day it ships.
-const ROSTER: Array[StringName] = [&"raider", &"turret", &"gnat", &"aegis"]
+##
+## THE FALX AND THE SCREAMER JOINED LATE, and the gap is worth remembering
+## (Iteration 12 / W8). Both shipped as playable types, went into the wave
+## director, got behaviour checks and delivery cells — and this file never heard
+## about either, so for two weeks the CAMPAIGN's bestiary was strictly smaller
+## than the arcade's and no test could see it, because a roster nobody compares
+## against is self-consistent. A type joins the manifest the day it ships, and
+## `manifest_check` now asserts that against `WaveDirector.ROSTER` rather than
+## trusting it.
+const ROSTER: Array[StringName] = [
+	&"raider", &"turret", &"gnat", &"aegis", &"falx", &"screamer",
+]
 
 ## Doctrine weights (P2.3 "doctrine-in-terrain", at the strategic scale):
 ## node type → the mix that garrisons it. Shares are of the node's STRENGTH
@@ -32,15 +43,26 @@ const ROSTER: Array[StringName] = [&"raider", &"turret", &"gnat", &"aegis"]
 ## Weights need not sum to 1; they are normalized. A type absent from a row
 ## simply does not garrison that node: `airspace` has no turrets because
 ## there is nothing out there to bolt one to.
+## PROVISIONAL, and this is pacing — the human's call (handoff §14). The two
+## late arrivals are placed by what the TYPE is for, not by what reads well:
+##   - FALX is an interceptor that owns open air, so it garrisons the node types
+##     that launch or contest aircraft (`airspace`, `airbase`) and nothing that
+##     sits on the ground. It is the type you bait rather than chase, which is a
+##     picket's job description.
+##   - SCREAMER carries no weapon at all, so it only belongs where there is
+##     something worth protecting: the sensor/denial belt (`sam`, `radar`) and
+##     the command net. It is never the reason a node is defended, always the
+##     reason the defence is hard to shoot at.
 const DOCTRINE: Dictionary = {
-	&"airspace": {&"raider": 0.60, &"gnat": 0.40},
-	&"radar": {&"raider": 0.45, &"turret": 0.35, &"gnat": 0.20},
-	&"sam": {&"turret": 0.70, &"raider": 0.20, &"gnat": 0.10},
+	&"airspace": {&"raider": 0.50, &"gnat": 0.30, &"falx": 0.20},
+	&"radar": {&"raider": 0.40, &"turret": 0.30, &"gnat": 0.15, &"screamer": 0.15},
+	&"sam": {&"turret": 0.60, &"raider": 0.15, &"gnat": 0.10, &"screamer": 0.15},
 	&"depot": {&"turret": 0.50, &"raider": 0.30, &"gnat": 0.20},
 	&"factory": {&"turret": 0.45, &"gnat": 0.35, &"raider": 0.20},
-	&"airbase": {&"raider": 0.55, &"turret": 0.25, &"aegis": 0.20},
-	&"command": {&"aegis": 0.35, &"raider": 0.35, &"turret": 0.30},
-	&"hq": {&"aegis": 0.40, &"raider": 0.30, &"turret": 0.20, &"gnat": 0.10},
+	&"airbase": {&"raider": 0.40, &"falx": 0.25, &"turret": 0.20, &"aegis": 0.15},
+	&"command": {&"aegis": 0.30, &"raider": 0.30, &"turret": 0.20, &"screamer": 0.20},
+	&"hq": {&"aegis": 0.30, &"raider": 0.20, &"turret": 0.15, &"gnat": 0.10,
+			&"falx": 0.15, &"screamer": 0.10},
 }
 
 ## Cover density per biome (P1.9 / P4.5 cover economics). Dense ground nests
@@ -51,17 +73,26 @@ const COVER: Dictionary = {
 	&"coastal": 0.15, &"desert": 0.00, &"airfield_plains": 0.00,
 }
 
-## Types the cover tint treats as swarm / as open-approach flyers.
+## Types the cover tint treats as swarm / as open-approach flyers. The FALX is a
+## flyer: it holds open approaches, so dense ground should thin it exactly as it
+## thins a raider. The SCREAMER is deliberately in NEITHER list — it goes
+## wherever the thing it escorts goes, so letting cover tint it would price the
+## same decision twice (once on the escort, once on the escorted).
 const SWARM_TYPES: Array[StringName] = [&"gnat"]
-const FLYER_TYPES: Array[StringName] = [&"raider", &"aegis"]
+const FLYER_TYPES: Array[StringName] = [&"raider", &"aegis", &"falx"]
 
 ## Escalation (P4.6) shifts the mix toward the expensive end rather than
 ## simply adding bodies — a war that has been running fields heavier things,
 ## it does not field more of the same. Clamped so escalation can never delete
 ## a type from a doctrine row (P1.7's guardrail: pressure, not replacement).
+## The SCREAMER is heavy for escalation purposes, and that is a design claim
+## rather than a cost bracket: electronic warfare is what a war fields once it
+## has been running a while, so a theater under pressure should start hiding its
+## sensor belt behind a jammer. The falx is deliberately neutral — an
+## interceptor is a peacetime asset as much as a wartime one.
 const ESCALATION_HEAVY_GAIN: float = 0.80
 const ESCALATION_LIGHT_LOSS: float = 0.30
-const HEAVY_TYPES: Array[StringName] = [&"aegis"]
+const HEAVY_TYPES: Array[StringName] = [&"aegis", &"screamer"]
 const LIGHT_TYPES: Array[StringName] = [&"gnat"]
 
 ## Per-node character jitter, as a fraction of a weight. Two SAM sites in one
@@ -79,8 +110,16 @@ const FOG_EXACT_AGE: int = 1
 const FOG_FAMILIES_AGE: int = 5
 
 ## Family each type reports as once the count detail is gone.
+##
+## The SCREAMER reports as plain `air`, which is a deliberate design choice and
+## not an oversight: it means **knowing there is EW on a node requires FRESH
+## intel**. Give jamming its own family and a month-old report would still warn
+## you; folding it into `air` makes "the lock will not build" the kind of
+## surprise P1.3 says stale intel is supposed to produce. If that turns out to
+## feel like a cheat rather than a consequence, this line is the one to change.
 const FAMILIES: Dictionary = {
-	&"raider": &"air", &"aegis": &"air", &"gnat": &"swarm", &"turret": &"static",
+	&"raider": &"air", &"aegis": &"air", &"falx": &"air", &"screamer": &"air",
+	&"gnat": &"swarm", &"turret": &"static",
 }
 
 static var _roster_cache: Dictionary = {}
@@ -162,6 +201,8 @@ static func project(node: Dictionary, theater_seed: int,
 		spent += costs[pick]
 		remaining -= costs[pick]
 
+	_enforce_escort_rule(counts, weights, costs)
+
 	var units: Array = []
 	for type_id: StringName in ROSTER:
 		if not counts.has(type_id):
@@ -230,6 +271,62 @@ static func through_fog(units: Array, intel_age: int) -> Dictionary:
 
 
 ## ---------- internals ----------
+
+## Types that put NO pressure on the player at all. The aegis is deliberately
+## absent: it carries no gun but it is on a clock against you, so a garrison of
+## bombers is a fight you can lose. The screamer is the only true escort — it
+## cannot hurt you by any route, and a node defended entirely by jammers is a
+## node you fly through untouched while your lock refuses to build.
+##
+## Mirrors `WaveDirector.ROSTER`'s `threat` flag on purpose. The two tables are
+## the same design statement at two scales, and `manifest_check` asserts they
+## agree so they cannot drift into disagreeing about what an escort is.
+const NO_THREAT_TYPES: Array[StringName] = [&"screamer"]
+
+
+## Guarantee a garrison contains something that can fight back (P4.3's escort
+## rule, at the strategic scale). ENFORCED, not merely stated — `DOCTRINE` above
+## is data, and data gets edited by someone who is not reading this function.
+##
+## Reachable because the fill is greedy over strength: a small garrison on a
+## `sam` or `command` node can buy one expensive jammer and then have too little
+## left for anything else. That sortie would be a walk-in with a broken lock and
+## no threat, which reads as the composer being broken rather than as a quiet
+## node.
+##
+## The swap is strength-neutral by construction — the escort's budget is spent
+## on whole units of the cheapest thing that DOES threaten — so the manifest
+## still spends exactly the garrison it was handed and the exchange rate stays
+## exact.
+static func _enforce_escort_rule(counts: Dictionary, weights: Dictionary,
+		costs: Dictionary) -> void:
+	if counts.is_empty():
+		return
+	for type_id: StringName in counts:
+		if not type_id in NO_THREAT_TYPES:
+			return
+
+	# Cheapest threatening type this node's doctrine actually allows, so the
+	# substitution never fields something the node type would never garrison.
+	var swap: StringName = &""
+	for type_id: StringName in ROSTER:
+		if type_id in NO_THREAT_TYPES or not weights.has(type_id):
+			continue
+		if swap == &"" or float(costs[type_id]) < float(costs[swap]):
+			swap = type_id
+	if swap == &"":
+		push_warning("[manifest] doctrine for this node has no type that threatens")
+		return
+
+	var freed: float = 0.0
+	for type_id: StringName in counts:
+		freed += float(costs[type_id]) * float(counts[type_id])
+	var bought: int = int(floor(freed / maxf(float(costs[swap]), 0.0001)))
+	if bought <= 0:
+		return
+	counts.clear()
+	counts[swap] = bought
+
 
 ## Doctrine × biome cover × escalation × per-node character, normalized.
 static func _weights(node: Dictionary, theater_seed: int,

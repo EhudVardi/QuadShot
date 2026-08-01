@@ -164,9 +164,8 @@ func _setup() -> void:
 	# gun never came back" — the gun was fine, the drone was dead. Defang the
 	# whole roster: this check is about a weapon, not a fight.
 	for type_id: StringName in WaveDirector.ROSTER:
-		var enemy_type: StringName = &"gnat" if type_id == &"gnats" else type_id
 		var enemy: EnemyConfig = load(
-				"res://resources/default_enemy_%s.tres" % enemy_type) as EnemyConfig
+				"res://resources/default_enemy_%s.tres" % type_id) as EnemyConfig
 		enemy.damage = 0.0
 		enemy.sight_range = 0.0
 	RunMods.reset()

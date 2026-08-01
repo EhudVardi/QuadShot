@@ -250,9 +250,8 @@ func _setup() -> void:
 	# Arming starts a real run, and a real run shoots back; this check is about
 	# bookkeeping, not a fight.
 	for type_id: StringName in WaveDirector.ROSTER:
-		var enemy_type: StringName = &"gnat" if type_id == &"gnats" else type_id
 		var enemy: EnemyConfig = load(
-				"res://resources/default_enemy_%s.tres" % enemy_type) as EnemyConfig
+				"res://resources/default_enemy_%s.tres" % type_id) as EnemyConfig
 		enemy.damage = 0.0
 		enemy.sight_range = 0.0
 	_drone.arm()

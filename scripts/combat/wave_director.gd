@@ -112,7 +112,11 @@ const ROSTER: Dictionary = {
 		"scene": "res://scenes/combat/falx.tscn",
 		"ground": false, "threat": true,
 	},
-	&"gnats": {
+	# `gnat`, not `gnats` — the id every other system already keys off
+	# (`EnemyConfig.type_id`, `default_enemy_gnat.tres`, `WarManifest.ROSTER`).
+	# This file spelled it plural until Iteration 12, and the cost was three
+	# copies of the same translation line in three separate checks.
+	&"gnat": {
 		"scene": "res://scenes/combat/gnat_swarm.tscn",
 		"ground": false, "threat": true,
 	},
@@ -143,18 +147,18 @@ const ROSTER: Dictionary = {
 ## better sortie finale than a mid-sortie surprise.
 const PLAN: Array = [
 	# Sortie 1 — raiders, then the interceptor, then the swarm.
-	[{}, {&"falx": 1}, {&"gnats": 1}],
+	[{}, {&"falx": 1}, {&"gnat": 1}],
 	# Sortie 2 — ground fire you have to go and dig out, then the cloud under
 	# escort: first a falx pulling you off it, then the EW asset that takes
 	# your gun director away while it arrives.
-	[{&"turret": 1}, {&"gnats": 1, &"falx": 1}, {&"gnats": 1, &"screamer": 1}],
+	[{&"turret": 1}, {&"gnat": 1, &"falx": 1}, {&"gnat": 1, &"screamer": 1}],
 	# Sortie 3+ — where a long run actually lives, so every wave carries a
 	# cloud: the pressure that never lets a single-target answer settle. Then
 	# the intercept clock, and P4.3's first designed pair — a bomber you must
 	# kill in time, escorted by the thing that takes your lock away.
-	[{&"gnats": 1, &"falx": 1, &"turret": 1},
-			{&"gnats": 1, &"aegis": 1},
-			{&"gnats": 2, &"aegis": 1, &"screamer": 1}],
+	[{&"gnat": 1, &"falx": 1, &"turret": 1},
+			{&"gnat": 1, &"aegis": 1},
+			{&"gnat": 2, &"aegis": 1, &"screamer": 1}],
 ]
 
 @export var combat_config: CombatConfig
