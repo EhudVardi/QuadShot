@@ -1,0 +1,55 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/environment/greybox.tscn" id="1_greybox"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
+[ext_resource type="Script" path="res://scripts/sortie.gd" id="3_sortie"]
+[ext_resource type="Script" path="res://scripts/chase_camera.gd" id="4_chase"]
+[ext_resource type="Script" path="res://scripts/sortie/sortie_runner.gd" id="5_runner"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="9_hud"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="10_sfx"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="11_acfg"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="12_lookcfg"]
+[ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="13_bind"]
+[ext_resource type="Resource" path="res://resources/default_weather_config.tres" id="14_wthr"]
+[ext_resource type="Resource" path="res://resources/default_damage_config.tres" id="15_dmg"]
+[ext_resource type="Resource" path="res://resources/default_enemy_raider.tres" id="16_eraider"]
+
+[node name="Sortie" type="Node3D"]
+script = ExtResource("3_sortie")
+combat_config = ExtResource("7_ccfg")
+input_bindings = ExtResource("13_bind")
+
+[node name="Greybox" parent="." instance=ExtResource("1_greybox")]
+
+[node name="Drone" parent="." instance=ExtResource("2_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("8_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("10_sfx")
+audio_config = ExtResource("11_acfg")
+
+[node name="SortieRunner" type="Node" parent="."]
+script = ExtResource("5_runner")
+
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
+script = ExtResource("4_chase")
+target = NodePath("../Drone")
+
+[node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
+drone = NodePath("../Drone")
+combat_config = ExtResource("7_ccfg")
+damage_config = ExtResource("15_dmg")
+audio_config = ExtResource("11_acfg")
+look_config = ExtResource("12_lookcfg")
+input_bindings = ExtResource("13_bind")
+weather_config = ExtResource("14_wthr")
+enemy_configs = Array[Resource]([ExtResource("16_eraider")])
+
+[node name="Hud" parent="." instance=ExtResource("9_hud")]

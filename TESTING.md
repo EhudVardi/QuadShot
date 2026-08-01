@@ -79,8 +79,44 @@ Useful filters: `jammed`, `evade: atlas`, `kestrel x raider`, `flak x gnats`.
 <godot> --path . scenes/main.tscn         straight into a run
 <godot> --path . scenes/dev_map.tscn      the dev room — one of every element
 <godot> --path . scenes/city_map.tscn     the procedural city
+<godot> --path . scenes/sortie.tscn       a COMPOSED SORTIE from the war (see below)
 <godot> --path . scenes/aim_drill.tscn    the human aim drill (see §5)
 ```
+
+### Flying a composed sortie (Iteration 12)
+
+The first scene in this project whose contents came out of the war-sim rather
+than out of a level. It generates a theater, composes one node into a
+`sortie_spec`, and builds exactly what the spec describes.
+
+```
+<godot> --path . scenes/sortie.tscn                      first slice-ready node
+<godot> --path . scenes/sortie.tscn -- --node 8          a specific node
+<godot> --path . scenes/sortie.tscn -- --seed 99 --node 3
+```
+
+**It prints its own briefing before you arm**, which is the fastest way to see
+what the composer actually produced:
+
+```
+[sortie] seed 4242, node 8 (factory / industrial, clear)
+[sortie]   STRIKE: destroy production x3
+[sortie]   outer  2xraider 3xgnat
+[sortie]   mid    6xturret 1xgnat
+[sortie]   inner  2xturret
+[sortie]   reserve on objective_damaged after 9.6s: 7xraider
+```
+
+Two archetypes exist. A **dogfight** (`airspace` nodes) has no structure — clear
+the field and its reserves. A **strike** (`factory`) has three hot-white
+structures at the centre; flatten them and **fly back out past 105 m** to finish
+(W.q3: a strike ends on egress, so the reserve that scrambles when you touch the
+objective has something to arrive to). On seed 4242, nodes 8 and 11 are strikes
+and most of the rest are dogfights.
+
+**Nothing here is balanced and none of it should be tuned yet** — H6 is explicit
+that difficulty is measured, not authored. The first flights exist to produce a
+number, not a good one.
 
 Fly a different frame without editing anything:
 
@@ -94,7 +130,21 @@ the city block around the middle.
 
 ---
 
-## 4. The check suite — 16 headless checks
+**It is a CAMPAIGN, not a level.** The result is priced back into the war
+(`WarSim.apply_sortie`), the war takes a turn, and the state is written to
+`user://war.save` — so the next launch resumes where you left it and says so:
+
+```
+[war] resumed tick 3, 5 pilots, 2 sorties flown
+[war] node 8 (factory): garrison 35.80 -> 21.40 (dent 14.40)  degraded
+[war] tick 4  pilots 5  war continues
+```
+
+Everything you destroy dents the node even if you die (P2.q4), so a failed
+sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
+leaves the file alone entirely.
+
+## 4. The check suite — 18 headless checks
 
 Run all of them before believing anything:
 
@@ -104,7 +154,7 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`, `ammo`.
+`heat`, `ammo`, `sortie`, `war_loop`.
 
 `falx` and `screamer` are **behaviour checks**, and every new enemy type gets one
 the day it lands. The reason is scar tissue: the harness can only ever say *"this
@@ -125,6 +175,25 @@ suite would notice, because every other check either kills its enemies with
 that Layer 1's duty-cycle arithmetic matches the real weapon — which
 `lethality_check` structurally cannot do, since that bench plants shots from the
 model itself and would agree with itself all the way to the wrong answer.
+
+`war_loop_check` is the eighteenth, and it guards the joint that turns a sortie
+generator into a campaign: the dent reaching the war, the capture gate flipping
+ownership, a **dead** pilot's sortie still resolving, and the save surviving a
+round trip. It asserts the save-format decision too — that JSON *would* lose
+StringName and int — because that failure writes a perfect-looking file and
+forks the war silently. **It caught a real bug on its first run**:
+`FileAccess.get_as_text()` reads from the start of the file regardless of the
+cursor, so the header comment was being fed to `str_to_var`, which tried to
+parse the campaign as a Color.
+
+`sortie_check` is the seventeenth (Iteration 12), and it guards the three ways a
+composed sortie can hang with the pilot alive and nothing to do: a **strike**
+whose egress never opens, a **dogfight** — which has no objective at all, so the
+field-cleared path is the only thing that can end it — and a **reserve** that
+fires twice or never. That last one is not hypothetical: a dogfight carries two
+reserves both keyed `wave_cleared`, and Godot hashes a Dictionary by content, so
+a spent-flag keyed by the trigger itself would collapse two structurally
+identical waves into one and silently never fire the second.
 
 `ammo_check` is `heat_check`'s mirror (v1.92): not a gun that never comes back,
 but a magazine that never refills. There are four ways to put rounds back and

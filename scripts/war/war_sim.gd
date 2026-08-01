@@ -46,6 +46,84 @@ static func winner(state: Dictionary) -> StringName:
 	return state["winner"]
 
 
+## THE LOOP HOME (GAMEPLAY-DESIGN Iteration 12, W7): a sortie a HUMAN actually
+## flew, priced back into the war. `_proxy_sortie` above is the abstract
+## stand-in that soak runs sweep with; this is the real thing, and the two must
+## agree on their outcome vocabulary or the harness would be calibrating a
+## different game from the one being played.
+##
+## `result` is `SortieRunner.result()` — serializable, so this function never
+## needs to know a Node3D exists, exactly like the rest of `war/`.
+##
+## THE RULE OF THE WHOLE DOC IS THIS FUNCTION: "the war shapes your fights;
+## your fights dent the war." Everything up to now was the first half.
+##
+## Returns a summary of what moved, for a briefing line or a check.
+static func apply_sortie(state: Dictionary, config: WarConfig,
+		result: Dictionary) -> Dictionary:
+	var node: Dictionary = node_by_id(state, int(result.get("node_id", -1)))
+	if node.is_empty():
+		return {}
+	var before: float = float(node["garrison"])
+	state["sorties"] = int(state["sorties"]) + 1
+
+	# P2.q4, and it is unconditional ON PURPOSE: everything you destroyed dents
+	# the node, whether you completed the objective, aborted, or died on the
+	# way out. A hard-fought failure still weakens the target for next time.
+	node["garrison"] = quantize(maxf(before - float(result.get("dent", 0.0)), 0.0))
+
+	# You just looked at this ground with your own eyes, so the fog clears
+	# regardless of how the sortie went (P1.3). Dying over a node is a terrible
+	# way to buy intel and it is still intel.
+	node["intel_age"] = 0
+
+	# P1.q2 / P2.9's capture gate. Adjacency is re-read from the LIVE state
+	# rather than from the spec that composed this sortie: the spec's `capture`
+	# was true when the briefing was written, and a tick may have moved the
+	# front since. The ground is what it is when you get there.
+	var captured: bool = false
+	var degraded: bool = false
+	if bool(result.get("objective_complete", false)) \
+			and not bool(result.get("pilot_lost", false)):
+		if has_adjacent_owner(state, node, &"player"):
+			# A completed assault next to ground you hold IS the node taken.
+			# Consolidated and dug in, so retaking it costs the enemy a real
+			# decision rather than a reflex — same numbers the proxy uses.
+			node["owner"] = &"player"
+			node["garrison"] = quantize(10.0)
+			node["fort"] = maxf(float(node["fort"]), 1.3)
+			captured = true
+			if node["hq"]:
+				state["winner"] = &"player"
+		else:
+			# A deep strike with nothing to hold it only degrades (P1.q2).
+			node["garrison"] = quantize(maxf(float(node["garrison"])
+					- config.sortie_damage, 0.0))
+			degraded = true
+
+	if bool(result.get("pilot_lost", false)):
+		state["pilots"] = maxi(int(state["pilots"]) - 1, 0)
+
+	return {
+		"node_id": int(node["id"]),
+		"node_type": node["type"],
+		"outcome": result.get("outcome", &"partial"),
+		"garrison_before": quantize(before),
+		"garrison_after": float(node["garrison"]),
+		"dent": quantize(float(result.get("dent", 0.0))),
+		"captured": captured,
+		"degraded": degraded,
+		"pilots_left": int(state["pilots"]),
+	}
+
+
+static func node_by_id(state: Dictionary, id: int) -> Dictionary:
+	for node: Dictionary in state["nodes"]:
+		if int(node["id"]) == id:
+			return node
+	return {}
+
+
 ## Quantize an evolving float so the state round-trips var_to_str EXACTLY —
 ## the F4 promise, and the reason every war float goes through one function.
 ##
