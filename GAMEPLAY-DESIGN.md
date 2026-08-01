@@ -4033,6 +4033,370 @@ gate (M4). Three fly-through objects with three meanings is already the ceiling
 for one arena; a fourth needs its own colour and its own unmistakable silhouette
 before it can exist.
 
+---
+
+## Iteration 12 — W: The Bridge (flying the war) (PROPOSED, 2026-07-31 — agent-initiated, steered in part the same day)
+
+> **The war exists and has never been played.** `SortieComposer.compose()` is
+> called by nothing but its own tests, and no scene has ever instantiated a
+> `sortie_spec`. This is not a new pillar — all five are designed and four are
+> built. It is the **introduction**: the function that turns the composer's
+> output into ground a human flies over. Sections **W1–W11**, open questions
+> **W.q1–W.q7**; react by ID.
+
+### W1 — The state, stated plainly
+
+Against the roadmap's vertical-slice target (~5 nodes · 2 frames · 3 weapons ·
+4 enemies):
+
+| target | have | gap |
+|---|---|---|
+| 2 frames | Kestrel, Atlas | **met** |
+| 3 weapons | blaster, missile, flak | **met** |
+| 4 enemies | six shipped | **exceeded** |
+| ~5 playable nodes | **zero** | **the whole gap** |
+
+Everything except the map is at or past target, and the map is not missing art
+— it is missing a *function call*. `TheaterGenerator` makes nodes. `WarSim`
+ticks them. `WarManifest` dresses a garrison in named units. `SortieComposer`
+turns one node into a complete spec — archetype, objective, layered garrison,
+triggered reserves, approach geometry, pads, dares, and the H.q2 difficulty
+input vector — and `sortie_trace` prints thirty of them in under a second.
+Nothing has ever built one.
+
+That asymmetry is the finding. Four of the five pillars are further along than
+the roadmap asked for, and the fifth is at zero, because it is the only one that
+required the two halves of the project to be introduced to each other.
+
+### W2 — The bridge must terminate in a STRIKE, not a Dogfight
+
+`SLICE_ARCHETYPES` allows two, and they are not equally worth building first.
+
+A **Dogfight is the wave director wearing a different hat**, and P2.12 says so
+in as many words. Read the composer: for `dogfight` it collapses the entire
+layered garrison into one flat `outer` layer (`_layer`: *"a dogfight has no
+rings to hold"*) and splits the reserve into two timed waves triggered on
+`wave_cleared`. That is `WaveDirector.PLAN` with different spelling. A bridge
+that terminates there terminates in the game that already exists.
+
+A **Strike is the thing this project has never had: an objective you must
+destroy while a garrison shoots at you.**
+
+The difference is not flavour, and Iteration 9 predicted it would matter. S4
+asked why the Kestrel spends 0% hull in four measured cells and answered that
+the mechanism is not marksmanship but **time in the threat envelope** — the
+Kestrel kills the turret in 1.3 s, so exposure is ≈ 0, and raising `MAX_SECONDS`
+buys nothing because *a duel ends when the enemy dies, not when the clock
+expires*. Its list of what actually creates exposure has, as item 2: *"a task
+that holds you in the envelope — 'destroy the objective while the turret ring
+fires', i.e. a composed sortie rather than a duel."* And its conclusion is the
+sentence this whole iteration should be steered by: **duels prove
+feel-promises; sorties produce curves.**
+
+Three named debts sit on the far side of that sentence:
+
+- **H7's 127-sortie median.** H7 itself refuses to recalibrate against
+  *"abstract garrisons and a stopgap draft economy"* — which is still exactly
+  what `war_soak` runs on, because nothing has ever fed it a flown result.
+- **The Atlas at −0.67 against three raiders** where P3.4's paper expects 0.
+  Durability is precisely the property that only appears when you are
+  outnumbered *and cannot leave*, and a duel always lets you leave.
+- **H6's graded 45–65% middle**, which S4 says the unit layer structurally
+  cannot produce: a win rate over a deterministic duel is a step function.
+
+None of the three is touched by a Dogfight. All three are addressed by a Strike.
+**The Dogfight still gets built** — it is the cheap end-to-end proof that the
+pipe connects, and it is the wave director's stated migration path — but it is a
+waypoint, not the destination.
+
+### W3 — The spec, audited field by field
+
+What `compose()` hands the scene layer, and what exists to receive it. This
+table is the honest scope of the work:
+
+| spec field | what it asks for | what exists today |
+|---|---|---|
+| `layers` outer/mid/inner | concentric placement by doctrine | one ring (`_air_point`/`_ground_point`); concentric is new |
+| `triggers[]` | reserves arriving on a stated condition | nothing — the only trigger in the game is "the last wave died" |
+| `objective` / `objective_assets` | 1–4 structures whose death is the sortie | **nothing.** `target.tscn` is a floating score object |
+| `approach.ingress_m` (150–400) | an approach flown from a start line | nothing; every arena starts you in the middle |
+| `pads` (0–3) | repair + re-arm inside the fight | **Iteration 10 built exactly this — see W4** |
+| `dares[]` | one unmarked, risk-priced challenge | dev-room gates and a tunnel, all hand-placed |
+| `biome` | which ground this is | `city.tscn` + seeded `CityLayout`; greybox |
+| `weather` | the P1.6 modifier pack | `WeatherConfig` is a persisted stub, unsimulated |
+| `capture` | flip the node, or only dent it | needs W7 |
+| `garrison_strength` | the price the sortie settles at | `WarManifest.strength_of` — exists |
+| `difficulty_inputs` | the H.q2 axis vector, for diagnosis | exists, consumed by nobody |
+
+Two rows are worth reading twice. `objective_assets` is the only piece of
+genuine *content* the bridge needs, and it is small. `pads` is the row where the
+receiving hardware was built first and has been sitting idle.
+
+### W4 — P2.6's pad count finally has a referent, and Iteration 10 built it early
+
+`SortieComposer` has emitted `pads: int` since v1.71 — scaled inversely with
+garrison load and escalation, zero at an HQ or a command post. It has never
+meant anything, because nothing consumed it.
+
+Then Iteration 10, for entirely unrelated reasons (a playtest ask about
+resources), built **the repair gate, the amber flak gate and the violet missile
+gate** — and R1 opened by noting that P2.6's *"pads repair hull + re-arm
+magazines"* was a promise about a resource that did not exist. R1 was solving
+the missing resource. It also, without meaning to, built the pad.
+
+So the bridge does not design pads. It **spends `spec["pads"]` on gates that
+already exist** (W.q4), and two systems built a month apart become one. The
+sortie number is finally the *node's* difficulty rather than a counter in a run
+— which is what P2.6 asked for and `WaveDirector.gate_count()` could only
+approximate.
+
+The same trick explicitly does **not** work for `dares`. Nothing built dare
+hardware; the dev room's gates and tunnel are hand-placed scenery in a
+hand-built map. A dare is a placement problem inside a *generated* map, which is
+why W11 puts it last and why it is not smuggled in beside the pads.
+
+### W5 — The objective asset: the smallest new thing that makes a Strike a Strike
+
+A `StaticBody3D` with a `Health` and a `destroyed` signal — the turret's shape
+minus the gun. Three of them for a factory, one for a radar dish. Constraints,
+all of which are one-line to state and expensive to discover later:
+
+- **Killable by every weapon in the arsenal.** A structure only the missile can
+  crack converts a loadout *choice* into a loadout *lockout*, and P3's whole
+  arsenal thesis is that answers are earned, not required.
+- **Findable without a quest marker** (P2.7's doctrine, applied to the
+  objective). The emissive palette has no colour for "the thing you came for"
+  — W.q5.
+- **Priced into the exchange** (W7). Destroying the objective and destroying the
+  garrison are different currencies and the war must be told which it received.
+
+**The trap worth naming now**: an objective that dies instantly makes the
+garrison decoration; one that takes a minute makes the sortie a health bar. P2.9
+already has the right answer — the objective is the **capture gate**, not the
+fight. The fight is the garrison you have to survive while spending time on it.
+
+### W6 — Triggers are the archetype, and they are the thing a wave loop cannot do
+
+`TRIGGER_ON` says a Strike's reserve arrives on `objective_damaged`, a SEAD's on
+`detected`, a dogfight's on `wave_cleared`. Only the third exists in the game.
+
+That is the entire mechanical difference between a wave loop and a sortie: **a
+wave arrives because the last one died; a reserve arrives because of something
+you chose to do.** `objective_damaged` is the interesting one, because it turns
+the objective from a task into a *decision about timing* — you may scout,
+position, kill the pickets and pick your moment, since the clock only starts
+when you touch the thing you came for. P2.3 framed this as *"staying unseen is
+real counterplay"*; on a Strike it becomes *"hitting it early has a price."*
+
+`detected` needs a detection model the game does not have, which is why W11
+defers SEAD past the slice — consistent with `SLICE_ARCHETYPES` already
+excluding it.
+
+### W7 — The loop back into the war (the step that makes it a campaign)
+
+Flying a composed sortie is a level. Settling it against the war is a campaign.
+The chain, all of which already exists as arithmetic:
+
+1. Kills are priced back through `EnemyConfig.strength_cost` —
+   `WarManifest.strength_of` on what died. That is the exchange rate BALANCE.md
+   names, finally paying out.
+2. The node's `garrison` falls by that amount. **P2.q4 is already decided:
+   every kill dents the node**, so a failed sortie is a partial rather than a
+   waste, and a death still leaves the target weaker for next time.
+3. `capture` (already in the spec, already computed from
+   `WarSim.has_adjacent_owner`) decides flip versus degrade.
+4. `WarSim` ticks. The enemy acts. Intel ages.
+5. The state saves. `WarSim.quantize` already guarantees the dictionary
+   round-trips `var_to_str` bit-exactly, so F4's portable save is a file write
+   and nothing more.
+
+Until step 5 exists there is no campaign, only a sortie generator. After it,
+**H7's number becomes measurable against something real** for the first time.
+
+### W8 — The war does not know two of its own enemies
+
+`grep -rn "falx\|screamer" scripts/war/` returns nothing. `WarManifest.ROSTER`
+is `[raider, turret, gnat, aegis]` while the game ships six types and
+`WaveDirector.ROSTER` fields all six. The campaign's bestiary is therefore
+strictly smaller than the arcade's, and the first composed sortie a human ever
+flies could not contain the two most interesting enemies in the game.
+
+**Steered 2026-07-31: both join the manifest now.** It is a `ROSTER` row, a
+share in the `DOCTRINE` rows where the type belongs, and a `LAYERING` rule —
+data, not code, exactly as P4.10 intends. Provisional and flagged for hands:
+
+- **Falx** — an interceptor that owns open air, so it garrisons `airspace` and
+  `airbase` and holds the **outer** layer. It is the type you bait rather than
+  chase, which is a *picket's* job description.
+- **Screamer** — an escort with no weapon at all, so it belongs only where there
+  is something worth protecting: `sam`, `radar`, `command`. **Mid** layer, with
+  the garrison beneath it. `WaveDirector.compose()` already enforces "a wave
+  must hold something that threatens"; the manifest needs the same rule, or a
+  small node can roll a garrison that cannot fight back.
+
+**And it forces a naming decision before it becomes a silent bug.** The manifest
+spells the swarm `gnat`; `WaveDirector.ROSTER` spells it `gnats`. The runner
+needs a type → scene map, and that map is exactly where a typo deletes a type
+from a fight. Standing rule 2: a missing enemy and a tough enemy read
+*identically* from a results table, and four separate Falx bugs proved it. One
+id, chosen once, asserted by the check — W.q6.
+
+**It is not a hypothetical, and grep settles it.** The line
+`var enemy_type: StringName = &"gnat" if type_id == &"gnats" else type_id`
+already exists **verbatim in three separate check files** —
+`ammo_check.gd:253`, `composition_check.gd:207`, `heat_check.gd:167`. The
+workaround has been copy-pasted three times rather than fixed once, which is the
+usual sign that the wart is in the data and not in the readers.
+
+**And there is a trap in the obvious fix that a future session will otherwise
+walk into.** `delivery_bench.gd` also contains `"gnats"`, and it must **NOT** be
+renamed. There it is a *cell label*, not a roster key: `TYPE_IDS` translates the
+bench's display names to roster ids at the boundary (with a comment saying so),
+the labels are what a WATCH filter matches on, and they are baked into the keys
+of `balance/delivery_factors.json`. Renaming them would silently invalidate
+every measured delivery factor. **The bench already does the right thing — it
+translates at the edge; the wave director is the one that leaked a display
+spelling into a type key.** Scope of the rename is therefore exactly
+`wave_director.gd` plus deleting the three dead translation lines.
+
+### W9 — Three places where the composer's numbers collide with the shipped game
+
+Found by reading the two halves against each other. Each is the class of defect
+that can only appear when two systems are introduced.
+
+1. **The signal leash cuts an open approach in half.** `main.gd` warns at 220 m
+   and drops the FPV link at 300 m, returning the pilot to the menu tower.
+   `_approach` emits `INGRESS_OPEN_M` = **400 m** for a desert or SAM node (a
+   city gets 150 m, which fits comfortably). A composed desert Strike would lose
+   its link *during the ingress* and read as the sortie killing itself. This is
+   the same defect Iteration 11's T2/3b named for the transit gate, arriving
+   from an unrelated direction — two independent features tripping one rule is
+   evidence the **rule** is what needs revising, not either feature.
+2. **`ARENA_CENTER` is a constant.** The wave director spawns around
+   `(-18, 0, -15)` because that is where the greybox's usable air is. A composed
+   sortie's centre is wherever the objective was laid, in a map generated from a
+   seed. Anything that reads its centre from a `const` cannot host a generated
+   map, and every placement routine in `wave_director.gd` does.
+3. **Two wave counts describe the same thing.** A dogfight's reserve is split
+   into exactly two triggered waves (`_triggers`: `wave_count = 2`) while
+   `CombatConfig.sortie_waves` says three. They were authored a month apart and
+   both claim to say how long a sortie is. Whichever wins, the other must stop
+   existing, or they will drift and no one will notice which one a given fight
+   obeyed.
+
+### W10 — What this retires, and what it explicitly does not
+
+**Makes retirable** (not retired — this iteration builds the instrument's
+missing subject, it does not tune anything):
+
+- H7's 127-sortie debt gets a real referent for the first time.
+- The Atlas becomes legible, because a Strike creates the sustained exposure S4
+  named and S5 could only approximate with `count: N`.
+- H9's sortie layer — *"floor + ceiling only"* — becomes writable, since it
+  needs a composed-sortie runner and that is exactly what W11 builds.
+
+**Does not touch, and must not be blamed on:**
+
+- The balance board's re-measure. The bridge changes no weapon, enemy or frame
+  config, so the two are independent and can be sequenced freely.
+- The human's director-off aim drill (H.q4's open half).
+- Feel and pacing, which stay the human's in full.
+
+**One honest warning, recorded before the first flight rather than after it:
+the first composed sortie will not be balanced, and it must not be tuned to be.**
+H6 is explicit that SDI is *measured, not authored*, and the composer deliberately
+emits an input vector with no composite score precisely so that nobody is tempted
+to author one. The first flight's job is to produce a *number*, not a good one.
+
+### W11 — The build cut, and where the human's hands are needed
+
+Each phase is a checkpoint: stop, summarize, hand it over.
+
+| # | what | ends in |
+|---|---|---|
+| 1 | The manifest roster gap (W8) + the type-id decision | a check, no new flying |
+| 2 | `SortieRunner` + `sortie_check.gd` (#17): layers placed, triggers armed, objective spawned, sortie resolved. Greybox ground, Dogfight then Strike | **the first composed sortie a human has ever flown** |
+| 3 | The loop home (W7): kills priced, node dented, war ticked, state saved | **the war has been played** |
+| 4 | The city as the biome (P2.13), `pads` spent on the gate family (W4), the real ingress (W9.1) | a sortie that is *about* its ground |
+| 5 | Node selection + briefing (P2.1's two evaluations, fog included) | a campaign you sit down to |
+| — | H7's recalibration | *after* 1–5, never before |
+
+Phase 2 is the checkpoint that matters. Everything before it is plumbing;
+everything after it is answering questions that only a flown sortie can ask.
+
+### W open questions (react by ID)
+
+- **W.q1 — Where does a sortie live: a new scene, or a mode inside `main.tscn`?**
+  My lean: **a new `scenes/sortie.tscn`.** `main.gd` owns the M4 run's whole
+  lifecycle (arm → waves → exit gate → draft → death ends run) and a sortie's is
+  different at every step. `dev_map` and `city_map` already set the precedent for
+  scenes that mirror main's wiring rather than extending it.
+- **W.q2 — Does the M4 run survive alongside the campaign?** My lean: **yes,
+  both.** The run is the arcade mode M7 already wants, it is what every bench
+  and every balance factor was measured inside, and the menu tower has the leaf
+  for it. Deleting it would invalidate the instrument to save a menu entry.
+- **W.q3 — What ends a Strike?** (a) objective destroyed = immediate success;
+  (b) destroyed, then **egress** — fly back out past the ingress line; (c)
+  destroyed *and* garrison cleared. My lean: **(b)**. It is the only one that
+  makes `objective_damaged` reserves mean anything (under (a) they arrive to an
+  empty sky), it is a flying task rather than a kill task, and P2.9's spectrum
+  needs somewhere for "got it, didn't get home" to live. But this is pacing, so
+  it is the human's.
+- **W.q4 — How does `pads: N` spend on the shipped gate family?** My lean:
+  **one repair gate first, then resupply gates alternating flak/missile** — the
+  hull is the resource you cannot fly without, so a one-pad node should hand you
+  the green one. `ResupplyGate.charges` then carries the rest of P2.6's
+  granularity for free.
+- **W.q5 — What colour is an objective asset?** The palette is full: cyan =
+  navigation, red = threat, orange = score, amber = pylons/flak, green = pads,
+  violet = missile, yellow = your fire. My lean: **white/hot-white**, unused and
+  unmistakable, reading as "the thing you came for" rather than as any existing
+  role. Alternative: no emissive at all — a dark structure the neon does *not*
+  claim, which is arguably stronger and definitely riskier.
+- **W.q6 — One type id, or a translation table?** My lean: **one id, `gnat`,
+  renamed on the wave-director side**, and a check that asserts every
+  `WarManifest.ROSTER` entry resolves to a scene. A translation table is a place
+  for a typo to live forever.
+- **W.q7 — Does the pilot fly the ingress, or start at the target zone?** My
+  lean: **fly it** — P2.4 calls the approach a flying decision and it is ~10
+  seconds at speed. It requires W9.1's leash fix first, which is the real cost
+  of the answer.
+
+### W steering — ANSWERED IN PART (2026-07-31, same day)
+
+Four of seven resolved, all to their leans; W.q2/W.q4/W.q7 gate later phases and
+are deliberately left open until a sortie has actually been flown.
+
+- **W.q6 → DECIDED: one id, `gnat`, everywhere.** The wave director's `gnats`
+  key is renamed to match `default_enemy_gnat.tres`, `EnemyConfig.type_id` and
+  `WarManifest.ROSTER` — the id every other system already keys off. A check
+  asserts that **every** `WarManifest.ROSTER` entry resolves to a real scene, so
+  the class of bug is closed rather than this instance of it. No translation
+  table: a lookup between two spellings is a place for a typo to live forever,
+  in the one spot standing rule 2 says is invisible from a results table.
+- **W.q1 → DECIDED: a new `scenes/sortie.tscn`.** `main.gd` owns the M4 run's
+  whole lifecycle and a campaign sortie differs at every step of it; `dev_map`
+  and `city_map` are the standing precedent for scenes that mirror main's wiring
+  instead of extending it. The cost is accepted knowingly — shared plumbing
+  (HUD, cameras, damage feedback) will want extracting once the duplication is
+  real rather than anticipated.
+- **W.q3 → DECIDED: destroy, then EGRESS.** Killing the objective opens the way
+  home; the sortie ends when you are back out past the line you came in on. It
+  is the only option under which an `objective_damaged` reserve means anything —
+  under "destroy = success" it arrives to an empty sky, which would make W6's
+  entire distinction between a wave and a reserve decorative. It also gives
+  P2.9's spectrum somewhere to put **"got it, didn't get home"**, which is a
+  genuinely different outcome from both a clean success and a failure, and one
+  the war-sim can price.
+- **W.q5 → DECIDED: hot white.** The one unclaimed slot in the emissive palette,
+  and it reads as *the thing you came for* rather than borrowing a role. Red was
+  rejected for the specific reason that a building and a raider would then read
+  identically at a glance — the one confusion that costs a whole sortie. The
+  unlit-structure alternative is recorded as the braver option and declined for
+  now: P2.7 forbids quest markers, so an objective the neon does not claim could
+  be genuinely unfindable in a dark city, and that failure mode is discovered by
+  a human wasting four minutes.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -7455,6 +7819,408 @@ before it can exist.
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-07-31 — v1.98. ITERATION 12 PHASE 3: THE LOOP HOME. Your fights dent
+  the war, the war ticks, and the campaign is a file on disk.** W7 built, and
+  with it the doc's own rule of thumb is finally true in both directions —
+  *"the war shapes your fights; your fights dent the war"* had only ever been
+  the first half.
+  - **`WarSim.apply_sortie(state, config, result)`** prices a flown sortie back
+    into the theater. It sits beside `_proxy_sortie`, the abstract stand-in the
+    soak has always swept with, and the two deliberately share an outcome
+    vocabulary — otherwise the harness would be calibrating a different game
+    from the one being played.
+  - **P2.q4 is unconditional, and that is the point.** The dent is applied
+    whether you completed the objective, gave up, or died: everything you
+    destroyed weakens the node for next time. **Intel clears too, however it
+    went** — dying over a node is a terrible way to buy a look at it and it is
+    still a look.
+  - **The capture gate re-reads adjacency from the LIVE state**, not from the
+    spec that composed the sortie. The briefing's `capture` was true when it was
+    written and a tick may have moved the front since. The ground is what it is
+    when you get there.
+  - **A DEAD PILOT'S SORTIE NOW RESOLVES, and until today it could not.** The
+    runner only ever finished by egressing, so a pilot who died three structures
+    deep emitted nothing, the war never heard about any of it, and P2.q4 quietly
+    meant *"every kill on a sortie you survived"* — which is the exact opposite
+    of the rule. `SortieRunner.abort()` closes it: the dent is kept, the
+    objective is **not** credited, and a pilot comes off the roster (F1).
+  - **`WarSave` writes F4's portable save at last** — provably serializable
+    since v1.7, never once written to a file. `user://war.save`, human-readable,
+    diffable, shareable by copying.
+    - **It is `var_to_str`, NOT JSON, and that is the whole design decision.**
+      The `user://profile.json` precedent is the wrong one here, for two
+      reasons that are both silent: **JSON has no StringName**, so every
+      `&"enemy"` returns as a String and `node["owner"] == &"enemy"` is false
+      for a loaded war — every side in the theater quietly becomes neutral. And
+      **JSON has no int**: `rng_state` is a 64-bit integer, a double cannot hold
+      one, so a JSON round-trip forks the war's random stream and F4's "the same
+      save replays the same war" dies without a symptom.
+      - The check asserts **that JSON is broken here**, on purpose. If those two
+        assertions ever start failing, Godot's JSON gained type fidelity and this
+        file's rationale should be re-read rather than trusted.
+  - **`war_loop_check.gd` is the eighteenth check, AND IT CAUGHT A REAL BUG ON
+    ITS FIRST RUN** — the best possible outcome for a new check, and the
+    v1.91 lesson paying out again. `FileAccess.get_as_text()` reads from the
+    **start of the file regardless of the cursor**, so reading past the header
+    with `get_line()` and then calling it fed the `# QuadShot war save` comment
+    to `str_to_var`, which saw a leading `#` and tried to parse the entire
+    campaign as a **Color**. Every save in the world would have been unreadable,
+    and the failure mode was a save that wrote perfectly and never came back.
+  - **End to end, in the check: 25 flown sorties took 6 nodes off the enemy,
+    with a save and a reload between every single one** — which is what actually
+    happens when a human closes the game.
+  - **The tick after a flown sortie passes NO proxy skill**, so the sim runs
+    production, supply, enemy operations, weather and intel without inventing a
+    second abstract player sortie on top of the real one. Double-counting the
+    player would have made every flown campaign easier than every measured one,
+    which is precisely the kind of divergence H7 exists to prevent.
+  - **Still not built:** the ingress (W.q7), `spec["pads"]` (W.q4), dares, and
+    node selection — you fly what `--node` names or the first slice-ready node.
+    A map screen is the obvious next thing and it is UI, not systems.
+  - **W9.1's leash gets its real fix, and it is a reframing rather than a
+    number.** The sortie scene measures link range from **the sortie's centre**
+    instead of from the world origin, and the shipped radii then need no
+    retuning at all: egress completes at 105 m, well inside the 220 m warning.
+    **Measuring from the origin was always the accident** — the greybox arena
+    simply happened to sit near it. That is the same reframing Iteration 11's
+    transit gate needs (its far end is *somewhere else*, not *too far*), so the
+    rule has now been fixed once and still wants applying to `main.gd`.
+  - **One unreproduced flake, recorded rather than dismissed.** `ammo_check`
+    failed once inside a full-suite batch and then passed 5 standalone runs and a
+    second complete batch, with nothing in this change set touching it. Logged
+    because this project has been bitten by exactly this shape before (v1.92's
+    `run_check`: *"it passed alone and failed in a batch — the worst way for a
+    regression check to behave"*). **The batch loop had swallowed the assertion
+    text, which is why there is no diagnosis** — capture it next time.
+
+- **2026-07-31 — v1.97. ITERATION 12 PHASE 2: A COMPOSED SORTIE HAS BEEN BUILT
+  AND RUN. The campaign and the game have met.** `SortieComposer.compose()` now
+  has a caller that is not a test.
+  - **`SortieRunner` (`scripts/sortie/`) is the whole bridge**, and it is the
+    only place in the project where a `sortie_spec` becomes a `Node3D` — which
+    is what keeps `war/` pure, deterministic and serializable while the fight is
+    full of physics. It places the garrison in concentric rings, spawns the
+    objective structures, arms the reserves, watches for the egress, and emits a
+    serializable result priced through `WarManifest.dent_from_kills`.
+  - **`ObjectiveAsset` is the one piece of real CONTENT the bridge needed.** The
+    composer has emitted `objective_assets: 1..4` since v1.71 and nothing could
+    build one. Hot white (W.q5), because the palette had a hole exactly that
+    shape and red would have made a building and a raider read alike at a glance.
+    **It leaves a husk** — dark, and still solid — for the reason a spent
+    resupply gate stays in the world, plus a new one: egress is a real phase now,
+    so the ruins you made are cover on the way out.
+  - **THE STRIKE'S EGRESS OPENS ON THE OBJECTIVE, NOT ON AN EMPTY FIELD**, and
+    the check asserts exactly that. If it opened on a cleared garrison a strike
+    would be a dogfight wearing a building, and W6's whole distinction between a
+    wave and a reserve would be decorative.
+  - **What a real composed strike looks like** (seed 4242, node 8) — this is the
+    output, not a mock-up:
+
+    ```
+    STRIKE: destroy production x3      factory / industrial, clear
+      outer  2xraider 3xgnat
+      mid    6xturret 1xgnat
+      inner  2xturret
+      reserve on objective_damaged after 9.6s: 7xraider
+    ```
+
+    **Seven raiders scramble 9.6 s after you first touch the objective.** That
+    is P2.3's "deterministic responses to player action" arriving as a thing you
+    can be caught by, and it is the sentence W2 was written to earn.
+  - **THE ROSTER WORK PAID OFF WITHIN THE HOUR.** The first dogfight the scene
+    ever composed placed **3 falx** in its outer ring. Six hours earlier the war
+    could not field a falx at all, so that sortie would have been raiders and
+    gnats. v1.96 was not housekeeping; it was the difference between the
+    campaign's first flight having the roster and not.
+  - **`sortie_check.gd` is the seventeenth check**, and it guards three
+    deadlocks a body count cannot see: a strike whose egress never opens, a
+    dogfight — which has `assets: 0`, so the field-cleared branch is the ONLY
+    thing that can end it — and a reserve that fires twice or never.
+    - **One of those was a real bug caught by writing the check's reasoning
+      down, before the check ran.** A dogfight carries two reserves both keyed
+      `wave_cleared`, and the first draft tracked spent triggers in a Dictionary
+      keyed by the trigger itself. **Godot hashes a Dictionary by CONTENT**, so
+      two structurally identical waves collapse to one key and the second can
+      never fire. Replaced with an index and a parallel flag array. The same
+      draft also called a method that does not exist (`add_sibling_deferred`) and
+      gave a dogfight no way to finish at all.
+  - **THE EGRESS AND THE SIGNAL LEASH ARE IN DIRECT CONFLICT — W9.1, found in
+    the build rather than on paper.** `main.gd` drops the FPV link at 300 m and
+    returns the pilot to the menu tower; a strike now ENDS by deliberately flying
+    away from the objective. **A leash that fires during a successful egress
+    reads as the game punishing you for winning.** Disabled in this scene as a
+    stopgap (`signal_lost_m = 0`, as the exploration scenes do). The real fix is
+    that the leash must distinguish STRAYING from LEAVING — and that is the same
+    fix Iteration 11's transit gate needs, which is now **three** independent
+    features tripping one rule.
+  - **Deliberately not built, each one a later phase rather than an oversight:**
+    the ingress (W.q7), `spec["pads"]` spent on the gate family (W.q4), dares,
+    node selection, and the loop that feeds the result back into `WarSim` and
+    saves it (W7 — the step that turns this from a sortie generator into a
+    campaign).
+  - **NOT BALANCED, AND NOT TO BE TUNED YET.** Eight turrets on node 8 may well
+    be brutal. H6 says SDI is measured and never authored, so the first flights
+    exist to produce a number rather than a good one.
+  - 17 checks PASS.
+
+- **2026-07-31 — v1.95. THE BOARD IS GREEN, the Atlas debt is DIAGNOSED, and the
+  config stamp is caught missing the ammo fields.** The re-measure HANDOFF §1
+  demanded, run first and alone so no script recompiled under it.
+  - **All three layers PASS under pilot v7** — lethality, delivery (both
+    directions), and 29 duels. The first clean full board since the weapons
+    changed, and `balance/delivery_factors.json` is rewritten. **No number
+    measured before today should be quoted again.**
+  - **`Atlas × Raiders` −0.67 REPRODUCED AND EXPLAINED, and it was never a
+    durability failure.** Layer 3's survival line beside it settles what a year
+    of exchange deltas could not: the Atlas spends **4% hull to the Kestrel's
+    9%** and survives **76.7 s against 12.0 s**, so its durability is real and is
+    exactly P3.4's promise. It loses the exchange because it **fired 0.8 missiles
+    where the Kestrel fired 3**, at an identical 1.00 hit rate. A missile needs a
+    lock, so the binding constraint is **acquisition** — against one raider the
+    Atlas locks fine (ttk 4.2 s vs 1.7 s); against three that jink, ten seconds
+    buys it less than one launch.
+    - **The un-modeled factor, named:** a heavy frame pays for its stability in
+      LOCK TIME, and nothing in the model prices that. `aim_quality` is keyed per
+      frame and captures how well a frame holds a gun line; it does not capture
+      how long a frame takes to *earn a launch*.
+    - **It is S4's finding in a mirror.** S4's cells ended before damage could
+      accumulate; this one never ends before the buzzer (timeout 6/6). Both are
+      the 10 s cap deciding a frame cell, and S4's answer points the same way
+      both times — a task that holds you in the envelope. **Another argument for
+      W2, arrived at from the measurement instead of from the doc.**
+    - Explicitly NOT to be fixed by raising `MAX_SECONDS`: a changed rig constant
+      is a different measurement, not a better one.
+  - **THE CONFIG STAMP DID NOT COVER THE HEAT SINK OR THE MAGAZINES, and the
+    hash proved it by not moving.** `DELIVERY_FIELDS_COMBAT` listed ballistics,
+    lock and fuse fields — nothing that can END a burst — so v1.91 and v1.92
+    hashed IDENTICAL and the board would have quoted pre-heat factors as current
+    forever. The only thing that caught it was a human writing the debt into the
+    handoff by hand. **This is the second time this exact hole has opened** (the
+    first was FlightConfig in Phase 4b), so the rule is restated harder: *anything
+    that can stop a weapon firing is a delivery input*, because `aim_quality` is
+    hits per shot FIRED and a weapon that quits mid-cell changes the denominator.
+    - The proof it mattered is in the same run: **`Flak x Screamer` spent exactly
+      24.0 rounds — the whole magazine** — the first cell in this project's
+      history that is ammunition-bound rather than time-bound.
+    - Fixed, and **re-measured a second time under the corrected stamp**, because
+      a longer hash recipe over unchanged configs would otherwise blank the
+      predicted column and read as drift that never happened.
+  - **The jammed-blaster asymmetry is a DUTY story, not a broken cell — but the
+    MAGNITUDE was one noisy sample and is retracted.** The direction reproduced
+    across two runs (Atlas hand-aims better than the Kestrel under jam: 0.02 vs
+    0.23, then 0.05 vs 0.20), and in the duels the Kestrel spent 49.5 rounds on a
+    screamer where the Atlas spent 4.0. One mechanism explains all of it: the jam
+    removes the director and leaves a fixed 6° cone, the light frame slews fast so
+    the cone opens constantly and it fires while whipping around, the heavy frame
+    fires rarely and only when actually pointed. BALANCE.md's flak-column rule —
+    *read the duty beside the rate* — called it in advance.
+    - **What is NOT supported: "eleven times better".** That came from 2 connects
+      out of 90; the second run read 5 out of 95, which is the same claim at four
+      times instead of eleven. **A cell resolving single-digit connects cannot
+      carry two decimal places**, and quoting a ratio built on 2 events was the
+      error. The ordering is the finding; the ratio is not.
+
+- **2026-07-31 — v1.95b. THE DELIVERY BENCH DOES NOT REPRODUCE ACROSS PROCESSES,
+  and the turret column is the whole of it.** Found for free: the stamp fix
+  forced a second full report at identical settings, which is exactly the
+  experiment BALANCE.md ran once to put a noise figure on the DUEL harness and
+  had never run on the bench that feeds it.
+  - **34 of 47 factor cells came back bit-identical. Six moved by more than
+    0.04, and five by more than 0.09** — against a documented readability floor
+    of ~0.04. Every mover that involves a threat is a **turret** cell:
+
+    | cell | run 1 | run 2 | delta |
+    |---|---|---|---|
+    | `evade: kestrel x turret [jink]` | 0.08 | **0.36** | 0.28 |
+    | `evade: kestrel x turret [steady]` | 0.40 | 0.22 | 0.18 |
+    | `evade: atlas x turret [auto]` | 0.04 | 0.16 | 0.12 |
+    | `evade: atlas x turret [steady]` | 0.04 | 0.16 | 0.12 |
+    | `contact: kestrel x gnats` | 2.07 | 3.22 | 1.15 (a rate) |
+
+  - **THE ORDERING INVERTED, which is the part that matters.** BALANCE.md's
+    standing promise for this table is that *the ordering is stable and only the
+    decimals move*. Read the Kestrel's turret triple in each run: run 1 says
+    `[jink]` 0.08 against `[steady]` 0.40 — jinking cuts incoming fire fivefold.
+    Run 2 says `[jink]` 0.36 against `[steady]` 0.22 — jinking makes you *easier*
+    to hit. **Those are opposite design conclusions from the same command.** The
+    promise holds for the raider column and fails for the turret one.
+  - **EVERY raider cell reproduced exactly**, `[auto]`, `[jink]` and `[steady]`
+    alike. So this is not "the bench is noisy"; it is specific, and it lands on
+    the type that should be the MOST reproducible thing on the board — a turret
+    has no `ai_seed` and fights an identical engagement every rep. The
+    expectation is inverted, which is why it is worth a note rather than a shrug.
+  - **It is also a DIFFERENT failure from v1.80's**, and worse. v1.80 found that
+    a jink cell's result *"depends on what ran before it in the same process"* —
+    history dependence, fixable by fixing the history. These two runs share an
+    identical history and still disagree, so the divergence is **cross-process**.
+  - **The most likely cause is sample size, and it is measurable rather than
+    mysterious.** An `evade` cell fires 38–50 rounds and resolves 2–18 hits, so
+    `0.04` versus `0.16` is *six rounds*. A cell that resolves single-digit events
+    cannot support a two-decimal factor, and the ratios that look alarming are
+    small integers wearing decimals. **The fix is a longer cell, which costs bench
+    minutes — a scope call, not a code call, so it is not taken here.**
+  - **What this does NOT touch:** the Atlas diagnosis above rests on the raider
+    cells (identical across both runs), the duel's fired-missile counts, and Layer
+    3a arithmetic. It stands. **What it DOES touch:** every survival time quoted
+    against a turret, which is derived from a factor that just moved fourfold.
+  - **THE DUEL HALF REPRODUCED, and better than the bench that feeds it.** All
+    **29 of 29 win rates and 29 of 29 kill counts came back identical**; 20 of 29
+    cells were bit-identical across every field, and the movers moved only on
+    `dmg-taken` and `spent`. So the *validation* layer is steadier than the
+    *measurement* layer underneath it, which is an awkward sentence and a true one.
+  - **THE ATLAS FINDING IS REPRODUCED, essentially bit-for-bit**, which is what
+    makes it safe to build on:
+
+    | | run 1 | run 2 |
+    |---|---|---|
+    | `Atlas x Raiders` delta | −0.67 | **−0.65** |
+    | Atlas missiles fired / kills | 0.8 / 0.8 | **0.8 / 0.8** |
+    | Kestrel missiles fired / kills | 3.0 / 3.0 | **3.0 / 3.0** |
+    | survival, kestrel / atlas | 12.0s / 76.7s | **12.0s / 76.7s** |
+    | Atlas hull spent | 4% | **4%** |
+
+    The 0.02 movement is well under the ~0.04 readability floor. **The lock-
+    acquisition diagnosis is not a one-run artifact.**
+  - **AND THE REAL PATTERN, visible only now that there are three observations:
+    it is the TURRET, on both benches, across three pilot versions.** BALANCE.md
+    already records `Atlas × Turret` reading `dmg-taken` 22.2 then 18.7 under an
+    unchanged pilot v3, and filed it as generic *"~16% run-to-run variance"*. This
+    pair of runs reads **23.3 then 18.7** on the same cell — nearly the same two
+    numbers again — while every raider cell on both benches reproduces exactly.
+    **It was never generic float variance. It is localised to one enemy type**,
+    and it has been mis-attributed to the process three times because nobody
+    compared two full runs cell by cell. What makes a turret engagement chaotic
+    where a raider engagement is not is unexplained and is the thread to pull.
+  - **BALANCE.md's "the board is RED on purpose" is DELETED as stale.** It
+    described the window between `atlas × raider [jink]` saturating and the
+    datum/factor split reaching that cell; `[jink]` is a forced mode and therefore
+    a datum, and a saturated datum has not failed the run since v1.82. **A stale
+    RED in a doc is worse than a stale number — it teaches people the board is
+    supposed to be broken.**
+
+- **2026-07-31 — v1.96. ITERATION 12 PHASE 1: the war learns its own bestiary,
+  and one id replaces two spellings.**
+  - **The falx and the screamer join `WarManifest`** (W8), with doctrine placed
+    by what each type is FOR: falx garrisons `airspace`/`airbase` on the outer
+    ring (an interceptor owning open air is a picket), screamer only `sam`,
+    `radar` and `command` on the mid ring (it is never why a node is defended,
+    always why the defence is hard to shoot at). Both **provisional pacing, flagged
+    for hands.** Falx joins `FLYER_TYPES` so cover thins it like a raider;
+    screamer joins neither cover list on purpose (it goes where its escortee
+    goes, so tinting it would price one decision twice) and joins `HEAVY_TYPES`,
+    which is a design claim: **EW is what a war fields once it has been running.**
+  - **The screamer reports as plain `air` through fog**, deliberately. Give
+    jamming its own family and a month-old report still warns you; folding it in
+    makes "the lock will not build" the kind of surprise P1.3 says stale intel is
+    for. Flagged as the line to change if it reads as a cheat rather than a
+    consequence.
+  - **`gnats` → `gnat`** (W.q6). The wave director was the only system spelling
+    it plural, and the cost was **the same translation line copy-pasted into three
+    separate checks** (`ammo_check`, `composition_check`, `heat_check`) — the
+    usual sign that the wart is in the data, not the readers. All three deleted.
+    `delivery_bench` keeps its `"gnats"` **untouched and on purpose**: there it is
+    a cell LABEL that `TYPE_IDS` already translates at the boundary, it is what a
+    WATCH filter matches, and it is baked into the keys of
+    `delivery_factors.json` — renaming it would silently invalidate every measured
+    factor. **The bench was always right; the wave director leaked a display
+    spelling into a type key.**
+  - **The escort rule is enforced in the manifest, not just stated** — the same
+    discipline `WaveDirector.compose()` uses, and for the same reason (`DOCTRINE`
+    is data, and data gets edited by someone not reading the function). A
+    jammer-only garrison is rewritten into the cheapest threatening type its
+    doctrine allows, strength-neutrally.
+    - **And the guard is tested DIRECTLY, because it cannot fire today.** A
+      2832-projection sweep found zero offenders — the greedy fill buys the
+      highest-weighted affordable type first and the screamer's share never
+      exceeds 0.20 in any row, so it is never bought first and therefore never
+      alone. A guard that cannot fire is indistinguishable from a guard that does
+      not work, so `manifest_check` exercises it with a mix no doctrine produces,
+      **and asserts it leaves a mixed garrison alone** — v1.91's lesson (*a check
+      that has never failed has not been tested either*) applied before it cost
+      anything.
+  - **`manifest_check` now asserts the two rosters against EACH OTHER**, in both
+    directions, plus that every war-fieldable type resolves to a loadable scene
+    and that the `threat` flags agree across the two tables. That is the assertion
+    whose absence let the roster gap live for two weeks: a roster only ever
+    compared against itself is self-consistent.
+  - 16 checks PASS.
+
+- **2026-07-31 — v1.94. ITERATION 12 PROPOSED (W1–W11, W.q1–W.q7): THE BRIDGE.
+  The war has never been played, and that is now the whole roadmap gap.**
+  - **The structural fact the iteration is built on:** `SortieComposer.compose()`
+    is called by nothing but its own tests, and `grep` confirms **no scene code
+    anywhere references `scripts/war/`**. Against the slice target (~5 nodes · 2
+    frames · 3 weapons · 4 enemies) the state is 0 / 2 / 3 / 6 — everything
+    except the map is at or past target, and the map is not missing art, it is
+    missing a function call.
+  - **W2 is the argument worth keeping: the bridge must terminate in a STRIKE,
+    not a Dogfight.** The composer flattens a dogfight's garrison to one layer
+    and splits its reserve into `wave_cleared` waves — that is `WaveDirector.PLAN`
+    with different spelling, exactly as P2.12 says. S4 already named what a Strike
+    adds and a duel cannot: **time in the threat envelope**, its own item 2, *"a
+    task that holds you in the envelope."* H7's 127 sorties, the Atlas's −0.67 and
+    H6's graded middle all sit on the far side of S4's conclusion — **duels prove
+    feel-promises; sorties produce curves.** The Dogfight still gets built as the
+    cheap proof the pipe connects; it is a waypoint, not the destination.
+  - **W4 — P2.6's pad count has been waiting for hardware that Iteration 10
+    built by accident.** The composer has emitted `pads: int` since v1.71 with
+    nothing to spend it on; R1 then built the repair gate and the two resupply
+    gates while observing that P2.6's re-arm clause described a resource that did
+    not exist. R1 was solving the missing resource and also built the pad. The
+    bridge designs no pads — it spends the field on the gates that exist.
+  - **STEERED THE SAME DAY, three answers:**
+    - **The balance re-measure runs FIRST and ALONE.** The bridge touches no
+      weapon, enemy or frame config, so the two are independent — but editing
+      `.gd` files under a 45-minute measurement risks a mid-run recompile, and
+      BALANCE.md's whole discipline is about not contaminating a ruler. Design
+      work continued in Markdown, which recompiles nothing.
+    - **`jam_range` STAYS AT 55 m — the gap IS the counterplay** (user's call;
+      the alternatives were raising it past `missile_lock_range` 60 or shortening
+      every missile engagement in the game). So standing off at ~57 m and
+      launching is now a *designed* answer to a Screamer rather than an
+      oversight, and P4.3's missile row against it should be read as taxed by
+      approach geometry, not by the jam. **Closes the open item that has sat in
+      HANDOFF §3c since v1.84.**
+    - **The Falx and the Screamer join `WarManifest` now** (W8). Provisional
+      doctrine, flagged for hands: falx garrisons `airspace`/`airbase` on the
+      outer layer (a picket's job description for the type you bait rather than
+      chase); screamer only where there is something to protect —
+      `sam`/`radar`/`command` — on the mid layer, with the manifest needing
+      `compose()`'s escort rule so a small node cannot roll a garrison that
+      carries no weapon at all.
+  - **W9 — three collisions found by reading the two halves against each other**,
+    each one only visible once the systems are introduced:
+    1. **The signal leash cuts an open approach in half.** `main.gd` drops the
+       FPV link at 300 m; `_approach` emits a **400 m** ingress for open ground
+       (a city's 150 m fits). A composed desert Strike would lose its link during
+       the ingress and read as the sortie killing itself. **Iteration 11's T2/3b
+       named this same leash for the transit gate, independently** — two
+       unrelated features tripping one rule is evidence the rule is what needs
+       revising.
+    2. **`ARENA_CENTER` is a `const`.** Every placement routine in
+       `wave_director.gd` reads the greybox's usable air from it, and a generated
+       map's centre is wherever the objective was laid.
+    3. **Two wave counts describe the same thing** — a dogfight's reserve splits
+       into exactly 2 triggered waves while `CombatConfig.sortie_waves` is 3,
+       authored a month apart. One must stop existing or they will drift.
+  - **W8's second half is a bug prevented rather than found:** the manifest spells
+    the swarm `gnat` and the wave director spells it `gnats`. The runner needs a
+    type → scene map and that map is precisely where a typo deletes a type from a
+    fight — standing rule 2, and four separate Falx bugs, say a missing enemy and
+    a tough enemy read identically from a results table.
+  - **Recorded before the first flight rather than after it:** the first composed
+    sortie will not be balanced and **must not be tuned to be**. H6 says SDI is
+    measured, not authored, and the composer emits an input vector with no
+    composite score for exactly that reason. The first flight's job is to produce
+    a number, not a good one.
+  - **W.q1/q3/q5/q6 STEERED the same day**, all four to their leans — one type id
+    (`gnat`), a separate `scenes/sortie.tscn`, a Strike that ends on **egress**
+    rather than on the objective's death, and **hot white** for an objective
+    asset. The egress answer is the load-bearing one: it is the only reading
+    under which a reserve triggered by `objective_damaged` has anything to arrive
+    to, so W6's whole distinction between a wave and a reserve survives it.
+    W.q2/q4/q7 are held open on purpose until a sortie has been flown.
 
 - **2026-07-31 — v1.93. THREE ROUNDS FLOWN, and the ammo economy gets its first
   real corrections. R.q3 is RETRACTED.**
