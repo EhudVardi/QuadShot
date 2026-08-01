@@ -21,6 +21,7 @@ extends Node3D
 ## counts saves gets written.
 
 const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
+const SORTIE_SCENE: String = "res://scenes/sortie.tscn"
 
 ## Camera pitch, measured down from the horizon. Steep enough that tall prisms
 ## do not hide the short ones behind them, shallow enough that height still
@@ -41,6 +42,8 @@ const PICK_RADIUS_PX: float = 70.0
 @onready var _header: Label = $Ui/Header
 @onready var _card: Label = $Ui/Card/Text
 @onready var _legend: Label = $Ui/Legend
+@onready var _debrief: PanelContainer = $Ui/Debrief
+@onready var _debrief_text: Label = $Ui/Debrief/Text
 
 var _state: Dictionary = {}
 var _config: WarConfig
@@ -50,6 +53,11 @@ var _selected: int = -1
 
 func _ready() -> void:
 	_read_command_line()
+	# A sortie launched from here comes back through the same door, carrying the
+	# seed it was flown against so the room rebuilds the same war.
+	if WarLaunch.from_room:
+		theater_seed = WarLaunch.theater_seed
+		persist = WarLaunch.persist
 	_config = WarConfig.new()
 	_state = WarSave.load_or_new(_config, theater_seed) if persist \
 			else TheaterGenerator.generate(_config, theater_seed)
@@ -64,8 +72,11 @@ func _ready() -> void:
 		print("[war] resumed tick %d, %d pilots, %d sorties flown"
 				% [int(_state["tick"]), int(_state["pilots"]), int(_state["sorties"])])
 	_frame_camera()
+	# Resolve BEFORE the first draw, so the map you are handed is the war as it
+	# stands after your sortie rather than the one you left.
+	var flown: int = _resolve_returning_sortie()
 	_rebuild()
-	_select(_first_flyable())
+	_select(flown if flown >= 0 else _first_flyable())
 
 
 func _read_command_line() -> void:
@@ -93,6 +104,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		if picked >= 0:
 			_select(picked)
 		return
+	if _debrief.visible:
+		# The debrief owns every key while it is up, so the launch bound to the
+		# same key cannot fire through it into another sortie.
+		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
+			_debrief.visible = false
+		return
+	if event.is_action_pressed(&"ui_accept"):
+		_launch()
+		return
 	if event.is_action_pressed(&"ui_cancel"):
 		get_tree().change_scene_to_file(MENU_SCENE)
 		return
@@ -107,6 +127,52 @@ func _unhandled_input(event: InputEvent) -> void:
 		_step(Vector3.LEFT)
 	elif event.is_action_pressed(&"ui_right"):
 		_step(Vector3.RIGHT)
+
+
+## ---------- the loop ----------
+
+## Fly the selected node. Refused nodes are refused here too, so the card and the
+## launch button can never disagree about what is flyable.
+func _launch() -> void:
+	if _selected < 0:
+		return
+	var reason: StringName = _reasons.get(_selected, WarView.REASON_NONE)
+	if reason != WarView.REASON_NONE:
+		_flash_legend(WarView.refusal_line(reason, _config))
+		return
+	# The save is NOT written here. Everything up to a resolved sortie is still
+	# P1.q4's "exit without save", and it stays that way by nothing happening.
+	WarLaunch.arm(_selected, int(_state["seed"]), persist)
+	get_tree().change_scene_to_file(SORTIE_SCENE)
+
+
+## Price a returning sortie into the war, tick, and save. Returns the node that
+## was flown so the map can re-select it, or -1 if nothing was flown — which is
+## the ordinary case of arriving here from the menu, and also what an abandoned
+## sortie looks like (P1.q4's exit without save: the war simply did not move).
+func _resolve_returning_sortie() -> int:
+	if not WarLaunch.from_room:
+		return -1
+	var flew: bool = WarLaunch.flew
+	var result: Dictionary = WarLaunch.take_result()
+	WarLaunch.clear()
+	if not flew or result.is_empty():
+		return -1
+
+	var debrief: Dictionary = WarDebrief.resolve(_state, _config, result)
+	if debrief.is_empty():
+		return -1
+	_debrief_text.text = "\n".join(WarDebrief.lines(debrief))
+	_debrief.visible = true
+	for line: String in WarDebrief.lines(debrief):
+		print("[war] %s" % line)
+	if persist and WarSave.save(_state):
+		print("[war] saved %s" % WarSave.PATH)
+	return int(debrief["summary"]["node_id"])
+
+
+func _flash_legend(message: String) -> void:
+	_legend.text = "%s\n\n%s" % [message.to_upper(), _legend_body()]
 
 
 ## ---------- the map ----------
@@ -206,12 +272,15 @@ func _update_header() -> void:
 
 
 func _update_legend() -> void:
-	_legend.text = "\n".join(PackedStringArray([
+	_legend.text = _legend_body()
+
+
+func _legend_body() -> String:
+	return "\n".join(PackedStringArray([
 		"height = garrison   green = yours   red = theirs   dim = out of range",
 		"amber bar = front line   thin line = supply",
-		"click or arrows select   ESC returns to the menu",
+		"click or arrows select   ENTER flies the selected node   ESC to the menu",
 		"the card shows what INTEL believes, not what is there - fly it to find out",
-		"PHASE 2 of the war room: the map reads and briefs, nothing launches yet",
 	]))
 
 

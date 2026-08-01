@@ -45,14 +45,21 @@ func _find_frame(building: MenuBuilding, leaf: StringName) -> MenuFloorFrame:
 
 
 func _check() -> void:
-	# Root tower stands with all six leaves (QUIT / START RUN / FLY FREE / CITY /
-	# DEV ROOM / AIM DRILL).
+	# Root tower stands with a floor per leaf (QUIT / WAR ROOM / START RUN /
+	# FLY FREE / CITY / DEV ROOM / AIM DRILL).
+	#
+	# Counted against ROOT_FLOORS rather than against a literal. The literal was
+	# a 6 and it fired on the day a legitimate menu entry was added, which is a
+	# tripwire rather than a check - what this needs to catch is the tower
+	# BUILDING fewer floors than it was given, not the list changing length.
 	var root_building: MenuBuilding = _buildings()[0]
 	if _buildings().size() != 1:
 		return _fail("expected 1 building at start, got %d" % _buildings().size())
-	if root_building.frames.size() != 6:
-		return _fail("root tower should have 6 floors, got %d"
-				% root_building.frames.size())
+	var expected_floors: int = (_tower.get_script() as GDScript) \
+			.get_script_constant_map()["ROOT_FLOORS"].size()
+	if root_building.frames.size() != expected_floors:
+		return _fail("root tower should have %d floors (one per ROOT_FLOORS entry), got %d"
+				% [expected_floors, root_building.frames.size()])
 
 	# Committing a parent (START RUN) spawns the frame tower.
 	var start_frame: MenuFloorFrame = _find_frame(root_building, &"start_run")

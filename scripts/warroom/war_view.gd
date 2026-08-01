@@ -34,6 +34,10 @@ const REASON_FRIENDLY: StringName = &"friendly"
 const REASON_RANGE: StringName = &"out_of_range"
 const REASON_ARCHETYPE: StringName = &"archetype_unbuilt"
 const REASON_WAR_OVER: StringName = &"war_over"
+## P1.5: your last pilot dying ends YOUR road, not the war. The sim deliberately
+## does not declare a winner for it — F4.a spectator mode is the war ticking on
+## without you — so the refusal belongs here, in the room, rather than there.
+const REASON_NO_PILOTS: StringName = &"no_pilots"
 
 ## Short map labels for P1.2's node taxonomy. Four characters is what a hex top
 ## holds at a readable pixel size; the full name lives on the inspection card.
@@ -130,11 +134,14 @@ static func supply_edges(state: Dictionary) -> Array:
 static func refusals(state: Dictionary, config: WarConfig) -> Dictionary:
 	var reasons: Dictionary = {}
 	var over: bool = state["winner"] != &""
+	var grounded: bool = int(state.get("pilots", 0)) <= 0
 	var in_range: Dictionary = WarSim.strike_range(state, config)
 	for node: Dictionary in state["nodes"]:
 		var id: int = int(node["id"])
 		if over:
 			reasons[id] = REASON_WAR_OVER
+		elif grounded:
+			reasons[id] = REASON_NO_PILOTS
 		elif node["owner"] == &"player":
 			reasons[id] = REASON_FRIENDLY
 		elif not in_range.has(id):
@@ -303,4 +310,6 @@ static func refusal_line(reason: StringName, config: WarConfig,
 					% String(archetype).to_upper()
 		REASON_WAR_OVER:
 			return "THE WAR IS OVER"
+		REASON_NO_PILOTS:
+			return "NO PILOTS LEFT - your road ends; the war does not"
 	return ""

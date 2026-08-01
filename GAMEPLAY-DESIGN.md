@@ -10036,3 +10036,49 @@ phase that needs them.
     derived from the node's true garrison, so a pilot can infer "zero pads means
     heavily defended". That is an inference from your own logistics rather than a
     disclosure of their order of battle, and it is left in deliberately.
+
+- **2026-08-01 — v2.07. Phase 3: THE LOOP COMES HOME, and the death path closes
+  with it.** C9's third phase. The campaign is now playable end to end with no
+  command line: the menu tower has a WAR ROOM floor, ENTER on a node flies it,
+  and the room prices the result in, ticks, debriefs and saves. 19 checks green,
+  `war_room_check` at 58 assertions.
+  - **P5.4's death path is CLOSED, and waiting for the room was the right call.**
+    v2.02 recorded it as a known gap with a decided destination after the user
+    declined three interim fixes — *"lets not use plasters over something that
+    eventually will be built. i have patience."* The wait cost nothing: the real
+    fix is the DELETION of `sortie.gd`'s arcade respawn, which is shorter than
+    any of the three patches offered. Death ends the sortie, the pilot leaves the
+    roster, everything destroyed still dents (P2.q4), and you redeploy from a
+    Home Airbase that now exists.
+  - **P1.q4's *exit without save* arrives for free, by nothing happening.**
+    Quitting or flying out of contact hands back no result, so the war reverts to
+    its last saved state because it was never moved. The save is written only
+    after a sortie resolves, which makes the decided behaviour the DEFAULT rather
+    than a feature someone has to implement.
+  - **A check that reached for the player's real campaign.** The scene-level
+    assertion — the only one that proves the room and the sortie were ever
+    introduced — first asserted straight after `add_child`, on the assumption
+    that `_ready` runs synchronously from a `-s` script's `_init`. It does not.
+    The assertions ran early against an unbuilt room, AND the teardown cleared
+    `WarLaunch` before `_ready` read it, so the room fell back to `persist =
+    true` and opened the real `user://war.save`. Restructured to `menu_check`'s
+    wait-for-ready pattern. **A test that quietly reaches for the player's save
+    is a bug whatever it concludes**, and this is the second time this project
+    has caught one doing it (`war_loop_check` wrote to the real file, v2.01).
+  - **An assertion that measured the war's whole turn and called it your
+    sortie.** "A survived sortie dents the node" compared the node's garrison
+    after `resolve` to its garrison before — but `resolve` ticks after it
+    applies, and a tick runs production and reinforcement, so a node can finish
+    the turn STRONGER than it started and still have been hit hard. It failed on
+    its first run, which is the only reason it was noticed. The dent is now read
+    off the summary, which records both sides of the moment it happened.
+  - **`menu_check`'s floor count was a tripwire, not a check.** It asserted a
+    literal 6 and fired the day a legitimate seventh menu entry was added. Now
+    counted against `ROOT_FLOORS.size()`, which still catches the failure that
+    matters — the tower BUILDING fewer floors than it was given — without firing
+    on the data changing length.
+  - **The fog lifting is visible, and it is the best thing on screen.** Fly a
+    node and its card goes from `STRENGTH ONLY - estimated 19.6` to `INTEL: EXACT
+    - 7x raider 3x gnat 3x falx`, because `apply_sortie` zeroes `intel_age` for
+    ground you have looked at with your own eyes. Nobody designed that moment in
+    this iteration; it fell out of P1.3 and W7 meeting a screen.

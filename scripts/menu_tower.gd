@@ -52,6 +52,12 @@ const FRAME_TARGET_FLOORS: int = 5
 const ROOT_FLOORS: Array = [
 	{"leaf": &"quit", "label": "QUIT",
 			"window": Vector2(4.5, 2.8), "sill": 0.0, "pixel": 0.14},
+	# C.q5: the campaign gets its own door and the arcade run keeps its own.
+	# W.q2 decided "both" - the run is what every bench and every balance factor
+	# was measured inside, so deleting it to save a menu entry would invalidate
+	# the instrument.
+	{"leaf": &"campaign", "label": "WAR\nROOM",
+			"window": Vector2(5.0, 2.8), "sill": 0.4, "pixel": 0.14},
 	{"leaf": &"start_run", "label": "START\nRUN",
 			"window": Vector2(5.0, 2.8), "sill": 0.4, "pixel": 0.14,
 			"frame_submenu": true},
@@ -72,6 +78,7 @@ const ROOT_POSITION: Vector3 = Vector3(0.0, 0.0, -36.0)
 const BUILDING_SPACING: float = 55.0
 
 const LEAF_SCENES: Dictionary = {
+	&"campaign": "res://scenes/war_room.tscn",
 	&"start_run": "res://scenes/main.tscn",
 	&"fly_free": "res://scenes/main.tscn",
 	&"city": "res://scenes/city_map.tscn",
@@ -241,6 +248,11 @@ func _change_scene(leaf_id: StringName) -> void:
 	if not LEAF_SCENES.has(leaf_id):
 		push_warning("[menu] unknown leaf %s" % leaf_id)
 		return
+	# Arriving at the war room through the front door is always a fresh visit;
+	# the sortie handoff is a static and would otherwise survive from an earlier
+	# campaign in the same process.
+	if leaf_id == &"campaign":
+		WarLaunch.clear()
 	MenuLaunch.free_fly = leaf_id == &"fly_free" or leaf_id == &"city"
 	# Commit fires from a physics callback; the swap waits for the flush.
 	get_tree().call_deferred(&"change_scene_to_file", LEAF_SCENES[leaf_id])

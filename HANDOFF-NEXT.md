@@ -236,13 +236,14 @@ briefing and debrief screens are largely reformatting text that already exists.
 
 ### Two things that are WAITING on it, deliberately
 
-1. **The death path.** P5.4 decided it - *"you redeploy fresh from Home
-   Airbase"* - and P1.q4 says the same for an abort. `sortie.gd` still runs
-   `main.gd`'s arcade respawn, so a dead pilot revives into a sortie that has
-   already resolved and saved, and can fly and kill with nothing recorded. Three
-   interim fixes were offered and the user declined all of them: *"lets not use
-   plasters over something that eventually will be built. i have patience."*
-   **This is a known gap with a decided destination. Do not patch it.**
+1. ~~**The death path.**~~ **CLOSED 2026-08-01 (v2.06), by the war room rather
+   than by a plaster.** P5.4 decided it - *"you redeploy fresh from Home
+   Airbase"* - and there is now a Home Airbase to redeploy from. `sortie.gd`'s
+   arcade respawn is deleted: death ends the sortie, the pilot leaves the roster,
+   the kills still dent (P2.q4), and the room takes the debrief. The user's
+   *"lets not use plasters over something that eventually will be built. i have
+   patience"* was the right call - the wait cost nothing and the fix is three
+   lines shorter than any of the three interim patches offered.
 2. **W.q8, the hold phase.** The user's design: clearing an objective starts a
    clock during which friendly forces move in and the enemy pushes to reclaim.
    It is the leading answer and **nothing is built against it**, partly because

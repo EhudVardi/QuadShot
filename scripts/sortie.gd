@@ -59,6 +59,9 @@ extends Node3D
 @export var signal_lost_m: float = 300.0
 const RANGE_WARN_PERIOD_S: float = 1.5
 const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
+const WAR_ROOM_SCENE: String = "res://scenes/war_room.tscn"
+## Long enough to read the last kill feed line, short enough not to be a wait.
+const RETURN_DELAY_S: float = 3.0
 
 @onready var _drone: FlightController = $Drone
 @onready var _drone_health: Health = $Drone/Health
@@ -118,6 +121,13 @@ func _process(_delta: float) -> void:
 ## ---------- the sortie ----------
 
 func _read_command_line() -> void:
+	# A launch from the war room outranks the command line, because the room is
+	# the campaign and the flags are a repro tool.
+	if WarLaunch.from_room:
+		theater_seed = WarLaunch.theater_seed
+		node_id = WarLaunch.node_id
+		persist = WarLaunch.persist
+		return
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for i: int in args.size():
 		if args[i] == "--seed" and i + 1 < args.size():
@@ -250,39 +260,46 @@ func _on_egress_opened() -> void:
 	_hud.add_kill_feed("EGRESS - fly clear of the target area")
 
 
-## THE LOOP HOME (W7). The result is priced back into the war, the war takes a
-## turn, and the file is written. Before this, a sortie was a level.
+## THE LOOP HOME (W7), now with two legs (Iteration 13, C7).
+##
+## LAUNCHED FROM THE WAR ROOM: the result is handed back and the ROOM applies it,
+## ticks and saves, because P1.8's sequence puts the tick where the map is.
+##
+## BOOTED DIRECTLY: this scene resolves the war itself, exactly as it did before
+## the room existed. That leg is TESTING.md's repro command and it must not rot,
+## which is why `war_room_check` exercises both and not just the new one.
 func _on_sortie_finished(result: Dictionary) -> void:
 	print("[sortie] FINISHED  %s  objective %d/%d  egressed=%s"
 			% [result["outcome"], int(result["objectives_destroyed"]),
 			int(result["objective_assets"]), result["egressed"]])
 	print("[sortie]   kills %s" % result["kills"])
 
-	var summary: Dictionary = WarSim.apply_sortie(_state, _config, result)
-	if summary.is_empty():
-		push_warning("[war] the node this sortie was composed from is gone")
+	WarLaunch.result = result
+	WarLaunch.flew = true
+	if WarLaunch.from_room:
+		_hud.add_kill_feed("RETURNING TO THE WAR ROOM")
+		get_tree().create_timer(RETURN_DELAY_S).timeout.connect(_return_to_room)
 		return
-	print("[war] node %d (%s): garrison %.2f -> %.2f (dent %.2f)%s"
-			% [int(summary["node_id"]), summary["node_type"],
-			float(summary["garrison_before"]), float(summary["garrison_after"]),
-			float(summary["dent"]),
-			"  CAPTURED" if bool(summary["captured"])
-					else ("  degraded" if bool(summary["degraded"]) else "")])
+	_resolve_standalone(result)
 
-	# The war moves whether or not you did well. Passing no proxy skill means
-	# the sim runs its own phases (production, supply, enemy operations,
-	# weather, intel) WITHOUT inventing a second, abstract player sortie on top
-	# of the real one you just flew - which would double-count you.
-	WarSim.tick(_state, _config)
-	print("[war] tick %d  pilots %d  %s"
-			% [int(_state["tick"]), int(_state["pilots"]),
-			"winner: %s" % _state["winner"] if _state["winner"] != &"" else "war continues"])
+
+func _resolve_standalone(result: Dictionary) -> void:
+	var debrief: Dictionary = WarDebrief.resolve(_state, _config, result)
+	if debrief.is_empty():
+		return
+	for line: String in WarDebrief.lines(debrief):
+		print("[war] %s" % line)
 	if persist and WarSave.save(_state):
 		print("[war] saved %s" % WarSave.PATH)
 
+	var summary: Dictionary = debrief["summary"]
 	var feed: String = "CAPTURED" if bool(summary["captured"]) \
 			else "dented the node by %.1f" % float(summary["dent"])
 	_hud.add_kill_feed("SORTIE %s - %s" % [String(result["outcome"]).to_upper(), feed])
+
+
+func _return_to_room() -> void:
+	get_tree().change_scene_to_file(WAR_ROOM_SCENE)
 
 
 func _on_enemy_destroyed(points: float) -> void:
@@ -299,6 +316,15 @@ func _on_player_damaged(amount: float, remaining: float) -> void:
 	_hud.flash_damage(&"all")
 
 
+## DEATH ENDS THE SORTIE. There is no respawn, and its absence is the fix
+## (P5.4, and the gap v2.02 deliberately left unplastered until there was a room
+## to redeploy from).
+##
+## The arcade respawn this scene inherited from `main.gd` revived the pilot into
+## a sortie that had ALREADY resolved and saved, where they could fly and kill
+## indefinitely with nothing recorded — the war had heard the whole story and the
+## pilot was still flying it. P5.4's answer was always "you redeploy fresh from
+## Home Airbase", and Home Airbase now exists.
 func _on_player_died() -> void:
 	Effects.explosion(get_tree().root, _drone.global_position, 1.6)
 	_drone.disarm()
@@ -307,20 +333,14 @@ func _on_player_died() -> void:
 	_hud.show_death(true)
 	# P2.q4's no-wasted-sortie, and it only works because the runner can finish
 	# on a death: the node keeps whatever you broke on the way down, and the
-	# pilot comes off the roster (F1).
+	# pilot comes off the roster (F1). `abort` emits `sortie_finished`, so the
+	# result reaches the war down the same path a successful egress uses.
 	_runner.abort("pilot down")
-	get_tree().create_timer(combat_config.respawn_delay).timeout.connect(_respawn)
-
-
-func _respawn() -> void:
-	_drone.freeze = false
-	_drone.reset_to_spawn()
-	_drone_health.max_health = _drone.frame.hull
-	_drone_health.revive()
-	_drone.visible = true
-	_hud.show_death(false)
-	_hud.set_health(_drone_health.current, _drone_health.max_health)
-	_drone.repair_motors()
+	if not WarLaunch.from_room:
+		# Booted directly there is nowhere to redeploy TO, so the repro scene
+		# returns to the menu rather than leaving a corpse on a resolved field.
+		get_tree().create_timer(combat_config.respawn_delay).timeout.connect(
+				func() -> void: get_tree().change_scene_to_file(MENU_SCENE))
 
 
 ## The leash, measured from the sortie's CENTRE (see the header). An egress is
@@ -335,9 +355,13 @@ func _update_signal_leash(delta: float) -> void:
 		return
 	if distance >= signal_lost_m:
 		_signal_lost = true
-		_hud.add_kill_feed("SIGNAL LOST - returning to menu")
+		# Flying out of contact hands back NOTHING, which is P1.q4's "exit
+		# without save" arriving by the honest route: the war reverts to its last
+		# saved state because nothing was ever resolved into it.
+		_hud.add_kill_feed("SIGNAL LOST - returning")
 		print("[sortie] signal lost at %.0f m from the target area" % distance)
-		get_tree().call_deferred(&"change_scene_to_file", MENU_SCENE)
+		get_tree().call_deferred(&"change_scene_to_file",
+				WAR_ROOM_SCENE if WarLaunch.from_room else MENU_SCENE)
 		return
 	_range_warn_timer -= delta
 	if _range_warn_timer <= 0.0:

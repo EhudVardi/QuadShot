@@ -144,9 +144,27 @@ The weather line carries a **1-tick forecast** (`fog, holding` / `clear, fog
 forecast`) and it is exact rather than probable — C.q4 gave weather its own dice
 precisely so "wait a tick for the fog" is a decision you can make.
 
-**Phases 1-2 read and brief; nothing launches.** No sortie starts from here yet,
-the war does not tick, and the save is never written — so opening it cannot cost
-you a campaign.
+**ENTER flies the selected node, and that closes the campaign loop.** The room
+owns the whole turn now: you launch, you fly, the result comes back, the room
+prices it into the war, ticks, shows a debrief and saves. Reachable without a
+command line at all — the menu tower has a **WAR ROOM** floor.
+
+```
+menu tower -> WAR ROOM -> pick a node -> ENTER -> fly it -> debrief -> the map, moved
+```
+
+Two consequences worth knowing before you fly one:
+
+- **Death ends the sortie.** There is no respawn. The pilot comes off the roster,
+  everything you destroyed still dents the node (P2.q4), and you redeploy from
+  the war room (P5.4). The arcade respawn that used to revive you into an
+  already-resolved sortie is gone.
+- **Quitting or flying out of contact mid-sortie loses the sortie**, and that is
+  P1.q4's *exit without save*: nothing was resolved, so the war reverts to its
+  last saved state by nothing having happened.
+
+`scenes/sortie.tscn` still works standalone with `--node`/`--seed` and resolves
+the war itself on that leg, so the repro command above is unaffected.
 
 ### Flying a composed sortie (Iteration 12)
 

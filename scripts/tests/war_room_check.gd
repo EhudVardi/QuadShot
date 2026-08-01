@@ -28,9 +28,20 @@ const THEATER_SEED: int = 4242
 const SWEEP_SEEDS: Array[int] = [4242, 7, 99, 1234, 20260801]
 
 var _failures: int = 0
+var _room: Node
 
 
-func _init() -> void:
+## Everything except the last sub-check is pure arithmetic and runs here. The
+## scene-level one cannot: a node's `_ready` does not run synchronously on
+## `add_child` from a `-s` script's `_init`, so asserting straight afterwards
+## reads a room that has not been built yet.
+##
+## That is not a hypothetical - it is what the first version did, and it failed
+## in the worst available way: the assertions ran early AND the teardown cleared
+## `WarLaunch` before `_ready` saw it, so the room fell back to `persist = true`
+## and opened the real `user://war.save`. A test that quietly reaches for the
+## player's campaign is a bug regardless of what it concludes.
+func _initialize() -> void:
 	var config := WarConfig.new()
 	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
 
@@ -44,7 +55,22 @@ func _init() -> void:
 	_check_table_builds(state, config)
 	_check_card_fog(state, config)
 	_check_forecast(config)
+	_check_debrief(config)
+	_check_no_pilots(state, config)
+	_check_menu_leaves()
+	_open_the_room(config)
+	process_frame.connect(_probe_room)
 
+
+func _probe_room() -> void:
+	if _room == null or not _room.is_node_ready():
+		return
+	process_frame.disconnect(_probe_room)
+	_check_the_loop_closed()
+	_finish()
+
+
+func _finish() -> void:
 	if _failures == 0:
 		print("[war_room_check] PASS")
 	else:
@@ -438,6 +464,178 @@ func _check_forecast(config: WarConfig) -> void:
 		for node: Dictionary in state["nodes"]:
 			WarSim.weather_forecast(node, state)
 	_expect(var_to_str(state) == before, "forecasting does not touch the war state")
+
+
+## THE LOOP, NOW THAT THE ROOM OWNS IT (C.q2). `WarDebrief.resolve` is where a
+## flown sortie becomes war, so what is checked is the arithmetic that can go
+## wrong silently: a pilot counted twice, a war ticked by a result it could not
+## apply, or a death that stopped denting.
+##
+## The result is built by a REAL `SortieRunner`, not by this file. That is the
+## v2.01 lesson applied to a new joint: `resolve` reads every field through
+## `.get()` with a default, so a rename in `result()` would produce no error and
+## a war that silently stopped noticing the player.
+func _check_debrief(config: WarConfig) -> void:
+	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var node: Dictionary = {}
+	for candidate: Dictionary in state["nodes"]:
+		if candidate["owner"] == &"enemy":
+			node = candidate
+			break
+
+	var runner := SortieRunner.new()
+	runner.start({
+		"version": 1, "seed": 7, "truth": true, "node_id": int(node["id"]),
+		"archetype": &"dogfight", "objective": &"clear_airspace",
+		"objective_assets": 0, "pads": 0, "triggers": [],
+		"layers": {&"outer": [], &"mid": [], &"inner": []},
+	})
+	runner._on_points_scored(100.0, &"raider")
+	runner.phase = SortieRunner.Phase.EGRESS
+	runner.force_egress()
+	var real: Dictionary = runner.result()
+	runner.free()
+
+	var missing: Array[String] = []
+	for key: String in ["node_id", "outcome", "kills", "objectives_destroyed",
+			"objective_assets", "egressed", "pilot_lost", "dent"]:
+		if not real.has(key):
+			missing.append(key)
+	_expect(missing.is_empty(),
+			"a real runner result carries every field the debrief reads (missing %s)"
+			% str(missing))
+
+	var pilots_before: int = int(state["pilots"])
+	var tick_before: int = int(state["tick"])
+	var debrief: Dictionary = WarDebrief.resolve(state, config, real)
+	_expect(not debrief.is_empty(), "the room resolves a runner's own result")
+	_expect(int(state["tick"]) == tick_before + 1,
+			"resolving advances the war exactly one tick (%d -> %d)"
+			% [tick_before, int(state["tick"])])
+	_expect(int(state["pilots"]) == pilots_before,
+			"a surviving pilot stays on the roster (%d)" % int(state["pilots"]))
+	# READ THE DENT OFF THE SUMMARY, NOT OFF THE STATE AFTERWARDS. `resolve`
+	# ticks after it applies, and a tick runs production and reinforcement - so a
+	# node can finish the turn STRONGER than it started and still have been hit
+	# hard. Comparing the post-tick garrison to the pre-sortie one measures the
+	# war's whole turn and calls it your sortie; this assertion caught itself
+	# doing exactly that on its first run.
+	var summary: Dictionary = debrief["summary"]
+	_expect(float(summary["dent"]) > 0.0,
+			"a survived sortie dents the node it named (dent %.2f)"
+			% float(summary["dent"]))
+	_expect(float(summary["garrison_after"]) < float(summary["garrison_before"]),
+			"and the dent lands before the war takes its turn (%.2f -> %.2f)"
+			% [float(summary["garrison_before"]), float(summary["garrison_after"])])
+	_expect(not "\n".join(WarDebrief.lines(debrief)).is_empty(),
+			"the debrief renders to text")
+
+	# A DEATH STILL DENTS (P2.q4), and costs exactly one pilot. "Exactly" is the
+	# assertion: apply_sortie decrements and so could a room that also counted.
+	var dead_state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var roster_before: int = int(dead_state["pilots"])
+	var lost: Dictionary = real.duplicate(true)
+	lost["pilot_lost"] = true
+	lost["outcome"] = &"lost"
+	var dead_debrief: Dictionary = WarDebrief.resolve(dead_state, config, lost)
+	_expect(int(dead_state["pilots"]) == roster_before - 1,
+			"a death costs exactly one pilot (%d -> %d)"
+			% [roster_before, int(dead_state["pilots"])])
+	_expect(float(dead_debrief["summary"]["dent"]) > 0.0,
+			"and a dead pilot's kills still dent the node (dent %.2f)"
+			% float(dead_debrief["summary"]["dent"]))
+	_expect("\n".join(WarDebrief.lines(dead_debrief)).contains("PILOT LOST"),
+			"and the debrief says so")
+
+	# A RESULT THE WAR CANNOT APPLY MUST NOT MOVE THE WAR. Ticking first and
+	# checking second would look identical in every other assertion here.
+	var spare: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var spare_tick: int = int(spare["tick"])
+	var bogus: Dictionary = real.duplicate(true)
+	bogus["node_id"] = 9999
+	_expect(WarDebrief.resolve(spare, config, bogus).is_empty(),
+			"a result naming no node resolves to nothing")
+	_expect(int(spare["tick"]) == spare_tick,
+			"AND DOES NOT TICK THE WAR (%d -> %d)" % [spare_tick, int(spare["tick"])])
+
+
+## P1.5: your last pilot dying ends your road, not the war. The room must stop
+## offering sorties, and the war-sim deliberately does not declare a winner for
+## it, so nothing else in the project would notice.
+func _check_no_pilots(state: Dictionary, config: WarConfig) -> void:
+	var grounded: Dictionary = state.duplicate(true)
+	grounded["pilots"] = 0
+	_expect(WarView.flyable_ids(grounded, config).is_empty(),
+			"a grounded roster offers no sorties (%d offered)"
+			% WarView.flyable_ids(grounded, config).size())
+	var reasons: Dictionary = WarView.refusals(grounded, config)
+	_expect(reasons[int(state["nodes"][0]["id"])] == WarView.REASON_NO_PILOTS,
+			"and says why")
+
+
+## C.q5's leaf, and the class of bug it belongs to: a menu entry pointing at a
+## scene that does not exist fails only when somebody flies through that window.
+func _check_menu_leaves() -> void:
+	var tower: Dictionary = (load("res://scripts/menu_tower.gd") as GDScript) \
+			.get_script_constant_map()
+	var scenes: Dictionary = tower.get("LEAF_SCENES", {})
+	var broken: PackedStringArray = []
+	for leaf: StringName in scenes:
+		if not ResourceLoader.exists(String(scenes[leaf])):
+			broken.append(String(leaf))
+	_expect(broken.is_empty(),
+			"every menu leaf resolves to a real scene (broken: %s)" % ", ".join(broken))
+	_expect(scenes.has(&"campaign"),
+			"the menu has a door to the war room")
+
+
+## THE ONE ASSERTION THAT PROVES THE CAMPAIGN IS A LOOP, and it needs the real
+## scene rather than the pure layer: every other check here would pass with the
+## room and the sortie never having been introduced.
+##
+## It stands the room up with a flown result waiting in `WarLaunch`, exactly as a
+## returning sortie leaves it, and asserts the room ate it: the debrief is on
+## screen and the handoff is empty. `persist` is false throughout, so this cannot
+## touch a real campaign - the room is READ-ONLY unless it resolves something,
+## and it must not resolve to disk in a test.
+func _open_the_room(config: WarConfig) -> void:
+	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var target: int = int(WarView.flyable_ids(state, config)[0])
+
+	var runner := SortieRunner.new()
+	runner.start({
+		"version": 1, "seed": 7, "truth": true, "node_id": target,
+		"archetype": &"dogfight", "objective": &"clear_airspace",
+		"objective_assets": 0, "pads": 0, "triggers": [],
+		"layers": {&"outer": [], &"mid": [], &"inner": []},
+	})
+	runner._on_points_scored(100.0, &"raider")
+	runner.phase = SortieRunner.Phase.EGRESS
+	runner.force_egress()
+	var result: Dictionary = runner.result()
+	runner.free()
+
+	# `persist` false all the way through, so the room generates its theater from
+	# the seed and never opens or writes the player's save.
+	WarLaunch.arm(target, THEATER_SEED, false)
+	WarLaunch.flew = true
+	WarLaunch.result = result
+
+	_room = (load("res://scenes/war_room.tscn") as PackedScene).instantiate()
+	root.add_child(_room)
+
+
+func _check_the_loop_closed() -> void:
+	var debrief: PanelContainer = _room.get_node(^"Ui/Debrief")
+	var text: String = (_room.get_node(^"Ui/Debrief/Text") as Label).text
+	_expect(debrief.visible, "the room shows a debrief for a sortie it was handed")
+	_expect(text.contains("SORTIE"), "and the debrief names the outcome")
+	_expect(not WarLaunch.flew and WarLaunch.result.is_empty(),
+			"and the handoff is consumed, so the same sortie cannot be priced twice")
+	_expect(not WarLaunch.from_room, "and the room is no longer in a launched state")
+
+	_room.queue_free()
+	WarLaunch.clear()
 
 
 ## A hand-built four-node theater: q = 0..3 on one row, so consecutive nodes are
