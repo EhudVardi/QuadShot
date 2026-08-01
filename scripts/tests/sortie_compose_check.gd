@@ -108,12 +108,19 @@ func _check_archetypes(state: Dictionary, config: WarConfig) -> void:
 	_expect(seen.get(&"command") == &"decapitation", "a command post is Decapitation")
 	_expect(seen.get(&"hq") == &"raid", "the HQ is The Raid")
 
-	# The P2.13 cut is stated in code, not discovered by a scene failing.
+	# THE P2.13 CUT IS CLOSED (2026-08-01). This asserted that the Raid composed
+	# and was NOT slice-ready, which was the honest statement of the boundary for
+	# as long as the boundary existed; all seven archetypes now build, so the
+	# assertion inverts rather than disappears.
 	var strike: Dictionary = SortieComposer.compose(_find(state, &"factory"), state, config)
 	var raid: Dictionary = SortieComposer.compose(_find(state, &"hq"), state, config)
 	_expect(SortieComposer.is_slice_ready(strike), "the Strike is slice-ready")
-	_expect(not SortieComposer.is_slice_ready(raid),
-			"the Raid composes but is not slice-ready (P2.13 defers it)")
+	_expect(SortieComposer.is_slice_ready(raid),
+			"and so is the Raid - the P2.13 cut is closed, every archetype builds")
+	# The guard still guards: it is data, and the next archetype added to
+	# ARCHETYPES without a runner that can build it must still be refused.
+	_expect(not SortieComposer.is_slice_ready({"archetype": &"not_an_archetype"}),
+			"but an archetype nobody built is still refused")
 	# The dogfight is the shipped wave loop's home (P2.12).
 	var dogfight: Dictionary = SortieComposer.compose(_find(state, &"airspace"),
 			state, config)

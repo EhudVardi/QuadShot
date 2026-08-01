@@ -301,9 +301,18 @@ func _check_refusals(state: Dictionary, config: WarConfig) -> void:
 			"a finished war offers nothing (%d nodes still offered)" % still_offered)
 
 
-## C.q3's whole point: the map draws nodes it must refuse, so all four verdicts
-## have to be reachable. If `archetype_unbuilt` never appeared, the refusal path
-## the user chose would be dead code nobody would notice until the day it fired.
+## The verdicts a real theater produces, and they must all be reachable or the
+## refusal path is dead code nobody notices until the day it fires.
+##
+## `archetype_unbuilt` DROPPED OUT of this sweep on 2026-08-01, when the other
+## five archetypes opened and every node type became flyable. That does not make
+## the refusal dead — `SLICE_ARCHETYPES` is data, and it guards the next
+## archetype somebody adds to `ARCHETYPES` without teaching the runner to build
+## it — so it moved to a DIRECT test below rather than being deleted.
+##
+## Contrast with the wave director's escort guard, which was deleted in v2.02
+## for looking similar: that one could never fire because the backbone above it
+## made it unreachable in code. This one is one data edit away from firing.
 func _check_refusal_coverage(config: WarConfig) -> void:
 	var seen: Dictionary = {}
 	for theater_seed: int in SWEEP_SEEDS:
@@ -311,10 +320,82 @@ func _check_refusal_coverage(config: WarConfig) -> void:
 		for reason: StringName in WarView.refusals(state, config).values():
 			seen[reason] = int(seen.get(reason, 0)) + 1
 	for reason: StringName in [WarView.REASON_NONE, WarView.REASON_FRIENDLY,
-			WarView.REASON_RANGE, WarView.REASON_ARCHETYPE]:
+			WarView.REASON_RANGE]:
 		var label: String = "flyable" if reason == WarView.REASON_NONE else String(reason)
 		_expect(seen.has(reason),
 				"the sweep produces '%s' nodes (%d)" % [label, int(seen.get(reason, 0))])
+	_expect(not seen.has(WarView.REASON_ARCHETYPE),
+			"NO node type is unflyable any more (%d still refused)"
+			% int(seen.get(WarView.REASON_ARCHETYPE, 0)))
+
+	# The guard itself, tested where it lives rather than through a theater that
+	# no longer produces it.
+	var unbuildable: PackedStringArray = []
+	for node_type: StringName in SortieComposer.ARCHETYPES:
+		var archetype: StringName = SortieComposer.ARCHETYPES[node_type]["archetype"]
+		if not SortieComposer.is_slice_ready({"archetype": archetype}):
+			unbuildable.append("%s -> %s" % [node_type, archetype])
+	_expect(unbuildable.is_empty(),
+			"every node type composes to an archetype the runner can build (%s)"
+			% ", ".join(unbuildable))
+	_expect(not SortieComposer.is_slice_ready({"archetype": &"not_an_archetype"}),
+			"and the slice guard still refuses an archetype nobody built")
+	_check_hq_shield(config)
+
+
+## P1.5 IS THE ARC OF THE CAMPAIGN, so the map has to enforce it: the HQ is
+## shielded until the command network is broken. The tick engine has always
+## enforced this for its own proxy sortie and nothing enforced it for the player,
+## which was invisible while the Raid was an archetype nobody could fly — and
+## became a way to skip the entire campaign the moment it opened.
+##
+## Tested from both sides, because "always refuse the HQ" would pass the first
+## assertion and quietly make the war unwinnable.
+func _check_hq_shield(config: WarConfig) -> void:
+	# A PURPOSE-BUILT theater, because a generated one puts the HQ at the far end
+	# of the map: the first version of this check read `out_of_range` on both
+	# sides and passed without the shield ever being consulted. The HQ sits next
+	# door to the player's airbase here, so the SHIELD is the only thing that can
+	# refuse it and the assertion has somewhere to fail.
+	var state: Dictionary = _hq_state()
+	var alive: int = WarSim.command_posts_alive(state)
+	_expect(alive > int(config.hq_unlock_command_posts),
+			"the fixture has a live command network (%d posts)" % alive)
+
+	var shielded: StringName = WarView.refusals(state, config).get(1)
+	_expect(shielded == WarView.REASON_HQ_LOCKED,
+			"an intact command network shields the HQ (got '%s')" % shielded)
+
+	# Break the network and the shield must LIFT, or the campaign has no ending
+	# and "always refuse the HQ" would have passed the assertion above.
+	for node: Dictionary in state["nodes"]:
+		if node["type"] == &"command":
+			node["garrison"] = 0.0
+	_expect(WarSim.command_posts_alive(state) == 0, "the command network can be broken")
+	var after: StringName = WarView.refusals(state, config).get(1)
+	_expect(after == WarView.REASON_NONE,
+			"and a broken network opens the raid (got '%s')" % after)
+
+
+## Player airbase, the enemy HQ next to it, and two enemy command posts further
+## out. Four nodes in a row: 0 and 1 adjacent, so the HQ is one hop from a
+## friendly airbase and comfortably in strike range.
+func _hq_state() -> Dictionary:
+	var nodes: Array = []
+	var types: Array[StringName] = [&"airbase", &"hq", &"command", &"command"]
+	for i: int in types.size():
+		nodes.append({
+			"id": i, "q": i, "r": 0, "type": types[i],
+			"owner": &"player" if i == 0 else &"enemy",
+			"garrison": 10.0, "fort": 1.0,
+			"biome": &"hills", "weather": &"clear", "intel_age": 0,
+			"home": i == 0, "hq": i == 1,
+		})
+	return {
+		"tick": 0, "sorties": 0, "pilots": 5, "winner": &"",
+		"nodes": nodes, "aggression": 0.5, "caution": 0.4,
+		"rng_state": 0, "seed": 1,
+	}
 
 
 ## The renderer is not asserted on looks — it is asserted on not quietly

@@ -52,11 +52,30 @@ const ARCHETYPES: Dictionary = {
 	&"hq": {"archetype": &"raid", "objective": &"break_the_theater", "assets": 4},
 }
 
-## What the slice can actually INSTANTIATE (P2.13's cut: one Strike, one
-## Dogfight). The composer emits a correct spec for every archetype because
-## the table is data and costs nothing — but the boundary is stated here in
-## code rather than discovered by a scene failing to build one.
-const SLICE_ARCHETYPES: Array[StringName] = [&"strike", &"dogfight"]
+## What the slice can actually INSTANTIATE. The composer emits a correct spec for
+## every archetype because the table is data and costs nothing — but the boundary
+## is stated here in code rather than discovered by a scene failing to build one.
+##
+## ALL SEVEN, since 2026-08-01. It was `[strike, dogfight]` for the whole of
+## Iteration 12, which meant half of every theater was scenery: 15 of 30 nodes on
+## seed 4242 composed correctly and could not be flown.
+##
+## Opening the other five cost almost nothing in the runner, and that is the
+## point rather than a boast — an archetype IS its objective count, its reserve
+## fraction and its trigger, all of which are data in this file. The one thing
+## that was genuinely missing was a firing site for `detected`
+## (`SortieRunner._announce_yourself`), without which SEAD, Strike-CAP and the
+## Raid would have held a slice of their garrison forever.
+##
+## THE LIST STAYS, even now that it names everything. It is the guard for the
+## next archetype somebody adds to `ARCHETYPES` above without teaching the runner
+## to build it — `is_slice_ready` is checked directly rather than through a
+## theater sweep, precisely so it keeps working when no node happens to be
+## refused.
+const SLICE_ARCHETYPES: Array[StringName] = [
+	&"strike", &"dogfight", &"sead", &"strike_cap", &"decapitation",
+	&"interdiction", &"raid",
+]
 
 ## Fraction of the node's garrison held back as TRIGGERED REINFORCEMENTS
 ## (P2.3), by archetype. Reserves are taken OUT of the placed garrison, never

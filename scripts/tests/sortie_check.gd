@@ -45,9 +45,22 @@ var _probed: bool = false
 
 func _initialize() -> void:
 	_check_spec_shape()
+	_check_every_trigger_has_a_firing_site()
 	if not _failures.is_empty():
 		_report()
 		return
+	_sweep_archetypes_then_fly()
+
+
+## The archetype sweep needs a frame between building a structure and hitting it
+## (an `ObjectiveAsset` has no `Health` until its `_ready` runs), so it is a
+## coroutine and the flown stages start after it.
+func _sweep_archetypes_then_fly() -> void:
+	await _check_every_archetype_can_end()
+	_start_flying()
+
+
+func _start_flying() -> void:
 	_ticks_max = int(MAX_SECONDS * float(Engine.physics_ticks_per_second))
 	var scene: PackedScene = load("res://scenes/main.tscn")
 	_main = scene.instantiate() as Node3D
@@ -64,6 +77,108 @@ func _initialize() -> void:
 	_runner.egress_opened.connect(func() -> void: _egress_opened += 1)
 	_main.add_child(_runner)
 	physics_frame.connect(_on_physics_frame)
+
+
+## THE CHECK THAT WOULD HAVE CAUGHT `detected` (Iteration 13, the archetype
+## opening). A reserve keyed to an event nothing ever fires is the worst kind of
+## broken, because it is INVISIBLE from every direction a test normally looks:
+##
+##   - the composer is correct - it emitted the trigger it was asked for,
+##   - the runner is correct - it fires the triggers it is told about,
+##   - the sortie completes, so no deadlock check notices,
+##   - and the fight is quietly EASIER than the node it came from, because
+##     reserves are taken OUT of the placed garrison (P2.3), so the held slice
+##     simply never arrives.
+##
+## `SLICE_ARCHETYPES` was `[strike, dogfight]` for all of Iteration 12, and those
+## two use `objective_damaged` and `wave_cleared`. The moment the other five
+## opened, three of them keyed reserves to `detected` — which had no firing site
+## anywhere in the project.
+##
+## So: every value in `TRIGGER_ON` must appear in a `_fire_trigger` call in the
+## runner's own source. It is a structural assertion rather than a behavioural
+## one, and it is the only kind that can fail for a trigger nobody has thought to
+## write a scenario for yet.
+func _check_every_trigger_has_a_firing_site() -> void:
+	var source: String = (load("res://scripts/sortie/sortie_runner.gd") as GDScript) \
+			.source_code
+	var unfired: PackedStringArray = []
+	for archetype: StringName in SortieComposer.TRIGGER_ON:
+		var on: StringName = SortieComposer.TRIGGER_ON[archetype]
+		if not source.contains('_fire_trigger(&"%s")' % on):
+			unfired.append("%s -> %s" % [archetype, on])
+	_expect(unfired.is_empty(),
+			"every archetype's trigger has a firing site in the runner (orphaned: %s)"
+			% ", ".join(unfired))
+
+
+## EVERY ARCHETYPE MUST BE ABLE TO FINISH — swept, not sampled.
+##
+## Five archetypes opened at once (2026-08-01), and the failure they share is the
+## one this file was written for: a sortie the pilot cannot end. The two flown
+## stages below prove it for a strike and a dogfight in a real arena; proving it
+## for the other five that way would cost five more flights, so they are proved
+## structurally instead — flatten the structures, and the way home must open.
+##
+## The `detected` assertion is the behavioural half of the source-scan above:
+## the source-scan proves the firing site EXISTS, this proves it FIRES.
+func _check_every_archetype_can_end() -> void:
+	for archetype: StringName in SortieComposer.SLICE_ARCHETYPES:
+		var recipe: Dictionary = {}
+		for node_type: StringName in SortieComposer.ARCHETYPES:
+			if SortieComposer.ARCHETYPES[node_type]["archetype"] == archetype:
+				recipe = SortieComposer.ARCHETYPES[node_type]
+				break
+		if recipe.is_empty():
+			_fail("%s is slice-ready and no node type produces it" % archetype)
+			continue
+
+		var host := Node3D.new()
+		root.add_child(host)
+		var runner := SortieRunner.new()
+		runner.center = Vector3(400.0, 0.0, 400.0)  # clear of anything else
+		host.add_child(runner)
+
+		var assets: int = int(recipe["assets"])
+		var spec: Dictionary = _bare_spec(archetype, recipe["objective"], assets)
+		# A reserve on this archetype's own trigger, so firing it is observable.
+		spec["triggers"] = [{
+			"on": SortieComposer.TRIGGER_ON[archetype], "wave": 1, "after_s": 0.05,
+			"units": [{"type": &"raider", "count": 1, "bodies": 1, "strength": 1.0}],
+		}]
+		runner.start(spec)
+		# ONE FRAME BEFORE TOUCHING ANYTHING. An ObjectiveAsset builds its Health
+		# in `_ready`, and `take_hit` returns silently while that is null - so a
+		# synchronous version of this sweep reported every archetype as unable to
+		# open its egress, and every reserve as never firing. Both were the test
+		# hitting a structure that did not exist yet.
+		await process_frame
+
+		_expect(runner.objectives.size() == assets,
+				"%s builds its %d objective structure(s) (got %d)"
+				% [archetype, assets, runner.objectives.size()])
+
+		if assets == 0:
+			# The dogfight's ending is the field-cleared path, flown below.
+			_expect(runner.phase == SortieRunner.Phase.ENGAGED,
+					"%s starts engaged with no structure to flatten" % archetype)
+			host.queue_free()
+			continue
+
+		var before_unfired: int = runner.reserves_unfired()
+		for asset: ObjectiveAsset in runner.objectives.duplicate():
+			asset.take_hit(99999.0)
+		_expect(runner.phase == SortieRunner.Phase.EGRESS,
+				"%s opens the way home once its objective is flat (phase %d)"
+				% [archetype, runner.phase])
+		# Every objective archetype's trigger is reachable by touching the
+		# objective: `objective_damaged` directly, `detected` through
+		# `_announce_yourself`. A reserve that never fires is a garrison slice
+		# that never arrives, and the fight is quietly easier than the node.
+		_expect(runner.reserves_unfired() < before_unfired,
+				"%s fires its '%s' reserve when the pilot announces themselves"
+				% [archetype, SortieComposer.TRIGGER_ON[archetype]])
+		host.queue_free()
 
 
 ## ---------- Part A: the runner's contracts, without an arena ----------

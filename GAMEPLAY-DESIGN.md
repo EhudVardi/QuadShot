@@ -10202,3 +10202,56 @@ phase that needs them.
     did not recognise. Restored from the commit rather than retyped. Recorded
     because "the file on disk is what I last wrote" is an assumption, and this is
     the second time this session that checking beat assuming.
+
+- **2026-08-01 — v2.11. ALL SEVEN ARCHETYPES FLY: half the theater stops being
+  scenery.** `SLICE_ARCHETYPES` was `[strike, dogfight]` for the whole of
+  Iteration 12, so 15 of 30 nodes on seed 4242 composed correctly and could not
+  be instantiated. It is now all seven. 19 checks green.
+  - **The five cost almost nothing to open, and that is the composer's design
+    paying out rather than a boast.** An archetype IS its objective count, its
+    reserve fraction and its trigger — `ARCHETYPES`, `RESERVE` and `TRIGGER_ON`,
+    all data in one file. The runner already placed layers, spawned objective
+    structures, ran triggers and ended on egress. Nothing about a SEAD differs
+    from a Strike in code; it differs in the numbers the war hands over.
+  - **ONE THING WAS GENUINELY MISSING, and it was invisible from every direction
+    a test normally looks: `detected` had no firing site.** SEAD, Strike-CAP and
+    the Raid key their reserves to it, and `_fire_trigger` was only ever called
+    with `wave_cleared` and `objective_damaged`. The failure is not a crash or a
+    deadlock — the composer is correct, the runner is correct, the sortie
+    completes — it is that reserves are taken OUT of the placed garrison (P2.3),
+    so the held slice never arrives and **the fight is quietly easier than the
+    node it was composed from**, with the exchange rate wrong by exactly that
+    fraction. The three archetypes would have shipped feeling fine and lying to
+    the war.
+  - **So the check for it is STRUCTURAL, not behavioural**: every value in
+    `TRIGGER_ON` must appear as a `_fire_trigger(&"...")` call in the runner's
+    own source. Reading source text in a test is unusual and it is the only kind
+    of assertion that can fail for a trigger nobody has thought to write a
+    scenario for yet. The behavioural half sits beside it — each archetype's
+    reserve is observed firing when the pilot announces themselves.
+  - **What `detected` MEANS, decided rather than defaulted.** There is no ingress
+    yet (W.q7), so "the enemy sees you crossing the line" is not expressible: the
+    pilot starts at the centre. It fires instead on the first moment you announce
+    yourself — first kill, or first touch of the objective — and both routes
+    exist because both play styles do. Recorded as the line to revisit when the
+    ingress lands, because that is when staying unseen becomes the real
+    counterplay P2.3 describes.
+  - **P1.5's HQ SHIELD was enforced for the proxy and not for the player**, which
+    did not matter while the Raid was unflyable and became a way to skip the
+    entire campaign arc the moment it opened. The war room now refuses an HQ raid
+    while command posts stand, on the tick engine's own count
+    (`WarSim.command_posts_alive`, published for it). *"Break the enemy's command
+    structure is the arc of every campaign"* is now a rule rather than a
+    sentence.
+  - **Two checks in this change first passed without testing anything.** The HQ
+    shield fixture used a GENERATED theater, where the HQ is the furthest node
+    from home — so both assertions read `out_of_range` and the shield was never
+    consulted; it needed a purpose-built four-node fixture with the HQ next door.
+    And the archetype sweep hit `ObjectiveAsset.take_hit` before `_ready` had
+    built the Health, so every archetype reported as unable to open its egress —
+    the same deferred-`_ready` trap that bit the war room's scene check two
+    entries ago. Both now mutation-verified.
+  - **What this does NOT do: balance any of it.** Five new fights exist and none
+    have been measured. H6 is explicit that difficulty is measured and never
+    authored, and the sortie bench is the thing that reads it — which is now the
+    next job, and has more to chew on than it did this morning.

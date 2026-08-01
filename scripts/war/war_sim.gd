@@ -225,7 +225,7 @@ static func _supply(state: Dictionary, config: WarConfig) -> void:
 static func _proxy_sortie(state: Dictionary, config: WarConfig,
 		rng: RandomNumberGenerator, skill: float) -> void:
 	var in_range: Dictionary = strike_range(state, config)
-	var command_alive: int = _command_posts_alive(state)
+	var command_alive: int = command_posts_alive(state)
 	var hq_cell := Vector2i.ZERO
 	for node: Dictionary in state["nodes"]:
 		if node["hq"]:
@@ -524,7 +524,12 @@ static func strike_range(state: Dictionary, config: WarConfig) -> Dictionary:
 	return distance
 
 
-static func _command_posts_alive(state: Dictionary) -> int:
+## Public because the war room must refuse an HQ raid on the same terms the sim
+## does (P1.5): the HQ is shielded until the command network is broken, and that
+## rule is the arc of every campaign. It was enforced for the PROXY sortie only,
+## which was invisible for as long as the Raid was not something a human could
+## fly.
+static func command_posts_alive(state: Dictionary) -> int:
 	var alive: int = 0
 	for node: Dictionary in state["nodes"]:
 		if node["type"] == &"command" and node["owner"] == &"enemy" \

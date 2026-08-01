@@ -517,6 +517,7 @@ func _on_points_scored(points: float, type_id: StringName) -> void:
 	# nine of them are one unit.
 	kills[type_id] = int(kills.get(type_id, 0)) + 1
 	enemy_destroyed.emit(points)
+	_announce_yourself()
 
 
 func _on_unit_gone(unit: Node) -> void:
@@ -541,8 +542,30 @@ func _check_field_cleared() -> void:
 	_open_egress("AIRSPACE CLEAR - get out")
 
 
+## THE THIRD TRIGGER (Iteration 13, the archetype opening). `detected` is what
+## SEAD, Strike-CAP and the HQ Raid hold their reserves on, and until now nothing
+## in the project fired it — so those three archetypes would have held a slice of
+## their garrison forever. That is worse than an archetype that does not build:
+## reserves are taken OUT of the placed garrison (P2.3), so the sortie would have
+## been quietly EASIER than the node it was composed from, and the exchange rate
+## that makes "clear everything and you have dented the node by its garrison"
+## true would have been wrong by exactly the held fraction.
+##
+## What counts as being detected, given there is no ingress yet (W.q7): the first
+## time you announce yourself, by killing something or by touching the objective.
+## Both routes exist because both play styles do — a pilot who fights their way
+## in and a pilot who runs straight at the structure must each spring the trap.
+##
+## When there IS an ingress, this is the line to revisit: "detected" should
+## become a fact about your approach — how low, how fast, how masked — which is
+## what makes staying unseen the real counterplay P2.3 describes.
+func _announce_yourself() -> void:
+	_fire_trigger(&"detected")
+
+
 func _on_objective_damaged() -> void:
 	_fire_trigger(&"objective_damaged")
+	_announce_yourself()
 
 
 func _on_objective_destroyed(points: float) -> void:

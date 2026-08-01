@@ -260,9 +260,11 @@ briefing and debrief screens are largely reformatting text that already exists.
 
 ### After the war room, in order
 
-1. **Open up the other five archetypes.** Half the theater is unflyable. Cheaper
-   than the war room; deliberately second, because doing it first only makes an
-   unflyable map bigger.
+1. ~~**Open up the other five archetypes.**~~ **DONE 2026-08-01 (v2.11).** All
+   seven fly; the flyable count on seed 4242 went 9 -> 15. The five cost one new
+   firing site (`detected`) plus P1.5's HQ shield, which was enforced for the
+   proxy and not for the player. **None of the five have been measured** — that
+   is now job 2's problem, and it has more to chew on than it did before.
 2. **The long `sortie_bench` sweep at a realistic cap.** The 150 s cap is below
    P2.q6's own 4-8 minute target, so every completion number so far is a FLOOR,
    not a verdict. This is what H7's 127-sortie debt has been waiting for.

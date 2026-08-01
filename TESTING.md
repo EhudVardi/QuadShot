@@ -203,12 +203,25 @@ what the composer actually produced:
 [sortie]   reserve on objective_damaged after 9.6s: 7xraider
 ```
 
-Two archetypes exist. A **dogfight** (`airspace` nodes) has no structure — clear
-the field and its reserves. A **strike** (`factory`) has three hot-white
-structures at the centre; flatten them and **fly back out past 105 m** to finish
-(W.q3: a strike ends on egress, so the reserve that scrambles when you touch the
-objective has something to arrive to). On seed 4242, nodes 8 and 11 are strikes
-and most of the rest are dogfights.
+**All seven archetypes fly** (since 2026-08-01; it was two for the whole of
+Iteration 12). Everything except the dogfight ends the same way: flatten the
+hot-white structures and **fly back out past 105 m** (W.q3 — a strike ends on
+egress, so the reserve that scrambles when you touch the objective has something
+to arrive to).
+
+| node type | archetype | what it is |
+|---|---|---|
+| `airspace` | **dogfight** | no structure — clear the field and its reserves |
+| `factory` | **strike** | 3 production structures |
+| `radar` / `sam` | **sead** | the dish or the launchers, ringed by **screamers** — your lock breaks as you close |
+| `airbase` | **strike_cap** | crater the runway while **falx** hold the outer ring and a scramble arrives on detection |
+| `command` | **decapitation** | the commander, guarded by **aegis**, and these nodes get **no pads** |
+| `depot` | **interdiction** | 3 stores behind a turret belt |
+| `hq` | **raid** | 4 structures, and **shielded until the command network is broken** (P1.5) |
+
+On seed 4242 that takes the flyable count from 9 nodes to 15. Repro any of them:
+`-- --seed 4242 --node 17` (SEAD), `--node 20` (Strike-CAP), `--node 21`
+(Decapitation), `--node 3` (Interdiction).
 
 **Read the `pads:` line before you arm — it is the sortie's difficulty in one
 number.** A pad is a repair gate (always the first one) or a resupply gate, and

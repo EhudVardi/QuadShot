@@ -38,6 +38,12 @@ const REASON_WAR_OVER: StringName = &"war_over"
 ## does not declare a winner for it — F4.a spectator mode is the war ticking on
 ## without you — so the refusal belongs here, in the room, rather than there.
 const REASON_NO_PILOTS: StringName = &"no_pilots"
+## P1.5's win condition, and the arc of every campaign: the Theater HQ is
+## shielded by the command network and only becomes attackable once enough
+## command posts are dead. The tick engine has always enforced this for its own
+## proxy sortie; nothing enforced it for the PLAYER, which did not matter for as
+## long as the Raid was an archetype nobody could fly.
+const REASON_HQ_LOCKED: StringName = &"hq_shielded"
 
 ## Short map labels for P1.2's node taxonomy. Four characters is what a hex top
 ## holds at a readable pixel size; the full name lives on the inspection card.
@@ -146,6 +152,10 @@ static func refusals(state: Dictionary, config: WarConfig) -> Dictionary:
 			reasons[id] = REASON_FRIENDLY
 		elif not in_range.has(id):
 			reasons[id] = REASON_RANGE
+		elif bool(node.get("hq", false)) \
+				and WarSim.command_posts_alive(state) \
+						> int(config.hq_unlock_command_posts):
+			reasons[id] = REASON_HQ_LOCKED
 		elif not SortieComposer.is_slice_ready(
 				SortieComposer.compose(node, state, config)):
 			reasons[id] = REASON_ARCHETYPE
@@ -312,4 +322,6 @@ static func refusal_line(reason: StringName, config: WarConfig,
 			return "THE WAR IS OVER"
 		REASON_NO_PILOTS:
 			return "NO PILOTS LEFT - your road ends; the war does not"
+		REASON_HQ_LOCKED:
+			return "SHIELDED - break the command network before the HQ can be raided"
 	return ""
