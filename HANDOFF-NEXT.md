@@ -2,12 +2,16 @@
 
 A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 [TESTING.md](TESTING.md) and [BALANCE.md](BALANCE.md) first, then the tail of
-[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) (entries v1.94–v1.98, plus Iteration 12
-itself) for how the current state was arrived at.
+[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) (entries v1.94–v2.02, plus Iteration 12
+itself and **W.q8**) for how the current state was arrived at. For the war room
+specifically, read **P1.8** and **P1.2** (node taxonomy) before writing anything.
 
-**HEAD when this was written: `0515c44` plus the audit-response commits below.
-Working tree clean. `PILOT_VERSION` is 7. 18 headless checks, all passing. The
-balance board is GREEN on all three layers.**
+**HEAD when this was written: `71f482a`. Working tree clean. `PILOT_VERSION` is
+7. 18 headless checks, all passing. The balance board is GREEN on all three
+layers.**
+
+**THE NEXT JOB IS THE WAR ROOM (P1.8), agreed with the user 2026-08-01.** Go to
+section 4 first; sections 1-3 are the state it starts from.
 
 ---
 
@@ -177,25 +181,80 @@ produced it — gates and kills are the only ways to re-arm.
 
 ---
 
-## 4. THE NEXT OBVIOUS THINGS
+## 4. THE NEXT JOB: the war room (P1.8)
 
-1. ~~Fly a composed sortie~~ — **done** (§1), node 8, 2026-07-31.
-2. **W.q7 / W.q2** remain deliberately unanswered: whether the pilot flies the
-   ingress, and whether the M4 arcade run survives alongside the campaign.
-   **W.q4 was DECIDED 2026-08-01 and built** — the repair gate is always the first
-   pad, because hull is the resource you cannot fly without.
-3. **A map / node-selection screen.** You currently fly what `--node` names.
-   This is UI over systems that already work, and it is what makes the campaign
-   feel like one.
-4. **H9's sortie layer** — the reference pilot flying composed sorties to
-   *measure* SDI. This is the instrument H7 has been waiting for, and it is the
-   real path to the 127→25–40 recalibration.
-5. **The signal leash, applied to `main.gd`.** The sortie scene now anchors it
-   at the sortie centre rather than the world origin, which is the correct
-   framing and needed no retuning. `main.gd` still measures from the origin, and
-   **three separate features have now tripped that** (the egress, Iteration 11's
-   transit gate, W9.1's 400 m ingress). Worth fixing the day anything moves an
-   arena.
+Agreed with the user 2026-08-01, after this inventory was taken.
+
+### What is actually built, counted rather than remembered
+
+| axis | built | designed | gap |
+|---|---|---|---|
+| **Enemy types** | 6 - raider, turret, gnat, aegis, falx, screamer | 7 | **Sentinel** |
+| **Player frames** | 2 - Kestrel, Atlas | more later (P3) | - |
+| **Player weapons** | 3 - blaster (heat), flak pod, missile rack | - | - |
+| **Mission archetypes** | **2 flyable** - strike, dogfight | 7 composed | sead, strike_cap, decapitation, interdiction, raid |
+
+**The headline: there is more enemy content than there are places to use it.**
+`SLICE_ARCHETYPES` is `[strike, dogfight]`, so `SortieRunner` refuses five of the
+seven archetypes the composer already generates correctly - **15 of 30 nodes in a
+theater cannot be flown.** Half the map is scenery.
+
+Seed 4242, for repro commands: dogfights are nodes **0, 1, 4, 6, 7, 9, 12, 15,
+23, 24, 28**; strikes are **8, 11, 18, 19**; everything else is not slice-ready.
+**Pass `--no-persist` or you fly whatever the saved war has become, not this
+list.** Naming an archetype is not naming a node - see v2.02 for the flight that
+cost.
+
+### Why the war room, and why now
+
+**Every number it needs already exists and is already computed.** `sortie.gd`
+prints the entire briefing and debrief to the console today: archetype,
+objective, layered garrison, reserves and their timings, pad count, node
+strength, capture flag - then afterwards garrison before/after, the dent,
+captured/degraded, the war tick, pilots left, the winner. `WarManifest.project()`
+already produces the intel-fogged view an inspection card would show.
+`WarSave` already does F4's portable file.
+
+It is a text war room with no face. This is UI over systems that work, which is
+the cheapest kind of big feature.
+
+| P1.8 asks for | state |
+|---|---|
+| Theater map: hex nodes, ownership, front line, supply edges, weather, range rings | **data yes / screen no** |
+| Node inspection: intel card (freshness-stamped), garrison estimate, forecast | **data yes / screen no** - `WarManifest.project()` |
+| Pilot roster (F1) + hangar (P3 frames/loadouts) | roster NUMBER exists in `state["pilots"]`; no UI, no hangar |
+| Sortie select -> briefing -> fly -> debrief -> war tick as animated map movement | briefing/fly/debrief exist as console text; **select is `--node` on the command line**; the animation does not exist |
+| Save/exit anywhere, one portable file | **DONE** |
+
+The genuinely new engineering is the hex map and the tick animation. The
+briefing and debrief screens are largely reformatting text that already exists.
+
+### Two things that are WAITING on it, deliberately
+
+1. **The death path.** P5.4 decided it - *"you redeploy fresh from Home
+   Airbase"* - and P1.q4 says the same for an abort. `sortie.gd` still runs
+   `main.gd`'s arcade respawn, so a dead pilot revives into a sortie that has
+   already resolved and saved, and can fly and kill with nothing recorded. Three
+   interim fixes were offered and the user declined all of them: *"lets not use
+   plasters over something that eventually will be built. i have patience."*
+   **This is a known gap with a decided destination. Do not patch it.**
+2. **W.q8, the hold phase.** The user's design: clearing an objective starts a
+   clock during which friendly forces move in and the enemy pushes to reclaim.
+   It is the leading answer and **nothing is built against it**, partly because
+   "allies move in and take control" is only legible once a map can show them
+   doing it. Read W.q8 in full before touching the egress, the capture gate, the
+   reserve budget or the death path - it touches all four.
+
+### After the war room, in order
+
+1. **Open up the other five archetypes.** Half the theater is unflyable. Cheaper
+   than the war room; deliberately second, because doing it first only makes an
+   unflyable map bigger.
+2. **The long `sortie_bench` sweep at a realistic cap.** The 150 s cap is below
+   P2.q6's own 4-8 minute target, so every completion number so far is a FLOOR,
+   not a verdict. This is what H7's 127-sortie debt has been waiting for.
+3. **The Sentinel**, closing the bestiary. Least urgent: six types is already
+   more variety than two archetypes can show off.
 
 ### Still pinned
 
@@ -217,4 +276,8 @@ produced it — gates and kills are the only ways to re-arm.
 | v1.95b | the delivery bench does not reproduce, and it is the turret |
 | v1.95 | the board re-measured green; the Atlas diagnosed; the stamp fixed |
 | v1.94 | Iteration 12 proposed and part-steered |
+| v2.02 | the hold question (W.q8) raised; the escort guard deleted; death left unplastered |
+| v2.01 | an outside audit, verified not accepted: three checks that could not fail, two campaign-destroyers |
+| v2.00 | the sortie layer: difficulty MEASURED for the first time |
+| v1.99 | the pads are spent (W.q4); the ammo_check flake diagnosed as a deferred free |
 | v1.93 | the wave-clear re-arm retracted; solid gates; salvage beacons |
