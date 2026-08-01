@@ -31,10 +31,16 @@ extends Node
 signal wave_changed(sortie: int, wave: int, remaining: int)
 signal enemy_destroyed(points: float)
 signal sortie_cleared(sortie: int)
-## A wave is down. Separate from `sortie_cleared` because it fires between
-## waves as well as at the end of one, and it is what the magazines re-arm on
-## (Iteration 10 R.q3): ammunition is mid-fight pressure, handed back when the
-## fight pauses.
+## A wave is down. Separate from `sortie_cleared` because it fires between waves
+## as well as at the end of one.
+##
+## IT RE-ARMS NOTHING. R.q3 answered "a cleared wave refills the magazines" and
+## was RETRACTED in v1.93 after the user flew it: the free refill made the gates
+## slack and moved the unit of scarcity from the sortie to the wave. Nothing in
+## `scripts/` listens to this signal today; `ammo_check._check_no_free_rearm`
+## emits it precisely to assert that nothing happens. This docstring described the
+## retracted behaviour for six versions, which made it an invitation to re-add the
+## exact regression the check exists to catch.
 signal wave_cleared(sortie: int, wave: int)
 signal run_ended(sorties_cleared: int, waves_cleared: int, kills: int)
 ## Something about the wave itself the pilot needs told. Kills already speak

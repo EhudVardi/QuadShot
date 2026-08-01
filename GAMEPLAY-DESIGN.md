@@ -9419,3 +9419,68 @@ are deliberately left open until a sortie has actually been flown.
     fewer kills, more stings. That is a real design fact about the bestiary, it
     was invisible before Layer 3, and it is the first thing the symmetric half
     of the model has told us that the old instrument could not.
+
+- **2026-08-01 — v2.01. AN OUTSIDE AUDIT, VERIFIED RATHER THAN ACCEPTED — and
+  the checks were the weakest part of the project.** A second machine was given
+  the code read-only and asked four questions: are any of the 18 checks *wrong*,
+  where have the docs drifted, fresh eyes on the Iteration 12 bridge, and the
+  open turret-reproducibility question. Every finding was re-derived here against
+  the code before anything was changed; the ones below are the ones that survived
+  that, and two of them were **latent campaign-destroyers**.
+  - **THE STANDARD THE AUDIT APPLIED IS THE ONE THIS PROJECT WROTE AND DID NOT
+    KEEP**: *"would this check still pass if the feature it tests were deleted?"*
+    Three checks failed it, all written in the last two weeks, all mine.
+    `war_loop_check` mocked **both** sides of the joint it exists to guard —
+    `apply_sortie` reads every field through `.get()` with a default, so renaming
+    a field in `SortieRunner.result()` produced no error and a war that silently
+    stopped noticing the player. `sortie_check`'s "trigger rule, tested directly"
+    never called `_fire_trigger` at all; it appended to two arrays by hand and
+    asserted that a two-element array had two elements. `ammo_check`'s dry-fire
+    refusal compared `shots_fired` to itself with **no physics step in between**,
+    so failure mode #1 of the four that file names was unreachable. Each is now
+    **mutation-tested**: rename `dent`, and `war_loop_check` fails; delete the
+    flak pod's `has_ammo()` guard, and `ammo_check` fails. Both were verified to
+    fail, then reverted.
+  - **THE DOGFIGHT PAID YOU TO FLY AWAY FROM THE FIGHT.** `_fire_trigger` marked
+    a reserve *spent* at fire time and then started a timer, while
+    `reserves_held()` counted unspent triggers — so on the second wave-clear the
+    field was empty, every trigger read as spent, and the sortie announced
+    `AIRSPACE CLEAR` in the same frame it announced `contact - reserves inbound`,
+    with a whole wave still 3.5 s out. Worse than the contradiction: `result()`
+    computes `complete` at finish time, so leaving promptly scored **complete**
+    and staying to fight the wave scored **partial** — the capture gate refusing
+    the node *because* you killed everything. FIRED AND ARRIVED ARE DIFFERENT
+    THINGS; `_trigger_released` now gates the egress and `_trigger_spent` only
+    prevents double-firing.
+  - **`SAVE_VERSION` would have shredded every campaign in existence.**
+    `load_war` returns `{}` for a version mismatch, a truncated file, a parse
+    failure *and* for no file at all — and `load_or_new` treated all four as "no
+    save" and generated a fresh theater, which the next finished sortie wrote
+    straight over the top of. The constant exists precisely for the event that
+    would have triggered it. An unreadable save is now **moved aside**, never
+    overwritten, and if it cannot even be renamed the sortie refuses to start.
+    Separately, `war_loop_check` wrote to the real `user://war.save`, so **running
+    the test suite deleted an in-progress war**; it now borrows and restores the
+    file, as `run_check` has always done.
+  - **THE TURRET QUESTION IS NARROWED, NOT CLOSED, AND THE FREE TEST PAID.** The
+    audit's best move was to re-read the two archived run logs instead of running
+    anything. The threat's shot counts are **bit-identical** across both runs (50
+    turret, 38 raider), which kills every cadence-side explanation including the
+    0.5 s float-boundary one. What actually moves is **the pilot's own gun shot
+    count** — 112 bolts one run and 64 the next in `kestrel x turret [jink]` — and
+    no hit-test threshold can change how many shots the pilot took. The drone flew
+    a *different flight*, so this was never scoring noise and longer cells would
+    never have fixed it. **v1.95b's "every raider cell reproduced exactly" was
+    wrong**: `atlas x raider [steady]` moved 0.11 → 0.08. The live candidate is
+    `ReferencePilot.jink_hold_cone_deg` — a 14° gate that stops the jink so the
+    pilot can shoot, which **forcing `jink_mode` does not bypass**, so an epsilon
+    of attitude flips jink-vs-shoot on a tick and diverges everything after it.
+    Unproven, and recorded as a mechanism rather than a measurement.
+  - **What the audit got wrong, and why it is recorded**: it eliminated pilot
+    feedback on the grounds that `[steady]` has no feedback path, which is true of
+    *behavioural* feedback and says nothing about the 14° gate above; and it
+    proposed the projectile hit radius as the threshold when the shot-count
+    evidence rules that out. A read-only reviewer with no ability to run anything
+    produced 26 confirmed findings anyway. **The lesson is not that the reviewer
+    was right — it is that "would this pass if the feature were deleted?" is
+    cheap, mechanical, and was not being asked.**

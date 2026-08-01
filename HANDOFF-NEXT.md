@@ -5,9 +5,9 @@ A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 [GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) (entries v1.94–v1.98, plus Iteration 12
 itself) for how the current state was arrived at.
 
-**HEAD when this was written: `fddea3c`, with Iteration 12 phases 1–3 in the
-working tree and NOT yet committed. `PILOT_VERSION` is 7. 18 headless checks,
-all passing. The balance board is GREEN on all three layers.**
+**HEAD when this was written: `0515c44` plus the audit-response commits below.
+Working tree clean. `PILOT_VERSION` is 7. 18 headless checks, all passing. The
+balance board is GREEN on all three layers.**
 
 ---
 
@@ -35,8 +35,12 @@ all passing. The balance board is GREEN on all three layers.**
    whatever the rig set, so freeze it with `set_physics_process(false)`.
 7. **Run the full check suite before each commit. Commit each item separately.**
    **No `Co-Authored-By` trailer.** Commit messages follow the user's nested
-   format — invoke the `commit-message` skill. **The user commits manually; hand
-   the message over rather than running `git commit`.**
+   format — invoke the `commit-message` skill. **The user authorised the agent to
+   commit directly (2026-07-31)**, having previously required the message be
+   handed over; the format is unchanged.
+   Match checks by **exit code**, not by grepping for a tag — several print
+   `[motor_damage]`, not `[motor_damage_check]`, and a tag-matching loop reports a
+   passing check as failed.
 8. **Any pilot behaviour change is a `PILOT_VERSION` bump**, costing a ~45 min
    re-measure. Batch behaviour edits and bump once.
 9. **Feel judgements are the human's.** Pick a sensible default, say it is
@@ -61,17 +65,21 @@ objective structures, reserves that arrive because of **what you did**. Flatten
 the hot-white structures and fly back out past 105 m. The result is priced back
 into the war, the war ticks, and the state saves to `user://war.save`.
 
-Three phases shipped, all covered by checks:
+Four phases shipped, all covered by checks:
 
 | phase | what |
 |---|---|
 | 1 (v1.96) | the falx and screamer join `WarManifest`; `gnats` → `gnat`; the escort rule enforced |
 | 2 (v1.97) | `SortieRunner` + `ObjectiveAsset` + `scenes/sortie.tscn` + `sortie_check` |
 | 3 (v1.98) | `WarSim.apply_sortie` + `WarSave` + `war_loop_check` |
+| 4 (v1.99–v2.00) | `spec["pads"]` spent (W.q4 decided); `sortie_bench` (H9's sortie layer) |
 
-**NOT YET FLOWN BY HANDS.** Nothing in a composed sortie is balanced, and per H6
-it must not be tuned before it is measured. Node 8 fields eight turrets and may
-well be brutal; that is a number to *read*, not to fix.
+**FLOWN BY HANDS 2026-07-31** (v1.99), node 8: *"was difficult as it should. no
+heal so i had to fly a broken drone."* The zero-pad experience was P2.6's
+difficulty knob working exactly as designed — a heavily garrisoned node earns no
+pads — **and** a real gap, since nothing read `spec["pads"]` yet. Both were true;
+the second is now fixed. Nothing in a composed sortie is balanced, and per H6 it
+must not be tuned before it is measured.
 
 ---
 
@@ -115,32 +123,67 @@ produced it — gates and kills are the only ways to re-arm.
   first time, because real sorties can be flown and priced, but closing it needs
   measured SDI from composed sorties (H9's sortie layer), not another look at
   the proxy.
-- **The delivery bench does not reproduce, and it is the TURRET** (v1.95b). 34
-  of 47 factor cells came back bit-identical across two runs of the identical
-  command; **all five movers over 0.09 are turret cells**, and the ORDERING
-  inverted — `kestrel x turret [jink]` read 0.08 then 0.36 against a `[steady]`
-  of 0.40 then 0.22, i.e. "dodging helps fivefold" and "dodging hurts" from the
-  same command. Every raider cell reproduced exactly. Likely cause is sample
-  size: an `evade` cell resolves 2–18 hits out of 38–50 rounds, so 0.04 vs 0.16
-  is *six rounds*. **The fix is longer cells and it costs bench minutes — an
-  unmade scope call.** Until then, read the turret column's order as unproven.
+- **The delivery bench does not reproduce, and it is mostly the TURRET**
+  (v1.95b, narrowed v2.01). 34 of 47 factor cells came back bit-identical across
+  two runs of the identical command; **all five movers over 0.09 are turret
+  cells**, and the ORDERING inverted — `kestrel x turret [jink]` read 0.08 then
+  0.36 against a `[steady]` of 0.40 then 0.22, i.e. "dodging helps fivefold" and
+  "dodging hurts" from the same command. **Read the turret column's order as
+  unproven.**
+
+  **What v2.01 established, by re-reading the two archived logs (cost: zero):**
+
+  1. **The threat's shot counts are bit-identical across both runs** — 50 for
+     every turret cell, 38 for every raider cell, 15 for static. So the threat's
+     cadence is not moving, and no explanation resting on *how many rounds were
+     fired* survives. The 0.5 s vs 0.667 s float-boundary theory is dead.
+  2. **The PILOT'S OWN gun shot count moves, which is the actual finding.**
+     `kestrel x turret [jink]` fired 112 bolts in one run and 64 in the other;
+     `[steady]` 113 then 96; `atlas x turret [auto]` 51 then 63. **A hit-test
+     threshold cannot change how many shots the pilot took.** The drone flew a
+     *different flight*, so this is trajectory divergence and never was scoring
+     noise. Longer cells would not have fixed it.
+  3. **Correction to v1.95b**: "every raider cell reproduced exactly" was wrong.
+     `atlas x raider [steady]` moved 0.11 → 0.08 (gun 11/63 → 9/51). It sat under
+     the 0.09 mover threshold, so *"all movers over 0.09 are turret cells"* still
+     holds — but the stronger claim does not, and this is not a pure turret
+     column.
+
+  **Ruled out by reading the code**, so no one re-runs them: projectile hits
+  impart **no impulse** (`projectile.gd` raycasts and calls `take_hit`, nothing
+  else); `apply_hit_to_motors` is wired in `main.gd` and `sortie.gd` only, never
+  in the bench; every element of the loop runs on `_physics_process` at a fixed
+  240 Hz delta, so idle-frame rate cannot leak in; there is no RNG anywhere in
+  the pilot; and the bench tears an arena down a **full frame before** it builds
+  the next, so cross-cell body contamination is not available either.
+
+  **The live candidate is a threshold INSIDE THE PILOT, not in the hit test.**
+  `ReferencePilot.jink_hold_cone_deg` (14°) gates `_shot_lined_up` — while the
+  gun line sits inside that cone the jink *stops* so the pilot can shoot. Forcing
+  `jink_mode` to ALWAYS or NEVER does **not** bypass it. So an ε-level attitude
+  difference flips whether the pilot is jinking or shooting on a given tick, and
+  that decision changes both the trajectory and the shot count from there on —
+  a divergence amplifier that operates in every mode, which is exactly the
+  signature above. **Unproven.** The cheap test is to log the per-tick
+  `_shot_lined_up` transitions for one turret cell across two processes and find
+  the first tick they disagree.
 - **Nobody has measured a human hand-aiming with the gun director OFF.** Until
   that exists every jammed gun cell is bot-bounded.
-- **`ammo_check` failed once inside a batch and could not be reproduced** — 5
-  standalone runs and a second full batch all green, and nothing in the change
-  set touches it. Recorded rather than dismissed because this project has been
-  bitten by exactly this shape before (`run_check`, v1.92: *"it passed alone and
-  failed in a batch"*). If it recurs, capture the failing assertion text — my
-  batch loop had swallowed it, which is why there is no diagnosis here.
+- **Nothing here is unexplained any more.** `ammo_check`'s intermittent failure
+  RECURRED, was captured (*"1 gates laid inside scenery across 6 sorties"*), and
+  was a **deferred free**: `queue_free()` takes until end of frame and the sweep
+  lays six sorties inside one. The gates were always placed correctly; the check
+  was wrong. Fixed and 8/8 green.
 
 ---
 
 ## 4. THE NEXT OBVIOUS THINGS
 
-1. **Fly a composed sortie** (§1). Everything below is better informed after it.
-2. **W.q4 / W.q7 / W.q2** are deliberately unanswered pending that flight: how
-   `spec["pads"]` spends on the shipped gate family, whether the pilot flies the
+1. ~~Fly a composed sortie~~ — **done** (§1), node 8, 2026-07-31.
+2. **W.q7 / W.q2** remain deliberately unanswered: whether the pilot flies the
    ingress, and whether the M4 arcade run survives alongside the campaign.
+   **W.q4 was DECIDED 2026-08-01 and built** — the repair gate is always the first
+   pad, because hull is the resource you cannot fly without.
 3. **A map / node-selection screen.** You currently fly what `--node` names.
    This is UI over systems that already work, and it is what makes the campaign
    feel like one.
