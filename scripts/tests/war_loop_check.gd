@@ -28,10 +28,20 @@ extends SceneTree
 const THEATER_SEED: int = 4242
 
 var _failures: Array[String] = []
+## The player's real campaign, held while this check scribbles on user://war.save.
+var _saved_war: PackedByteArray = PackedByteArray()
+var _had_war: bool = false
 
 
 func _init() -> void:
+	# THIS CHECK WRITES TO THE REAL SAVE PATH, so it borrows the file rather than
+	# destroying it. Running the suite used to wipe an in-progress war - the
+	# player's campaign deleted by a green test run, which is the worst possible
+	# trade. `run_check` set the precedent for backing up and restoring; this one
+	# had never adopted it.
+	_backup_war()
 	var config := WarConfig.new()
+	_check_runner_result_feeds_the_war(config)
 	_check_dent_applies(config)
 	_check_capture_gate(config)
 	_check_pilot_lost(config)
@@ -204,9 +214,65 @@ func _check_campaign_advances(config: WarConfig) -> void:
 	WarSave.clear()
 
 
+## THE JOINT ITSELF, with a REAL runner on one end.
+##
+## Every other sub-check here feeds `apply_sortie` a hand-built dictionary, and
+## `apply_sortie` reads every field through `.get()` with a default - so a rename
+## in `SortieRunner.result()` produced no error, no warning, and a war that
+## silently stopped noticing the player. Both sides of the joint this file exists
+## to guard were mocked. `sortie_check` builds a real result and never shows it to
+## the war; this one showed the war a result no runner ever made.
+##
+## A bare spec needs no tree: nothing to place, no pads, no layers. So the real
+## `result()` is reachable as plain arithmetic, exactly like the rest of this file.
+func _check_runner_result_feeds_the_war(config: WarConfig) -> void:
+	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var node: Dictionary = _enemy_node(state)
+	var before: float = float(node["garrison"])
+
+	var runner := SortieRunner.new()
+	runner.start({
+		"version": 1, "seed": 7, "truth": true, "node_id": int(node["id"]),
+		"archetype": &"dogfight", "objective": &"clear_airspace",
+		"objective_assets": 0, "pads": 0, "triggers": [],
+		"layers": {&"outer": [], &"mid": [], &"inner": []},
+	})
+	# Kills through the real scoring path, not a literal.
+	runner._on_points_scored(100.0, &"raider")
+	runner._on_points_scored(100.0, &"raider")
+	runner.phase = SortieRunner.Phase.EGRESS
+	runner.force_egress()
+	var real: Dictionary = runner.result()
+	runner.free()
+
+	# The contract, asserted against the mock the rest of this file uses. If these
+	# ever disagree, one of the two is lying about what a sortie result is.
+	var mock: Dictionary = _result(int(node["id"]), {&"raider": 2}, true, false)
+	var missing: Array[String] = []
+	for key: String in mock.keys():
+		if not real.has(key):
+			missing.append(key)
+	_expect(missing.is_empty(),
+			"a real SortieRunner.result() carries every field this check mocks (missing %s)"
+			% str(missing))
+	_expect(int(real["node_id"]) == int(node["id"]),
+			"and it names the node it was composed from")
+	_expect(float(real["dent"]) > 0.0,
+			"two real kills price into a real dent (%.2f)" % float(real["dent"]))
+
+	# And the war eats THAT, rather than a dictionary written by this file.
+	var summary: Dictionary = WarSim.apply_sortie(state, config, real)
+	_expect(not summary.is_empty(), "the war resolves a runner's own result")
+	_expect(float(node["garrison"]) < before,
+			"a flown sortie's result dents the node it names (%.2f -> %.2f)"
+			% [before, float(node["garrison"])])
+
+
 ## ---------- helpers ----------
 
-## A SortieRunner result, without needing a runner.
+## A SortieRunner result, without needing a runner. Kept for the sub-checks that
+## need to STATE an outcome (a death, a deep strike) rather than fly one; the
+## check above pins it to the real thing so it cannot drift.
 func _result(node_id: int, kills: Dictionary, complete: bool,
 		lost: bool) -> Dictionary:
 	return {
@@ -261,7 +327,32 @@ func _fail(message: String) -> void:
 	print("[war_loop_check]   FAIL %s" % message)
 
 
+func _backup_war() -> void:
+	if not WarSave.exists():
+		return
+	var file: FileAccess = FileAccess.open(WarSave.PATH, FileAccess.READ)
+	if file == null:
+		return
+	_saved_war = file.get_buffer(file.get_length())
+	file.close()
+	_had_war = true
+
+
+func _restore_war() -> void:
+	if not _had_war:
+		WarSave.clear()
+		return
+	var file: FileAccess = FileAccess.open(WarSave.PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("[war_loop_check] could not restore the campaign it borrowed")
+		return
+	file.store_buffer(_saved_war)
+	file.close()
+	print("[war_loop_check]   ..   restored the pre-existing %s" % WarSave.PATH)
+
+
 func _report() -> void:
+	_restore_war()
 	if _failures.is_empty():
 		print("[war_loop_check] PASS")
 	else:
