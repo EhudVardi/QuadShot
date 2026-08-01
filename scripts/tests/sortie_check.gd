@@ -35,11 +35,16 @@ var _stage: int = 0
 var _spec: Dictionary = {}
 var _finished: Array[Dictionary] = []
 var _egress_opened: int = 0
+## The trigger probe's own egress counter. A MEMBER, not a local captured by a
+## lambda: GDScript closures capture locals BY VALUE, so `opened += 1` inside the
+## handler incremented a copy and every "no egress yet" assertion passed without
+## ever being able to fail.
+var _probe_egress: int = 0
+var _probed: bool = false
 
 
 func _initialize() -> void:
 	_check_spec_shape()
-	_check_trigger_selection()
 	if not _failures.is_empty():
 		_report()
 		return
@@ -104,25 +109,63 @@ func _check_spec_shape() -> void:
 ## clear collapses its pacing into one dump, and firing neither leaves the
 ## sortie unfinishable. Both failures are invisible from a body count.
 ##
-## Driven through the public surface with a hand-built spec, so it does not
-## depend on which node a seed happens to produce.
+## THIS USED TO ASSERT NOTHING. The first version appended to `_triggers` and
+## `_trigger_spent` by hand, flipped a flag by hand, and checked that a two-element
+## array had two elements - `_fire_trigger` was never called, so deleting it
+## outright would have left this green. It was also unable to regress the bug it
+## names, because the structure it inspected is the Array that REPLACED the
+## Dictionary-keyed flags. Now it drives the real function, in a real tree.
+##
+## The assertion that matters is the last pair: FIRED IS NOT ARRIVED. A reserve
+## on its timer is a wave you still have to meet, and reading the spent flag as
+## "held" let a dogfight announce AIRSPACE CLEAR in the same frame it announced
+## reserves inbound.
 func _check_trigger_selection() -> void:
 	var runner := SortieRunner.new()
 	var spec: Dictionary = _bare_spec(&"dogfight", &"clear_airspace", 0)
 	spec["triggers"] = [
-		{"on": &"wave_cleared", "wave": 1, "after_s": 0.0, "units": []},
-		{"on": &"wave_cleared", "wave": 2, "after_s": 0.0, "units": []},
+		{"on": &"wave_cleared", "wave": 1, "after_s": 30.0, "units": []},
+		{"on": &"wave_cleared", "wave": 2, "after_s": 30.0, "units": []},
 	]
+	# In the tree, because `_fire_trigger` starts a real SceneTreeTimer. The long
+	# `after_s` guarantees nothing releases on its own inside this function.
+	root.add_child(runner)
+	runner.egress_opened.connect(func() -> void: _probe_egress += 1)
 	runner.spec = spec
-	# Reproduce start()'s trigger arming without needing a tree.
+	runner.phase = SortieRunner.Phase.ENGAGED
 	for trigger: Dictionary in spec["triggers"]:
 		runner._triggers.append(trigger)
 		runner._trigger_spent.append(false)
+		runner._trigger_released.append(false)
 	_expect(runner.reserves_held() == 2, "two structurally similar reserves stay distinct")
-	runner._trigger_spent[0] = true
-	_expect(runner.reserves_held() == 1,
-			"spending one reserve leaves the other (got %d)" % runner.reserves_held())
-	runner.free()
+
+	runner._fire_trigger(&"wave_cleared")
+	_expect(runner.reserves_unfired() == 1,
+			"firing takes exactly one reserve, not both (%d left to summon)"
+			% runner.reserves_unfired())
+	_expect(runner.reserves_held() == 2,
+			"but nothing has ARRIVED yet - an inbound wave is still held (%d)"
+			% runner.reserves_held())
+	# The empty field must NOT read as clear while a wave is on its timer.
+	runner._check_field_cleared()
+	_expect(_probe_egress == 0,
+			"an empty field with a reserve inbound is not AIRSPACE CLEAR")
+
+	runner._fire_trigger(&"wave_cleared")
+	_expect(runner.reserves_unfired() == 0, "the second clear takes the second reserve")
+	_expect(runner.reserves_held() == 2, "and both are still inbound")
+	runner._fire_trigger(&"wave_cleared")
+	_expect(runner.reserves_unfired() == 0, "a third clear summons nothing that is not there")
+
+	runner._release(0)
+	_expect(runner.reserves_held() == 1, "a released reserve stops being held")
+	_expect(_probe_egress == 0, "one wave arriving does not end the sortie while one is out")
+	runner._release(1)
+	_expect(runner.reserves_held() == 0, "and the last one arriving clears the board")
+	_expect(_probe_egress == 1,
+			"only THEN does the empty field open the egress, exactly once (%d)"
+			% _probe_egress)
+	runner.queue_free()
 
 
 func _bare_spec(archetype: StringName, objective: StringName,
@@ -141,6 +184,16 @@ func _on_physics_frame() -> void:
 	_ticks += 1
 	if _ticks < 30:
 		return
+	# The trigger probe needs a LIVE tree (`_fire_trigger` starts a real
+	# SceneTreeTimer), and `root.add_child` during `_initialize` does not give it
+	# one - the node is parented but not yet inside the tree. Same trap the
+	# delivery bench hit building its arena too early.
+	if not _probed:
+		_probed = true
+		_check_trigger_selection()
+		if not _failures.is_empty():
+			_report()
+			return
 	if _ticks > _ticks_max:
 		_fail("timed out at stage %d after %.0fs" % [_stage, MAX_SECONDS])
 		_report()

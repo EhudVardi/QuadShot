@@ -107,12 +107,26 @@ var pads: Array[Node3D] = []
 var kills: Dictionary = {}
 
 var _rng := RandomNumberGenerator.new()
-## Reserve payloads, and a parallel spent-flag. Deliberately NOT a Dictionary
-## keyed by the trigger dict: Godot hashes a Dictionary by content, so two
-## structurally identical waves would collide into one key and the second would
-## silently never fire.
+## Reserve payloads, and two parallel flags. Deliberately NOT a Dictionary keyed
+## by the trigger dict: Godot hashes a Dictionary by content, so two structurally
+## identical waves would collide into one key and the second would silently never
+## fire.
+##
+## FIRED AND ARRIVED ARE DIFFERENT THINGS, and collapsing them into one flag was
+## a real bug. `_fire_trigger` starts a timer and marks the reserve spent so it
+## cannot fire twice; the units do not exist until `after_s` later. A dogfight
+## holds two `wave_cleared` reserves at 1.5 s and 3.5 s, so on the second clear
+## the field was empty, every trigger was "spent", and the sortie announced
+## AIRSPACE CLEAR in the same frame it announced reserves inbound - with a whole
+## wave the composer had taken OUT of the garrison (P2.3) still on a timer. Worse
+## than the contradiction: leaving promptly scored `complete` while staying to
+## fight the wave scored `partial`, so the sortie paid you to fly away from the
+## fight it had just started. `_trigger_spent` answers "can this fire again";
+## `_trigger_released` answers "is this reserve still coming", and only the second
+## one may gate an egress.
 var _triggers: Array[Dictionary] = []
 var _trigger_spent: Array[bool] = []
+var _trigger_released: Array[bool] = []
 var _objectives_down: int = 0
 var _egressed: bool = false
 var _pilot_lost: bool = false
@@ -126,7 +140,20 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	_player = player
 	_rng.seed = int(spec.get("seed", 0))
 	kills.clear()
+	# EVERYTHING the last sortie built goes, not just the pads. Clearing the
+	# arrays without freeing the bodies left the previous sortie's units and
+	# structures in the parent tree with their signals still connected, so a stale
+	# objective could open the NEW sortie's egress and a stale kill was credited to
+	# the new node's dent. `sortie_check` papered over it by sweeping the arena
+	# itself - the caller compensating for the callee, which is how the same
+	# deferred-free trap then reached the check.
+	for unit: Node in units:
+		if is_instance_valid(unit):
+			unit.queue_free()
 	units.clear()
+	for asset: ObjectiveAsset in objectives:
+		if is_instance_valid(asset):
+			asset.queue_free()
 	objectives.clear()
 	for pad: Node3D in pads:
 		if is_instance_valid(pad):
@@ -134,6 +161,7 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	pads.clear()
 	_triggers.clear()
 	_trigger_spent.clear()
+	_trigger_released.clear()
 	_objectives_down = 0
 	_egressed = false
 	_pilot_lost = false
@@ -141,6 +169,7 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	for trigger: Dictionary in spec.get("triggers", []):
 		_triggers.append(trigger)
 		_trigger_spent.append(false)
+		_trigger_released.append(false)
 
 	_spawn_objectives()
 	_lay_pads()
@@ -156,13 +185,26 @@ func remaining() -> int:
 	return units.size()
 
 
-## Reserves that have not been released yet.
+## Reserves that have not ARRIVED yet - including one already on its timer.
+## This is what may gate an egress: a wave that is inbound is a wave you still
+## have to meet, and reading the spent flag here declared the airspace clear
+## while it was in the air.
 func reserves_held() -> int:
 	var held: int = 0
-	for spent: bool in _trigger_spent:
-		if not spent:
+	for released: bool in _trigger_released:
+		if not released:
 			held += 1
 	return held
+
+
+## Reserves that can still be triggered by an event. Separate from the above so
+## a caller can tell "nothing left to summon" from "nothing left to fight".
+func reserves_unfired() -> int:
+	var unfired: int = 0
+	for spent: bool in _trigger_spent:
+		if not spent:
+			unfired += 1
+	return unfired
 
 
 ## Does this spec have a structure to destroy, or IS the garrison the objective?
@@ -415,16 +457,18 @@ func _fire_trigger(on: StringName) -> void:
 	if pick < 0:
 		return
 	_trigger_spent[pick] = true
-	var payload: Dictionary = _triggers[pick]
 	announced.emit("contact - reserves inbound")
-	get_tree().create_timer(float(payload.get("after_s", 0.0))).timeout.connect(
-			func() -> void: _release(payload))
+	# Bound by INDEX, not by payload: `_release` has to flip the released flag,
+	# and two structurally identical waves are indistinguishable as dictionaries.
+	get_tree().create_timer(float(_triggers[pick].get("after_s", 0.0))) \
+			.timeout.connect(_release.bind(pick))
 
 
-func _release(trigger: Dictionary) -> void:
+func _release(index: int) -> void:
 	if phase == Phase.DONE:
 		return
-	for unit: Dictionary in trigger["units"]:
+	_trigger_released[index] = true
+	for unit: Dictionary in _triggers[index]["units"]:
 		for i: int in int(unit["count"]):
 			# Reserves come in from outside the outer ring: they are ARRIVING,
 			# not materialising on top of you.
@@ -435,6 +479,13 @@ func _release(trigger: Dictionary) -> void:
 ## ---------- outcomes ----------
 
 func _on_points_scored(points: float, type_id: StringName) -> void:
+	# Only while this sortie is actually running. `_on_unit_gone` has always been
+	# guarded by `units.has(unit)`; this one was not, so anything still connected
+	# from a previous sortie - or killed after the pilot died and the result was
+	# already priced into the war - silently topped up a dent nobody would ever
+	# read again.
+	if phase != Phase.ENGAGED and phase != Phase.EGRESS:
+		return
 	# BODIES, not units: a gnat is worth its points and its dent even though
 	# nine of them are one unit.
 	kills[type_id] = int(kills.get(type_id, 0)) + 1

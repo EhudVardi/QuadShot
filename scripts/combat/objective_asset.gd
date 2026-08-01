@@ -76,10 +76,16 @@ func alive() -> bool:
 func take_hit(damage: float) -> void:
 	if _health == null or not _health.alive:
 		return
-	_health.take(damage)
+	# ARMED BEFORE THE DAMAGE LANDS. `_health.take` can emit `died` in-line, which
+	# reaches the runner as `destroyed` and can open the egress - so emitting
+	# `first_damaged` afterwards armed the `objective_damaged` reserve into a
+	# sortie that was already ending, and inverted W6's "the clock only starts when
+	# you touch the thing you came for". Unreachable at hull 200 with the shipped
+	# weapons; one balance edit away from being the norm.
 	if not _hit_once:
 		_hit_once = true
 		first_damaged.emit()
+	_health.take(damage)
 
 
 func _build() -> void:
