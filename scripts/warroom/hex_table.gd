@@ -26,11 +26,15 @@ extends Node3D
 
 ## Centre-to-corner of one hex, in metres. Everything else scales off it.
 const HEX_SIZE: float = 2.2
-## Gap between neighbours: the prism is slightly smaller than its cell, so hexes
-## read as separate places rather than as one continuous crust. It also has to
-## leave a visible trench for the edge markers to sit in — at 0.9 the first build
-## had 58 supply lines on screen and not one of them was visible.
-const HEX_FILL: float = 0.82
+## IT IS A BEEHIVE (P1.8, the user's word, and the point of hexes at all): the
+## cells TESSELLATE. Held a hair under 1.0 only so two neighbours' shared faces
+## are not exactly coplanar, which z-fights; the resulting seam is ~2 cm and
+## reads as a joint rather than as a gap.
+##
+## It was 0.82 for two builds, on the theory that hexes need air between them to
+## read as separate places. They do not — the height difference already does
+## that — and the gaps cost the tessellation the whole shape was chosen for.
+const HEX_FILL: float = 0.99
 ## Garrison → prism height. The floor exists so an emptied node is still a place
 ## you can see and click, not a hole in the map.
 const HEIGHT_MIN: float = 0.35
@@ -59,11 +63,24 @@ const COLOR_LABEL := Color(0.95, 0.97, 1.0)
 ## unreadable glyphs — while the *dimmed* out-of-range hexes, which were supposed
 ## to recede, came out as the most legible things on the table. The hierarchy was
 ## exactly inverted. So a prism carries its colour in ALBEDO and gets only enough
-## emission to be visible in a dark room, and the glow budget goes to the glyphs,
-## the front line, the spires and the selection ring — the things you look FOR.
+## emission to be visible in a dark room.
+##
+## AND THE MARKS GLOW LESS THAN THEY DID (user, after flying it: *"too much neon
+## blinding light"*). The glow budget is not the shipped look pass's to spend
+## here — `LookController` re-applies the human-tuned `default_look_config.tres`
+## every frame, so the war room cannot and must not turn the game's bloom down to
+## suit itself. It turns ITSELF down instead: only the front line and the
+## selection ring now sit above the 1.0 bloom threshold at all, and the glyphs
+## deliberately sit just under it so they read as crisp text rather than as light.
 const ENERGY_FLYABLE: float = 0.22
 const ENERGY_HELD: float = 0.16
 const ENERGY_DIM: float = 0.05
+const ENERGY_LABEL: float = 0.95
+const ENERGY_LABEL_DIM: float = 0.4
+const ENERGY_FRONT: float = 1.3
+const ENERGY_SUPPLY: float = 0.35
+const ENERGY_SPIRE: float = 1.15
+const ENERGY_SELECT: float = 1.6
 
 ## id → the prism, kept so a later phase can move one without rebuilding the
 ## table (C8's tick animation is the reason this is a Dictionary and not a list).
@@ -88,8 +105,15 @@ func build(state: Dictionary, config: WarConfig, view_from: Vector3) -> void:
 	_select_ring = null
 
 	var reasons: Dictionary = WarView.refusals(state, config)
+	# ONE ORIENTATION FOR EVERY GLYPH (user: *"the texts over each hexagon are
+	# not all aligned to the same direction"*). Aiming each label at the camera
+	# POINT fans them out across the table like a crowd turning to look at you;
+	# aiming them all along the one view direction reads as a printed map, which
+	# is what a map should read as.
+	var label_basis: Basis = _facing(
+			WarView.bounds(state, HEX_SIZE).get_center(), view_from)
 	for node: Dictionary in state["nodes"]:
-		_build_node(node, config, reasons, view_from)
+		_build_node(node, config, reasons, label_basis)
 	for edge: Dictionary in WarView.supply_edges(state):
 		_build_supply(edge)
 	# The front line goes on last so it draws over the supply lines it crosses.
@@ -98,9 +122,9 @@ func build(state: Dictionary, config: WarConfig, view_from: Vector3) -> void:
 
 	_select_ring = MeshInstance3D.new()
 	var ring: TorusMesh = TorusMesh.new()
-	ring.inner_radius = HEX_SIZE * 0.94
-	ring.outer_radius = HEX_SIZE * 1.06
-	ring.material = _emissive(COLOR_SELECT, 3.2)
+	ring.inner_radius = HEX_SIZE * 0.74
+	ring.outer_radius = HEX_SIZE * 0.86
+	ring.material = _emissive(COLOR_SELECT, ENERGY_SELECT)
 	_select_ring.mesh = ring
 	_select_ring.visible = false
 	add_child(_select_ring)
@@ -162,7 +186,7 @@ func bounds() -> AABB:
 ## ---------- geometry ----------
 
 func _build_node(node: Dictionary, config: WarConfig, reasons: Dictionary,
-		view_from: Vector3) -> void:
+		label_basis: Basis) -> void:
 	var id: int = int(node["id"])
 	var center: Vector3 = WarView.node_world(node, HEX_SIZE)
 	centers[id] = center
@@ -181,10 +205,12 @@ func _build_node(node: Dictionary, config: WarConfig, reasons: Dictionary,
 
 	var instance := MeshInstance3D.new()
 	instance.mesh = prism
-	# 30 degrees puts a hex CORNER along ±Z, which is what makes these cells
-	# pointy-top and therefore tile the projection WarView uses.
-	instance.transform = Transform3D(
-			Basis(Vector3.UP, deg_to_rad(30.0)), center + Vector3.UP * height * 0.5)
+	# NO ROTATION, and the 30 degrees that used to be here was the bug behind
+	# "they don't align like a beehive". Godot's 6-segment cylinder already puts
+	# corners at ±Z (probed: 90, 30, -30, -90, -150, 150 degrees from +X), which
+	# is pointy-top and exactly what WarView's projection tiles. Rotating by 30
+	# turned every cell flat-top, so no two neighbours could share an edge.
+	instance.position = center + Vector3.UP * height * 0.5
 	add_child(instance)
 	prisms[id] = instance
 
@@ -198,10 +224,13 @@ func _build_node(node: Dictionary, config: WarConfig, reasons: Dictionary,
 	label.text = "%d\n%s" % [id, WarView.type_tag(node["type"])]
 	label.pixel_size = LABEL_PIXEL
 	label.glow_color = COLOR_LABEL
-	label.glow_energy = 1.2 if reasons.get(id, WarView.REASON_NONE) \
-			== WarView.REASON_RANGE else 3.5
-	var label_at: Vector3 = center + Vector3.UP * (height + LABEL_CLEARANCE)
-	label.transform = Transform3D(_facing(label_at, view_from), label_at)
+	# A glyph floating over a lit surface prints a second, ghostly copy of itself
+	# onto that surface. On the map that reads as a rendering fault.
+	label.cast_shadows = false
+	label.glow_energy = ENERGY_LABEL_DIM if reasons.get(id, WarView.REASON_NONE) \
+			== WarView.REASON_RANGE else ENERGY_LABEL
+	label.transform = Transform3D(label_basis,
+			center + Vector3.UP * (height + LABEL_CLEARANCE))
 	add_child(label)
 
 
@@ -210,7 +239,7 @@ func _build_node(node: Dictionary, config: WarConfig, reasons: Dictionary,
 func _build_spire(center: Vector3, height: float, color: Color) -> void:
 	var mesh: BoxMesh = BoxMesh.new()
 	mesh.size = Vector3(SPIRE_WIDTH, SPIRE_HEIGHT, SPIRE_WIDTH)
-	mesh.material = _emissive(color, 2.4)
+	mesh.material = _emissive(color, ENERGY_SPIRE)
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.position = center + Vector3.UP * (height + SPIRE_HEIGHT * 0.5)
@@ -229,12 +258,15 @@ func _build_spire(center: Vector3, height: float, color: Color) -> void:
 ## midpoint, perpendicular to the line joining the centres — a front line reads
 ## as a wall between two places instead of a rope tying them together.
 ##
-## Both sit at the height of the TALLER neighbour. The first build put them near
-## the table surface, where a 0.35 m trench between two garrison-height prisms
-## hid every one of them at this camera pitch.
+## THE TWO MARKS SIT AT DIFFERENT HEIGHTS ON PURPOSE, now that the cells
+## tessellate and there is no trench to hide in. A front line is a WALL and goes
+## on top of the taller neighbour, where it breaks the skyline. A supply link is
+## a SEAM and sits at the shorter neighbour's shoulder, tucked into the step
+## between the two — which is what stops it reading as the loose dashes the user
+## called "weird lines" when both floated at the same height.
 func _build_front_bar(edge: Dictionary) -> void:
 	_build_edge_mark(edge, HEX_SIZE * 0.98, FRONT_BAR_HEIGHT,
-			_emissive(COLOR_FRONT, 3.0))
+			_emissive(COLOR_FRONT, ENERGY_FRONT), true)
 
 
 ## Kept deliberately below the nodes it joins in brightness. At 1.6 the enemy's
@@ -243,18 +275,20 @@ func _build_front_bar(edge: Dictionary) -> void:
 ## front line, then what you can attack, then how it is fed.
 func _build_supply(edge: Dictionary) -> void:
 	var color: Color = COLOR_PLAYER if edge["side"] == &"player" else COLOR_ENEMY
-	_build_edge_mark(edge, HEX_SIZE * 0.8, SUPPLY_BAR_HEIGHT,
-			_emissive(color * 0.7, 0.7))
+	_build_edge_mark(edge, HEX_SIZE * 0.62, SUPPLY_BAR_HEIGHT,
+			_emissive(color * 0.75, ENERGY_SUPPLY), false)
 
 
 func _build_edge_mark(edge: Dictionary, span: float, thickness: float,
-		material: StandardMaterial3D) -> void:
+		material: StandardMaterial3D, on_top: bool) -> void:
 	var a: Vector3 = centers[int(edge["a"])]
 	var b: Vector3 = centers[int(edge["b"])]
 	var along: Vector3 = (b - a).normalized()
 	# UP × along, not along × UP: the other order builds a mirrored basis.
 	var across: Vector3 = Vector3.UP.cross(along).normalized()
-	var top: float = maxf(_height_of(int(edge["a"])), _height_of(int(edge["b"])))
+	var height_a: float = _height_of(int(edge["a"]))
+	var height_b: float = _height_of(int(edge["b"]))
+	var at: float = maxf(height_a, height_b) if on_top else minf(height_a, height_b)
 
 	var mesh: BoxMesh = BoxMesh.new()
 	mesh.size = Vector3(span, thickness, EDGE_THICKNESS)
@@ -262,7 +296,7 @@ func _build_edge_mark(edge: Dictionary, span: float, thickness: float,
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.transform = Transform3D(Basis(across, Vector3.UP, along),
-			(a + b) * 0.5 + Vector3.UP * (top + thickness * 0.5))
+			(a + b) * 0.5 + Vector3.UP * (at + thickness * 0.5))
 	add_child(instance)
 
 

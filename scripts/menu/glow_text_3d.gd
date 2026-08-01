@@ -83,6 +83,16 @@ const FONT: Dictionary = {
 		glow_energy = value
 		if _material != null:
 			_material.emission_energy_multiplier = value
+## Glyphs are solid cubes, so by default they cast shadows like anything else.
+## Fine on a building's face, where the text sits flush against the wall. NOT
+## fine floating above a lit surface: the war room's hex labels hover 0.7 m over
+## their prism tops and printed a legible second copy of themselves onto it.
+@export var cast_shadows: bool = true:
+	set(value):
+		cast_shadows = value
+		if _instance != null:
+			_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON \
+					if value else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 var _instance: MultiMeshInstance3D
 var _material: StandardMaterial3D
@@ -115,6 +125,8 @@ func _rebuild() -> void:
 		multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY, offsets[i]))
 	_instance = MultiMeshInstance3D.new()
 	_instance.multimesh = multimesh
+	if not cast_shadows:
+		_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_instance)
 
 

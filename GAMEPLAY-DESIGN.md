@@ -10082,3 +10082,46 @@ phase that needs them.
     - 7x raider 3x gnat 3x falx`, because `apply_sortie` zeroes `intel_age` for
     ground you have looked at with your own eyes. Nobody designed that moment in
     this iteration; it fell out of P1.3 and W7 meeting a screen.
+
+- **2026-08-01 — v2.08. THE MAP IS A BEEHIVE AT LAST — four looks-level faults,
+  one of them a real geometry bug, all found by the user flying it.** Feedback
+  verbatim: *"the hexagons does not align how i expected them to, there's gaps
+  between them and they dont align like a beehive. also there are some wierd
+  lines between them. there's also too much neon blinding light, and the texts
+  over each hexagon are not all aligned to the same direction."* Every one was
+  correct and none were taste.
+  - **THE HEXES WERE ROTATED 30 DEGREES INTO FLAT-TOP, so no two could ever share
+    an edge.** The cell mesh is a 6-segment `CylinderMesh` and the code rotated it
+    by 30 degrees "to make it pointy-top". Probing the mesh settles it: Godot puts
+    corners at 90, 30, -30, -90, -150 and 150 degrees from +X — **already**
+    pointy-top, and exactly what `WarView`'s projection tiles. The rotation was
+    turning every correct cell wrong. Deleted. This is the difference between
+    checking a graphics API and reasoning about it, on a bug that no headless
+    assertion in the file could see: the projection was right, the adjacency was
+    right, and the *mesh* was turned.
+  - **`HEX_FILL` 0.82 → 0.99.** The gaps were deliberate, on the theory that
+    hexes need air between them to read as separate places. They do not; the
+    height difference already does that, and P1.8 asked for a beehive because a
+    beehive is what makes hex adjacency legible. Held under 1.0 only to keep two
+    neighbours' shared faces from being coplanar and z-fighting.
+  - **The "weird lines" were the supply strips**, floating at the taller
+    neighbour's height alongside the front-line walls, so both marks lived at the
+    same altitude and read as loose dashes. Now a front line is a WALL on top of
+    the taller cell and a supply link is a SEAM tucked into the step at the
+    shorter one — different heights for different meanings, which is legible
+    without a legend.
+  - **The neon came down at the SOURCE, not in the look pass.** `LookController`
+    re-applies the human-tuned `default_look_config.tres` every frame, so the war
+    room cannot turn the game's bloom down to suit itself and must not try. It
+    turned itself down instead: labels now sit just UNDER the 1.0 bloom threshold
+    so they read as crisp text rather than as light, and only the front line and
+    the selection ring exceed it at all.
+  - **The glyphs fanned out because each was aimed at the camera POINT.** Thirty
+    labels each turning to face the viewer reads as a crowd looking at you; one
+    shared orientation along the view direction reads as a printed map. One basis,
+    computed once.
+  - **A fifth fault the user did not mention and a screenshot did: the labels
+    were casting shadows.** Solid emissive cubes floating 0.7 m over a lit surface
+    printed a legible second copy of every label onto the hex beneath it. The
+    hypothesis was tested rather than argued — `GlowText3D` gained an opt-out,
+    default ON so the menu tower is untouched — and the ghosts vanished.
