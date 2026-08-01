@@ -114,6 +114,13 @@ structures at the centre; flatten them and **fly back out past 105 m** to finish
 objective has something to arrive to). On seed 4242, nodes 8 and 11 are strikes
 and most of the rest are dogfights.
 
+**Read the `pads:` line before you arm — it is the sortie's difficulty in one
+number.** A pad is a repair gate (always the first one) or a resupply gate, and
+the count is *derived from the node's own garrison*, never authored: heavily
+defended nodes are pad-poor (P2.6). Node 8 gets **zero**, which is why flying it
+means flying a broken drone the whole way — that is the design working, not a
+missing feature. Across seeds the spread is 0 pads (rare), 1, or 2 (most common).
+
 **Nothing here is balanced and none of it should be tuned yet** — H6 is explicit
 that difficulty is measured, not authored. The first flights exist to produce a
 number, not a good one.

@@ -4346,7 +4346,9 @@ everything after it is answering questions that only a flown sortie can ask.
   **one repair gate first, then resupply gates alternating flak/missile** — the
   hull is the resource you cannot fly without, so a one-pad node should hand you
   the green one. `ResupplyGate.charges` then carries the rest of P2.6's
-  granularity for free.
+  granularity for free. **→ DECIDED 2026-08-01 (v1.99), to the lean, and settled
+  by play rather than on paper: the first hand-flown strike was a zero-pad node
+  and the pilot flew it broken all the way.**
 - **W.q5 — What colour is an objective asset?** The palette is full: cyan =
   navigation, red = threat, orange = score, amber = pylons/flak, green = pads,
   violet = missile, yellow = your fire. My lean: **white/hot-white**, unused and
@@ -7819,6 +7821,59 @@ are deliberately left open until a sortie has actually been flown.
     it are real, and the two large ones (Blaster × Gnats kills 2.2 → 1.7, Flak ×
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
+
+- **2026-08-01 — v1.99. THE PADS ARE SPENT (W.q4 answered by play), and the
+  intermittent `ammo_check` is caught and diagnosed.**
+  - **THE FIRST HAND-FLOWN COMPOSED SORTIE VALIDATED THE DESIGN'S FOUNDING
+    CLAIM, and the user found it without being told.** They flew node 8 and
+    reported: *"was difficult as it should. no heal so i had to fly a broken
+    drone."* **Node 8 earns ZERO pads** — its garrison is 36.4 against a cap of
+    40, and `_pads()` prices a heavily garrisoned node as pad-poor. Nothing
+    authored that; it fell out of the war state. That is P2/2.2's *"difficulty
+    falls out of the strategic state — organic balancing, not hand-tuned
+    levels"* happening in a human's hands on the very first flight, and it is
+    the single strongest piece of evidence the model has produced.
+    - **It was ALSO a real gap, and the two facts are compatible.** The runner
+      never read `spec["pads"]`, so *every* node was pad-poor — node 8's zero
+      was correct by accident. Connecting the field is what makes the knob a
+      knob rather than a constant.
+  - **W.q4 → DECIDED: repair gate first, then resupply alternating flak/missile.**
+    The lean was already written; the play evidence settles it. **Hull is the
+    resource you cannot fly without** — a pilot out of missiles is
+    inconvenienced, a pilot out of hull is dead — so a node generous enough for
+    exactly one pad hands you the green one. Pads ring between the inner and mid
+    layers, so taking one is a detour INTO the fight rather than a trip to the
+    edge of the map.
+    - Measured across four seeds: slice-ready nodes get **0 pads (3), 1 pad (16),
+      2 pads (41)**. The knob has real range and the extremes are rare, which is
+      the right shape for a difficulty axis.
+  - **A timing trap worth stating once, because it will recur.** Pad placement
+    rejects spots near the objective structures **arithmetically**, not with the
+    shape cast, because those structures were added to the tree microseconds
+    earlier in the same call — and a body's collision shape is not registered
+    with the physics space until the next physics step. A cast would sail
+    straight through them and park a repair gate inside a factory.
+  - **THE INTERMITTENT `ammo_check` IS CAUGHT, AND IT WAS THE CHECK.** Flagged in
+    v1.98 as an unreproduced one-off; it reappeared with its assertion text this
+    time: *"1 gates laid inside scenery across 6 sorties"*.
+    - **The cause is a deferred free.** `_lay_gates()` disposes of the previous
+      sortie's gates with `queue_free()`, which does not take effect until the
+      end of the frame — and the check sweeps all six sorties **inside one
+      frame**. The old gates are therefore still solid bodies in the physics
+      space while having already been dropped from `_director.gates`, so the
+      exclude list missed them, and a new gate landing near an old one reported
+      as buried in scenery **because a `ResupplyGate` is itself a
+      `StaticBody3D`**.
+    - It only failed when the random placement happened to reuse a spot, which
+      is exactly why it passed alone and failed in a batch. **The gates were
+      always placed correctly** — the same category as `heat_check`'s two false
+      failures, and the third time on this project that an intermittent check has
+      turned out to be the check.
+    - Fixed by excluding every gate the sweep has laid rather than only the
+      current sortie's. **8 of 8 consecutive runs pass.**
+    - **The lesson to carry: a test that drives many frames' worth of a system
+      inside one frame does not get deferred frees**, and anything that
+      `queue_free`s between iterations is still solid for the rest of that frame.
 
 - **2026-07-31 — v1.98. ITERATION 12 PHASE 3: THE LOOP HOME. Your fights dent
   the war, the war ticks, and the campaign is a file on disk.** W7 built, and
