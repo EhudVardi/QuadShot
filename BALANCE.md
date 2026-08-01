@@ -200,6 +200,44 @@ virtue lives in the hull term, and nothing measured the hull term.
     pair share a run, and that is the only fair comparison: the ORDERING is
     stable, the absolute values are not. Two runs of the same command reproduced
     `[auto]` and `[jink]` byte-for-byte while `[steady]` moved by two rounds.
+    - **AMENDED 2026-07-31: "the ordering is stable" holds for the RAIDER column
+      and FAILS for the TURRET one.** Two more full runs at identical settings
+      (forced by the stamp fix) put a number on the bench itself: **34 of 47
+      factor cells bit-identical, 5 moving by more than 0.09** — and every mover
+      that involves a threat is a turret cell. `kestrel x turret [jink]` read
+      **0.08** then **0.36**; beside a `[steady]` of 0.40 then 0.22, that is
+      "jinking cuts incoming fire fivefold" and "jinking makes you easier to hit"
+      **from the same command**. Every raider cell reproduced exactly.
+    - **This is not v1.80's bug.** That one was history dependence — *the result
+      depends on what ran before it in the same process* — and these two runs
+      share an identical history. The divergence is **cross-process**.
+    - **The likely cause is sample size, and it is arithmetic rather than
+      mystery.** An `evade` cell fires 38–50 rounds and resolves 2–18 hits, so
+      0.04 against 0.16 is *six rounds*. **A cell resolving single-digit events
+      cannot carry two decimal places.** Longer cells would fix it and cost bench
+      minutes; that trade is unmade and deliberately so.
+    - **Practical rule until it is:** read the turret column's ORDER as unproven
+      and its absolute values as indicative only, and treat any survival time
+      quoted against a turret as carrying a factor-of-a-few. The raider column is
+      unaffected. **The irony is worth keeping: the least reproducible cells on
+      the board belong to the one enemy with no `ai_seed`, which fights an
+      identical engagement every rep.**
+    - **IT IS THE TURRET, NOT THE PROCESS, AND THAT CORRECTS AN OLDER ENTRY.**
+      The reproducibility note further down records `Atlas × Turret` reading
+      `dmg-taken` 22.2 then 18.7 under an unchanged pilot and files it as generic
+      *"~16% run-to-run variance"* — the warning every later reader inherited.
+      The 2026-07-31 pair reads **23.3 then 18.7** on that same cell, nearly the
+      same two numbers a third time, while every raider cell on both benches
+      reproduces exactly. **Three observations, one enemy type, mis-attributed to
+      the process each time because nobody had compared two full runs cell by
+      cell.** Why a turret engagement is chaotic where a raider engagement is not
+      is unexplained, and it is the thread to pull before trusting a turret
+      number again.
+    - **The duel harness itself is fine, and better than this bench.** The same
+      pair of runs returned **29 of 29 win rates and 29 of 29 kill counts
+      identical**, 20 of 29 cells identical on every field, with movement confined
+      to `dmg-taken` and `spent`. The validation layer is steadier than the
+      measurement layer feeding it.
   - **A saturated DATUM does not fail the run; a saturated FACTOR does.** A
     factor cell that cannot be measured is a broken instrument. A deliberate
     extreme saturating is its answer — "constant jinking throws this airframe so
@@ -219,9 +257,19 @@ virtue lives in the hull term, and nothing measured the hull term.
   - **What survives, because it is saturated:** `atlas × raider [jink]` took
     **0 of 38** with its gun at **1 of 26**, reproduced under two independent
     histories. An aircraft that is completely out of control cannot be nudged by
-    noise. **The Atlas cannot fly this jink.** That cell has no measurement in
-    it, so the delivery bench FAILS and `tools/balance_report` stops there by
-    design — the board is RED on purpose.
+    noise. **The Atlas cannot fly this jink.**
+    - **CORRECTED 2026-07-31: the board is NOT red, and has not been since
+      v1.82.** This paragraph used to end "that cell has no measurement in it, so
+      the delivery bench FAILS and `tools/balance_report` stops there by design —
+      the board is RED on purpose", and that was true only in the window between
+      the cell saturating and the datum/factor split being applied to it. `[jink]`
+      is a FORCED mode, so it is a **datum**, and the rule three bullets down
+      already says a saturated datum does not fail the run. Two consecutive full
+      reports on 2026-07-31 passed all three layers with this cell reading
+      **0.00**. The finding stands untouched — the Atlas still cannot fly this
+      jink — it simply is not a build break, which is exactly what the rule
+      intends. **A stale RED in a doc is worse than a stale number: it teaches
+      people the board is expected to be broken.**
   - v1.77's duel finding is not contradicted by any of this: those fought a real
     raider with 3° jitter and its own tracking loop, at fight geometry. Whatever
     replaces the jink has to be measured against both.
@@ -279,6 +327,27 @@ the economy) to go model or accept. NOT for: populating the table.
     at all.** Phase 4b left those last two out with a stated reason (no bench
     that measures a delivery factor could be affected by them), and that reason
     was true right up until a bench pointed a gun at the player.
+  - **THE HOLE OPENED A SECOND TIME, and the ammo work fell straight into it**
+    (2026-07-31, Iteration 12). v1.91 gave the blaster a heat sink and v1.92 gave
+    the pod and the rack magazines. Both are `CombatConfig` fields, both
+    demonstrably move delivery — and **the stamp hashed identical across both**,
+    because `DELIVERY_FIELDS_COMBAT` listed ballistics, lock and fuse fields and
+    nothing that can END a burst. The board would have gone on quoting pre-heat
+    factors as current indefinitely; the only thing that caught it was a human
+    writing "the board owes a re-measure" into the handoff by hand.
+    - The proof it was load-bearing is in the run that found it: **`Flak x
+      Screamer` spent exactly 24.0 rounds — the whole magazine** — so that cell is
+      ammunition-bound rather than time-bound, and no field in the old list could
+      see that. Duty cycles moved across the board for the same reason.
+    - `heat_per_shot`, `heat_capacity`, `heat_cool_rate`, `heat_vent_delay`,
+      `heat_reset_fraction`, `flak_magazine` and `missile_rack` are now in the
+      list.
+    - **The generalization, now that it has happened twice:** the old rule was
+      "a field is inert to delivery only for as long as no bench reads it." That
+      is too weak. **Anything that can stop a weapon firing is a delivery input,
+      because `aim_quality` is hits per shot FIRED and a weapon that quits
+      mid-cell changes the denominator.** Ask of any new field: *can this end a
+      burst?* If yes, it is stamped.
   - **Two of them are a conservatism, and the reasoning changed mid-build.**
     Under Layer 3b's first design `damage`, `hull` and `armor` were strictly
     load-bearing, because the jink was hit-gated: armor decided whether the pilot
@@ -387,6 +456,40 @@ worth knowing before reading one:
 Relative banding also *rescues* the cells the win ruler cannot resolve: an
 unseeded enemy (turret, aegis) can only ever read `++` or `--` on win rate,
 but hull spent is continuous even in a deterministic duel.
+
+**`Atlas × Raiders` −0.67 is DIAGNOSED, and it was never a durability failure**
+(2026-07-31). The sharpest paper-vs-measured gap on the board reproduced exactly
+— and with Layer 3's survival line printed beside it, the cell now explains
+itself. Read the two rows of the same datum together:
+
+| | Atlas | Kestrel |
+|---|---|---|
+| exchange vs 3× raider | +0.24 | +0.91 |
+| hull spent | **4%** | 9% |
+| survival under 3× raider | **76.7 s** | 12.0 s |
+| **missiles fired in 10 s** | **0.8** | **3.0** |
+| aim once fired | 1.00 | 1.00 |
+
+The Atlas takes less than half the damage and lives six times as long — **its
+durability is measured, real, and exactly what P3.4 promised.** It loses the
+exchange because it *fired 0.8 missiles where the Kestrel fired 3*, at identical
+accuracy. A missile cannot launch without a lock, so the binding constraint is
+**acquisition**: against one raider the Atlas does lock (ttk 4.2 s vs 1.7 s),
+and against three that jink, ten seconds buys it less than one.
+
+- **The un-modeled factor this names: a heavy frame pays for its stability in
+  LOCK TIME, and nothing in the model prices that.** Layer 2 keys `aim_quality`
+  per frame, which captures how well a frame holds a gun line — it does not
+  capture how long a frame takes to *earn a launch*. That is a real gap and it
+  is the frame axis's, not the Atlas's.
+- **Read it as the mirror of S4.** S4's problem was fights ending before damage
+  could accumulate; this is a fight that never ends before the buzzer (timeout
+  6/6). Both are the fixed cap deciding a frame cell. S4's prescribed answer is
+  the same in both directions: a task that holds you in the envelope — a
+  composed sortie, not a duel.
+- **Do not "fix" this by raising `MAX_SECONDS`.** A changed rig constant is not
+  noise, it is a different measurement (see the reproducibility note above), and
+  it would silently un-compare this board from every previous one.
 
 ## The Screamer reads strangely on purpose
 

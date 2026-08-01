@@ -105,6 +105,25 @@ const DELIVERY_FIELDS_COMBAT: Array[String] = [
 	"flak_muzzle_speed", "flak_shell_gravity_scale", "flak_shell_lifetime",
 	"flak_fire_rate", "flak_arm_distance", "flak_fuse_radius",
 	"flak_burst_radius",
+	# AMMUNITION (Iteration 10), added 2026-07-31 after the re-measure caught the
+	# omission. These govern how OFTEN a shot is taken, which is the duty cycle —
+	# and `aim_quality` is hits per shot FIRED, so a weapon that stops firing
+	# mid-cell reports a different number under an identical trigger policy.
+	#
+	# THE OMISSION WAS NOT THEORETICAL AND THE STAMP DID NOT CATCH IT. v1.91 gave
+	# the blaster a heat sink and v1.92 gave the pod and the rack magazines; the
+	# stamp hashed IDENTICAL across both, so the board went on quoting pre-heat
+	# factors as current until a human flagged it by hand. The proof it matters is
+	# in the same run that found it: `Flak x Screamer` spent exactly 24.0 rounds —
+	# the whole magazine — so that cell is now ammunition-bound rather than
+	# time-bound, and no ballistics field in the list above can see that.
+	#
+	# This is the SECOND time this exact hole has opened (the first was the
+	# FlightConfig fields in Phase 4b, documented in BALANCE.md). The general rule
+	# both instances teach: **a field is inert to delivery only for as long as no
+	# bench can be stopped by it** — and anything that can END a burst can.
+	"heat_per_shot", "heat_capacity", "heat_cool_rate", "heat_vent_delay",
+	"heat_reset_fraction", "flak_magazine", "missile_rack",
 ]
 ## The BESTIARY's half. THE WEAPON HALF WAS MISSING UNTIL v1.78, and Layer 3b
 ## is what made it a hole
