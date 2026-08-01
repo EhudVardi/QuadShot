@@ -7822,6 +7822,63 @@ are deliberately left open until a sortie has actually been flown.
     Raiders +0.71 → +0.88) are the ones to confirm. **Recorded as a direction
     with a mechanism, not as a measurement.**
 
+- **2026-08-01 — v2.00. THE SORTIE LAYER EXISTS: difficulty is MEASURED for the
+  first time.** H9's *"composed-sortie runner, day one"* — proposed 2026-07-18,
+  built today, and the thing H7's debt has been waiting three weeks for.
+  - **`sortie_bench.gd` flies composed sorties with the reference pilot** and
+    reads the completion rate back out as the SDI. H6 has always insisted that
+    *SDI is measured, never authored*; until now nothing measured it, so the
+    project's only difficulty signal came from `war_soak`'s abstract proxy — a
+    coin weighted by a `skill` float, calibrating a game nobody was playing.
+  - **THE WEAPON IS AN AXIS, NOT AN ASSUMPTION, and finding that out was the
+    first real result.** The initial cells flew blaster-only and read 0%
+    everywhere — which looks like a crushing theater and was substantially a
+    LOADOUT MISMATCH being labelled node difficulty. P4.3 wrote down years ago
+    that a chip gun loses to a swarm, and the duel board already measures `Flak x
+    Gnats` at 100% for 0% hull; a node fielding three gnat packs (27 bodies) was
+    never going to fall to a blaster. **A node's SDI is what its BEST answer
+    achieves**, so the bench sweeps all three weapons and the counter-matrix
+    arrives at sortie scale.
+    - The gap is not subtle. Node 8 (factory, garrison 36.4): blaster dents it
+      **0.4**, flak dents it **9.6** — 24x — for the same 0% completion. *"Nothing
+      completed"* and *"nothing touched it"* are different findings, and the
+      dent is what separates them. The report tie-breaks on dent for exactly
+      this reason.
+  - **THREE RIG BUGS, and each is the same lesson in a different coat: a bench
+    measures what it is actually configured to do, not what its author meant.**
+    1. **The gun director was OFF.** `default_combat_config.tres` ships
+       `fire_assist_miss_m = 0.0` and every other bench sets it per cell, so a
+       bench that simply forgets inherits the MANUAL path — a bare 6 degree cone
+       with no ballistic solution. **There is no symptom except bad numbers.**
+       Node 8 read 0% with a dent of 0.6 and looked exactly like a crushing
+       sortie.
+    2. **The pilot spawned INSIDE the engagement envelope.** At 90 m from centre,
+       against an outer ring reaching 83 m and turrets with 45 m sight, the fight
+       started before the pilot had moved. Node 8 died in 5.3 s. Moved to 125 m,
+       and there is an approach again.
+    3. **The arena was built during `_initialize`**, where `root.add_child()` is
+       accepted and the node is still not `is_inside_tree()` — so
+       `global_position` silently returned identity and the drone's `_ready` had
+       not resolved its frame. It presents as *"arm_throttle_threshold on a base
+       object of type Nil"*, three calls from the cause. The duel harness has
+       always built on the first physics frame; that was not decoration.
+  - **THE CAP WAS MEASURING THE CAP.** At 75 s, flak TIMED OUT on 2 of 3 reps at
+    node 8 while out-denting every other weapon 24 to 1 — the answer weapon was
+    being cut off mid-answer. Raised to 150 s. **A rep that hits the cap is a
+    measurement only when the cap is not the thing doing the failing**, and
+    P2.q6's target sortie is 4-8 minutes for a human anyway.
+  - **A composed sortie is EXPENSIVE to simulate**, and this is a planning fact
+    for anything that wants to soak them: ~90 s of wall time per rep, dominated
+    by gnat packs (27 rigid bodies each). A full 12-node x 3-weapon x 2-rep sweep
+    is ~108 minutes. The bench therefore streams every rep as it completes rather
+    than printing only at the end, so a run that has to be abandoned still leaves
+    everything it had measured.
+  - **DELIBERATELY NOT ASSERTED.** H6's bands are printed as a readout, not a
+    build break. They describe a war fought with an EARNED loadout and a chosen
+    frame; this bench flies a stock Kestrel at every node. Failing a board because
+    the default loadout cannot crack a deep node would be asserting the wrong
+    claim loudly. The assertion waits for P5's economy to exist.
+
 - **2026-08-01 — v1.99. THE PADS ARE SPENT (W.q4 answered by play), and the
   intermittent `ammo_check` is caught and diagnosed.**
   - **THE FIRST HAND-FLOWN COMPOSED SORTIE VALIDATED THE DESIGN'S FOUNDING

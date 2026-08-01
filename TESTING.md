@@ -52,6 +52,36 @@ Useful filters:
 | `gnats` | swarm behaviour and why the missile bankrupts against it |
 | `aegis` | the shield gate: chip fire splashing off forever |
 
+### The sortie bench — composed sorties, and where difficulty is MEASURED
+
+```
+<godot> --headless -s scripts/tests/sortie_bench.gd --path . -- <filter>
+```
+
+The reference pilot flies **composed sorties** — every slice-ready node of a
+theater, against all three weapons — and the completion rate that comes out is
+the **SDI**. H6 is explicit that difficulty is measured and never authored: the
+composer sets inputs, and this is the thing that reads the difficulty back out.
+Until it existed, the only difficulty signal in the project came from
+`war_soak`'s abstract proxy, which is a coin weighted by a `skill` float.
+
+**Read `dent` before you believe a completion rate.** A cell reading 0% is
+equally consistent with a hard sortie and a broken rig, and the dent is the
+cheapest way to tell them apart: it is the war-currency value of what the pilot
+actually destroyed. 0% with a dent of 9.6 is a hard fight; 0% with a dent of 0.4
+is a pilot that could not fight.
+
+**The weapon is an axis, not an assumption**, and a node's SDI is what its BEST
+answer achieves. Grading a node with a weapon it hard-counters measures the
+loadout mismatch and calls it difficulty — a blaster against three gnat packs
+reads 0% for reasons P4.3 wrote down years before this bench existed.
+
+Three stated limits, all in the file header: it does **not** fly the egress (the
+reference pilot has no egress behaviour, and teaching it one would cost a
+`PILOT_VERSION` bump), the **retargeting policy is the bench's** rather than the
+pilot's, and individual reps are **not** reproducible — the rate is the
+measurement, no single rep is.
+
 ### The delivery benches — isolated measurements
 
 ```
