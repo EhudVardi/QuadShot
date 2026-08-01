@@ -205,24 +205,37 @@ func _check_gate_spacing() -> void:
 	probe.radius = WaveDirector.GATE_CLEARANCE
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = probe
+	# EVERY gate this sweep has ever laid, not just the current sortie's.
+	#
+	# This is the fix for an intermittent failure that took two sessions to
+	# catch, and the cause is a deferred free. `_lay_gates()` disposes of the
+	# previous sortie's gates with `queue_free()`, which does not take effect
+	# until the end of the frame - and this sweep lays all six sorties INSIDE
+	# ONE FRAME. So the old gates are still solid bodies in the physics space
+	# while having already been dropped from `_director.gates`, and a new gate
+	# landing near an old one reported as "buried inside scenery" because a
+	# ResupplyGate is itself a StaticBody3D.
+	#
+	# It failed only when the random placement happened to reuse a spot, which
+	# is why it passed alone and failed in a batch. **The gates were always
+	# placed correctly; the check was wrong** - the same category as heat_check's
+	# two false failures. In the real game the sorties are seconds apart and the
+	# old gates are long gone.
+	var seen_gates: Array[RID] = []
 	for sortie_n: int in range(1, 7):
 		_director.sortie = sortie_n
 		_director.call(&"_lay_gates")
 		var points: Array[Vector3] = []
 		for gate: Node in _director.gates:
 			points.append((gate as Node3D).global_position)
+			seen_gates.append((gate as CollisionObject3D).get_rid())
 		laid += points.size()
 		for i: int in points.size():
 			for j: int in range(i + 1, points.size()):
 				if points[i].distance_to(points[j]) < WaveDirector.GATE_MIN_SEPARATION:
 					overlaps += 1
 			query.transform = Transform3D(Basis.IDENTITY, points[i])
-			# The gates themselves are StaticBody3D now, so exclude them or every
-			# gate reports as buried inside itself.
-			var excludes: Array[RID] = []
-			for gate: Node in _director.gates:
-				excludes.append((gate as CollisionObject3D).get_rid())
-			query.exclude = excludes
+			query.exclude = seen_gates
 			for hit: Dictionary in space.intersect_shape(query, 4):
 				if hit["collider"] is StaticBody3D:
 					buried += 1
