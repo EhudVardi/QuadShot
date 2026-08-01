@@ -268,11 +268,21 @@ static func compose(sortie_n: int, wave_n: int, budget: int) -> Array[StringName
 			composed.append(type_id)
 	while composed.size() < slots:
 		composed.append(&"raider")
-	# The escort rule. It cannot fire while the raider backbone above exists —
-	# it is here because PLAN is data, and data gets edited by someone who is
-	# not reading this function.
-	if not has_threat(composed):
-		composed[0] = &"raider"
+	# THE ESCORT RULE IS ENFORCED BY THE RAIDER BACKBONE ABOVE, and by nothing
+	# else. A screamer carries no weapon at all, so a wave of nothing but escorts
+	# would be a wave that cannot threaten the pilot.
+	#
+	# There used to be a repair line here (`if not has_threat(composed): composed[0]
+	# = &"raider"`). It was DELETED rather than kept, because `room = slots - 1`
+	# guarantees at least one raider in every wave, so the branch could never once
+	# execute - and a guard that cannot fire is indistinguishable from a guard that
+	# does not work. Keeping it read as protection nobody had ever seen function.
+	#
+	# If the backbone above ever stops being unconditional, the rule needs a real
+	# guard AND a direct test of it, the way `WarManifest._enforce_escort_rule` has
+	# one in `manifest_check`. `composition_check` asserts `has_threat` on the
+	# OUTPUT of this function, which is the right place for it: that assertion
+	# starts failing the moment the backbone goes.
 	return composed
 
 

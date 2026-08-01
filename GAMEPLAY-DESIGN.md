@@ -4364,6 +4364,46 @@ everything after it is answering questions that only a flown sortie can ask.
   seconds at speed. It requires W9.1's leash fix first, which is the real cost
   of the answer.
 
+- **W.q8 — What actually captures a node: SURVIVING, or HOLDING it?** Raised by
+  the user 2026-08-01, and it reframes a problem rather than settling one. Today
+  a capture requires `objective_complete and not pilot_lost`, so dying on the way
+  out costs you a pilot *and* the ground. The user's objection is that this
+  **double-punishes a death**, and P5.4 already states that principle in the
+  player's favour for gear: *"Losing a life shouldn't also strip your gear — that
+  double-punish cheapens the loadout game."* The same reasoning applies to the
+  node.
+  - **(a) Keep survival as the gate**, and price "got it, didn't get home" as a
+    degrade rather than a capture (the W.q3 third outcome the war-sim can already
+    price). Cheapest: one line in `WarSim.apply_sortie`, which currently ignores
+    `egressed` entirely. But it leaves the double-punish intact, just softened.
+  - **(b) A HOLD PHASE — the user's design, and the lean.** Flattening the
+    objective does not end the sortie; it starts a clock. You **guard the ground**
+    while friendly forces move in to take control, and the enemy — predictably,
+    in war — pushes to reclaim it before they arrive. Capture is then a **task you
+    completed**, not a state you survived: if you die during the hold, allies
+    never arrived, the node is wrecked but not yours, and that is one outcome for
+    one failure rather than two penalties for one death.
+  - **Why (b) is the better shape, beyond the fairness argument.** It gives
+    triggered reserves the job they do not currently have — today they arrive and
+    then the sortie ends, which is exactly the pacing bug v2.01 fixed and only
+    half of what reserves are for (P2.3). It replaces "fly 105 m from the centre"
+    with an ending that reads in fiction rather than as a distance check. And it
+    makes W.q3's third outcome fall out of the mechanic instead of needing its own
+    rule.
+  - **The risk, stated plainly:** a hold is a DEFEND task, a different skill from
+    the strike that preceded it, and a timer with nothing attacking is the most
+    boring thing this game could contain. (b) only works if the hold is when the
+    pressure PEAKS — which means the reserve budget belongs there, not before it.
+  - **Not necessarily every sortie** (user): a hold suits contested ground and
+    would be noise on a deep raid nobody intends to occupy. Likely an
+    archetype-level or capture-flag-level property rather than a global rule,
+    which the composer is already shaped to express.
+  - **Deliberately NOT decided, and nothing is built against it.** It touches the
+    egress, the capture gate, the reserve budget and the death path at once, and
+    three of those are load-bearing. The next honest step is the war room (P1.8),
+    because "allies move in and take control" is only legible if there is a map
+    that shows them doing it.
+
 ### W steering — ANSWERED IN PART (2026-07-31, same day)
 
 Four of seven resolved, all to their leans; W.q2/W.q4/W.q7 gate later phases and
@@ -9484,3 +9524,46 @@ are deliberately left open until a sortie has actually been flown.
     produced 26 confirmed findings anyway. **The lesson is not that the reviewer
     was right — it is that "would this pass if the feature were deleted?" is
     cheap, mechanical, and was not being asked.**
+
+- **2026-08-01 — v2.02. THE HOLD: a capture becomes something you DO, not
+  something you survive (W.q8 raised, deliberately unresolved).** Three small
+  decisions and one large question, all from the user reading v2.01's report.
+  - **W.q8 raised by the user, and it is the good kind of question — it dissolves
+    a problem instead of answering it.** I had offered "price a death that
+    completed the objective as a degrade rather than a capture" as a fairness
+    patch. The user's objection was that the pilot **already paid**, and their
+    counter-proposal was a **hold phase**: clearing the objective starts a clock
+    during which friendly forces move in to take control, while the enemy pushes
+    to reclaim the ground. Their reasoning, verbatim in shape: *in war it is
+    predictable that the enemy will try to move in quickly to reclaim the space,
+    while ally forces move in to take control.* That converts the capture gate
+    from a survival check into a **completed task**, which is why it stops being a
+    double-punish without needing a fairness rule at all. Full options and risks
+    at W.q8; **nothing is built against it.**
+  - **Death returns to the war room, and we are WAITING for the war room rather
+    than plastering over it (user).** P5.4 already decided this — *"you redeploy
+    fresh from Home Airbase"* — and P1.q4 says the same for an abort. `sortie.gd`
+    still runs `main.gd`'s arcade respawn, so a dead pilot revives into a sortie
+    that has already resolved and saved, and can fly and kill indefinitely with
+    nothing recorded. I offered three interim fixes and the user declined all of
+    them: *"lets not use plasters over something that eventually will be built. i
+    have patience."* Recorded as a KNOWN GAP with a decided destination, which is
+    a better state than a temporary behaviour someone later mistakes for a design.
+  - **The wave director's escort guard is DELETED, not tested.** `compose()` fills
+    every wave's last slots with raiders, so the repair line below it could never
+    execute once — and the comment above it said so. Deleting beat testing here
+    because the backbone IS the enforcement and a second mechanism would be two
+    things to keep in sync; the comment left behind says what to do if the
+    backbone ever stops being unconditional. `composition_check`'s `has_threat`
+    assertion stays exactly where it is: it tests the OUTPUT of the function, so
+    it starts failing the moment the backbone goes. **Contrast with
+    `WarManifest._enforce_escort_rule`, which was KEPT and given a direct test in
+    v1.96** — that one can genuinely fire, because a doctrine mix is data.
+  - **A reporting failure worth recording, because it cost the user a flight.** I
+    told the user "dogfights are now longer" and they tested it on **node 8, which
+    is a strike** — the one archetype the fix cannot touch, since only a dogfight
+    carries two `wave_cleared` reserves. They correctly reported feeling no
+    difference. The fix was right and the instruction was useless. **Naming an
+    archetype is not naming a node**: seed 4242's dogfights are 0, 1, 4, 6, 7, 9,
+    12, 15, 23, 24 and 28, and a repro command has to name one of them and pass
+    `--no-persist` or it flies whatever the saved war has become.
