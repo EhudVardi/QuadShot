@@ -185,6 +185,11 @@ produced it — gates and kills are the only ways to re-arm.
 
 Agreed with the user 2026-08-01, after this inventory was taken.
 
+**PROPOSED as Iteration 13 (C1-C10, open questions C.q1-C.q7) the same day — read
+it before anything below, which is the reasoning it was written from.** Status:
+awaiting steering. The five-phase build cut is C9; the two rows that carry the
+whole engineering cost are the 1-tick forecast (C6) and the tick animation (C8).
+
 ### What is actually built, counted rather than remembered
 
 | axis | built | designed | gap |

@@ -4439,6 +4439,351 @@ are deliberately left open until a sortie has actually been flown.
   be genuinely unfindable in a dark city, and that failure mode is discovered by
   a human wasting four minutes.
 
+---
+
+## Iteration 13 — C: The War Room (PROPOSED, 2026-08-01 — user-initiated)
+
+> **The campaign is playable and has no face.** A theater generates, a node
+> composes, a sortie flies, the result prices back into the war, the war ticks,
+> and the state saves — and every one of those steps reports to a console the
+> player never sees, while choosing where to fly is a command-line flag. This
+> iteration proposes **no new systems**. It is the screen P1.8 has been
+> describing since Iteration 1. Sections **C1–C10**, open questions
+> **C.q1–C.q7**; react by ID.
+
+### C1 — The thesis: the cheapest big feature this project will ever build
+
+Every other iteration built a system and then found out whether it was any good.
+This one builds a **view** of systems that are already correct, already
+deterministic, already covered by checks, and already printing the exact numbers
+the screen has to show. `sortie.gd` prints a full briefing before you arm and a
+full debrief after you land. `WarManifest.project()` already produces the
+intel-fogged garrison estimate an inspection card would show. `WarSave` already
+does F4's portable file, byte-exactly.
+
+The risk profile is therefore inverted from every previous iteration: the danger
+is not that the war room will be wrong, it is that it will be **big**. C9's cut
+exists to keep it small.
+
+### C2 — The inventory, counted rather than remembered
+
+| P1.8 asks for | the data | who computes it today | the screen |
+|---|---|---|---|
+| nodes, ownership | `state["nodes"]` | `TheaterGenerator` | none |
+| hex adjacency, front line | `hex_distance` | `TheaterGenerator` | none |
+| supply edges | `WarSim._supplied_set` | `WarSim` | none, **and private** |
+| airbase range rings | `WarSim._strike_range` | `WarSim` | none, **and private** |
+| weather per node | `node["weather"]` | `WarSim` | none |
+| intel freshness | `node["intel_age"]` | `WarSim` | none |
+| garrison estimate | `WarManifest.project` | `WarManifest` | none |
+| the intel card's fog | `WarManifest.through_fog` + `SortieComposer.compose_briefing` | both | **never called outside tests** |
+| 1-tick forecast | — | **nothing** | does not exist — C.q4 |
+| pilot roster (F1) | `state["pilots"]`, an `int` | `TheaterGenerator` | none |
+| hangar (P3) | `MenuLaunch.frame_id` | the menu tower | exists, in another scene |
+| briefing | `sortie.gd._print_briefing` | console | console only |
+| debrief | `sortie.gd._on_sortie_finished` | console | console only |
+| the tick as animated map movement | — | **nothing** | does not exist |
+| save / exit anywhere, one file | `WarSave` | `WarSave` | **done** |
+
+Two rows carry the whole engineering cost: the **forecast** and the **tick
+animation**. Everything above them is reformatting text that already exists, and
+everything below is done.
+
+**The briefing half of P2.1 has been correct and invisible since v1.71.**
+`compose_briefing` and `through_fog` are called by `sortie_compose_check`,
+`manifest_check` and `sortie_trace` — three tests and a bench. No human has ever
+seen the fog work, which means the designed surprise P1.3 promises has never once
+been delivered to a player.
+
+**The war-side API change is two `_` characters.** `_supplied_set` and
+`_strike_range` are private only because nothing outside the sim had needed them,
+and both are exactly what a map draws; `war_trace` already reaches through the
+underscore to call one. Publishing them is the entire change this iteration makes
+to `war/`.
+
+**The war room adds ZERO fields to `user://war.save`.** Nothing it shows is state
+— it is all projection, derived on demand from the state that already exists.
+`SAVE_VERSION` does not move, and every campaign in existence survives this
+iteration. That is a design constraint, not an observation: any feature that
+wants a new save field (named pilots, C.q7) is out of the cut.
+
+### C3 — What the room physically IS (the fork that decides the cost)
+
+Three shapes, and they are not equally expensive:
+
+- **(a) A flat 2D screen.** `Control` nodes, hexes drawn with `_draw()`.
+  Cheapest, most readable, most legible for text-heavy panels, and the one that
+  looks least like this game.
+- **(b) A 3D hex table under a fixed camera, with 2D panels on top.** Hex prisms
+  on a plane, the look pass and `neon_structure.gdshader` already applied,
+  `GlowText3D` labelling each cell — the B5 primitive already renders A–Z and
+  0–9, because the resupply gates needed numerals in v1.92. Selection is a
+  raycast from the camera through a cursor. It costs a little more than (a) and
+  buys **garrison as prism height**, which is the single most useful thing a
+  strategic map can encode.
+- **(c) A flyable map room.** The drone hovers over the table; you pick a node by
+  flying at it. Maximally diegetic, continuous with B5's flyable menu — and it
+  taxes every one of P1.q5's 25–40 sorties with a flight to a menu item.
+
+The tension is that B5 established this project's taste for diegetic menus, and a
+war room is the one menu you use constantly. A menu tower is delightful once per
+session; a war map is opened between every sortie.
+
+**(b) is the lean**, and it is the compromise rather than the middle: it reads as
+this game, it reuses shaders and a font primitive that already ship, it makes
+garrison legible without a number, and the map is *data* either way — the
+renderer is swappable, so (c) remains available later as a re-skin rather than a
+rewrite. C.q1.
+
+### C4 — The map, drawn
+
+One formula, matching `TheaterGenerator`'s axial coordinates so the picture and
+the graph cannot disagree (pointy-top):
+
+```
+x = size * sqrt(3) * (q + r / 2.0)
+z = size * 1.5 * r
+```
+
+What each visual channel carries — deliberately assigned rather than decorated,
+because a strategic map with six overlapping encodings is a map nobody reads:
+
+| channel | meaning | source |
+|---|---|---|
+| fill colour | owner (player / enemy / contested) | `node["owner"]` |
+| prism height | garrison strength | `node["garrison"]` |
+| glyph | node type (P1.2's nine) + node id | `node["type"]`, `node["id"]` |
+| rim glow | selectable this turn (in range, enemy-held, slice-ready) | derived |
+| dimmed | out of strike range | `WarSim.strike_range` |
+| edge line | supply connection | `WarSim.supplied_set` |
+| heavy edge | the **front line** — an edge whose two ends differ in owner | derived |
+| corner marks | weather, intel age | `node["weather"]`, `node["intel_age"]` |
+
+The **front line is not drawn by the generator** (P1.1 is explicit about this) —
+it is the boundary between owners, so it is computed from ownership every frame
+and moves because the war moved.
+
+**The map must be honest about the fifteen nodes it cannot fly.** With
+`SLICE_ARCHETYPES` at two, half a theater composes correctly and cannot be
+instantiated. Drawing those nodes as though they were targets would be the map
+lying; hiding them would make the theater look half-sized and make the eventual
+archetype work look like new territory rather than unlocking existing ground.
+The lean is **drawn, inspectable, and refused at the launch button** with the
+reason stated on the card. C.q3.
+
+### C5 — The inspection card: where P1.3's fog finally reaches a human
+
+`compose_briefing(node, state, config)` already returns everything the card
+needs, already fogged. The card renders exactly what the spec says and **never
+reaches past it to the truth**:
+
+| intel age | `garrison_detail` | the card shows |
+|---|---|---|
+| ≤ 1 | `exact` | the named unit list, counts and all |
+| 2–5 | `families` | air / swarm / static, by strength |
+| > 5 | `strength` | one abstract number, which is all the war-sim itself keeps |
+
+That last row is the design working: degrade intel far enough and the briefing
+regresses to precisely the number the sim trades. The card also carries
+archetype, objective, asset count, **pads** (the pilot's single most important
+planning fact, and derived rather than authored), capture-or-degrade, weather,
+and the H.q2 difficulty input vector — **never a difficulty score**, because H6
+says SDI is measured by the harness and never authored, and a card that printed
+one would quietly become the thing designers tune.
+
+This is the one place in the room where a bug is invisible: a card that
+accidentally shows truth still looks perfect. So the check for it is a
+**mutation**: feed a node at `intel_age` 99 and assert no unit type name appears
+anywhere in the card's own text.
+
+### C6 — The forecast is not free, and pretending otherwise would be a lie
+
+P1.6 promises a 1-tick weather forecast — *"the SAM site is blind in tomorrow's
+fog"* — and it is the one P1.8 item with no data behind it. Weather is re-rolled
+inside `_weather_and_intel` from the war's **shared RNG stream** at 15% per node
+per tick. Predicting it means drawing from that stream, and drawing from it moves
+the war.
+
+The cheap honest answer: **run a tick on a deep copy.**
+`state.duplicate(true)` → `WarSim.tick(copy, config)` → read the copy's weather.
+The state is a plain Dictionary by construction, the sim is pure, and a copy's
+`rng_state` advances in the copy alone. It costs one tick of arithmetic and needs
+no change to the war at all.
+
+Two caveats, both stated on the card rather than hidden: the forecast is *"if you
+fly nothing"* (your own sortie dents a garrison before the tick and changes what
+the enemy does with it), and the same dry run knows the enemy's next move — so
+the room must read **only weather** off it. Showing the rest would hand the
+player a perfect oracle and delete the fog this iteration exists to reveal. C.q4.
+
+### C7 — The loop comes home, and the death path closes with it
+
+Today `sortie.gd` owns the campaign loop: it loads the war, composes, flies,
+applies the result, ticks, and saves. That was right when the sortie scene was
+the only thing that existed. With a room, it is the wrong owner, for a reason
+that is not tidiness:
+
+**P1.8's sequence is `briefing → fly → debrief → the tick plays out as animated
+map movement`.** The tick must happen where the map is, or the animation is
+replaying something that already happened somewhere else.
+
+So the proposal: the room owns `apply_sortie` → debrief → `tick` → animate →
+`save`. `sortie.gd` hands back its `result()` through a cross-scene static
+(`WarLaunch`, exactly the `MenuLaunch`/`RunMods` pattern) and stops touching the
+war. Three things fall out of it for free:
+
+1. **The death path closes** (P5.4, and the gap v2.02 refused to plaster). A
+   dead pilot's sortie resolves, the room takes the pilot off the roster, and you
+   redeploy from Home Airbase — because there is now a Home Airbase to redeploy
+   from. The arcade respawn leaves the sortie scene entirely.
+2. **P1.q4's two doors become buildable**: *exit without save* is "return to the
+   room without handing back a result", and the war reverts to its last saved
+   state by doing nothing at all.
+3. **A quit mid-sortie loses the sortie**, which is not a bug — it is exactly
+   what P1.q4 decided *exit without save* should mean.
+
+**`scenes/sortie.tscn` must keep working standalone.** It is the repro command in
+TESTING.md and the thing a human flies to check a fix. So the result always goes
+to the static, and when no room launched it, the scene resolves the war itself
+exactly as it does today — one `if`, and the check has to exercise **both** legs
+or the standalone path rots silently.
+
+Note for C.q6: `SortieRunner.abort()` sets `_pilot_lost = true` unconditionally,
+so an abort currently costs a pilot. That is correct for a death and wrong for a
+retreat, and it is a one-line distinction that has to be made *before* an abort
+button exists, not after.
+
+### C8 — The tick animation, without teaching the sim to narrate
+
+The obvious implementation is to have `WarSim.tick` emit an event list. That
+would be a mistake: it puts presentation concerns inside the one module whose
+purity is load-bearing for determinism, the save, and the soak.
+
+The alternative costs nothing: **diff two snapshots.** Deep-copy the state before
+the tick, tick, and compare. Ownership flips, garrison deltas, front-line
+movement, weather changes and intel decay are all visible in the difference, and
+the differ lives in the room where it belongs. `war/` stays pure and the animation
+can never disagree with the state, because it is derived *from* the state.
+
+The animation itself is deliberately modest in the cut: sequenced pulses on the
+nodes that changed, ownership fills that sweep, and the front line redrawing
+last, because the front line moving is the thing the player is actually watching
+for. It is the moment P1.8 calls *"the theater being alive"*, and it is the one
+piece of this iteration that is genuinely new work.
+
+### C9 — The build cut (five phases, each shippable, each with a check that can fail)
+
+The standard v2.01 wrote and did not keep applies to every one of these: *would
+this check still pass if the feature it tests were deleted?*
+
+| phase | what ships | the check that can fail |
+|---|---|---|
+| **1 — the map that reads** | `scenes/war_room.tscn`, hex layout, ownership, front line, supply edges, range, cursor selection. No launching. | `war_room_check` A: every node gets a distinct cell; the room's derived strike-range set **equals** `WarSim.strike_range`; front-line edges are symmetric; the selectable set equals in-range ∧ enemy-held ∧ slice-ready |
+| **2 — the card** | inspection card off `compose_briefing`, all three fog tiers, pads, difficulty inputs, weather | B: **mutation** — at `intel_age` 99 no unit type name appears in the card's text; at 0 they all do |
+| **3 — the loop comes home** | `WarLaunch`, launch → fly → return, `apply_sortie` + `tick` + `save` in the room, **death path closed**, standalone `sortie.tscn` preserved | C: a handed-back result decrements pilots exactly once and saves once; a death still dents; the standalone leg still resolves without a room |
+| **4 — the tick animation** | snapshot diff → event list → played on the map | D: the diff of a known before/after pair names exactly the nodes that changed and nothing else (mutate the "after" and assert it is caught) |
+| **5 — roster, hangar, entry** | pilot count, frame pick, a CAMPAIGN leaf on the menu tower, save/exit anywhere | `menu_check` extension: the leaf resolves to a real scene |
+
+Phases 1–3 are the vertical slice — after 3 the campaign is playable end to end
+with no command line anywhere. 4 and 5 finish P1.8.
+
+### C10 — What this iteration deliberately does NOT contain
+
+- **The other five archetypes.** Named as the next job after this one, and
+  deliberately second: opening them first only makes an unflyable map bigger.
+- **W.q8's hold phase.** Still unresolved, still untouched. This iteration is
+  the thing W.q8 was waiting for — *"allies move in and take control"* is only
+  legible once a map can show them doing it — so it should be re-asked **after**
+  the map exists, not answered inside this proposal.
+- **P5's economy.** No salvage, no purchases, no intel buying, no influence
+  actions. The room will have obvious places to put all four and must not grow
+  them speculatively.
+- **Weather simulation.** `WeatherConfig` is still a stub; the room *displays*
+  weather and forecasts it, and nothing yet flies differently because of it.
+- **F4.a spectator mode.** A won or lost war shows a banner. The war continuing
+  to tick without you is a later, lovely thing.
+
+### C open questions (react by ID)
+
+- **C.q1 — What is the war room, physically?** (a) a flat 2D screen; (b) **a 3D
+  hex table under a fixed camera with 2D panels over it** ← lean; (c) a flyable
+  map room you pick nodes by flying at. See C3. The lean buys garrison-as-height
+  and reuses shaders and `GlowText3D` that already ship, while keeping (c)
+  available later as a re-skin — the map is data, the renderer is not the design.
+- **C.q2 — Who owns `apply_sortie` → `tick` → `save`?** (a) **the war room** ←
+  lean (C7: the tick must happen where the map is, and the death path and P1.q4's
+  two doors fall out of it); (b) `sortie.gd` keeps it and the room re-reads the
+  file afterwards, which is less code and cannot animate a tick it did not run.
+- **C.q3 — The fifteen nodes the slice cannot fly.** (a) **drawn, inspectable,
+  refused at the launch button with the reason on the card** ← lean; (b) hidden
+  until their archetype ships, which makes the theater look half-sized; (c)
+  resolved abstractly by the proxy sortie, which quietly puts a coin-flip in
+  charge of half the campaign.
+- **C.q4 — The 1-tick forecast.** (a) **dry-run tick on a deep copy, read weather
+  only** ← lean; (b) no forecast in this cut, and P1.6's promise waits; (c) give
+  weather its own per-node RNG stream so a forecast is a pure function — the
+  cleanest long-term answer and a save-shape change, which C2 rules out of this
+  iteration.
+- **C.q5 — Where does the campaign live in the menu?** (a) **a new CAMPAIGN leaf
+  on the menu tower; START RUN stays the arcade run** ← lean, and it is W.q2's
+  answered "both" made concrete; (b) the campaign replaces START RUN, which
+  deletes the mode every bench and every balance factor was measured inside.
+- **C.q6 — Death only, or death and abort?** (a) **death in this iteration,
+  abort in the next** ← lean; the death path is the gap that has been explicitly
+  waiting, and abort needs P5.6's salvage forfeit to have a price to charge; (b)
+  both now, accepting that abort's cost is a placeholder. Either way
+  `SortieRunner.abort()` must stop conflating retreat with death first.
+- **C.q7 — Named pilots, or a count?** (a) **the count that already exists** ←
+  lean; F1's roster becomes interesting when pilots accumulate history, and
+  history is a save-shape change this iteration has ruled out; (b) named pilots
+  now, `SAVE_VERSION` 2, and every existing campaign moved aside on load.
+
+### C steering — ANSWERED (2026-08-01, same day)
+
+Four decided by the user, three taken to their leans and reversible until the
+phase that needs them.
+
+- **C.q1 → DECIDED: the 3D hex table under a fixed camera** (C3's lean b). Hex
+  prisms with **garrison as height**, `GlowText3D` labels, the shipped neon
+  shader and look pass, selection by cursor raycast; text panels stay 2D over the
+  top. The flyable version (c) is not rejected so much as **deferred by
+  architecture**: the map is data and the renderer is one file, so it stays a
+  re-skin rather than a rewrite.
+- **C.q2 → DECIDED: the war room owns `apply_sortie` → `tick` → `save`.**
+  `sortie.gd` hands its result back through a cross-scene static and stops
+  touching the war, except on its standalone leg, which TESTING.md's repro
+  command depends on and which the check must exercise separately or it rots.
+- **C.q3 → DECIDED: the unflyable nodes are drawn, inspectable, and refused at
+  the launch button with the reason on the card.** Half a theater composes
+  correctly and cannot be instantiated; a map that hid that would make the
+  eventual archetype work look like new territory instead of unlocking ground
+  that was always there.
+- **C.q4 → DECIDED: weather gets its own dice** — option (c), **and the proposal
+  above priced it wrongly.** C6 and C.q4 assert that a per-node weather stream is
+  a save-shape change ruled out by C2. **It is not.** The seed, the node id and
+  the tick are all already in the state, so the change is the same throwaway-RNG
+  pattern `sortie_seed` and `WarManifest._weights` already use: seed a local
+  generator from (theater seed, node id, tick), keep the same 15% odds and the
+  same weather table, and only the *source* of the dice moves. `SAVE_VERSION`
+  does not move and no campaign dies.
+  - **What that buys is the removal of a trap, not just an exactness.** Under
+    (a)'s dry-run tick the room would compute the enemy's entire next turn and
+    then have to throw all but the weather away — one future line showing
+    "predicted enemy attacks" and the game hands the player an oracle that
+    deletes the fog this iteration exists to reveal. Under (c) the enemy's turn
+    is never simulated, so there is nothing to leak: the forecast is
+    `weather_at(node, tick + 1)` and it knows nothing else.
+  - **The honest cost, stated:** pulling weather out of the shared stream shifts
+    every draw after it, so a war in progress evolves a different weather
+    sequence from the moment the change lands, and `war_soak`'s numbers move a
+    little. Determinism is untouched — same seed, same war — and the soak asserts
+    invariants rather than specific values, so this is a re-run, not a re-measure.
+- **C.q5 / C.q6 / C.q7 → taken to their leans, provisionally**, because each
+  gates a phase that has not started: a CAMPAIGN leaf beside the arcade run,
+  death in this iteration with abort in the next, and the pilot count rather than
+  a named roster. Any of the three can be re-steered before its phase without
+  costing work already done.
+
 ## Decision Log
 
 - **2026-07-14 — v0.** Opening proposal: north star, M6 triage draft, core idea
@@ -9567,3 +9912,42 @@ are deliberately left open until a sortie has actually been flown.
     archetype is not naming a node**: seed 4242's dogfights are 0, 1, 4, 6, 7, 9,
     12, 15, 23, 24 and 28, and a repro command has to name one of them and pass
     `--no-persist` or it flies whatever the saved war has become.
+
+- **2026-08-01 — v2.03. Iteration 13 opened: C, the war room (P1.8), proposed
+  and awaiting steering.** The user named it as the next job after reading the
+  v2.02 inventory. Sections C1–C10, open questions C.q1–C.q7, status PROPOSED.
+  - **The inventory was counted rather than remembered, and two rows carry the
+    whole cost**: the 1-tick forecast (P1.6) has no data behind it at all, and the
+    tick-as-animated-map-movement is genuinely new work. Every other line in P1.8
+    is either already computed and printed to a console nobody sees, or done.
+  - **The briefing half of P2.1 has been correct and invisible since v1.71.**
+    `compose_briefing` and `through_fog` are called by three tests and a bench and
+    by nothing a human has ever looked at, so P1.3's designed surprise — stale
+    intel diverging from truth — has never once been delivered to a player.
+  - **The war-side API change is two underscores.** `_supplied_set` and
+    `_strike_range` are private only because nothing outside the sim had needed
+    them, and both are exactly what a map draws; `war_trace` already reaches
+    through one. **And the room adds ZERO fields to the save** — everything it
+    shows is projection, so `SAVE_VERSION` does not move and no campaign dies.
+    That is a constraint on the cut, not a happy accident: named pilots (C.q7)
+    are out of this iteration precisely because they would need a field.
+  - **The forecast has a cheap honest answer and a trap next to it.** Weather is
+    re-rolled from the war's shared RNG, so predicting it moves the war — but a
+    tick run on `state.duplicate(true)` costs one tick of arithmetic and touches
+    nothing. The trap is that the same dry run also knows the enemy's next move,
+    so the room must read **weather only** off it or it hands the player the
+    perfect oracle that deletes the fog.
+  - **The tick animation must NOT be built by teaching `WarSim` to narrate.**
+    Diffing two snapshots gets the same event list, keeps the one module whose
+    purity is load-bearing for determinism and the save exactly as pure as it is,
+    and makes an animation that cannot disagree with the state because it is
+    derived from it.
+  - **The loop is proposed to move into the room** (C.q2), because P1.8's own
+    sequence puts the tick where the map is. Three things fall out of it: P5.4's
+    death path finally closes, P1.q4's *exit without save* becomes "hand back
+    nothing", and a quit mid-sortie loses the sortie — which is the decision, not
+    a bug. `scenes/sortie.tscn` keeps its standalone leg or the repro command in
+    TESTING.md rots.
+  - **W.q8 is deliberately NOT answered here.** It was parked pending a map that
+    can show allies moving in; the honest move is to re-ask it once the map
+    exists rather than fold it into the proposal for the map.
