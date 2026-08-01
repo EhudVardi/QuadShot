@@ -82,9 +82,15 @@ func _read_command_line() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _state.is_empty():
 		return
-	if event is InputEventMouseMotion or event is InputEventMouseButton:
-		var picked: int = _pick_screen((event as InputEventMouse).position)
-		if picked >= 0 and picked != _selected:
+	# CLICK selects; hovering does not. Motion-to-select was written first and it
+	# is wrong for a screen you read: the ring chases the cursor, so moving the
+	# mouse toward the card changes the node the card is describing, and any
+	# jiggle overrides an arrow-key selection. Phase 3 hangs a launch off this
+	# selection, which makes "the thing I picked stays picked" load-bearing.
+	if event is InputEventMouseButton and event.is_pressed() \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var picked: int = _pick_screen((event as InputEventMouseButton).position)
+		if picked >= 0:
 			_select(picked)
 		return
 	if event.is_action_pressed(&"ui_cancel"):
@@ -203,14 +209,15 @@ func _update_legend() -> void:
 	_legend.text = "\n".join(PackedStringArray([
 		"height = garrison   green = yours   red = theirs   dim = out of range",
 		"amber bar = front line   thin line = supply",
-		"mouse or arrows select   ESC returns to the menu",
-		"PHASE 1 of the war room: the map reads, nothing launches yet",
+		"click or arrows select   ESC returns to the menu",
+		"the card shows what INTEL believes, not what is there - fly it to find out",
+		"PHASE 2 of the war room: the map reads and briefs, nothing launches yet",
 	]))
 
 
-## Phase 1's card says what a node IS and whether you could fly it. What is
-## GARRISONED there is phase 2's job, through P1.3's fog — printing the true
-## number here would be quick, wrong, and hard to take back.
+## The card is rendered by `WarView.card_lines`, not here, so that the one bug it
+## can have — showing truth the fog is supposed to be hiding — is asserted by a
+## headless check instead of by someone noticing.
 func _update_card() -> void:
 	if _selected < 0:
 		_card.text = "no node selected"
@@ -219,23 +226,5 @@ func _update_card() -> void:
 	if node.is_empty():
 		_card.text = "no node selected"
 		return
-	var spec: Dictionary = SortieComposer.compose(node, _state, _config)
-	var lines: PackedStringArray = [
-		"NODE %d   %s" % [_selected, String(node["type"]).to_upper()],
-		"%s - %s" % [String(node["biome"]).replace("_", " "), node["weather"]],
-		"held by %s%s" % [node["owner"],
-				"   HOME AIRBASE" if bool(node["home"])
-						else ("   THEATER HQ" if bool(node["hq"]) else "")],
-		"intel %s" % ("current" if int(node["intel_age"]) == 0
-				else "%d ticks old" % int(node["intel_age"])),
-		"",
-		"%s - %s" % [String(spec["archetype"]).to_upper(),
-				String(spec["objective"]).replace("_", " ")],
-	]
-	var reason: StringName = _reasons.get(_selected, WarView.REASON_NONE)
-	if reason == WarView.REASON_NONE:
-		lines.append("SORTIE AVAILABLE%s" % ("   capture" if bool(spec["capture"])
-				else "   deep strike - degrades only"))
-	else:
-		lines.append(WarView.refusal_line(reason, _config, spec["archetype"]))
-	_card.text = "\n".join(lines)
+	_card.text = "\n".join(WarView.card_lines(node, _state, _config,
+			_reasons.get(_selected, WarView.REASON_NONE)))

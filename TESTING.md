@@ -125,13 +125,28 @@ Useful filters: `jammed`, `evade: atlas`, `kestrel x raider`, `flak x gnats`.
 The theater as a hex table: **prism height is garrison**, green is yours, red is
 theirs, dim red is out of strike range, slate is an archetype the slice cannot
 build yet, the amber wall is the front line and the thin coloured plates are
-supply. Mouse or arrows select; ESC returns to the menu.
+supply. Click or arrows select; ESC returns to the menu.
 
-**Phase 1 reads the map and launches nothing.** No sortie starts from here yet,
+**The card is the first place P1.3's fog has ever reached a human.** It runs
+`compose_briefing`, not `compose` — what intel *believes*, not what is there:
+
+| intel age | the card shows |
+|---|---|
+| current | `INTEL: EXACT` — the named unit list, counts and all |
+| 2-5 ticks | `INTEL: FAMILIES` — air / swarm / static by strength |
+| older | `INTEL: STRENGTH ONLY` — the abstract number the war-sim itself keeps |
+
+A fresh theater's enemy ground reads **NONE - never scouted**, so every node
+starts at the bottom tier and the fog lifts only where you have been. Your own
+nodes skip intel entirely and report their real garrison.
+
+The weather line carries a **1-tick forecast** (`fog, holding` / `clear, fog
+forecast`) and it is exact rather than probable — C.q4 gave weather its own dice
+precisely so "wait a tick for the fog" is a decision you can make.
+
+**Phases 1-2 read and brief; nothing launches.** No sortie starts from here yet,
 the war does not tick, and the save is never written — so opening it cannot cost
-you a campaign. The inspection card deliberately does NOT show the garrison:
-that number belongs behind P1.3's intel fog and it arrives in phase 2 fogged
-rather than here raw.
+you a campaign.
 
 ### Flying a composed sortie (Iteration 12)
 
@@ -236,7 +251,15 @@ model itself and would agree with itself all the way to the wrong answer.
 `war_room_check` is the nineteenth (Iteration 13), and it guards the map's
 DERIVATION rather than its pixels — the hex projection tiling without collisions,
 the front line being sound *and* complete, and the room's reach agreeing with the
-war-sim's. Two of its assertions are deliberately awkward to write, because the
+war-sim's. **The card is checked as TEXT**, which is the only way to assert the
+one bug it can have: a card that leaks the truth through the fog still looks
+perfect on screen. So one node is rendered at three intel ages and the
+load-bearing assertion is the negative one — *at 99 ticks no unit type name
+appears anywhere in the card*. And because the forecast is a promise about the
+future, it is checked against the future happening: forecast every node, run a
+real tick, compare.
+
+Two of its assertions are deliberately awkward to write, because the
 easy versions cannot fail: the strike range is compared against a second,
 independently written walk of the graph rather than against the function under
 test, and the supply check severs a line and asserts the cut edge is **gone**.

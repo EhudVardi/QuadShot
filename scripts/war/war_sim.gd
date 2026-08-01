@@ -32,7 +32,7 @@ static func tick(state: Dictionary, config: WarConfig, proxy_skill: float = -1.0
 		# Order judgment is player skill too: better players order sharper.
 		_allied_offensive(state, config, rng, proxy_skill)
 	_enemy_operations(state, config, rng)
-	_weather_and_intel(state, rng)
+	_weather_and_intel(state)
 	_check_end(state, config)
 	# Quantize all evolving floats: decimal-exact values round-trip through
 	# var_to_str/str_to_var bit-for-bit, which is what makes the portable
@@ -138,6 +138,50 @@ static func node_by_id(state: Dictionary, id: int) -> Dictionary:
 static func quantize(value: float, decimals: int = 3) -> float:
 	var factor: float = pow(10.0, float(decimals))
 	return roundf(value * factor) / factor
+
+
+## The weather table (P1.6). `clear` twice because most days are.
+const WEATHER_TABLE: Array[StringName] = [&"clear", &"clear", &"wind", &"rain",
+		&"fog", &"heat", &"sandstorm"]
+## Chance a node's weather is re-rolled on a given tick.
+const WEATHER_CHANGE_CHANCE: float = 0.15
+
+
+## A node's weather AT `tick_index`, given the weather it has now.
+##
+## WEATHER HAS ITS OWN DICE (Iteration 13, C.q4, decided 2026-08-01), and the
+## reason is P1.6's 1-tick forecast. Drawn from the war's shared RNG stream —
+## which is what this did until now — a forecast could only be had by rolling the
+## dice the real tick was going to use, so LOOKING AT THE MAP WOULD MOVE THE WAR.
+## The manifest projection already refuses to do that for the same reason.
+##
+## Seeded from (theater seed, node id, tick), the same throwaway-generator
+## pattern `SortieComposer.sortie_seed` and `WarManifest._weights` use, so this
+## is a PURE FUNCTION: the war room forecasts by calling it with `tick + 1` and
+## gets exactly what the sim will compute, whatever the player does in between.
+## The odds and the table are unchanged — only the source of the dice moved.
+##
+## The multipliers are deliberately NOT the ones the sortie seed uses. Two
+## generators seeded identically draw identical sequences, and a node whose
+## sortie layout rolled low would then also have rolled its weather low.
+##
+## The cost, recorded rather than discovered later: pulling these draws out of
+## the shared stream shifts every draw after them, so a war in progress evolves a
+## different weather sequence from the tick this landed on. Determinism is
+## untouched — same seed, same war — and no save changed shape.
+static func weather_after(node: Dictionary, theater_seed: int,
+		tick_index: int) -> StringName:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = theater_seed * 15485863 + int(node["id"]) * 104729 \
+			+ tick_index * 1299709
+	if rng.randf() >= WEATHER_CHANGE_CHANCE:
+		return node["weather"]
+	return WEATHER_TABLE[rng.randi_range(0, WEATHER_TABLE.size() - 1)]
+
+
+## What the map's forecast shows (P1.6): next tick's weather for one node.
+static func weather_forecast(node: Dictionary, state: Dictionary) -> StringName:
+	return weather_after(node, int(state["seed"]), int(state["tick"]) + 1)
 
 
 ## The escalation clock (P1.7): the war never settles — a passive front
@@ -352,12 +396,11 @@ static func _reinforce_front(state: Dictionary, side: StringName,
 				break
 
 
-static func _weather_and_intel(state: Dictionary, rng: RandomNumberGenerator) -> void:
-	var weathers: Array[StringName] = [&"clear", &"clear", &"wind", &"rain",
-			&"fog", &"heat", &"sandstorm"]
+static func _weather_and_intel(state: Dictionary) -> void:
+	var theater_seed: int = int(state["seed"])
+	var tick_index: int = int(state["tick"])
 	for node: Dictionary in state["nodes"]:
-		if rng.randf() < 0.15:
-			node["weather"] = weathers[rng.randi_range(0, weathers.size() - 1)]
+		node["weather"] = weather_after(node, theater_seed, tick_index)
 		if node["owner"] == &"player" or has_adjacent_owner(state, node, &"player"):
 			node["intel_age"] = 0
 		else:

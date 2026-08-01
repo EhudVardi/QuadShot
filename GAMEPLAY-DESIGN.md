@@ -9993,3 +9993,46 @@ phase that needs them.
     to print the true number and it is exactly the number P1.3 says the player
     does not get. Phase 2 shows it fogged, or it does not show it. A placeholder
     that lies is worse than a placeholder that is quiet.
+
+- **2026-08-01 — v2.05. Phase 2: THE FOG REACHES A HUMAN AT LAST, and weather
+  gets its own dice.** C9's second phase, built on the user's "continue with your
+  lean" — the inspection card off `compose_briefing`, all three fog tiers, and
+  C.q4's forecast. 19 checks green, `war_room_check` now 38 assertions, and the
+  soak re-run because the weather change moves the war's RNG sequence.
+  - **P2.1's briefing half has finally been looked at.** `compose_briefing` and
+    `through_fog` were written in v1.71, verified by three tests and a bench, and
+    called by nothing a player could see. The card is the caller. Detail degrades
+    exact → families → the abstract strength the war-sim itself keeps, and a
+    fresh theater's enemy ground reads NONE - never scouted, so a new campaign
+    starts at the bottom tier everywhere and the fog lifts only where you have
+    flown.
+  - **THE CARD IS CHECKED AS TEXT, because its only real bug is invisible.** A
+    card that leaks truth through the fog still looks perfect on screen — it just
+    quietly deletes the surprise the entire intel system exists to produce. So
+    `card_lines` returns a `PackedStringArray` and the load-bearing assertion is
+    a NEGATIVE one: at `intel_age` 99, no name from `WarManifest.ROSTER` may
+    appear anywhere in the card. Verified by mutation — swap `compose_briefing`
+    for `compose` and four assertions fail.
+  - **The forecast is checked against the future actually happening.** Forecast
+    every node, run a real tick, compare; plus a guard that the sweep contains
+    real changes, because "tomorrow is the same as today" would satisfy the
+    comparison and be useless. Mutation: forecast the current tick instead of the
+    next and both fail. A third assertion re-states the manifest's rule for
+    weather — forecasting a hundred times leaves `var_to_str(state)` identical,
+    so reading the map cannot move the war.
+  - **What the weather change cost, measured rather than assumed.** `war_soak`
+    re-run: determinism OK, both round-trips OK, and **skill 0.9 still reads a
+    median of 127 sorties — bit-identical to the number H7's debt is stated in.**
+    Skill 0.3 is still zero wins; 0.6 moved from 0 wins to 1 of 40, which at that
+    sample size is noise and not a change. The difficulty picture is undisturbed.
+  - **A UX bug only the screenshot could show.** Selection was on mouse MOTION,
+    so the ring chased the cursor: moving the mouse toward the card changed the
+    node the card was describing, and any jiggle overrode an arrow-key pick. The
+    screenshot rig caught it by accident — the window opened under the cursor and
+    photographed node 21 selected instead of the node the code had chosen. Now a
+    click selects, which phase 3 needs anyway, since it hangs a launch off
+    exactly this selection.
+  - **Pads are shown even under fog, and that is a decision.** The count is
+    derived from the node's true garrison, so a pilot can infer "zero pads means
+    heavily defended". That is an inference from your own logistics rather than a
+    disclosure of their order of battle, and it is left in deliberately.

@@ -42,6 +42,8 @@ func _init() -> void:
 	_check_refusals(state, config)
 	_check_refusal_coverage(config)
 	_check_table_builds(state, config)
+	_check_card_fog(state, config)
+	_check_forecast(config)
 
 	if _failures == 0:
 		print("[war_room_check] PASS")
@@ -331,8 +333,115 @@ func _check_table_builds(state: Dictionary, config: WarConfig) -> void:
 	table.queue_free()
 
 
-## A hand-built three-node theater: q = 0, 1, 2 on one row, so consecutive nodes
-## are adjacent and the ends are two hops apart. Node 0 is the home airbase.
+## THE CARD'S ONLY REAL BUG IS INVISIBLE, so it gets the check that can see it.
+##
+## A card that leaks the truth through P1.3's fog still looks perfect on screen —
+## it just quietly deletes the surprise the whole intel system exists to produce.
+## So: take ONE node, show it at three intel ages, and assert on the TEXT.
+##
+## The load-bearing assertion is the negative one. At `intel_age` 99 no unit type
+## name may appear anywhere in the card. Delete the fog from `card_lines` and
+## that fails immediately, while every "does it show the right tier" assertion
+## would keep passing.
+func _check_card_fog(state: Dictionary, config: WarConfig) -> void:
+	var target: Dictionary = {}
+	for node: Dictionary in state["nodes"]:
+		if node["owner"] == &"enemy" and float(node["garrison"]) > 8.0:
+			target = node
+			break
+	if target.is_empty():
+		_expect(false, "the theater has an enemy node to inspect")
+		return
+
+	var fresh: String = "\n".join(_card_at_age(target, state, config, 0))
+	var mid: String = "\n".join(_card_at_age(target, state, config, 3))
+	var stale: String = "\n".join(_card_at_age(target, state, config, 99))
+
+	_expect(fresh.contains("EXACT"), "fresh intel resolves exact units")
+	_expect(mid.contains("FAMILIES"), "week-old intel resolves families only")
+	_expect(stale.contains("STRENGTH ONLY"),
+			"stale intel resolves nothing but the abstract strength")
+
+	var named_when_fresh: int = 0
+	var named_when_stale: int = 0
+	for type_id: StringName in WarManifest.ROSTER:
+		if fresh.contains(String(type_id)):
+			named_when_fresh += 1
+		if stale.contains(String(type_id)):
+			named_when_stale += 1
+	_expect(named_when_fresh > 0,
+			"a fresh card names the units that are there (%d types)" % named_when_fresh)
+	_expect(named_when_stale == 0,
+			"A STALE CARD NAMES NO UNIT AT ALL (%d types leaked)" % named_when_stale)
+	# Families are a coarser vocabulary than types on purpose; if a family name
+	# ever equalled a type name the negative assertion above would go blind.
+	var leaked_by_family: int = 0
+	for type_id: StringName in WarManifest.ROSTER:
+		if mid.contains(String(type_id)):
+			leaked_by_family += 1
+	_expect(leaked_by_family == 0,
+			"and a families card names no type either (%d leaked)" % leaked_by_family)
+
+	# Your own ground is not intel, so it reports plainly and offers no sortie.
+	for node: Dictionary in state["nodes"]:
+		if node["owner"] != &"player":
+			continue
+		var own: String = "\n".join(WarView.card_lines(node, state, config,
+				WarView.REASON_FRIENDLY))
+		_expect(own.contains("garrison") and not own.contains("INTEL"),
+				"a friendly node reports its own garrison rather than an intel estimate")
+		break
+
+
+func _card_at_age(node: Dictionary, state: Dictionary, config: WarConfig,
+		age: int) -> PackedStringArray:
+	var copy: Dictionary = state.duplicate(true)
+	var target: Dictionary = WarSim.node_by_id(copy, int(node["id"]))
+	target["intel_age"] = age
+	return WarView.card_lines(target, copy, config, WarView.REASON_NONE)
+
+
+## THE FORECAST IS A PROMISE ABOUT THE FUTURE, so it is checked against the
+## future actually happening (C.q4). Forecast every node, run a real tick, and
+## compare. This is the assertion that would catch the weather seed drifting out
+## of step with the tick engine — which is a silent failure, because a wrong
+## forecast still looks like weather.
+func _check_forecast(config: WarConfig) -> void:
+	var wrong: int = 0
+	var changes: int = 0
+	for theater_seed: int in SWEEP_SEEDS:
+		var state: Dictionary = TheaterGenerator.generate(config, theater_seed)
+		# Several ticks in, so the check is not resting on tick 0 being special.
+		for i: int in 3:
+			WarSim.tick(state, config)
+		var forecast: Dictionary = {}
+		for node: Dictionary in state["nodes"]:
+			forecast[int(node["id"])] = WarSim.weather_forecast(node, state)
+			if forecast[int(node["id"])] != node["weather"]:
+				changes += 1
+		WarSim.tick(state, config)
+		for node: Dictionary in state["nodes"]:
+			if node["weather"] != forecast[int(node["id"])]:
+				wrong += 1
+	_expect(wrong == 0, "every forecast is what the next tick actually did (%d wrong)" % wrong)
+	# A forecast that always says "same as today" would satisfy the above and be
+	# useless, so the sweep has to contain real changes to have proved anything.
+	_expect(changes > 0,
+			"the sweep contains weather that actually changes (%d forecast changes)" % changes)
+
+	# Reading the map must not move the war (the manifest's rule, applied to
+	# weather): forecasting is a pure function, so doing it a hundred times
+	# changes nothing about the war it was asked about.
+	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var before: String = var_to_str(state)
+	for i: int in 100:
+		for node: Dictionary in state["nodes"]:
+			WarSim.weather_forecast(node, state)
+	_expect(var_to_str(state) == before, "forecasting does not touch the war state")
+
+
+## A hand-built four-node theater: q = 0..3 on one row, so consecutive nodes are
+## adjacent and the ends are three hops apart. Node 0 is the home airbase.
 func _line_state(owners: Array[StringName]) -> Dictionary:
 	var nodes: Array = []
 	for i: int in owners.size():

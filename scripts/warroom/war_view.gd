@@ -157,6 +157,133 @@ static func flyable_ids(state: Dictionary, config: WarConfig) -> Array:
 	return ids
 
 
+## THE INSPECTION CARD (C5), as text rather than as widgets — so the one bug it
+## can have is testable.
+##
+## A card that accidentally shows the truth still looks perfect, which is exactly
+## the class of failure standing rule 2 was written about. Rendering it to lines
+## here means `war_room_check` can feed a node at `intel_age` 99 and assert that
+## no unit type name appears anywhere in the output. That assertion is impossible
+## against a screen and trivial against a PackedStringArray.
+##
+## IT RUNS `compose_briefing`, NEVER `compose`. Two evaluations of one function
+## (P2.1): the briefing half sees the manifest through P1.3's fog, the sortie
+## sees truth, and the divergence between them is the designed surprise. This has
+## been correct and unreachable since v1.71 — three tests and a bench called it,
+## and nothing a human could look at.
+static func card_lines(node: Dictionary, state: Dictionary, config: WarConfig,
+		reason: StringName = REASON_NONE) -> PackedStringArray:
+	var lines: PackedStringArray = [
+		"NODE %d   %s" % [int(node["id"]), String(node["type"]).to_upper()],
+		"%s - %s" % [String(node["biome"]).replace("_", " "), _weather_line(node, state)],
+	]
+	var marker: String = "   HOME AIRBASE" if bool(node["home"]) \
+			else ("   THEATER HQ" if bool(node["hq"]) else "")
+	lines.append("held by %s%s" % [node["owner"], marker])
+
+	# Your own ground needs no spies. Everything below this point is the enemy
+	# seen through intel, and mixing the two would teach the player that the
+	# numbers on the card are always this reliable.
+	if node["owner"] == &"player":
+		lines.append("garrison %.1f   fortification %.2f"
+				% [float(node["garrison"]), float(node.get("fort", 1.0))])
+		lines.append("")
+		lines.append(refusal_line(reason, config))
+		return lines
+
+	var spec: Dictionary = SortieComposer.compose_briefing(node, state, config)
+	var intel: Dictionary = spec.get("intel", {})
+	lines.append("intel %s" % _intel_age_line(int(node["intel_age"])))
+	lines.append("")
+	lines.append_array(_intel_block(intel))
+	lines.append("")
+	lines.append("%s - %s%s" % [String(spec["archetype"]).to_upper(),
+			String(spec["objective"]).replace("_", " "),
+			"" if int(spec["objective_assets"]) == 0
+					else " x%d" % int(spec["objective_assets"])])
+	lines.append(_pad_line(int(spec["pads"])))
+	lines.append(_inputs_line(spec["difficulty_inputs"]))
+	lines.append("")
+	if reason == REASON_NONE:
+		lines.append("SORTIE AVAILABLE - %s" % ("CAPTURES this node"
+				if bool(spec["capture"]) else "deep strike, degrades only"))
+	else:
+		lines.append(refusal_line(reason, config, spec["archetype"]))
+	return lines
+
+
+## `TheaterGenerator` stamps enemy ground with an intel age of 999, meaning
+## "never scouted" rather than "999 ticks ago" — and printing it as a duration on
+## a war that is on tick 0 reads as a bug in the clock.
+const NEVER_SCOUTED_AGE: int = 999
+
+
+static func _intel_age_line(age: int) -> String:
+	if age == 0:
+		return "current"
+	if age >= NEVER_SCOUTED_AGE:
+		return "NONE - this ground has never been scouted"
+	return "%d ticks old" % age
+
+
+## Detail degrades before quantity does (P1.3), and the last stop is the abstract
+## number the war-sim itself keeps — at which point the briefing and the sim are
+## looking at exactly the same thing.
+static func _intel_block(intel: Dictionary) -> PackedStringArray:
+	if intel.is_empty():
+		return PackedStringArray(["INTEL: none"])
+	var detail: StringName = intel.get("detail", &"strength")
+	if detail == &"exact":
+		var named: PackedStringArray = []
+		for unit: Dictionary in intel.get("units", []):
+			named.append("%dx %s" % [int(unit["count"]), unit["type"]])
+		return PackedStringArray(["INTEL: EXACT   strength %.1f"
+				% float(intel.get("strength", 0.0)),
+				"  %s" % (" ".join(named) if not named.is_empty() else "nothing there")])
+	if detail == &"families":
+		var families: PackedStringArray = []
+		var by_family: Dictionary = intel.get("families", {})
+		for family: StringName in by_family:
+			families.append("%s %.1f" % [family, float(by_family[family])])
+		return PackedStringArray(["INTEL: FAMILIES   strength %.1f"
+				% float(intel.get("strength", 0.0)),
+				"  %s" % " ".join(families)])
+	return PackedStringArray(["INTEL: STRENGTH ONLY",
+			"  estimated %.1f - too stale to resolve units"
+			% float(intel.get("strength", 0.0))])
+
+
+## Current weather, and next tick's (P1.6). The forecast is EXACT rather than
+## probable, because C.q4 gave weather its own dice — so "wait a tick for the
+## fog" is a decision the player can actually make, which is the whole reason
+## P1.6 asked for a forecast.
+static func _weather_line(node: Dictionary, state: Dictionary) -> String:
+	var now: StringName = node.get("weather", &"clear")
+	var next: StringName = WarSim.weather_forecast(node, state)
+	if next == now:
+		return "%s, holding" % now
+	return "%s, %s forecast" % [now, next]
+
+
+## Pads are the pilot's single most important planning fact and they are DERIVED
+## from the node's garrison, never authored (P2.6). They are shown even under
+## fog: how many gates your own side can lay is your logistics, not their secret.
+static func _pad_line(pads: int) -> String:
+	if pads == 0:
+		return "pads: NONE - no repair, no resupply"
+	return "pads: %d - repair first, then resupply" % pads
+
+
+## The H.q2 axis vector, shown as INPUTS and never as a score. H6 is explicit
+## that difficulty is measured by the harness and never authored, so a card that
+## printed one number here would quietly become the thing someone tunes.
+static func _inputs_line(inputs: Dictionary) -> String:
+	return "cover %.2f   weather +%.2f   fort %.2f   escalation %.2f" % [
+		float(inputs.get("cover", 0.0)), float(inputs.get("weather_penalty", 0.0)),
+		float(inputs.get("fortification", 1.0)), float(inputs.get("escalation", 0.0)),
+	]
+
+
 ## The sentence the card shows. Separate from the reason id on purpose: the
 ## wording is presentation and changes freely, the id is what a check asserts.
 static func refusal_line(reason: StringName, config: WarConfig,
