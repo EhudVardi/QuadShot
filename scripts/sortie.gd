@@ -11,10 +11,15 @@ extends Node3D
 ## extracting once it is real rather than anticipated.
 ##
 ## WHAT IS DELIBERATELY ABSENT, and each absence is a later phase rather than an
-## oversight: no ingress (W.q7 and the leash fight below), no pads spent from
-## `spec["pads"]` (W.q4), no dares, no draft, no node selection UI. This scene
-## exists to answer one question - does a sortie_spec become a fight a human can
-## fly - and everything else is downstream of the answer.
+## oversight: no ingress (W.q7 and the leash fight below), no dares, no draft, no
+## node selection UI. This scene exists to answer one question - does a
+## sortie_spec become a fight a human can fly - and everything else is downstream
+## of the answer.
+##
+## `spec["pads"]` IS spent (W.q4, decided 2026-08-01) - the runner lays them, the
+## repair gate comes first, and `sortie_check` asserts the count. This paragraph
+## said otherwise for one commit, which is the same shape as a stale RED board:
+## a comment that teaches the next reader a shipped feature is missing.
 ##
 ## THE SIGNAL LEASH IS ANCHORED, NOT DISABLED (W9.1). The conflict was found in
 ## the build rather than on paper: `main.gd` drops the FPV link past 300 m FROM
@@ -87,9 +92,6 @@ func _ready() -> void:
 	_runner.sortie_finished.connect(_on_sortie_finished)
 	_drone_health.damaged.connect(_on_player_damaged)
 	_drone_health.died.connect(_on_player_died)
-	# A repair gate fixes the motors itself; the HUD has to be told, or a pilot
-	# who just got their engines back has no way to know it worked.
-	get_tree().node_added.connect(_on_node_added)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_hud.show_title(_briefing_line())
 
@@ -137,6 +139,12 @@ func _compose() -> void:
 	# not a series of unrelated levels. That is the whole of W7.
 	_state = WarSave.load_or_new(_config, theater_seed) if persist \
 			else TheaterGenerator.generate(_config, theater_seed)
+	if _state.is_empty():
+		# Only reachable when a save is unreadable AND could not be moved aside.
+		# Flying nothing beats overwriting a campaign we could not read.
+		push_error("[war] no war state - refusing to start a sortie over an unreadable save")
+		persist = false
+		return
 	if persist and WarSave.exists():
 		print("[war] resumed tick %d, %d pilots, %d sorties flown"
 				% [int(_state["tick"]), int(_state["pilots"]), int(_state["sorties"])])
@@ -149,8 +157,22 @@ func _compose() -> void:
 			continue
 		chosen = spec
 		break
-	if chosen.is_empty():
-		push_warning("[sortie] no slice-ready node matched; falling back to the first")
+	if chosen.is_empty() and node_id >= 0:
+		# AN EXPLICIT --node IS A REQUEST, NOT A HINT. Quietly flying a different
+		# node and printing its id in the briefing is how a measurement ends up
+		# attributed to the wrong target; the pilot reads "node 8" in their own
+		# command line and "node 3" three lines later, if they look at all.
+		var ready: PackedStringArray = []
+		for node: Dictionary in _state["nodes"]:
+			if SortieComposer.is_slice_ready(
+					SortieComposer.compose(node, _state, _config)):
+				ready.append(str(int(node["id"])))
+		push_error("[sortie] node %d is not slice-ready for seed %d - refusing to fly a different one. Slice-ready nodes: %s"
+				% [node_id, theater_seed, ", ".join(ready)])
+		print("[sortie] node %d is not slice-ready for seed %d." % [node_id, theater_seed])
+		print("[sortie] slice-ready nodes this seed: %s" % ", ".join(ready))
+	elif chosen.is_empty():
+		# No node was asked for, so "just show me one" is the whole request.
 		for node: Dictionary in _state["nodes"]:
 			var spec: Dictionary = SortieComposer.compose(node, _state, _config)
 			if SortieComposer.is_slice_ready(spec):
@@ -201,13 +223,21 @@ func _start() -> void:
 	_hud.hide_title()
 	_hud.set_score(0)
 	_runner.start(_spec, _drone)
+	_wire_pads()
 
 
-## Pads are laid at sortie start rather than existing in the scene, so they are
-## caught as they arrive instead of being wired in _ready.
-func _on_node_added(node: Node) -> void:
-	if node is RepairGate:
-		(node as RepairGate).repaired.connect(_on_repaired)
+## A repair gate fixes the motors itself; the HUD has to be told, or a pilot who
+## just got their engines back has no way to know it worked.
+##
+## Read off `runner.pads` rather than off `SceneTree.node_added`. The hook version
+## ran a GDScript callback for EVERY node added anywhere in the tree - every
+## impact spark, every explosion, every spawned enemy, for the whole sortie - to
+## catch the one or two gates that `start()` had already put in a public array
+## synchronously.
+func _wire_pads() -> void:
+	for pad: Node3D in _runner.pads:
+		if pad is RepairGate:
+			(pad as RepairGate).repaired.connect(_on_repaired)
 
 
 func _on_repaired() -> void:
