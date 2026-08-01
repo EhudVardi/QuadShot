@@ -150,8 +150,15 @@ prices it into the war, ticks, shows a debrief and saves. Reachable without a
 command line at all — the menu tower has a **WAR ROOM** floor.
 
 ```
-menu tower -> WAR ROOM -> pick a node -> ENTER -> fly it -> debrief -> the map, moved
+menu tower -> WAR ROOM -> pick a node -> ENTER -> fly it -> debrief -> the tick, played
 ```
+
+**The map still shows the board you left while the debrief is up.** Dismiss it and
+the war takes its turn *on screen*: hexes rise and fall as garrisons move, ground
+that changed hands flashes and cross-fades, and the front line redraws last. The
+caption names what moved (`THE WAR MOVES - 1 LOST - 3 WEAKENED - 5 REINFORCED`).
+The map is inert while it plays, because selecting a node halfway through would
+read a war that is halfway to existing.
 
 Two consequences worth knowing before you fly one:
 

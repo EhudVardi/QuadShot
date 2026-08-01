@@ -58,6 +58,7 @@ func _initialize() -> void:
 	_check_debrief(config)
 	_check_no_pilots(state, config)
 	_check_menu_leaves()
+	_check_diff(config)
 	_open_the_room(config)
 	process_frame.connect(_probe_room)
 
@@ -598,6 +599,74 @@ func _check_menu_leaves() -> void:
 ## screen and the handoff is empty. `persist` is false throughout, so this cannot
 ## touch a real campaign - the room is READ-ONLY unless it resolves something,
 ## and it must not resolve to disk in a test.
+## THE TICK ANIMATION IS A DIFF (C8), so the diff is what gets asserted: it must
+## name exactly what moved and nothing else.
+##
+## Both halves matter and for different reasons. "Names nothing when nothing
+## changed" is what keeps the map from twitching every turn; "names a planted
+## change" is what proves it is looking at all. An implementation returning `[]`
+## unconditionally passes the first and fails the second.
+func _check_diff(config: WarConfig) -> void:
+	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	_expect(WarDiff.between(state, state).is_empty(),
+			"a war compared with itself has not moved (%d events)"
+			% WarDiff.between(state, state).size())
+
+	# One planted capture, and nothing else touched.
+	var flipped: Dictionary = state.duplicate(true)
+	var victim: int = -1
+	for node: Dictionary in flipped["nodes"]:
+		if node["owner"] == &"enemy":
+			node["owner"] = &"player"
+			victim = int(node["id"])
+			break
+	var events: Array = WarDiff.between(state, flipped)
+	_expect(events.size() == 1,
+			"one flipped owner produces exactly one event (%d)" % events.size())
+	if events.size() == 1:
+		_expect(int(events[0]["node_id"]) == victim
+				and events[0]["kind"] == WarDiff.KIND_CAPTURED,
+				"and it names the node that flipped, as a capture")
+
+	# Garrison movement is reported by DIRECTION, and movement under the epsilon
+	# is deliberately not reported at all - thirty rounding-sized twitches read as
+	# noise rather than as a war moving.
+	var nudged: Dictionary = state.duplicate(true)
+	var big: int = int(nudged["nodes"][0]["id"])
+	nudged["nodes"][0]["garrison"] = float(state["nodes"][0]["garrison"]) + 5.0
+	nudged["nodes"][1]["garrison"] = float(state["nodes"][1]["garrison"]) \
+			+ WarDiff.GARRISON_EPSILON * 0.5
+	var moves: Array = WarDiff.between(state, nudged)
+	_expect(moves.size() == 1, "a sub-epsilon nudge is not an event (%d)" % moves.size())
+	if moves.size() == 1:
+		_expect(int(moves[0]["node_id"]) == big
+				and moves[0]["kind"] == WarDiff.KIND_REINFORCED,
+				"and a real gain reads as reinforcement")
+
+	# A REAL TICK, not a hand-built pair: the diff has to survive whatever the
+	# war actually does, including the case where it does very little.
+	var live: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var before: Dictionary = live.duplicate(true)
+	for i: int in 5:
+		WarSim.tick(live, config)
+	var real: Array = WarDiff.between(before, live)
+	_expect(not real.is_empty(),
+			"five ticks of a real war produce events (%d)" % real.size())
+	var wrong: int = 0
+	for event: Dictionary in real:
+		var was: Dictionary = WarSim.node_by_id(before, int(event["node_id"]))
+		var now: Dictionary = WarSim.node_by_id(live, int(event["node_id"]))
+		var changed: bool = was["owner"] != now["owner"] \
+				or absf(float(now["garrison"]) - float(was["garrison"])) \
+						> WarDiff.GARRISON_EPSILON
+		if not changed:
+			wrong += 1
+	_expect(wrong == 0, "every event names a node that really moved (%d spurious)" % wrong)
+	# Determinism reaching the screen (F4): the same tick plays the same way.
+	_expect(str(WarDiff.between(before, live)) == str(real),
+			"and the event order is stable between calls")
+
+
 func _open_the_room(config: WarConfig) -> void:
 	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
 	var target: int = int(WarView.flyable_ids(state, config)[0])

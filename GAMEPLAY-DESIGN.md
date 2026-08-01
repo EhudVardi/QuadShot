@@ -10125,3 +10125,35 @@ phase that needs them.
     printed a legible second copy of every label onto the hex beneath it. The
     hypothesis was tested rather than argued — `GlowText3D` gained an opt-out,
     default ON so the menu tower is untouched — and the ghosts vanished.
+
+- **2026-08-01 — v2.09. Phase 4: THE WAR TAKES ITS TURN ON SCREEN.** C9's fourth
+  phase, and the last genuinely new engineering P1.8 asked for. 19 checks green,
+  `war_room_check` at 66 assertions.
+  - **The sim was NOT taught to narrate, and that was the whole design decision
+    (C8).** The obvious implementation has `WarSim.tick` emit an event list as it
+    works, which would put presentation concerns inside the one module whose
+    purity is load-bearing for determinism, the portable save and the soak.
+    Diffing two snapshots costs nothing and is strictly better: `war/` stays
+    pure, the differ is testable without a viewport, and the animation **cannot
+    disagree with the state, because it is derived from it**.
+  - **The sequence is P1.8's, exactly.** The map keeps showing the board you left
+    while the debrief is up; dismissing it is what moves the front. Ground rises
+    and falls, ownership cross-fades with a flash that peaks mid-move, and the
+    borders redraw LAST — so the front line moving is the punctuation rather than
+    a detail lost in the middle.
+  - **Two things had to be un-pinned from heights that were changing**, both
+    found by photographing a frame mid-animation rather than by reasoning about
+    it. A glyph left at its build height hangs in the air over a node that shrank
+    away underneath it, so labels now ride their own prism. And the front-line
+    walls and supply seams are pinned to their neighbours' heights, so they come
+    down for the duration and the rebuild puts them back — which is the reading
+    the sequence wanted anyway.
+  - **The map is inert while the tick plays.** Selecting a node halfway through
+    would inspect a war that is halfway to existing.
+  - **The diff's assertions are a matched pair**, because either alone is
+    passable by a broken implementation: "names nothing when nothing changed" is
+    satisfied by a function that always returns empty, and "names a planted
+    change" is satisfied by one that reports everything. Both, plus a real
+    five-tick war whose every event is verified against the two states, plus
+    order stability — because F4's determinism should reach the screen too, and
+    the same tick ought to play the same way twice.

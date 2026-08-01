@@ -49,6 +49,10 @@ var _state: Dictionary = {}
 var _config: WarConfig
 var _reasons: Dictionary = {}
 var _selected: int = -1
+## The war as it stood before the returning sortie was priced in, held so the map
+## can show you the board you left and then MOVE it (C8). Empty once played.
+var _pre_tick: Dictionary = {}
+var _pending_changes: Array = []
 
 
 func _ready() -> void:
@@ -72,10 +76,12 @@ func _ready() -> void:
 		print("[war] resumed tick %d, %d pilots, %d sorties flown"
 				% [int(_state["tick"]), int(_state["pilots"]), int(_state["sorties"])])
 	_frame_camera()
-	# Resolve BEFORE the first draw, so the map you are handed is the war as it
-	# stands after your sortie rather than the one you left.
+	_table.changes_played.connect(_on_changes_played)
 	var flown: int = _resolve_returning_sortie()
-	_rebuild()
+	# P1.8's sequence is debrief THEN the tick playing out as map movement, so
+	# when a sortie has just been resolved the table is built from the war as it
+	# stood BEFORE it. Dismissing the debrief is what moves the front.
+	_rebuild(_pre_tick if not _pre_tick.is_empty() else _state)
 	_select(flown if flown >= 0 else _first_flyable())
 
 
@@ -109,6 +115,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		# same key cannot fire through it into another sortie.
 		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
 			_debrief.visible = false
+			_play_the_tick()
+		return
+	# The map is not interactive while the front is moving: selecting a node
+	# mid-animation would read the war it is halfway through becoming.
+	if _table.is_playing():
 		return
 	if event.is_action_pressed(&"ui_accept"):
 		_launch()
@@ -159,16 +170,43 @@ func _resolve_returning_sortie() -> int:
 	if not flew or result.is_empty():
 		return -1
 
+	# Snapshot BEFORE resolving. This copy is the whole of C8's mechanism: the
+	# animation is a diff of two states rather than a story the war-sim tells
+	# about itself while it works.
+	var before: Dictionary = _state.duplicate(true)
 	var debrief: Dictionary = WarDebrief.resolve(_state, _config, result)
 	if debrief.is_empty():
 		return -1
-	_debrief_text.text = "\n".join(WarDebrief.lines(debrief))
+	_pre_tick = before
+	_pending_changes = WarDiff.between(before, _state)
+	_debrief_text.text = "%s\n\n%s" % ["\n".join(WarDebrief.lines(debrief)),
+			"the front: %s" % WarDiff.summary(_pending_changes)]
 	_debrief.visible = true
 	for line: String in WarDebrief.lines(debrief):
 		print("[war] %s" % line)
+	print("[war] the front: %s" % WarDiff.summary(_pending_changes))
 	if persist and WarSave.save(_state):
 		print("[war] saved %s" % WarSave.PATH)
 	return int(debrief["summary"]["node_id"])
+
+
+## The tick, played on the map (C8 / P1.8). Runs once, when the debrief closes.
+func _play_the_tick() -> void:
+	if _pre_tick.is_empty():
+		return
+	_pre_tick = {}
+	_flash_legend("THE WAR MOVES - %s" % WarDiff.summary(_pending_changes))
+	_table.play_changes(_pending_changes, _state, _config)
+
+
+## The front line and the supply network are redrawn LAST, once the ground has
+## finished moving. A border that snaps into its new place at the end of the
+## sequence reads as the consequence of everything before it.
+func _on_changes_played() -> void:
+	_pending_changes = []
+	_rebuild(_state)
+	_select(_selected)
+	_update_legend()
 
 
 func _flash_legend(message: String) -> void:
@@ -177,9 +215,12 @@ func _flash_legend(message: String) -> void:
 
 ## ---------- the map ----------
 
-func _rebuild() -> void:
-	_reasons = WarView.refusals(_state, _config)
-	_table.build(_state, _config, _camera.global_position)
+## Draw a war. Usually `_state`, but during a debrief it is the pre-tick
+## snapshot, because the map is meant to show the board you left until the
+## animation moves it.
+func _rebuild(state: Dictionary) -> void:
+	_reasons = WarView.refusals(state, _config)
+	_table.build(state, _config, _camera.global_position)
 	_update_header()
 	_update_legend()
 

@@ -82,14 +82,37 @@ const ENERGY_SUPPLY: float = 0.35
 const ENERGY_SPIRE: float = 1.15
 const ENERGY_SELECT: float = 1.6
 
+## How long one node takes to move, and how far apart consecutive nodes start.
+## Staggered rather than simultaneous: thirty hexes moving at once is a shrug,
+## thirty moving in sequence is a war taking its turn.
+const CHANGE_DURATION_S: float = 0.55
+const CHANGE_STAGGER_S: float = 0.11
+## A node that changed hands lingers at full brightness before settling, so an
+## ownership flip is not just a colour swap you can miss while looking elsewhere.
+const FLIP_FLASH: float = 2.2
+
+## Emitted when the tick has finished playing out on the map.
+signal changes_played
+
 ## id → the prism, kept so a later phase can move one without rebuilding the
 ## table (C8's tick animation is the reason this is a Dictionary and not a list).
 var prisms: Dictionary = {}
 ## id → its world centre, so picking never has to re-derive the projection.
 var centers: Dictionary = {}
+## id → its glyph, so a moving prism carries its label instead of leaving it
+## hanging in the air where the node used to be.
+var labels: Dictionary = {}
+## The front-line walls and supply seams, hidden while the ground moves and
+## rebuilt afterwards — they are pinned to heights that are changing.
+var _edge_marks: Array[MeshInstance3D] = []
 
 var _select_ring: MeshInstance3D
 var _selected: int = -1
+
+## In-flight animation: one entry per moving node, each with its own window.
+var _moves: Array = []
+var _move_clock: float = 0.0
+var _move_ends: float = 0.0
 
 
 ## Rebuild the whole table. Cheap enough to call on every war tick (30 nodes),
@@ -102,7 +125,11 @@ func build(state: Dictionary, config: WarConfig, view_from: Vector3) -> void:
 		stale.queue_free()
 	prisms.clear()
 	centers.clear()
+	labels.clear()
+	_edge_marks.clear()
 	_select_ring = null
+	_moves.clear()
+	set_process(false)
 
 	var reasons: Dictionary = WarView.refusals(state, config)
 	# ONE ORIENTATION FOR EVERY GLYPH (user: *"the texts over each hexagon are
@@ -130,6 +157,104 @@ func build(state: Dictionary, config: WarConfig, view_from: Vector3) -> void:
 	add_child(_select_ring)
 	if _selected >= 0:
 		select(_selected)
+
+
+## PLAY THE TICK (C8, and P1.8's *"the moment the player feels the theater being
+## alive"*). The table must currently be built from the BEFORE state; each event
+## then moves its node to where the war left it.
+##
+## Heights move and owners cross-fade. Nothing here recomputes anything: the
+## events come from `WarDiff`, which derived them from the two states, so the
+## animation cannot claim something the war did not do.
+func play_changes(events: Array, after: Dictionary, config: WarConfig) -> void:
+	_moves.clear()
+	_move_clock = 0.0
+	_move_ends = 0.0
+	if events.is_empty():
+		changes_played.emit()
+		return
+
+	var reasons: Dictionary = WarView.refusals(after, config)
+	var index: int = 0
+	for event: Dictionary in events:
+		var id: int = int(event["node_id"])
+		if not prisms.has(id):
+			continue
+		var node: Dictionary = WarSim.node_by_id(after, id)
+		if node.is_empty():
+			continue
+		var prism: MeshInstance3D = prisms[id]
+		var material: StandardMaterial3D = (prism.mesh as CylinderMesh).material
+		var starts: float = float(index) * CHANGE_STAGGER_S
+		var target: StandardMaterial3D = _node_material(
+				node, reasons.get(id, WarView.REASON_NONE))
+		_moves.append({
+			"id": id,
+			"from_h": (prism.mesh as CylinderMesh).height,
+			"to_h": _height_for(node, config),
+			"from_c": material.emission,
+			"to_c": target.emission,
+			"from_a": material.albedo_color,
+			"to_a": target.albedo_color,
+			"from_e": material.emission_energy_multiplier,
+			"to_e": target.emission_energy_multiplier,
+			"flip": event["kind"] == WarDiff.KIND_CAPTURED
+					or event["kind"] == WarDiff.KIND_LOST,
+			"starts": starts,
+		})
+		_move_ends = maxf(_move_ends, starts + CHANGE_DURATION_S)
+		index += 1
+
+	if _moves.is_empty():
+		changes_played.emit()
+		return
+	# The borders are pinned to heights that are about to change, so they come
+	# down for the duration and the caller redraws them afterwards. That is also
+	# the reading P1.8 wants: the ground moves, THEN the front line follows.
+	for mark: MeshInstance3D in _edge_marks:
+		mark.visible = false
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if _moves.is_empty():
+		set_process(false)
+		return
+	_move_clock += delta
+	for move: Dictionary in _moves:
+		var progress: float = clampf(
+				(_move_clock - float(move["starts"])) / CHANGE_DURATION_S, 0.0, 1.0)
+		if progress <= 0.0:
+			continue
+		var eased: float = ease(progress, 0.4)
+		var prism: MeshInstance3D = prisms[int(move["id"])]
+		var mesh: CylinderMesh = prism.mesh
+		var height: float = lerpf(float(move["from_h"]), float(move["to_h"]), eased)
+		mesh.height = height
+		# The mesh is centred on its own origin, so a growing prism has to rise by
+		# half of what it grew or it sinks through the table as it gets taller.
+		prism.position.y = height * 0.5
+		# The glyph rides its own prism. Left behind, it hangs in the air over a
+		# node that has shrunk away from underneath it.
+		if labels.has(int(move["id"])):
+			(labels[int(move["id"])] as Node3D).position.y = height + LABEL_CLEARANCE
+		var material: StandardMaterial3D = mesh.material
+		material.emission = (move["from_c"] as Color).lerp(move["to_c"], eased)
+		material.albedo_color = (move["from_a"] as Color).lerp(move["to_a"], eased)
+		var energy: float = lerpf(float(move["from_e"]), float(move["to_e"]), eased)
+		if bool(move["flip"]):
+			# A half-cycle of extra brightness, peaking mid-move and gone by the
+			# end, so ground changing hands announces itself.
+			energy += FLIP_FLASH * sin(progress * PI)
+		material.emission_energy_multiplier = energy
+	if _move_clock >= _move_ends:
+		_moves.clear()
+		set_process(false)
+		changes_played.emit()
+
+
+func is_playing() -> bool:
+	return not _moves.is_empty()
 
 
 ## Lift the ring onto a node. -1 clears the selection.
@@ -191,9 +316,7 @@ func _build_node(node: Dictionary, config: WarConfig, reasons: Dictionary,
 	var center: Vector3 = WarView.node_world(node, HEX_SIZE)
 	centers[id] = center
 
-	var load_fraction: float = clampf(
-			float(node["garrison"]) / maxf(config.garrison_cap, 1.0), 0.0, 1.0)
-	var height: float = HEIGHT_MIN + load_fraction * HEIGHT_SPAN
+	var height: float = _height_for(node, config)
 
 	var prism: CylinderMesh = CylinderMesh.new()
 	prism.radial_segments = 6
@@ -232,6 +355,7 @@ func _build_node(node: Dictionary, config: WarConfig, reasons: Dictionary,
 	label.transform = Transform3D(label_basis,
 			center + Vector3.UP * (height + LABEL_CLEARANCE))
 	add_child(label)
+	labels[id] = label
 
 
 ## A marker you can find from across the table: the two nodes the campaign is
@@ -298,12 +422,21 @@ func _build_edge_mark(edge: Dictionary, span: float, thickness: float,
 	instance.transform = Transform3D(Basis(across, Vector3.UP, along),
 			(a + b) * 0.5 + Vector3.UP * (at + thickness * 0.5))
 	add_child(instance)
+	_edge_marks.append(instance)
 
 
 func _height_of(id: int) -> float:
 	if not prisms.has(id):
 		return 0.0
 	return (prisms[id].mesh as CylinderMesh).height
+
+
+## Garrison → prism height, in one place because the animation has to be able to
+## ask for a node's height WITHOUT building it.
+func _height_for(node: Dictionary, config: WarConfig) -> float:
+	var load_fraction: float = clampf(
+			float(node["garrison"]) / maxf(config.garrison_cap, 1.0), 0.0, 1.0)
+	return HEIGHT_MIN + load_fraction * HEIGHT_SPAN
 
 
 ## ---------- materials ----------
