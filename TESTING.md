@@ -158,7 +158,13 @@ the war takes its turn *on screen*: hexes rise and fall as garrisons move, groun
 that changed hands flashes and cross-fades, and the front line redraws last. The
 caption names what moved (`THE WAR MOVES - 1 LOST - 3 WEAKENED - 5 REINFORCED`).
 The map is inert while it plays, because selecting a node halfway through would
-read a war that is halfway to existing.
+read a war that is halfway to existing — **any key jumps to the end** if you have
+seen enough.
+
+**Top right is the roster and the hangar**, across the screen from the intel card
+that should decide it (P3.8): pilots remaining as marks, and your airframe with
+its hull, armor and mass. **F changes airframe** and the pick rides the same
+static the menu tower's frame tower writes, so the sortie flies what you chose.
 
 Two consequences worth knowing before you fly one:
 

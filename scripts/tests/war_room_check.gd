@@ -59,6 +59,7 @@ func _initialize() -> void:
 	_check_no_pilots(state, config)
 	_check_menu_leaves()
 	_check_diff(config)
+	_check_hangar()
 	_open_the_room(config)
 	process_frame.connect(_probe_room)
 
@@ -665,6 +666,59 @@ func _check_diff(config: WarConfig) -> void:
 	# Determinism reaching the screen (F4): the same tick plays the same way.
 	_expect(str(WarDiff.between(before, live)) == str(real),
 			"and the event order is stable between calls")
+
+
+## THE HANGAR, and the drift it is one list away from causing. The menu tower's
+## frame tower and the war room's hangar are two hand-written lists of the same
+## thing — which is precisely the shape of the bug that hid the falx and the
+## screamer from the war for two weeks (v1.96). Two rosters nobody compares are
+## always self-consistent.
+func _check_hangar() -> void:
+	var remembered: StringName = MenuLaunch.frame_id
+
+	var broken: PackedStringArray = []
+	for frame_id: StringName in Hangar.FRAMES:
+		var frame: FrameConfig = Hangar.config_for(frame_id)
+		if frame == null or frame.frame_id != frame_id:
+			broken.append(String(frame_id))
+	_expect(broken.is_empty(),
+			"every hangar frame loads and knows its own id (broken: %s)"
+			% ", ".join(broken))
+
+	var tower: Dictionary = (load("res://scripts/menu_tower.gd") as GDScript) \
+			.get_script_constant_map()
+	var offered: Dictionary = {}
+	for leaf: Dictionary in tower.get("FRAME_LEAVES", []):
+		offered[String(leaf["leaf"]).trim_prefix("frame_")] = true
+	var missing: PackedStringArray = []
+	for frame_id: StringName in Hangar.FRAMES:
+		if not offered.has(String(frame_id)):
+			missing.append(String(frame_id))
+	_expect(missing.is_empty() and offered.size() == Hangar.FRAMES.size(),
+			"the hangar and the menu tower offer the same frames (%d vs %d, missing %s)"
+			% [Hangar.FRAMES.size(), offered.size(), ", ".join(missing)])
+
+	# The pick has to actually land on the static the SORTIE reads, or the room
+	# offers a choice the fight ignores.
+	MenuLaunch.frame_id = &""
+	_expect(Hangar.selected() == Hangar.FRAMES[0],
+			"an unset hangar defaults to a real frame rather than to nothing")
+	var first: StringName = Hangar.selected()
+	var second: StringName = Hangar.cycle()
+	_expect(second != first, "cycling changes the airframe (%s -> %s)" % [first, second])
+	_expect(MenuLaunch.frame_id == second,
+			"and writes it where FlightController reads it")
+	for i: int in Hangar.FRAMES.size():
+		Hangar.cycle()
+	_expect(Hangar.selected() == second, "cycling the whole list comes back around")
+
+	MenuLaunch.frame_id = &"not_a_frame"
+	_expect(Hangar.selected() in Hangar.FRAMES,
+			"a junk frame id falls back to a real one rather than being flown")
+
+	_expect(Hangar.roster_line(3).contains("3"), "the roster counts pilots")
+	_expect(Hangar.roster_line(0).contains("none"), "and says when there are none")
+	MenuLaunch.frame_id = remembered
 
 
 func _open_the_room(config: WarConfig) -> void:

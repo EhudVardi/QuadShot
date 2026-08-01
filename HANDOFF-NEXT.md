@@ -185,10 +185,17 @@ produced it — gates and kills are the only ways to re-arm.
 
 Agreed with the user 2026-08-01, after this inventory was taken.
 
-**PROPOSED as Iteration 13 (C1-C10, open questions C.q1-C.q7) the same day — read
-it before anything below, which is the reasoning it was written from.** Status:
-awaiting steering. The five-phase build cut is C9; the two rows that carry the
-whole engineering cost are the 1-tick forecast (C6) and the tick animation (C8).
+**BUILT, same day. Iteration 13 (C1-C10) was proposed, steered (C.q1-C.q7) and
+all five phases of C9 shipped — read it before anything below, which is the
+reasoning it was written from.** The campaign is playable end to end with no
+command line: menu tower -> WAR ROOM -> pick a node -> ENTER -> fly -> debrief ->
+the tick plays out on the map. See v2.03-v2.10 for how it was arrived at, and
+TESTING.md for how to run it.
+
+**What that closed:** the death path (P5.4 — no respawn, the pilot leaves the
+roster, the kills still dent), P1.q4's *exit without save* (which needed nothing
+built), and P1.3's fog finally reaching a human. **THE NEXT JOB is the list
+below, unchanged.**
 
 ### What is actually built, counted rather than remembered
 

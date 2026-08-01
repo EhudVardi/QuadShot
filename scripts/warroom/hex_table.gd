@@ -85,8 +85,17 @@ const ENERGY_SELECT: float = 1.6
 ## How long one node takes to move, and how far apart consecutive nodes start.
 ## Staggered rather than simultaneous: thirty hexes moving at once is a shrug,
 ## thirty moving in sequence is a war taking its turn.
-const CHANGE_DURATION_S: float = 0.55
-const CHANGE_STAGGER_S: float = 0.11
+##
+## SLOWED TO SAVOUR (user, after flying it: *"it should slower to savour"*).
+## Roughly double the first pass, which was quick enough to be over before you
+## had found the node that moved.
+const CHANGE_DURATION_S: float = 1.1
+const CHANGE_STAGGER_S: float = 0.24
+## …but bounded, because a heavy tick can move twenty nodes and a fixed stagger
+## would turn a moment into a wait. Past this the sequence compresses instead of
+## growing: the LAST node still gets its full duration, so nothing is ever cut
+## short — the war just deals its cards faster when it has more of them.
+const MAX_STAGGER_TOTAL_S: float = 3.6
 ## A node that changed hands lingers at full brightness before settling, so an
 ## ownership flip is not just a colour swap you can miss while looking elsewhere.
 const FLIP_FLASH: float = 2.2
@@ -175,6 +184,8 @@ func play_changes(events: Array, after: Dictionary, config: WarConfig) -> void:
 		return
 
 	var reasons: Dictionary = WarView.refusals(after, config)
+	var stagger: float = minf(CHANGE_STAGGER_S,
+			MAX_STAGGER_TOTAL_S / maxf(float(events.size() - 1), 1.0))
 	var index: int = 0
 	for event: Dictionary in events:
 		var id: int = int(event["node_id"])
@@ -185,7 +196,7 @@ func play_changes(events: Array, after: Dictionary, config: WarConfig) -> void:
 			continue
 		var prism: MeshInstance3D = prisms[id]
 		var material: StandardMaterial3D = (prism.mesh as CylinderMesh).material
-		var starts: float = float(index) * CHANGE_STAGGER_S
+		var starts: float = float(index) * stagger
 		var target: StandardMaterial3D = _node_material(
 				node, reasons.get(id, WarView.REASON_NONE))
 		_moves.append({
@@ -255,6 +266,16 @@ func _process(delta: float) -> void:
 
 func is_playing() -> bool:
 	return not _moves.is_empty()
+
+
+## Jump to the end. Savouring is the default and skipping is the escape hatch —
+## the pacing that suits the first tick of a campaign is not the pacing that
+## suits the fortieth.
+func finish_changes() -> void:
+	if _moves.is_empty():
+		return
+	_move_clock = _move_ends
+	_process(0.0)
 
 
 ## Lift the ring onto a node. -1 clears the selection.

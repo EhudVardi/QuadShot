@@ -127,6 +127,21 @@ grow_vertical = 0
 [node name="Text" type="Label" parent="Ui/Card"]
 theme_override_font_sizes/font_size = 16
 
+; Roster and airframe, top-right - across the screen from the intel card that
+; should decide the airframe (P3.8).
+[node name="Hangar" type="PanelContainer" parent="Ui"]
+theme_override_styles/panel = SubResource("panel_dark")
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -330.0
+offset_top = 18.0
+offset_right = -24.0
+offset_bottom = 150.0
+grow_horizontal = 0
+
+[node name="Text" type="Label" parent="Ui/Hangar"]
+theme_override_font_sizes/font_size = 15
+
 ; Shown once, on arriving back from a flown sortie. Any key dismisses it, and it
 ; swallows that key so the launch bound to it cannot fire straight into another
 ; sortie.

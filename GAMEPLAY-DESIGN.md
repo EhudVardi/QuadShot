@@ -10157,3 +10157,48 @@ phase that needs them.
     five-tick war whose every event is verified against the two states, plus
     order stability — because F4's determinism should reach the screen too, and
     the same tick ought to play the same way twice.
+
+- **2026-08-01 — v2.10. Phase 5, and P1.8 IS BUILT.** The roster and the hangar,
+  plus the pacing the user asked for after flying phase 4. Five phases, 19 checks
+  green, `war_room_check` at 75 assertions. Every line of P1.8 now has a screen.
+  - **The tick is slower, and bounded.** *"it should slower to savour"* (user), so
+    roughly double: 1.1 s per node, 0.24 s apart. But a heavy tick can move twenty
+    nodes, and a fixed stagger would turn a moment into a wait — so the sequence
+    COMPRESSES past 3.6 s of stagger rather than growing, with the last node still
+    getting its full duration. Nothing is ever cut short; the war just deals its
+    cards faster when it is holding more of them. Any key jumps to the end,
+    because the pacing that suits a campaign's first tick does not suit its
+    fortieth.
+  - **The hangar is the smallest honest version of P3**, and it is PLACED rather
+    than merely added: top right, across the screen from the intel card that
+    should decide it, which is P3.8's *"loadout as a response to intel"* made
+    literal in a layout. Frames differ in hull, armor, mass and evasion style;
+    loadouts, hardpoints and the salvage economy stay out (C10).
+  - **THE PICK RIDES `MenuLaunch.frame_id` — the static that already exists.**
+    The menu tower's frame tower writes it and `FlightController` reads it, so
+    the room joins an existing path instead of inventing a parallel one. What it
+    does add is a second hand-written LIST of frames, which is the exact shape of
+    the bug that hid the falx and the screamer from the war for two weeks
+    (v1.96): two rosters nobody compares are always self-consistent. So
+    `war_room_check` asserts the hangar's list against the tower's, and a junk
+    frame id falls back to a real frame rather than being flown.
+  - **The roster is marks, not a numeral** (`| | | | |`), because five of
+    something reads faster than the digit 5 and because losing one should be
+    visible. It is redrawn when the TICK finishes rather than when the sortie
+    resolves, so a pilot's mark disappears as part of the war moving instead of
+    before the player has been told.
+  - **"Save/exit anywhere" needed nothing built, and that is worth stating rather
+    than quietly ticking off.** The war state only changes when a sortie
+    resolves, and that is exactly when it is written; between sorties there is
+    nothing to save. ESC leaves at any time and loses nothing, which makes
+    P1.q4's *exit without save* the natural behaviour rather than a feature.
+  - **The user has not yet seen a node LOST**, so whether an enemy capture reads
+    clearly on the map is still unmeasured. It is one of the four things the
+    animation can show and the only one that has never been in front of the human
+    who asked for the map.
+  - **A doc edit went missing from the working tree and the commit had it.** The
+    v2.09 entry above was present in `HEAD` and absent on disk — caught only
+    because the next edit to the same file refused to apply against content it
+    did not recognise. Restored from the commit rather than retyped. Recorded
+    because "the file on disk is what I last wrote" is an assumption, and this is
+    the second time this session that checking beat assuming.

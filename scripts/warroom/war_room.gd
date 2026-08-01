@@ -32,6 +32,8 @@ const CAMERA_PITCH_DEG: float = 62.0
 const CAMERA_MARGIN: float = 1.25
 ## How near the cursor has to be to a hex top, in pixels, to select it.
 const PICK_RADIUS_PX: float = 70.0
+## Cycles the hangar.
+const FRAME_KEY: Key = KEY_F
 
 @export var theater_seed: int = 4242
 ## Resume `user://war.save` if there is one. `--fresh` clears it first.
@@ -44,6 +46,7 @@ const PICK_RADIUS_PX: float = 70.0
 @onready var _legend: Label = $Ui/Legend
 @onready var _debrief: PanelContainer = $Ui/Debrief
 @onready var _debrief_text: Label = $Ui/Debrief/Text
+@onready var _hangar: Label = $Ui/Hangar/Text
 
 var _state: Dictionary = {}
 var _config: WarConfig
@@ -83,6 +86,7 @@ func _ready() -> void:
 	# stood BEFORE it. Dismissing the debrief is what moves the front.
 	_rebuild(_pre_tick if not _pre_tick.is_empty() else _state)
 	_select(flown if flown >= 0 else _first_flyable())
+	_update_hangar()
 
 
 func _read_command_line() -> void:
@@ -118,8 +122,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			_play_the_tick()
 		return
 	# The map is not interactive while the front is moving: selecting a node
-	# mid-animation would read the war it is halfway through becoming.
+	# mid-animation would read the war it is halfway through becoming. Any key
+	# jumps to the end, so the pacing is savoured by default and never endured.
 	if _table.is_playing():
+		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
+			_table.finish_changes()
+		return
+	# A raw key rather than an InputMap action on purpose. The bindings system
+	# exists for FLYING — it rewrites the map at runtime and has a paused context
+	# — and a map screen borrowing one of its actions is a way for a rebind to
+	# silently take the hangar away. The menu tower sets the same precedent by
+	# using only the built-in ui_* actions.
+	if event is InputEventKey and event.is_pressed() \
+			and (event as InputEventKey).keycode == FRAME_KEY:
+		Hangar.cycle()
+		_update_hangar()
 		return
 	if event.is_action_pressed(&"ui_accept"):
 		_launch()
@@ -207,6 +224,9 @@ func _on_changes_played() -> void:
 	_rebuild(_state)
 	_select(_selected)
 	_update_legend()
+	# The roster is redrawn here rather than at resolve time, so a pilot's mark
+	# disappears as part of the war moving instead of before you were told.
+	_update_hangar()
 
 
 func _flash_legend(message: String) -> void:
@@ -302,6 +322,16 @@ func _first_flyable() -> int:
 
 ## ---------- the panels ----------
 
+## The roster and the airframe, side by side, because P3.8's whole idea is that
+## the loadout is a response to the intel — and the intel card is on the other
+## side of the same screen.
+func _update_hangar() -> void:
+	var lines: PackedStringArray = [Hangar.roster_line(int(_state.get("pilots", 0)))]
+	lines.append("")
+	lines.append_array(Hangar.lines())
+	_hangar.text = "\n".join(lines)
+
+
 func _update_header() -> void:
 	var flyable: int = WarView.flyable_ids(_state, _config).size()
 	var line: String = "SEED %d   TICK %d   PILOTS %d   SORTIES FLOWN %d   %d/%d NODES FLYABLE" \
@@ -320,7 +350,8 @@ func _legend_body() -> String:
 	return "\n".join(PackedStringArray([
 		"height = garrison   green = yours   red = theirs   dim = out of range",
 		"amber bar = front line   thin line = supply",
-		"click or arrows select   ENTER flies the selected node   ESC to the menu",
+		"click or arrows select   ENTER flies the selected node   F changes airframe",
+		"ESC returns to the menu - the war is saved after every sortie you resolve",
 		"the card shows what INTEL believes, not what is there - fly it to find out",
 	]))
 
