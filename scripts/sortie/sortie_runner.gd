@@ -127,6 +127,9 @@ var _rng := RandomNumberGenerator.new()
 var _triggers: Array[Dictionary] = []
 var _trigger_spent: Array[bool] = []
 var _trigger_released: Array[bool] = []
+## Collision RIDs of bodies freed by this start() call. They outlive the call by
+## one frame (queue_free is deferred), so pad placement has to exclude them.
+var _stale_rids: Array[RID] = []
 var _objectives_down: int = 0
 var _egressed: bool = false
 var _pilot_lost: bool = false
@@ -147,16 +150,28 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	# the new node's dent. `sortie_check` papered over it by sweeping the arena
 	# itself - the caller compensating for the callee, which is how the same
 	# deferred-free trap then reached the check.
+	#
+	# THE RIDS ARE KEPT because `queue_free` is DEFERRED. Everything freed here is
+	# still a solid body in the physics space for the rest of this frame, and
+	# `_lay_pads()` runs its rejection sampling four lines below - so the new
+	# sortie's pads get rejected by the ghosts of the old one, and a pad that fails
+	# to place is a pad the pilot does not get. Same trap, same frame, as the
+	# intermittent `ammo_check` failure that took two sessions to catch; the fix is
+	# the same one (`seen_gates`), applied at the source this time.
+	_stale_rids.clear()
 	for unit: Node in units:
 		if is_instance_valid(unit):
+			_remember_rid(unit)
 			unit.queue_free()
 	units.clear()
 	for asset: ObjectiveAsset in objectives:
 		if is_instance_valid(asset):
+			_remember_rid(asset)
 			asset.queue_free()
 	objectives.clear()
 	for pad: Node3D in pads:
 		if is_instance_valid(pad):
+			_remember_rid(pad)
 			pad.queue_free()
 	pads.clear()
 	_triggers.clear()
@@ -361,6 +376,8 @@ func _pad_point(placed: Array[Vector3]) -> Vector3:
 			continue
 		if space != null:
 			query.transform = Transform3D(Basis.IDENTITY, at)
+			# The bodies this same call just queue_freed are still solid.
+			query.exclude = _stale_rids
 			# Static scenery only: a drifting raider is not a reason to reject a
 			# spot that will be empty a second later.
 			for hit: Dictionary in space.intersect_shape(query, 4):
@@ -422,6 +439,16 @@ func _point_for(row: Dictionary, layer: StringName) -> Vector3:
 	if at.y < 0.0:
 		at.y = _rng.randf_range(AIR_HEIGHT_MIN, AIR_HEIGHT_MAX)
 	return at
+
+
+## Every collision RID under `node`, itself included. A unit is often a container
+## (a gnat cloud is one unit and many bodies), so a single get_rid() would leave
+## most of a pack solid.
+func _remember_rid(node: Node) -> void:
+	if node is CollisionObject3D:
+		_stale_rids.append((node as CollisionObject3D).get_rid())
+	for child: Node in node.get_children():
+		_remember_rid(child)
 
 
 func _seat_on_ground(at: Vector3) -> Vector3:

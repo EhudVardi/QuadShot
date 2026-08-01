@@ -27,6 +27,7 @@ func _init() -> void:
 	_check_roster_costs()
 	_check_roster_matches_the_game()
 	_check_escort_rule(config)
+	_check_stamp_and_lethality_lists()
 	_check_purity(state)
 	_check_budget(state, config)
 	_check_exchange_rate(state)
@@ -401,6 +402,41 @@ func _share_in(units: Array, type_id: StringName) -> float:
 		if unit["type"] == type_id:
 			return float(unit["strength"]) / total
 	return 0.0
+
+
+## STANDING RULE 4, ENFORCED RATHER THAN WRITTEN DOWN. A new bestiary type has to
+## join `ENEMIES_FOR_STAMP` (delivery_bench), `ENEMIES` (lethality_check) AND
+## `WarManifest.ROSTER` on the same day. Only the third pair was ever asserted, so
+## a seventh type could join both rosters, pass this check, and have its stats
+## drift OUTSIDE the config stamp - which is precisely the failure the stamp
+## exists to prevent, arriving through the door the rule was written to close.
+##
+## The falx and the screamer already missed one of these lists for two weeks
+## (v1.96). This is the one-line guard that did not exist.
+func _check_stamp_and_lethality_lists() -> void:
+	# Both are `extends SceneTree` scripts with no class_name, so their constants
+	# come off the script object rather than off a type.
+	var bench: Dictionary = (load("res://scripts/tests/delivery_bench.gd") as GDScript) 			.get_script_constant_map()
+	var leth: Dictionary = (load("res://scripts/tests/lethality_check.gd") as GDScript) 			.get_script_constant_map()
+	var stamped: Dictionary = _type_ids(bench.get("ENEMIES_FOR_STAMP", []))
+	var lethal: Dictionary = _type_ids(leth.get("ENEMIES", []))
+	for type_id: StringName in WarManifest.ROSTER:
+		_expect(stamped.has(String(type_id)),
+				"%s is in WarManifest.ROSTER and in delivery_bench's ENEMIES_FOR_STAMP"
+				% type_id)
+		_expect(lethal.has(String(type_id)),
+				"%s is in WarManifest.ROSTER and in lethality_check's ENEMIES" % type_id)
+	_expect(stamped.size() == WarManifest.ROSTER.size(),
+			"the config stamp covers the roster and nothing else (%d vs %d)"
+			% [stamped.size(), WarManifest.ROSTER.size()])
+
+
+## `res://resources/default_enemy_falx.tres` -> `falx`.
+func _type_ids(paths: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for path: Variant in paths:
+		out[String(path).get_file().trim_prefix("default_enemy_") 				.trim_suffix(".tres")] = true
+	return out
 
 
 func _expect(condition: bool, message: String) -> void:
