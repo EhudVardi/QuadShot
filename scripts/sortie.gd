@@ -81,6 +81,10 @@ var _config: WarConfig
 var _started: bool = false
 var _range_warn_timer: float = 0.0
 var _signal_lost: bool = false
+## The video feed's two wounds, exactly as `main.gd` keeps them: a decaying
+## SPIKE from each hit, and permanent transmitter DAMAGE until a pad patches it.
+var _video_glitch_spike: float = 0.0
+var _video_damage: float = 0.0
 
 
 func _ready() -> void:
@@ -116,6 +120,7 @@ func _process(_delta: float) -> void:
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
 	_update_signal_leash(_delta)
+	_update_video_feed(_delta)
 
 
 ## ---------- the sortie ----------
@@ -250,7 +255,12 @@ func _wire_pads() -> void:
 			(pad as RepairGate).repaired.connect(_on_repaired)
 
 
+## A repair gate patches the airframe, and the transmitter is part of it (D5,
+## v1.41) — so the feed clears with the motors rather than carrying a wound the
+## pad just paid for.
 func _on_repaired() -> void:
+	_video_damage = 0.0
+	_video_glitch_spike = 0.0
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_hud.flash_engines_restored()
 	_hud.add_kill_feed("ENGINES RESTORED")
@@ -312,8 +322,54 @@ func _on_enemy_destroyed(points: float) -> void:
 
 func _on_player_damaged(amount: float, remaining: float) -> void:
 	_drone.apply_hit_to_motors(amount)
+	var dc: DamageConfig = _drone.damage_config
+	if dc != null and dc.severity > 0.0:
+		var bite: float = clampf(amount / maxf(_drone_health.max_health, 1.0) * 4.0,
+				0.0, 1.0)
+		var spike: float = dc.video_glitch_on_hit * dc.severity * (0.7 + 0.6 * bite)
+		_video_glitch_spike = clampf(maxf(_video_glitch_spike, spike), 0.0, 1.0)
+		_video_damage = clampf(_video_damage
+				+ amount / maxf(_drone_health.max_health, 1.0)
+				* dc.video_damage_scale * dc.severity, 0.0, 1.0)
 	_hud.set_health(remaining, _drone_health.max_health)
 	_hud.flash_damage(&"all")
+
+
+## THE FEED, WHICH THIS SCENE HAS NEVER HAD (reported by the user flying a
+## campaign: *"the screamers... the vtx does not get distorted"*).
+##
+## `main.gd` has run this since v1.41 and `sortie.gd` was written without it, so
+## a composed sortie has been silently missing BOTH halves of D6: battle damage
+## never degraded the picture, and a screamer's jam — which the missile lock and
+## the gun director were obeying the whole time — had no way to announce itself.
+## The EW was working and invisible, which is the worst combination available:
+## the pilot experiences an unexplained failure to lock and concludes the feature
+## is broken.
+##
+## The jam is a FLOOR rather than an addition, like the other two sources:
+## whichever failure is worst right now is the one you are looking at (D6 —
+## EW and battle damage are one mechanism on screen).
+##
+## Duplicated from `main.gd` rather than extracted, deliberately and with a debt
+## recorded: the extraction wants doing when the third consumer arrives, and
+## doing it right now would mean refactoring the shipped arcade mode in the same
+## change as a bug fix the user is waiting on.
+func _update_video_feed(delta: float) -> void:
+	var dc: DamageConfig = _drone.damage_config
+	if dc == null:
+		return
+	_video_glitch_spike = maxf(_video_glitch_spike - dc.video_glitch_decay * delta, 0.0)
+	var sustained: float = 0.0
+	if _drone_health.alive and _video_damage > 0.0:
+		sustained = dc.video_glitch_sustained * _video_damage
+		if randf() < dc.video_flicker_rate * _video_damage * delta:
+			var burst: float = dc.video_flicker_strength * _video_damage \
+					* randf_range(0.6, 1.0)
+			_video_glitch_spike = clampf(maxf(_video_glitch_spike, burst), 0.0, 1.0)
+	var jam_wash: float = 0.0
+	if _drone_health.alive:
+		jam_wash = Jamming.level_at(_drone) * dc.jam_video_glitch
+	_hud.set_video_glitch(maxf(maxf(_video_glitch_spike, sustained), jam_wash))
 
 
 ## DEATH ENDS THE SORTIE. There is no respawn, and its absence is the fix

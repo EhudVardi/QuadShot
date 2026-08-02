@@ -44,6 +44,15 @@ extends SceneTree
 ## Run: <godot> --headless -s scripts/tests/sortie_bench.gd --path .
 ##      pass a filter after `--` to narrow it, and drop --headless to WATCH.
 
+## Defaults for a quick sweep. THE LONG RUN OVERRIDES BOTH from the command line
+## (`-- --reps 3 --cap 300`) rather than by editing them, because a bench whose
+## settings live in a commit is a bench whose numbers cannot be compared to
+## anything: BALANCE.md's standing rule is that runs are only comparable at
+## IDENTICAL settings, so the settings belong in the invocation and the header.
+##
+## Rep count is a resolution decision, not a patience one. At 2 reps a rate can
+## only be 0%, 50% or 100%, and H6's bands (70-85%, 45-65%, 30-50%) are finer
+## than that — so a 2-rep sweep cannot say whether a node is in band.
 const REPS: int = 2
 ## Cap per rep. P2.q6 targets 4-8 minute sorties for a human; the reference
 ## pilot is faster and a bench that waits that long cannot sweep a theater.
@@ -97,6 +106,12 @@ var _cell_i: int = 0
 var _rep: int = 0
 var _ticks: int = 0
 var _ticks_max: int
+## Live settings, overridable from the command line (see `_read_settings`).
+var _reps: int = REPS
+var _max_seconds: float = MAX_SECONDS
+## The name filter, with the setting flags removed - otherwise `--cap 300` is a
+## filter no cell name contains and the sweep silently matches nothing.
+var _filter_words: String = ""
 
 var _arena: Node3D
 var _drone: FlightController
@@ -116,14 +131,15 @@ var _failures: PackedStringArray = []
 func _initialize() -> void:
 	_watching = BenchView.watching()
 	BenchView.setup("sortie_bench")
+	_read_settings()
 	_select_cells()
 	if _cells.is_empty():
 		print("[sortie_bench] no cells matched the filter")
 		quit(1)
 		return
-	_ticks_max = int(MAX_SECONDS * float(Engine.physics_ticks_per_second))
+	_ticks_max = int(_max_seconds * float(Engine.physics_ticks_per_second))
 	print("[sortie_bench] %d sorties x %d reps, %.0fs cap  (pilot v%d, theater %d)"
-			% [_cells.size(), REPS, MAX_SECONDS, ReferencePilot.PILOT_VERSION,
+			% [_cells.size(), _reps, _max_seconds, ReferencePilot.PILOT_VERSION,
 			THEATER_SEED])
 	if _filtered:
 		print("[sortie_bench] FILTERED RUN - this is a LOOK, not a measurement:")
@@ -141,8 +157,28 @@ func _initialize() -> void:
 ## Every slice-ready node of one theater, in id order. A theater is the unit
 ## because H6's curve is a statement about a WAR (pocket -> HQ), not about a
 ## hand-picked list of fights.
+## `-- --reps 3 --cap 300 some filter words`. Anything that is not a recognised
+## flag stays in the filter, so the existing "pass words to narrow it" contract is
+## unchanged.
+func _read_settings() -> void:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	var words: PackedStringArray = []
+	var i: int = 0
+	while i < args.size():
+		if args[i] == "--reps" and i + 1 < args.size():
+			_reps = maxi(int(args[i + 1]), 1)
+			i += 2
+		elif args[i] == "--cap" and i + 1 < args.size():
+			_max_seconds = maxf(float(args[i + 1]), 5.0)
+			i += 2
+		else:
+			words.append(args[i])
+			i += 1
+	_filter_words = " ".join(words).strip_edges().to_lower()
+
+
 func _select_cells() -> void:
-	var filter: String = " ".join(OS.get_cmdline_user_args()).strip_edges().to_lower()
+	var filter: String = _filter_words
 	var config := WarConfig.new()
 	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
 	var home := Vector2i(0, 0)
@@ -240,7 +276,7 @@ func _build() -> void:
 	if _watching:
 		BenchView.follow(_drone)
 		print("[sortie_bench] --- %s, rep %d/%d ---"
-				% [cell["name"], _rep + 1, REPS])
+				% [cell["name"], _rep + 1, _reps])
 
 
 func _on_physics_frame() -> void:
@@ -358,7 +394,7 @@ func _teardown() -> void:
 
 func _advance() -> void:
 	_rep += 1
-	if _rep >= REPS:
+	if _rep >= _reps:
 		_rep = 0
 		_cell_i += 1
 	if _cell_i >= _cells.size():

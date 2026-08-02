@@ -10255,3 +10255,61 @@ phase that needs them.
     have been measured. H6 is explicit that difficulty is measured and never
     authored, and the sortie bench is the thing that reads it — which is now the
     next job, and has more to chew on than it did this morning.
+
+- **2026-08-02 — v2.12. THREE BUGS FROM ONE FLIGHT, and the worst of them was
+  half of every garrison standing three metres outside the fight.** All three
+  reported by the user flying a campaign; all three real, though one turned out
+  to be a question rather than a fault.
+  - **HALF THE GARRISON COULD NOT SEE YOU.** `EnemyDrone._can_engage()` gates
+    PURSUIT as well as fire, so a unit whose ring puts the centre outside its
+    `sight_range` never advances on it — it wanders for the whole sortie. The
+    arithmetic is embarrassing once seen: the mid ring is **48 m** and a turret's
+    sight is **45 m**. Outer raiders: 74 m ring against 60 m sight. Outer gnats:
+    74 m against 70 m. Quantified by mutation — with the fix disabled, **9 of 14
+    units blind on a strike, 6 of 9 on a SEAD, 3 of 6 on a dogfight**.
+  - **THE FIX MAY BE IN THE WRONG PLACE, and this is recorded BEFORE the
+    measurement comes back rather than after.** Units are now pulled inside their
+    own sight of what they guard, which also CONCENTRATES the garrison (outer
+    raiders 74 m -> ~51 m). But the sortie bench spawns its pilot at 125 m and
+    flies IN, so outer units were engaging it on approach all along — the bench
+    never had this bug. The human has it because `sortie.tscn` starts the drone
+    at the arena centre, INSIDE the rings, with the garrison facing away. That
+    points at the real fix being W.q7's **ingress** — spawn the pilot on an
+    approach, as the bench already does — with the clamp reverted, rather than
+    moving a garrison that was correctly placed for a fight nobody was flying.
+    **The A/B that decides it is queued behind the long bench run.**
+  - **THE SORTIE SCENE HAS NEVER HAD A VIDEO FEED.** `main.gd` has run the
+    damage/jam feed breakup since v1.41 and `sortie.gd` was written without it,
+    so a composed sortie was missing both halves of D6: battle damage never
+    degraded the picture, and a screamer's jam had no way to announce itself.
+    **The EW was working the whole time** — the screamer scene joins the
+    `jammers` group, so the missile lock and the gun director were obeying it —
+    which is the worst available combination: a working feature that is invisible
+    reads to the pilot as a broken one. *"the vtx does not get distorted and i
+    think the missles still lock"* is exactly what that feels like from the
+    cockpit. Duplicated from `main.gd` rather than extracted, with the debt
+    recorded: the extraction wants doing when a third consumer arrives, not in
+    the same change as a bug fix somebody is waiting on.
+  - **The blaster's auto-fire is not missing; it is UNEQUIPPED.**
+    `fire_assist_miss_m` ships at 0.0 and its own comment already says what the
+    user guessed: *"Prototype of the FCS equipment family (P3) — a dev knob
+    today, an acquirable asset later."* Recorded because the question is the
+    design working: a player inferred from play that an implemented capability
+    was gated behind equipment they had not earned, which is precisely what P3
+    intends it to feel like.
+  - **The aegis has no target in a composed sortie, and it was NOT changed.**
+    `route_end` is set to the sortie centre, so the enemy's own bomber flies to
+    the middle of the node it is defending and detonates on its own objective. It
+    never threatens the pilot, which is four of the six units on a decapitation
+    node. Left alone deliberately: changing difficulty while the bench is
+    measuring difficulty produces a table nobody can interpret. The lean is to
+    send it OUTWARD — an aegis launching a strike against your territory, so
+    killing it is an intercept and letting it go means the enemy landed a blow,
+    which keeps P4.2's *"does not care about you, flies a route, detonates on
+    arrival"* intact.
+  - **The bench's settings moved to the command line** (`-- --reps 3 --cap 300`).
+    Rep count is a RESOLUTION decision rather than a patience one: at 2 reps a
+    rate can only be 0%, 50% or 100%, and H6's bands are finer than that, so a
+    2-rep sweep cannot say whether a node is in band. Settings in the invocation
+    also keeps BALANCE.md's rule enforceable — runs compare only at identical
+    settings, so the settings belong where the run records them.

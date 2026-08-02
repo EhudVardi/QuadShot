@@ -44,6 +44,23 @@ const LAYER_RADIUS: Dictionary = {
 }
 ## Jitter so a ring is a ring and not a parade formation.
 const LAYER_JITTER: float = 9.0
+## A GARRISON MUST BE ABLE TO SEE WHAT IT GUARDS. A unit is pulled in to this
+## fraction of its own `sight_range` if its ring would put the objective outside
+## it — because `EnemyDrone._can_engage()` gates PURSUIT as well as fire, so a
+## unit that cannot see the centre does not advance on it. It wanders, forever.
+##
+## Reported by the user as *"some sorties seem open, but when I fly into them
+## nothing engages with me"*, and the arithmetic is embarrassing once seen: the
+## mid ring is 48 m and a turret's sight is 45 m, so every mid-ring turret sat
+## three metres outside the fight it was placed to defend. Outer raiders (74 m
+## vs 60 m) and outer gnats (74 m vs 70 m) were in the same position.
+##
+## THE ROOT CAUSE IS THE MISSING INGRESS (W.q7). Concentric layers assume the
+## pilot arrives from OUTSIDE and meets them on the way in; with no ingress the
+## pilot starts at the centre, inside the onion, with the whole garrison facing
+## away. When the ingress lands this clamp should be revisited — the rings can
+## open back up once there is an approach to defend.
+const SIGHT_COVERAGE: float = 0.85
 const AIR_HEIGHT_MIN: float = 7.0
 const AIR_HEIGHT_MAX: float = 20.0
 ## A ground unit sits on whatever is under it, probed from here down. Borrowed
@@ -406,7 +423,15 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 	# position in _ready to build its patrol, pack or wander home. The wave
 	# director learned this the hard way: every wave raider in the game's
 	# history wandered home to the origin until v1.85 caught it.
-	(unit as Node3D).position = _point_for(row, layer)
+	#
+	# The sight range is read off the unit's OWN config rather than off the
+	# manifest's copy, so a unit is placed by the number it will actually fly
+	# with even if the two ever diverge.
+	var sight: float = 0.0
+	var unit_config: EnemyConfig = unit.get(&"enemy_config") as EnemyConfig
+	if unit_config != null:
+		sight = unit_config.sight_range
+	(unit as Node3D).position = _point_for(row, layer, sight)
 	if unit.get(&"route_end") != null:
 		unit.set(&"route_end", center + Vector3.UP * BOMB_RUN_HEIGHT)
 	# A body that comes back makes its sortie permanently unclearable.
@@ -428,9 +453,13 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 			_on_unit_gone(unit))
 
 
-func _point_for(row: Dictionary, layer: StringName) -> Vector3:
+## `sight` of 0 means the type does not engage on sight at all (the aegis flies a
+## route and never looks at you), so it is placed on its ring untouched.
+func _point_for(row: Dictionary, layer: StringName, sight: float = 0.0) -> Vector3:
 	var radius: float = maxf(float(LAYER_RADIUS.get(layer, 60.0))
 			+ _rng.randf_range(-LAYER_JITTER, LAYER_JITTER), 8.0)
+	if sight > 0.0:
+		radius = minf(radius, sight * SIGHT_COVERAGE)
 	var angle: float = _rng.randf_range(0.0, TAU)
 	var at: Vector3 = center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 	if bool(row["ground"]):

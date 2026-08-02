@@ -157,6 +157,7 @@ func _check_every_archetype_can_end() -> void:
 		_expect(runner.objectives.size() == assets,
 				"%s builds its %d objective structure(s) (got %d)"
 				% [archetype, assets, runner.objectives.size()])
+		_check_garrison_can_see_the_middle(archetype)
 
 		if assets == 0:
 			# The dogfight's ending is the field-cleared path, flown below.
@@ -179,6 +180,54 @@ func _check_every_archetype_can_end() -> void:
 				"%s fires its '%s' reserve when the pilot announces themselves"
 				% [archetype, SortieComposer.TRIGGER_ON[archetype]])
 		host.queue_free()
+
+
+## A GARRISON THAT CANNOT SEE ITS OWN OBJECTIVE IS NOT A GARRISON.
+##
+## `EnemyDrone._can_engage()` gates pursuit as well as fire, so a unit whose ring
+## puts the centre outside its `sight_range` never advances on it — it wanders
+## for the whole sortie. That is not a subtle degradation: it is the difference
+## between a defended node and an empty one, and it is invisible from every
+## number this bench prints, because the units ARE there and the sortie DOES
+## complete.
+##
+## Reported by a human flying it ("nothing engages with me"), which is the third
+## time this project has learned that a body count is not a threat count.
+##
+## Placed on a real composed spec rather than a bare one, because the layer a
+## type lands in is the composer's decision and this is about the pair.
+func _check_garrison_can_see_the_middle(label: StringName) -> void:
+	var config := WarConfig.new()
+	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
+	var host := Node3D.new()
+	root.add_child(host)
+	var runner := SortieRunner.new()
+	runner.center = Vector3(900.0, 0.0, 900.0)
+	host.add_child(runner)
+
+	var blind: int = 0
+	var placed: int = 0
+	for node: Dictionary in state["nodes"]:
+		var spec: Dictionary = SortieComposer.compose(node, state, config)
+		if spec["archetype"] != label:
+			continue
+		runner.start(spec)
+		for unit: Node in runner.units:
+			var unit_config: EnemyConfig = unit.get(&"enemy_config") as EnemyConfig
+			if unit_config == null or unit_config.sight_range <= 0.0:
+				continue  # the aegis flies a route and never looks at you
+			placed += 1
+			var flat: float = Vector2(
+					(unit as Node3D).global_position.x - runner.center.x,
+					(unit as Node3D).global_position.z - runner.center.z).length()
+			if flat > unit_config.sight_range:
+				blind += 1
+		break
+	if placed > 0:
+		_expect(blind == 0,
+				"%s places every unit within sight of what it guards (%d of %d blind)"
+				% [label, blind, placed])
+	host.queue_free()
 
 
 ## ---------- Part A: the runner's contracts, without an arena ----------
