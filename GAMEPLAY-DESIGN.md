@@ -10359,3 +10359,168 @@ phase that needs them.
     weapon and no earned loadout — un-comparable to bands that describe an
     equipped pilot. The finding is the SHAPE and the saturation, not a verdict on
     any node's number.
+
+---
+
+## Iteration 14 — A: The Bomber's Identity (PROPOSED, 2026-08-03 — user-initiated)
+
+> **The aegis is currently two enemies wearing one name**, and the user noticed
+> from play: *"the aegis seems to be a mix of two things: a bomber AND a suicide
+> bomber? i was not aware of that quality."* Sections **A1–A6**, open questions
+> **A.q1–A.q5**; react by ID.
+
+### A1 — P4.2 ALREADY SAYS WHAT THE USER SAID, and that is the finding
+
+Before proposing anything, the existing entry, quoted rather than paraphrased:
+
+> **Aegis — shielded bomber (the ticking bomb).**
+> *Threat:* time + the war — it ignores you and flies its strike route **toward a
+> friendly asset (your pad, an allied garrison, the exit gate's sector)**.
+> *Behavior:* route drawn in intel/briefing; **escort wings (raider/falx) fly
+> cover**; a screamer escort jams your easy answer.
+> *Strategic:* heavy-industry production; **enemy operations can commit them as
+> bomber raids against your nodes (P4.7) — an intercept sortie the war
+> generates.**
+
+The user, independently, from flying it: *"i thought its purpose was to be a
+bomber that drops bombs and heavy ammunition on ally targets, being a part of an
+invasion to an ally teritory... protected by smaller, fly-like little and quick
+frames that defend it."*
+
+**Those are the same design.** Target is YOUR asset, escorts fly cover, the war
+commits them as raids you intercept. The doc has said so since Iteration 2 and
+nothing built has ever done it.
+
+**So this iteration is not a redesign. It is a drift report**, and the drift has
+two halves:
+
+1. **The target inverted.** `SortieRunner` aims the aegis at the sortie's own
+   centre — the enemy's own objective — so the enemy's bomber flies into the
+   middle of the base it is defending and detonates on it. Measured 2026-08-03:
+   node 16, three reps, **300 s each, 0% hull taken, nothing killed**.
+2. **"Arrival" became SELF-DESTRUCTION.** P4.2 never says the aegis is expended.
+   It says the arrival is bad for you and every second alive is a countdown. The
+   implementation reads "arrives" as "detonates", which quietly makes it a
+   kamikaze — a different enemy with a different counter-web position.
+
+### A2 — What the aegis should be (the user's refinement, adopted)
+
+A bomber that **carries ordnance, spends it, and leaves**:
+
+- It flies **bombing passes** at its target rather than ending on one arrival.
+- It carries a **payload** — a finite number of drops, the same grammar
+  Iteration 10 gave the player's flak and missiles (R2's "what is consumable").
+- **When the payload is spent it egresses**, and getting out counts as an ENEMY
+  SURVIVING — a distinct outcome from being killed, and one the war can price.
+- It is **escorted**, which P4.2 already specifies and the user restated
+  independently: *"smaller, fly-like little and quick frames that defend it."*
+  That is the gnat and the falx, and doctrine can already express it.
+
+**Why this is better than the ticking bomb, beyond matching the doc.** A
+kamikaze's threat ends when it arrives, so the fight has one deadline and then it
+is over. A bomber that leaves gives the player a SPECTRUM: kill it before it
+drops anything, kill it between passes, or fail and watch it go home having done
+its damage. That is three outcomes where self-detonation offers two, and the
+third is the one the war-sim can actually price differently.
+
+### A3 — The suicide frame is a SEPARATE TYPE, and the user is right to want one
+
+*"i think that a new dedicated suiciding frame would be a GREAT addition to our
+roster. i dont see the ageis as a suicider."*
+
+Agreed, and the roster already half-argues for it: the **gnat** is contact
+detonation at swarm scale (P4.2: *"collision sting (contact detonation)"*). What
+does not exist is a single body whose whole purpose is to reach you and go off —
+fast, committed, unsubtle, answered by killing it at range or by not being where
+it expects you.
+
+That is a genuinely different web position from both: the gnat is cheap mass you
+out-area; the aegis is a durable clock you out-prioritise; a dedicated suicider is
+a **timer aimed at YOU personally** that you out-range or out-manoeuvre. Named
+and specified in A5.
+
+### A4 — What removing the aegis from garrisons actually costs
+
+The user: *"a bomber attacks, not defends."* True, and it has consequences that
+should be visible before the edit rather than discovered by a red board:
+
+- **`manifest_check` asserts the HQ fields the aegis** (*"the HQ fields the heavy
+  type"*). Delete the aegis from doctrine and the theater HQ loses its heavy
+  anchor.
+- **The escalation mechanic leans on it.** `HEAVY_TYPES` is `[aegis, screamer]`
+  and P4.6's whole claim — a war under pressure fields heavier things rather than
+  more things — is asserted through the aegis's share rising. Remove it and the
+  screamer carries that alone, which is thin: the screamer has no weapon, so
+  "escalation" would mean "more jamming" and nothing else.
+- **The campaign loses a type until bomber raids exist.** The aegis's proper home
+  (A1's quoted strategic note) is enemy operations attacking YOUR nodes, and that
+  is unbuilt. Removed from garrisons today, the aegis simply vanishes from the
+  campaign — it stays only in the arcade wave director, where its route already
+  points at something of yours and where it has always worked correctly.
+
+So there is a sequencing choice, and it is A.q1.
+
+### A5 — The new type, specified enough to argue with
+
+**Lance — the committed suicider.** (Name is a proposal; the roster's names are
+short, hard nouns — gnat, raider, falx, aegis, screamer, sentinel.)
+
+- *Durability:* light, but **fast enough that chip guns get one honest window**.
+- *Mobility:* fastest thing in the roster on a straight line; poor turns. It
+  commits to a run and cannot re-decide.
+- *Threat:* hull, all at once. Contact detonation with a real blast, not a sting.
+- *Behavior:* acquires, aligns, accelerates. **The telegraph is the alignment** —
+  a visible, audible commitment before the run, so the counter is a decision and
+  not a reflex (P4.4's readability rule).
+- *Web role:* punishes **hovering and slow heavy frames** (it is aimed at where
+  you are, so being somewhere else is the answer); answered by area weapons and
+  by lateral speed; **hard-countered by not being predictable**.
+- *Terrain:* open ground is its home; obstacles are your friend, because a
+  committed run cannot follow you around a corner.
+- *Strategic:* cheap and expendable — the type a losing enemy fields MORE of,
+  which makes it a natural escalation partner and a candidate replacement for the
+  aegis's `HEAVY_TYPES` role (A4).
+
+### A6 — The ingress, decided in the same conversation
+
+Separately and already settled by the user: **the player will spawn OUTSIDE the
+target area and fly their own approach.** *"we should indeed put the player
+outside of the battle area and let him make his own attack approach."*
+
+They tie it back to P1.9's biomes, in their words: *"one of the bioms can be some
+kind of an open field, where there are some hills that allow a smart player to use
+it to his advantage, fly low to avoid SAM sites, until he gets close and then do a
+suprise attack on the SAM defense, elevating the chance to complete the mission
+and escape."*
+
+That is W.q7's ingress and P2.4's approach as one thing, and it retires the
+`SIGHT_COVERAGE` clamp (v2.12) rather than keeping it: the clamp exists only
+because the pilot started inside the rings. On the extra work of making the
+signal-lost leash agree with a spawn that is deliberately far out, the user was
+unambiguous: *"i believe its worth it because we'll eventually want this anyways,
+why wait?"*
+
+### A open questions (react by ID)
+
+- **A.q1 — Where does the aegis live until bomber raids exist?** (a) **Leave it
+  in doctrine only where bombers are BASED — airbase and HQ — and send it
+  outward**, so it reads as scrambling from the field it sits on rather than
+  guarding it; the escalation and HQ assertions survive. My lean, as the interim.
+  (b) Remove it from doctrine entirely now, accept that it leaves the campaign
+  until raids are built, and hand `HEAVY_TYPES` to the Lance. (c) Keep it
+  everywhere until raids exist. I think (c) is the only wrong answer.
+- **A.q2 — Does the payload make the aegis a magazine?** Iteration 10 built
+  `magazines` for the player and the grammar fits exactly (`rounds`, spend,
+  refuse when dry). My lean: **yes, the same group and the same vocabulary**, so
+  a bomber that is out of bombs is legible in the same way a player out of flak
+  is.
+- **A.q3 — What does a bomber that ESCAPES do to the war?** It is a new outcome
+  the sim has no verb for. My lean: it **damages the node it flew at** — the same
+  `apply_sortie` arithmetic pointed the other way — because "the enemy landed a
+  blow on your territory" should cost you something the map can show.
+- **A.q4 — Does the Lance ship before or after the aegis rework?** My lean:
+  **after.** The aegis is broken NOW and the fix is small; the Lance is a new
+  bestiary type and standing rule 2 says it needs its own behaviour check the day
+  it lands. One at a time.
+- **A.q5 — Is "Lance" the right name?** Weak lean, offered to be overruled:
+  short, hard, and it says "committed straight line" without saying "bomb".
