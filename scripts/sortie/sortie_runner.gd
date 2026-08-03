@@ -44,23 +44,6 @@ const LAYER_RADIUS: Dictionary = {
 }
 ## Jitter so a ring is a ring and not a parade formation.
 const LAYER_JITTER: float = 9.0
-## A GARRISON MUST BE ABLE TO SEE WHAT IT GUARDS. A unit is pulled in to this
-## fraction of its own `sight_range` if its ring would put the objective outside
-## it — because `EnemyDrone._can_engage()` gates PURSUIT as well as fire, so a
-## unit that cannot see the centre does not advance on it. It wanders, forever.
-##
-## Reported by the user as *"some sorties seem open, but when I fly into them
-## nothing engages with me"*, and the arithmetic is embarrassing once seen: the
-## mid ring is 48 m and a turret's sight is 45 m, so every mid-ring turret sat
-## three metres outside the fight it was placed to defend. Outer raiders (74 m
-## vs 60 m) and outer gnats (74 m vs 70 m) were in the same position.
-##
-## THE ROOT CAUSE IS THE MISSING INGRESS (W.q7). Concentric layers assume the
-## pilot arrives from OUTSIDE and meets them on the way in; with no ingress the
-## pilot starts at the centre, inside the onion, with the whole garrison facing
-## away. When the ingress lands this clamp should be revisited — the rings can
-## open back up once there is an approach to defend.
-const SIGHT_COVERAGE: float = 0.85
 const AIR_HEIGHT_MIN: float = 7.0
 const AIR_HEIGHT_MAX: float = 20.0
 ## A ground unit sits on whatever is under it, probed from here down. Borrowed
@@ -104,6 +87,53 @@ const PAD_PLACE_TRIES: int = 40
 ## the outer ring, so leaving means actually leaving rather than drifting to
 ## the edge of the fight.
 const EGRESS_RADIUS: float = 105.0
+
+## ---------- THE INGRESS (Iteration 14 / A6, and W.q7 answered by building) ----
+##
+## THE PILOT STARTS OUTSIDE THE TARGET AREA, on the bearing the spec already
+## carries, and flies their own approach.
+##
+## WHAT IT REPLACES, and why the replacement is not an addition. Until now
+## `sortie.tscn` left the drone wherever the scene file parked it, which was the
+## middle of the arena — INSIDE the concentric rings, with a garrison arranged to
+## face outward at nothing. That is the whole of the user's *"some sorties seem
+## open, but when I fly into them nothing engages with me"*: `EnemyDrone` engages
+## on its distance to the PLAYER, so a pilot sitting at the centre was outside
+## every ring's sight range at once, and the rings the composer had carefully
+## layered were all pointing the wrong way.
+##
+## v2.12's `SIGHT_COVERAGE` clamp was a compensation for exactly that — pull each
+## defender inward until it can see the centre the pilot was standing on — and it
+## is DELETED here rather than kept beside the ingress. An A/B against
+## `sortie_bench`, which has always spawned outside and flown in, showed the clamp
+## made no measurable difference to an approaching pilot: node 12 read `best flak
+## 0% (dent 9.7)` clamped and unclamped, identical to one decimal. Two mechanisms
+## for one problem, where the second one is the real fix, is how a compensation
+## quietly becomes a rule nobody can delete later.
+##
+## THE SCALE CHANGE IS THE ONE THING HERE THAT IS NOT A DIRECT READING OF THE
+## SPEC, and it is deliberate. `SortieComposer` emits `ingress_m` in FICTION
+## units — 400 m over open desert down to 150 m through a city — and it is right
+## to, because `war/` is pure and cannot know how much air any particular arena
+## has. This one has about 100 m of ground in each direction and an FPV link that
+## drops at 300 m, so a 400 m spawn would put the pilot over the void with the
+## video already gone. The runner is the only place a spec becomes a Node3D, so
+## the runner is where fiction units become world units: the composer's own band
+## is remapped onto the band this arena can host, ORDER PRESERVED. Open ground
+## still buys the longest exposed run and a city still drops you closest.
+##
+## THE TWO NUMBERS IT HAS TO SIT BETWEEN, both asserted by `sortie_check`:
+##   - above `EGRESS_RADIUS` (105 m) by a clear margin, or the pilot spawns on
+##     the far side of the line a strike ends by crossing;
+##   - below the FPV link's warning radius (220 m in `sortie.gd`), or the game
+##     tells you the signal is weak before you have moved.
+const INGRESS_MIN_M: float = 140.0
+const INGRESS_MAX_M: float = 195.0
+## The pilot launches from the deck rather than from a hover. Taking off is a
+## beat, and A6's open-field fiction — *"fly low to avoid SAM sites, until he
+## gets close"* — wants low to be where you START, not somewhere you descend to.
+## Matches the height the scene parks the drone at over its spawn pad.
+const INGRESS_ALTITUDE_M: float = 0.8
 
 ## The sortie's centre in world space. NOT a const, and that is W9.2's finding
 ## made structural: `WaveDirector.ARENA_CENTER` is a constant because the
@@ -303,7 +333,58 @@ func _physics_process(_delta: float) -> void:
 		_finish()
 
 
-## ---------- placement ----------
+## ---------- placement: the pilot (A6) ----------
+
+## Compass direction of the ingress point AS SEEN FROM THE TARGET. 0 deg is -Z
+## and it increases clockwise, so `bearing_deg` reads like a bearing on a map
+## rather than like a Godot angle, and "ingress from the SE" means the pilot is
+## south-east of what they came to hit.
+##
+## Static and pure, all four of these: they are called BEFORE `start()` — the
+## pilot has to be standing at the ingress while they read the briefing, not
+## teleported there when they arm — and a headless check has to be able to assert
+## the geometry without an arena.
+static func ingress_direction(spec: Dictionary) -> Vector3:
+	var approach: Dictionary = spec.get("approach", {})
+	var bearing: float = deg_to_rad(float(approach.get("bearing_deg", 0.0)))
+	return Vector3(sin(bearing), 0.0, -cos(bearing))
+
+
+## How far out that is IN THIS ARENA. See the header for why this is a remap of
+## `ingress_m` rather than the number itself, and why the remap lives here.
+static func ingress_range(spec: Dictionary) -> float:
+	var approach: Dictionary = spec.get("approach", {})
+	var fiction: float = float(approach.get("ingress_m", SortieComposer.INGRESS_OPEN_M))
+	# The composer's own band, read off the composer, so the two cannot drift: a
+	# hard-coded [150, 400] here would silently start clipping the day a biome's
+	# cover economics changed.
+	var shortest: float = SortieComposer.INGRESS_OPEN_M - SortieComposer.INGRESS_COVER_M
+	var t: float = clampf(
+			inverse_lerp(shortest, SortieComposer.INGRESS_OPEN_M, fiction), 0.0, 1.0)
+	return lerpf(INGRESS_MIN_M, INGRESS_MAX_M, t)
+
+
+## Where the pilot starts. A transform rather than a point, because FACING THE
+## TARGET is most of what makes an approach readable from the cockpit: the whole
+## instruction becomes "it is that way, go", and every other decision — how low,
+## how fast, which side — is left to the pilot, which is the point of P2.4.
+static func ingress_transform(spec: Dictionary, at_center: Vector3) -> Transform3D:
+	var direction: Vector3 = ingress_direction(spec)
+	var origin: Vector3 = at_center + direction * ingress_range(spec)
+	origin.y = at_center.y + INGRESS_ALTITUDE_M
+	# Drone front is body -Z (the pilot-axis convention), and `Basis.looking_at`
+	# aims -Z at what it is given — so the target direction is -direction, back
+	# down the bearing toward the middle.
+	return Transform3D(Basis.looking_at(-direction, Vector3.UP), origin)
+
+
+## The ingress for THIS runner's centre. The instance-side convenience, so a
+## caller that already has a runner does not have to know where its centre lives.
+func ingress() -> Transform3D:
+	return ingress_transform(spec, center)
+
+
+## ---------- placement: the garrison ----------
 
 func _spawn_objectives() -> void:
 	var count: int = int(spec.get("objective_assets", 0))
@@ -423,15 +504,7 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 	# position in _ready to build its patrol, pack or wander home. The wave
 	# director learned this the hard way: every wave raider in the game's
 	# history wandered home to the origin until v1.85 caught it.
-	#
-	# The sight range is read off the unit's OWN config rather than off the
-	# manifest's copy, so a unit is placed by the number it will actually fly
-	# with even if the two ever diverge.
-	var sight: float = 0.0
-	var unit_config: EnemyConfig = unit.get(&"enemy_config") as EnemyConfig
-	if unit_config != null:
-		sight = unit_config.sight_range
-	(unit as Node3D).position = _point_for(row, layer, sight)
+	(unit as Node3D).position = _point_for(row, layer)
 	if unit.get(&"route_end") != null:
 		unit.set(&"route_end", center + Vector3.UP * BOMB_RUN_HEIGHT)
 	# A body that comes back makes its sortie permanently unclearable.
@@ -453,13 +526,23 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 			_on_unit_gone(unit))
 
 
-## `sight` of 0 means the type does not engage on sight at all (the aegis flies a
-## route and never looks at you), so it is placed on its ring untouched.
-func _point_for(row: Dictionary, layer: StringName, sight: float = 0.0) -> Vector3:
+## A unit sits on its own ring at a uniformly random angle, and BOTH halves of
+## that are the ingress's doing.
+##
+## The ring is untouched because there is finally an approach for it to be
+## arranged against: a mid-ring turret 57 m out cannot see the middle, and does
+## not need to — with its 45 m sight it covers the annulus an arriving pilot has
+## to cross, which is what a ring of area denial is FOR. The clamp that used to
+## pull it inward (v2.12) was answering a pilot who started in the middle.
+##
+## The angle stays uniform because the garrison does not know which way you are
+## coming from. Biasing the layers toward `bearing_deg` would be the enemy
+## reading the player's spawn point, and it would delete the counterplay P2.3
+## describes — pick your side, arrive unseen, and only the quadrant you crossed
+## gets a vote.
+func _point_for(row: Dictionary, layer: StringName) -> Vector3:
 	var radius: float = maxf(float(LAYER_RADIUS.get(layer, 60.0))
 			+ _rng.randf_range(-LAYER_JITTER, LAYER_JITTER), 8.0)
-	if sight > 0.0:
-		radius = minf(radius, sight * SIGHT_COVERAGE)
 	var angle: float = _rng.randf_range(0.0, TAU)
 	var at: Vector3 = center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 	if bool(row["ground"]):
@@ -580,14 +663,26 @@ func _check_field_cleared() -> void:
 ## that makes "clear everything and you have dented the node by its garrison"
 ## true would have been wrong by exactly the held fraction.
 ##
-## What counts as being detected, given there is no ingress yet (W.q7): the first
-## time you announce yourself, by killing something or by touching the objective.
-## Both routes exist because both play styles do — a pilot who fights their way
-## in and a pilot who runs straight at the structure must each spring the trap.
+## What counts as being detected: the first time you announce yourself, by
+## killing something or by touching the objective. Both routes exist because both
+## play styles do — a pilot who fights their way in and a pilot who runs straight
+## at the structure must each spring the trap.
 ##
-## When there IS an ingress, this is the line to revisit: "detected" should
-## become a fact about your approach — how low, how fast, how masked — which is
-## what makes staying unseen the real counterplay P2.3 describes.
+## THE INGRESS HAS LANDED AND THIS DELIBERATELY DID NOT CHANGE (A6, 2026-08-03).
+## The obvious next move is to fire `detected` when a garrison unit can actually
+## SEE you, which is now possible for the first time and is what P2.3 means by
+## staying unseen. It is held back for one reason: the approach is flown over
+## flat, empty ground, because the greybox has no terrain past the arena. With
+## nothing to mask behind, being seen is not a decision — a sight test would fire
+## at a fixed distance on every sortie, so the only effect would be reserves
+## arriving ten seconds earlier, deterministically, with no new counterplay
+## bought. That is a difficulty change wearing a mechanic's clothes.
+##
+## It becomes real the day the biome brings terrain (P1.9, and A6's own
+## motivation — *"hills that allow a smart player... fly low to avoid SAM sites,
+## until he gets close and then do a surprise attack"*). Detection-on-sight and
+## cover are one feature; shipping half of it is shipping the half that only
+## takes.
 func _announce_yourself() -> void:
 	_fire_trigger(&"detected")
 

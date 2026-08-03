@@ -9,9 +9,18 @@
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("1_checker")
 
+; 600 m, not 200. The collision has always been a WorldBoundaryShape3D (an
+; infinite plane), so the mesh is purely how far you can SEE ground - and 200 m
+; centred on the origin ran out about 85 m from the arena centre. That was
+; survivable while every spawn was in the middle; the composed sortie's ingress
+; (A6) puts the pilot down 140-195 m out and points them inward, so the first
+; thing a sortie showed you was a drone parked over nothing. 600 m covers the
+; ingress in every direction AND the 300 m the FPV link lets you fly, so the
+; ground now reaches exactly as far as the leash does. The grid shader is
+; world-space, so a bigger plane changes the cell size not at all.
 [sub_resource type="PlaneMesh" id="mesh_ground"]
 material = SubResource("mat_ground")
-size = Vector2(200, 200)
+size = Vector2(600, 600)
 
 [sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
 

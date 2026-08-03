@@ -192,6 +192,21 @@ func disarm() -> void:
 	print("[drone] disarmed")
 
 
+## Move the drone AND the point B sends it back to, before anything is flown.
+##
+## THE SECOND HALF IS THE WHOLE REASON THIS EXISTS. `_spawn_transform` is
+## captured in `_ready`, and a child's `_ready` runs before its parent's — so a
+## scene that repositions the drone from its own `_ready` (which is exactly what
+## the composed sortie's ingress does, A6) would leave the reset key teleporting
+## the pilot back to wherever the .tscn happened to park them, which for a sortie
+## is the middle of the enemy base.
+func place_at(new_transform: Transform3D) -> void:
+	global_transform = new_transform
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	_spawn_transform = new_transform
+
+
 func reset_to_spawn() -> void:
 	disarm()
 	global_transform = _spawn_transform

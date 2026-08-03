@@ -208,7 +208,27 @@ what the composer actually produced:
 [sortie]   mid    6xturret 1xgnat
 [sortie]   inner  2xturret
 [sortie]   reserve on objective_damaged after 9.6s: 7xraider
+[sortie]   ingress: 148 m from the SW (bearing 237), 4 corridor(s), cover 0.85  [spec says 187 m of open ground]
 ```
+
+**YOU START OUTSIDE AND FLY YOUR OWN APPROACH** (A6, since 2026-08-03). The drone
+is put down on the deck 140-195 m from the target, on the bearing the spec
+carries, **facing what you came to hit** — so the whole brief is "it is straight
+ahead, that far", and how you cross the gap is yours. There is no waypoint
+marker: finding the target area by looking at it is the first decision of the
+approach.
+
+Two numbers make that band what it is, and both are asserted by `sortie_check`
+rather than remembered: it stays **above the 105 m egress line** by 25 m (or you
+would spawn on the far side of the line a strike ends by crossing) and **below
+the FPV link's 220 m warning** by 20 m (or the game says SIGNAL WEAK before you
+have moved). The distance itself comes from the biome: a city drops you at 140 m,
+open plains at 195 m. The `ingress:` line prints the arena metres first and the
+composer's own fiction figure in brackets — they differ on purpose, because
+`war/` is arena-agnostic and 400 m of desert does not fit inside a 300 m link.
+
+`corridors` and `cover` are printed and **not yet flown** — a corridor is a lane
+through terrain and there is no terrain past the arena yet (P1.9).
 
 **All seven archetypes fly** (since 2026-08-01; it was two for the whole of
 Iteration 12). Everything except the dogfight ends the same way: flatten the
@@ -337,6 +357,20 @@ fires twice or never. That last one is not hypothetical: a dogfight carries two
 reserves both keyed `wave_cleared`, and Godot hashes a Dictionary by content, so
 a spent-flag keyed by the trigger itself would collapse two structurally
 identical waves into one and silently never fire the second.
+
+It also guards **the ingress** (2026-08-03), which replaced a check that had gone
+wrong rather than one that was missing. The old assertion was *"every unit is
+placed within sight of what it guards"* — right about a pilot who starts in the
+middle, and with an approach to defend it would now FAIL a correctly placed
+mid-ring turret, since a turret 57 m out is covering the annulus you have to
+cross precisely by not hugging the centre. What replaces it: the spawn sits
+between the egress line and the signal leash (the leash's radius is read out of
+`sortie.gd` rather than retyped, so retuning one file cannot leave the check
+agreeing with a number nobody flies), it sits on the spec's own bearing, the
+pilot faces the target — and, the one that matters, **two nodes with different
+approaches must land at different distances**. A hard-coded spawn passes every
+distance assertion and is completely invisible, which is the state
+`spec["approach"]` was actually in for two months.
 
 `ammo_check` is `heat_check`'s mirror (v1.92): not a gun that never comes back,
 but a magazine that never refills. There are four ways to put rounds back and

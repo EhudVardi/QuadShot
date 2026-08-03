@@ -10655,3 +10655,69 @@ being rediscovered as a red board when A.q1 lands.
   - **Next: the INGRESS** (A6), decided and unblocked. The player will spawn
     outside the target area and fly their own approach, which retires the v2.12
     sight clamp rather than keeping it.
+
+- **2026-08-03 — v2.15. THE INGRESS IS BUILT (A6 / W.q7), and the sight clamp is
+  gone rather than kept.** The pilot now starts OUTSIDE the target area, on the
+  bearing the spec has carried since v1.71, facing what they came to hit, and
+  flies their own approach.
+  - **What was actually wrong, stated once so it is not rediscovered.**
+    `EnemyDrone._can_engage()` measures its distance to the PLAYER. The pilot
+    started at the arena centre, so every ring was measuring from the wrong end:
+    a garrison could be fully placed, fully alive, and engage nobody. That is the
+    whole of *"some sorties seem open, but when i fly into them nothing engages
+    with me"*.
+  - **v2.12's `SIGHT_COVERAGE` clamp was the compensation, and it is deleted.**
+    It pulled every defender inward until it could see the middle, which is only
+    the right answer for a pilot who is standing in the middle. The A/B that
+    justified deleting it rather than keeping both: `sortie_bench` has always
+    spawned outside and flown in, and node 12 read `best flak 0% (dent 9.7)`
+    clamped and unclamped — identical to one decimal. Two mechanisms for one
+    problem, where the second is the real fix, is how a compensation becomes a
+    rule nobody can remove later.
+  - **The one number that is not a direct reading of the spec, and why.**
+    `SortieComposer` emits `ingress_m` in FICTION units — 400 m over open desert,
+    150 m through a city — and is right to, because `war/` is pure and cannot
+    know how much air an arena has. This one has ~100 m of ground per direction
+    and an FPV link that drops at 300 m. So `SortieRunner` remaps the composer's
+    own band onto the band this arena can host, ORDER PRESERVED: 140 m (city) →
+    148 (industrial) → 173 (hills) → 195 (desert/plains). The runner is already
+    the only place a spec becomes a Node3D; it is therefore the only honest place
+    for fiction units to become world units.
+  - **The two constraints it had to fit between, both now asserted rather than
+    remembered.** Above `EGRESS_RADIUS` (105 m) by 25 m, or the pilot spawns on
+    the far side of the line a strike ends by crossing; below the FPV leash's
+    220 m warning by 20 m, or the game says SIGNAL WEAK before the pilot has
+    moved. Those two numbers live in two different files and nothing else
+    connected them — `sortie_check` now reads the leash off `sortie.gd` and
+    compares, so a later tuning pass cannot separate them silently.
+  - **The check that used to live there is replaced, not just deleted.** *"A
+    garrison that cannot see its own objective is not a garrison"* was the right
+    assertion about the wrong world, and with an ingress it would FAIL a
+    correctly placed mid-ring turret. What replaces it is the ingress geometry
+    plus an anti-constant pair: the point must sit on the spec's own bearing, and
+    two nodes with different `ingress_m` must land at different ranges. Without
+    that pair a hard-coded spawn would pass every distance assertion and be
+    invisible — which is exactly the state the approach block was in for two
+    months.
+  - **Detection-on-sight is now possible and was deliberately NOT built.** Firing
+    `detected` when a garrison unit can see you is the obvious completion, and
+    P2.3's staying-unseen counterplay wants it. It is held because the approach
+    is flown over flat empty ground: with nothing to mask behind, a sight test
+    fires at a fixed distance every time, so the only effect is reserves arriving
+    ten seconds earlier with no new counterplay bought. **Detection and cover are
+    one feature**, and shipping half of it ships the half that only takes. It
+    lands with P1.9's terrain, which is A6's own motivation.
+  - **`corridors` and `cover` are printed in the briefing and still unflown**, for
+    the same reason: a corridor is a lane through terrain and there is no terrain
+    yet. Printed rather than ignored, so the number a biome generator will have to
+    honour is visible now instead of being rediscovered.
+  - **The greybox ground went 200 m → 600 m.** Collision was always an infinite
+    `WorldBoundaryShape3D`, so the mesh only ever governed how far you can SEE
+    ground — and 200 m centred on the origin ran out ~85 m from the arena centre.
+    Survivable while every spawn was in the middle; with the pilot put down at
+    140-195 m and pointed inward, the first thing a sortie showed you was a drone
+    parked over nothing. It now reaches as far as the leash lets you fly.
+  - **`FlightController.place_at()` is new and the second half is the point.** A
+    child's `_ready` runs before its parent's, so `_spawn_transform` was already
+    captured by the time the scene moved the drone — B (reset) would have
+    teleported the pilot into the middle of the enemy base.

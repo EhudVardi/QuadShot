@@ -14,48 +14,53 @@ feels ordinary within minutes, and a report the user cannot parse cannot be
 argued with, which costs you the pushback that is the most valuable thing they
 give this project.
 
-**HEAD when this was written: the v2.14 commit. Working tree clean.
+**HEAD when this was written: the v2.15 commit. Working tree clean.
 `PILOT_VERSION` is 7. 19 headless checks, all passing.**
 
 ---
 
-## THE NEXT JOB: the INGRESS (Iteration 14, A6 — decided, unblocked)
+## WAITING ON THE HUMAN'S HANDS: the INGRESS (A6 / W.q7) — BUILT 2026-08-03
 
-**The player must spawn OUTSIDE the target area and fly their own approach.**
-Decided by the user 2026-08-03; read **A6** and **W.q7** before writing code.
+**The pilot now starts OUTSIDE the target area and flies their own approach.**
+Read the v2.15 entry at the tail of GAMEPLAY-DESIGN.md; TESTING.md says how to
+fly it. It is a FEEL change and the human's hands are the test, so nothing that
+depends on how the approach plays should be started before they have flown one.
 
-Why it is the next thing, in one paragraph: `sortie.tscn` currently starts the
-drone at the arena centre, INSIDE the concentric defensive rings, with the
-garrison arranged facing outward. That is why the user reported *"some sorties
-seem open, but when i fly into them nothing engages with me."* The v2.12
-`SIGHT_COVERAGE` clamp in `SortieRunner` was a compensation for it — pulling
-defenders inward so they can see the middle — and an A/B against the sortie bench
-(which has always spawned at 125 m and flown in) showed the clamp makes **no
-measurable difference** to an approaching pilot: node 12 read `best flak 0% (dent
-9.7)` clamped and unclamped, identical to one decimal. **So the ingress replaces
-the clamp; it does not sit alongside it.**
+What shipped, in four lines: the drone is put down on the deck 140-195 m out on
+`spec["approach"]["bearing_deg"]`, facing the target; `SIGHT_COVERAGE` and the
+check that guarded it are deleted rather than kept beside it; `sortie_check` now
+asserts the ingress against the egress line and the signal leash, on the spec's
+bearing, at a range that provably varies; and the greybox ground went 200 m to
+600 m so the approach is not flown over the void.
 
-What the user wants it to enable, in their words: *"one of the bioms can be some
-kind of an open field, where there are some hills that allow a smart player to use
-it to his advantage, fly low to avoid SAM sites, until he gets close and then do a
-suprise attack on the SAM defense, elevating the chance to complete the mission
-and escape."*
+**Two things were deliberately NOT built, and both have the same reason.**
+Detection-on-sight (firing `detected` when a garrison unit can see you) and the
+`corridors`/`cover` half of the approach both need somewhere to hide. The
+approach is currently flat empty ground, so a sight test would fire at a fixed
+distance on every sortie and buy no counterplay at all — reserves ten seconds
+earlier, nothing else. **Detection and cover are one feature**; they land with
+P1.9's terrain, which is A6's own motivation (*"hills that allow a smart player
+to... fly low to avoid SAM sites"*). Do not ship half of it.
 
-Known costs, accepted by the user (*"why wait?"*):
+### What to ask the human after they fly it
 
-1. **The signal-lost leash must agree with it.** `sortie.gd` anchors the leash at
-   the sortie centre (warn 220 m, lost 300 m). A spawn deliberately far out has
-   to be inside that, or the game cuts the link before the pilot arrives.
-2. **The egress is the same line in reverse** — a strike currently ends by flying
-   back out past 105 m, and an ingress makes "back out" mean something specific.
-3. `spec["approach"]` already carries `ingress_m`, `bearing_deg`, `corridors` and
-   `cover` and **nothing reads any of it**. That is the data the ingress is
-   supposed to consume.
+1. **Is 140-195 m the right band?** It is bounded below by the egress line and
+   above by the FPV leash, so there is not much room, but the whole band can
+   shift if the leash moves with it.
+2. **Is the target legible from the ingress?** There is no waypoint marker on
+   purpose. If they cannot find it, the answer is either a HUD marker or a
+   brighter objective, and that is a design call.
+3. **Does the layered garrison finally read as layers from the air?** That is the
+   thing the clamp was destroying and the whole reason this was worth doing.
 
-Then, in order: **the aegis rework** (A2, A.q1 decided — it stays only where
-bombers are BASED and flies outward, carrying a magazine), then **the Lance**
-(A5, A.q4 says after the aegis, A.q6 still open), then **the Phalanx** (A7 — the
-heavy defender the roster does not have, and the escalation anchor).
+### Then, in order
+
+**The aegis rework** (A2, A.q1 decided — it stays only where bombers are BASED
+and flies outward, carrying a magazine), then **the Lance** (A5, A.q4 says after
+the aegis, A.q6 still open), then **the Phalanx** (A7 — the heavy defender the
+roster does not have, and the escalation anchor). **P1.9's terrain** has moved up
+the list on its own merits: it is now blocking two named mechanics rather than
+being a look-and-feel item.
 
 ---
 

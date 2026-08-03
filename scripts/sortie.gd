@@ -11,10 +11,11 @@ extends Node3D
 ## extracting once it is real rather than anticipated.
 ##
 ## WHAT IS DELIBERATELY ABSENT, and each absence is a later phase rather than an
-## oversight: no ingress (W.q7 and the leash fight below), no dares, no draft, no
-## node selection UI. This scene exists to answer one question - does a
-## sortie_spec become a fight a human can fly - and everything else is downstream
-## of the answer.
+## oversight: no dares, no draft. This scene exists to answer one question - does
+## a sortie_spec become a fight a human can fly - and everything else is
+## downstream of the answer. Node selection is the war room's (C7); THE INGRESS
+## IS BUILT (A6, `_place_at_ingress` below), which is what the two paragraphs
+## below were written in anticipation of.
 ##
 ## `spec["pads"]` IS spent (W.q4, decided 2026-08-01) - the runner lays them, the
 ## repair gate comes first, and `sortie_check` asserts the count. This paragraph
@@ -37,6 +38,12 @@ extends Node3D
 ## That reframing is what Iteration 11's transit gate needs too (its far end is
 ## "somewhere else", not "too far"), and it is the third feature to trip one
 ## rule. Worth applying to `main.gd` the day something moves its arena.
+##
+## THE INGRESS PAID THAT FORWARD RATHER THAN RE-OPENING IT (A6). A spawn 140-195 m
+## out is the exact case the anchoring was worried about, and it needed no new
+## number: the ingress band is chosen to sit inside `signal_warn_m` with room to
+## drift, and `sortie_check` asserts the two against each other so a later tuning
+## pass cannot separate them silently. The leash keeps its shipped radii.
 
 @export var combat_config: CombatConfig
 @export var input_bindings: InputBindings
@@ -93,6 +100,7 @@ func _ready() -> void:
 	_read_command_line()
 	_compose()
 	_runner.center = WaveDirector.ARENA_CENTER
+	_place_at_ingress()
 	_runner.announced.connect(_hud.add_kill_feed)
 	_runner.enemy_destroyed.connect(_on_enemy_destroyed)
 	_runner.egress_opened.connect(_on_egress_opened)
@@ -197,6 +205,37 @@ func _compose() -> void:
 	_print_briefing()
 
 
+## THE INGRESS (Iteration 14 / A6, W.q7). The drone is taken off the scene's
+## spawn pad and put down outside the target area, on the bearing the spec
+## carries, facing what it came to hit — BEFORE the pilot arms, so the first
+## thing they ever see of a sortie is the target area from the outside.
+##
+## This is what the scene header used to call a deliberate absence. It was: the
+## pilot started in the middle of the rings, which is why a garrison could be
+## fully placed and still engage nobody, and why v2.12 needed a clamp to
+## compensate. The clamp is gone with it.
+##
+## The pad follows the drone, so the ingress reads as a forward position rather
+## than as a quad abandoned in a field. Null-guarded because a scene is allowed
+## to not have one.
+func _place_at_ingress() -> void:
+	if _spec.is_empty():
+		return
+	var at: Transform3D = SortieRunner.ingress_transform(_spec, _runner.center)
+	_drone.place_at(at)
+	var pad: Node3D = get_node_or_null("Greybox/SpawnPad")
+	if pad != null:
+		pad.global_position = Vector3(at.origin.x, pad.global_position.y, at.origin.z)
+
+
+## `bearing_deg` as a direction you can fly rather than a number you have to
+## convert. The ingress bearing is where YOU are relative to the target, so "from
+## the SE" is the phrasing that matches it.
+func _compass(bearing_deg: float) -> String:
+	const POINTS: PackedStringArray = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+	return POINTS[int(round(fposmod(bearing_deg, 360.0) / 45.0)) % 8]
+
+
 func _print_briefing() -> void:
 	if _spec.is_empty():
 		print("[sortie] the theater produced nothing this slice can build")
@@ -220,6 +259,21 @@ func _print_briefing() -> void:
 			parts.append("%dx%s" % [int(unit["count"]), unit["type"]])
 		print("[sortie]   reserve on %s after %.1fs: %s"
 				% [trigger["on"], float(trigger["after_s"]), " ".join(parts)])
+	# The approach (P2.4 / A6). `ingress_m` is printed in the composer's own
+	# fiction units NEXT TO the metres the arena actually gives you, because the
+	# two differ on purpose (SortieRunner's ingress header) and a briefing that
+	# showed only one of them would make the other look like a bug.
+	#
+	# `corridors` and `cover` are printed and NOT yet flown: a corridor is a lane
+	# through terrain, and the greybox has no terrain past the arena. They are
+	# here so the number a biome generator will eventually have to honour is
+	# visible now rather than discovered later.
+	var approach: Dictionary = _spec["approach"]
+	print("[sortie]   ingress: %d m from the %s (bearing %d), %d corridor(s), cover %.2f%s"
+			% [int(round(SortieRunner.ingress_range(_spec))),
+			_compass(float(approach["bearing_deg"])), int(approach["bearing_deg"]),
+			int(approach["corridors"]), float(approach["cover"]),
+			"  [spec says %d m of open ground]" % int(approach["ingress_m"])])
 	# The pad count is the pilot's single most important planning fact, and it is
 	# derived rather than authored: a heavily garrisoned node earns zero, which
 	# is P2.6's difficulty knob showing its working.
@@ -449,8 +503,13 @@ func _update_lock_indicator() -> void:
 			_missiles.auto_hold_progress())
 
 
+## The title card, which is now also the only navigation the pilot gets: the
+## drone is pointed at the target, so "it is straight ahead, this far" is the
+## whole brief. Deliberately not a HUD waypoint marker — finding the target area
+## by looking at it is the first decision of P2.4's approach.
 func _briefing_line() -> String:
 	if _spec.is_empty():
 		return "no flyable sortie for this seed"
-	return "%s - %s - arm to begin" % [String(_spec["archetype"]).to_upper(),
-			String(_spec["node_type"])]
+	return "%s - %s - target %d m ahead - arm to begin" % [
+			String(_spec["archetype"]).to_upper(), String(_spec["node_type"]),
+			int(round(SortieRunner.ingress_range(_spec)))]

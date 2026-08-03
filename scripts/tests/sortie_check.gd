@@ -46,6 +46,7 @@ var _probed: bool = false
 func _initialize() -> void:
 	_check_spec_shape()
 	_check_every_trigger_has_a_firing_site()
+	_check_ingress()
 	if not _failures.is_empty():
 		_report()
 		return
@@ -157,7 +158,6 @@ func _check_every_archetype_can_end() -> void:
 		_expect(runner.objectives.size() == assets,
 				"%s builds its %d objective structure(s) (got %d)"
 				% [archetype, assets, runner.objectives.size()])
-		_check_garrison_can_see_the_middle(archetype)
 
 		if assets == 0:
 			# The dogfight's ending is the field-cleared path, flown below.
@@ -182,52 +182,96 @@ func _check_every_archetype_can_end() -> void:
 		host.queue_free()
 
 
-## A GARRISON THAT CANNOT SEE ITS OWN OBJECTIVE IS NOT A GARRISON.
+## THE INGRESS (Iteration 14 / A6), which REPLACED the check that used to sit
+## here.
 ##
-## `EnemyDrone._can_engage()` gates pursuit as well as fire, so a unit whose ring
-## puts the centre outside its `sight_range` never advances on it — it wanders
-## for the whole sortie. That is not a subtle degradation: it is the difference
-## between a defended node and an empty one, and it is invisible from every
-## number this bench prints, because the units ARE there and the sortie DOES
-## complete.
+## What was here: "a garrison that cannot see its own objective is not a
+## garrison" — every unit had to be placed within `sight_range` of the centre,
+## which is what v2.12's `SIGHT_COVERAGE` clamp guaranteed. It was the right
+## assertion about the wrong world. `EnemyDrone._can_engage()` measures its
+## distance to the PLAYER, not to the objective, so the clamp was really saying
+## "every unit must be able to see a pilot standing in the middle" — true only
+## because there was no ingress and the pilot started there. With an approach to
+## defend, a mid-ring turret 57 m out covering the annulus a pilot has to cross
+## is doing its job precisely BY not hugging the centre, and the old check would
+## have failed it.
 ##
-## Reported by a human flying it ("nothing engages with me"), which is the third
-## time this project has learned that a body count is not a threat count.
+## What replaces it is the geometry the pilot's whole approach hangs off, and the
+## three things that can silently break it:
 ##
-## Placed on a real composed spec rather than a bare one, because the layer a
-## type lands in is the composer's decision and this is about the pair.
-func _check_garrison_can_see_the_middle(label: StringName) -> void:
+##   - the spawn drifting INSIDE `EGRESS_RADIUS`, which puts the pilot on the far
+##     side of the line a strike ends by crossing — the sortie would be
+##     half-over before it started;
+##   - the spawn drifting OUTSIDE the FPV link's warning radius, which greets the
+##     pilot with SIGNAL WEAK before they have moved. The leash and the ingress
+##     are tuned in two different files and nothing else connects them;
+##   - the bearing quietly not being read at all. A constant would pass every
+##     distance assertion above and be invisible, so the last two assertions are
+##     about VARIATION: the point has to sit on the spec's own bearing, and two
+##     nodes with different `ingress_m` have to land at different ranges.
+func _check_ingress() -> void:
 	var config := WarConfig.new()
 	var state: Dictionary = TheaterGenerator.generate(config, THEATER_SEED)
-	var host := Node3D.new()
-	root.add_child(host)
-	var runner := SortieRunner.new()
-	runner.center = Vector3(900.0, 0.0, 900.0)
-	host.add_child(runner)
+	var center := Vector3(-18.0, 0.0, -15.0)
 
-	var blind: int = 0
-	var placed: int = 0
+	# The leash's own numbers, read off the scene's script rather than retyped, so
+	# retuning one of the two files cannot leave this assertion agreeing with a
+	# radius nobody flies. `new()` on a Node3D script never runs `_ready`, so no
+	# @onready node paths are touched.
+	var probe: Node = (load("res://scripts/sortie.gd") as GDScript).new()
+	var warn_m: float = float(probe.get(&"signal_warn_m"))
+	probe.free()
+
+	var checked: int = 0
+	var ranges: Dictionary = {}   # ingress_m (fiction) -> world range
+	var too_close: int = 0
+	var too_far: int = 0
+	var off_bearing: int = 0
+	var facing_away: int = 0
 	for node: Dictionary in state["nodes"]:
 		var spec: Dictionary = SortieComposer.compose(node, state, config)
-		if spec["archetype"] != label:
+		if not SortieComposer.is_slice_ready(spec):
 			continue
-		runner.start(spec)
-		for unit: Node in runner.units:
-			var unit_config: EnemyConfig = unit.get(&"enemy_config") as EnemyConfig
-			if unit_config == null or unit_config.sight_range <= 0.0:
-				continue  # the aegis flies a route and never looks at you
-			placed += 1
-			var flat: float = Vector2(
-					(unit as Node3D).global_position.x - runner.center.x,
-					(unit as Node3D).global_position.z - runner.center.z).length()
-			if flat > unit_config.sight_range:
-				blind += 1
-		break
-	if placed > 0:
-		_expect(blind == 0,
-				"%s places every unit within sight of what it guards (%d of %d blind)"
-				% [label, blind, placed])
-	host.queue_free()
+		checked += 1
+		var at: Transform3D = SortieRunner.ingress_transform(spec, center)
+		var flat: Vector3 = at.origin - center
+		flat.y = 0.0
+		var range_m: float = flat.length()
+		ranges[float(spec["approach"]["ingress_m"])] = range_m
+		# Outside the fight, with enough room that the trip in is a leg of the
+		# sortie rather than a nudge over the line.
+		if range_m < SortieRunner.EGRESS_RADIUS + 25.0:
+			too_close += 1
+		if range_m > warn_m - 20.0:
+			too_far += 1
+		# On the spec's bearing, to a degree.
+		if flat.normalized().angle_to(SortieRunner.ingress_direction(spec)) > 0.02:
+			off_bearing += 1
+		# And pointed at the target: drone front is body -Z.
+		if (-at.basis.z).angle_to(-flat.normalized()) > 0.02:
+			facing_away += 1
+
+	_expect(checked > 0, "the theater offers sorties to compute an ingress for (%d)" % checked)
+	_expect(too_close == 0,
+			"every ingress starts outside the egress line by 25 m or more (%d too close)"
+			% too_close)
+	_expect(too_far == 0,
+			"and inside the FPV link's %d m warning with room to drift (%d too far)"
+			% [int(warn_m), too_far])
+	_expect(off_bearing == 0,
+			"every ingress sits on the bearing its spec carries (%d off)" % off_bearing)
+	_expect(facing_away == 0,
+			"and the pilot is put down facing the target (%d pointed away)" % facing_away)
+	# The anti-constant assertion: if the theater offers two different approaches,
+	# the runner must place them at two different distances, or `ingress_m` is
+	# being ignored exactly as it was before this landed.
+	var distinct_specs: int = ranges.size()
+	var distinct_ranges: Dictionary = {}
+	for key: float in ranges:
+		distinct_ranges[ranges[key]] = true
+	_expect(distinct_specs < 2 or distinct_ranges.size() > 1,
+			"different approaches give different ingress ranges (%d specs -> %d ranges)"
+			% [distinct_specs, distinct_ranges.size()])
 
 
 ## ---------- Part A: the runner's contracts, without an arena ----------
