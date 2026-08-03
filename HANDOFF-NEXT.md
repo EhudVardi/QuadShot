@@ -2,16 +2,64 @@
 
 A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 [TESTING.md](TESTING.md) and [BALANCE.md](BALANCE.md) first, then the tail of
-[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) (entries v1.94–v2.02, plus Iteration 12
-itself and **W.q8**) for how the current state was arrived at. For the war room
-specifically, read **P1.8** and **P1.2** (node taxonomy) before writing anything.
+[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) — entries **v2.03–v2.14** are this
+session's, and **Iteration 14 (A1–A7, A.q1–A.q6)** is the one that decides what
+happens next.
 
-**HEAD when this was written: `71f482a`. Working tree clean. `PILOT_VERSION` is
-7. 18 headless checks, all passing. The balance board is GREEN on all three
-layers.**
+**BEFORE WRITING ANY REPORT, read `.claude/skills/report-back/SKILL.md`.** The
+user asked for it explicitly (2026-08-03): every report is Goal / Terms / What I
+found / What's next, and the Terms section defines every coined or project word.
+The reason matters more than the rule — working alone you invent vocabulary that
+feels ordinary within minutes, and a report the user cannot parse cannot be
+argued with, which costs you the pushback that is the most valuable thing they
+give this project.
 
-**THE NEXT JOB IS THE WAR ROOM (P1.8), agreed with the user 2026-08-01.** Go to
-section 4 first; sections 1-3 are the state it starts from.
+**HEAD when this was written: the v2.14 commit. Working tree clean.
+`PILOT_VERSION` is 7. 19 headless checks, all passing.**
+
+---
+
+## THE NEXT JOB: the INGRESS (Iteration 14, A6 — decided, unblocked)
+
+**The player must spawn OUTSIDE the target area and fly their own approach.**
+Decided by the user 2026-08-03; read **A6** and **W.q7** before writing code.
+
+Why it is the next thing, in one paragraph: `sortie.tscn` currently starts the
+drone at the arena centre, INSIDE the concentric defensive rings, with the
+garrison arranged facing outward. That is why the user reported *"some sorties
+seem open, but when i fly into them nothing engages with me."* The v2.12
+`SIGHT_COVERAGE` clamp in `SortieRunner` was a compensation for it — pulling
+defenders inward so they can see the middle — and an A/B against the sortie bench
+(which has always spawned at 125 m and flown in) showed the clamp makes **no
+measurable difference** to an approaching pilot: node 12 read `best flak 0% (dent
+9.7)` clamped and unclamped, identical to one decimal. **So the ingress replaces
+the clamp; it does not sit alongside it.**
+
+What the user wants it to enable, in their words: *"one of the bioms can be some
+kind of an open field, where there are some hills that allow a smart player to use
+it to his advantage, fly low to avoid SAM sites, until he gets close and then do a
+suprise attack on the SAM defense, elevating the chance to complete the mission
+and escape."*
+
+Known costs, accepted by the user (*"why wait?"*):
+
+1. **The signal-lost leash must agree with it.** `sortie.gd` anchors the leash at
+   the sortie centre (warn 220 m, lost 300 m). A spawn deliberately far out has
+   to be inside that, or the game cuts the link before the pilot arrives.
+2. **The egress is the same line in reverse** — a strike currently ends by flying
+   back out past 105 m, and an ingress makes "back out" mean something specific.
+3. `spec["approach"]` already carries `ingress_m`, `bearing_deg`, `corridors` and
+   `cover` and **nothing reads any of it**. That is the data the ingress is
+   supposed to consume.
+
+Then, in order: **the aegis rework** (A2, A.q1 decided — it stays only where
+bombers are BASED and flies outward, carrying a magazine), then **the Lance**
+(A5, A.q4 says after the aegis, A.q6 still open), then **the Phalanx** (A7 — the
+heavy defender the roster does not have, and the escalation anchor).
+
+---
+
+## Sections 1-4 below are the older state, kept for the reasoning trail
 
 ---
 

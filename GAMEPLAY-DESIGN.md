@@ -10500,6 +10500,94 @@ signal-lost leash agree with a spawn that is deliberately far out, the user was
 unambiguous: *"i believe its worth it because we'll eventually want this anyways,
 why wait?"*
 
+### A7 — THE ESCALATION GAP, and why it needs a type that belongs in defence
+
+Raised by the user while answering A.q1, and it is the sharpest point in the
+conversation:
+
+> *"in order to 'feel' an escalation we must introduce tougher enemies, and not
+> simply spawn more and more raiders. however if it means we deploy an enemy unit
+> that has no reason to be there it breaks the immersion, and simply feels off.
+> why would the enemy deploy his bombers in his own teritory? doesnt make sense."*
+
+That is a genuine hole and it was previously hidden by the bug. P4.6 says a
+pressured enemy fields **heavier things rather than more things**, and
+`HEAVY_TYPES` is `[aegis, screamer]` — but once the aegis correctly leaves
+defensive garrisons (A.q1), the only heavy thing left in defence is a jammer with
+no weapon. **"The war escalates" would mean "the war gets foggier", and nothing
+else.** The roster has no heavy DEFENDER at all.
+
+**Phalanx — the heavy gunship** (the user's sketch, named to the roster's own
+convention). Their words: *"a heavy frame that moves slower and has multiple
+turrets that fire at me at the same time, something like the aegis but faster,
+carrying a shield/force field, and has multiple vectors of attack on the player."*
+
+- *Durability:* shielded like the aegis, but the shield is a **facing** thing
+  rather than a flat gate — the counter is to be where the guns are not.
+- *Mobility:* slow (~0.6× raider) and deliberate; it does not chase, it holds
+  ground and denies it.
+- *Threat:* hull, from **several turrets at once**, which is what makes it
+  different from every existing type: it has no blind side you can simply sit in.
+  It is the first enemy that punishes a single orbit slot.
+- *Behavior:* holds a station near what it guards. The telegraph is spin-up —
+  turrets tracking before they fire, so the commitment is visible.
+- *Web role:* the anti-orbit type. It punishes the peel-and-kill rhythm the
+  raider deliberately allows (P4.2 calls raider spacing "peelable"), and is
+  answered by stand-off weapons, by terrain, and by killing it from one arc while
+  its shield faces another.
+- *Terrain:* open ground is its best; cover is the player's whole answer.
+- *Strategic:* **THIS is the escalation anchor.** A besieged enemy digging in
+  behind heavier defensive hardware is immersive in a way that a bomber parked in
+  its own back yard is not — which is exactly the user's objection, answered.
+
+Not scheduled here. Recorded so the escalation hole has a named shape rather than
+being rediscovered as a red board when A.q1 lands.
+
+### A steering — ANSWERED (2026-08-03, same day)
+
+- **A.q1 → DECIDED: (a) the aegis stays only where bombers are BASED** — enemy
+  airbase and HQ — and flies OUTWARD from there. It reads as scrambling from its
+  own field rather than guarding it, and the escalation and HQ assertions
+  survive the change. The user's reasoning is the fiction, not the arithmetic:
+  *"why would the enemy deploy his bombers in his own teritory?"* — a bomber
+  sitting at an airbase is a bomber at home; a bomber ringing a radar dish is a
+  design error you can see from the cockpit.
+- **A.q2 → DECIDED: yes, the payload is a magazine**, in the same group and the
+  same vocabulary Iteration 10 built for the player. A bomber out of bombs is
+  then legible exactly like a pilot out of flak, and one mechanism covers both.
+- **A.q3 → DECIDED to the lean, but the user's reasoning is BETTER than the lean
+  and is recorded as the destination.** They pointed out that the intuitive
+  consequence of killing a bomber is that **the node that LAUNCHED it gets
+  weaker** — you did not just survive a raid, you destroyed hardware belonging to
+  a specific place on the map. That is correct and it is not something the war
+  can currently express: nothing in the state records which node a raid came
+  from, so there is no provenance to price. Their own conclusion, having seen
+  that: *"if not, and i guess its not in our design, then yes, your option is the
+  simplest and most clean. it prices the player for both not being able to stop
+  it AND failure to destroy it before it escapes."*
+  - **So: an escaped bomber damages the node it flew AT, for now.**
+  - **And a new item is on the board: raid PROVENANCE.** When bomber raids are
+    built (P4.2's "intercept sortie the war generates"), the raid should carry the
+    id of the node that launched it, so killing the bomber dents THAT node. It is
+    a small field on a structure that does not exist yet, which is exactly when it
+    is cheapest to add.
+- **A.q4 → DECIDED: the Lance ships AFTER the aegis rework.** One at a time; the
+  aegis is broken now and the new type needs its own behaviour check the day it
+  lands (standing rule 2).
+- **A.q5 → DECIDED: Lance**, chosen over the user's "daredevil" and "torpedo" and
+  offered back with the reasoning, since they left it to me. The roster's names
+  are weapon-and-armour nouns from antiquity — **falx** is a curved sword,
+  **aegis** is a shield — so **lance** sits in the family and says "committed
+  straight line" without saying "bomb". "Torpedo" was the close second and reads
+  naval; "daredevil" describes a pilot's attitude rather than a machine.
+- **The suicider's TARGET is left open on purpose.** The user expected it to be
+  *"more like a ticking bomb that i need to stop before they hit their target
+  which is not necessarily me"*, and on hearing the player-seeking version said
+  *"a fast suicider coming at me sounds like a cool addition"*. Both are good and
+  they are different enemies: one is a second aegis at small scale, the other is
+  an evasion test aimed at you. **A.q6, to be answered when the Lance is
+  scheduled.**
+
 ### A open questions (react by ID)
 
 - **A.q1 — Where does the aegis live until bomber raids exist?** (a) **Leave it
@@ -10524,3 +10612,46 @@ why wait?"*
   it lands. One at a time.
 - **A.q5 — Is "Lance" the right name?** Weak lean, offered to be overruled:
   short, hard, and it says "committed straight line" without saying "bomb".
+
+- **2026-08-03 — v2.14. Iteration 14 steered the same day, and the user found the
+  hole that the aegis bug had been hiding.** A.q1-A.q5 answered, A7 added, A.q6
+  opened.
+  - **A.q1 → the aegis stays only where bombers are BASED** (enemy airbase, HQ)
+    and flies outward from there. The user's argument is fiction rather than
+    arithmetic and is the right one: *"why would the enemy deploy his bombers in
+    his own teritory?"* A bomber at an airbase is a bomber at home; a bomber
+    ringing a radar dish is a design error visible from the cockpit.
+  - **THE ESCALATION HOLE, which is the real find (A7).** The user: *"in order to
+    'feel' an escalation we must introduce tougher enemies, and not simply spawn
+    more and more raiders. however if it means we deploy an enemy unit that has no
+    reason to be there it breaks the immersion."* Correct, and it was concealed by
+    the bug: `HEAVY_TYPES` is `[aegis, screamer]`, so the moment the aegis
+    properly leaves defensive garrisons, **the only heavy thing left in defence is
+    a jammer with no weapon** — "the war escalates" would mean "the war gets
+    foggier" and nothing else. **The roster has no heavy DEFENDER at all.**
+    Recorded as the Phalanx: a slow, shielded, multi-turret gunship whose shield
+    is a facing rather than a flat gate, and which is the first enemy that
+    punishes a single orbit slot. It is the escalation anchor that belongs in its
+    own territory.
+  - **A.q3: the user's reasoning beat my lean, and the lean still stands.** They
+    pointed out that killing a bomber should intuitively weaken **the node that
+    LAUNCHED it** — you destroyed hardware belonging to a specific place. That is
+    right and the war cannot express it: nothing records a raid's provenance. They
+    reached the practical conclusion themselves — *"then yes, your option is the
+    simplest and most clean"* — so an escaped bomber damages the node it flew AT
+    for now, and **raid provenance goes on the board** as a field to add when
+    bomber raids are built, which is the cheapest moment it will ever exist.
+  - **A.q5 → Lance**, decided by me because the user left it to me, and offered
+    back with the reasoning rather than just the pick: the roster's names are
+    weapon-and-armour nouns from antiquity (**falx** a curved sword, **aegis** a
+    shield), so **lance** joins the family and says "committed straight line"
+    without saying "bomb". Their "torpedo" was the close second and reads naval;
+    "daredevil" describes a pilot rather than a machine.
+  - **A.q6 opened: what is the Lance actually aimed at?** The user expected a
+    ticking bomb aimed at something that is *not necessarily the player*, and on
+    hearing the player-seeking version liked that too. They are different enemies
+    — one is a small aegis, the other is an evasion test — and the choice waits
+    until the Lance is scheduled.
+  - **Next: the INGRESS** (A6), decided and unblocked. The player will spawn
+    outside the target area and fly their own approach, which retires the v2.12
+    sight clamp rather than keeping it.
