@@ -529,12 +529,16 @@ func _print_curve() -> void:
 	for i: int in _cells.size():
 		var depth: int = int(_cells[i]["depth"])
 		if not by_depth.has(depth):
-			by_depth[depth] = {"complete": 0, "reps": 0, "hull": 0.0}
+			by_depth[depth] = {"complete": 0, "reps": 0, "hull": 0.0, "cleared": 0.0}
+		var garrison: float = maxf(float(_cells[i]["garrison"]), 0.001)
 		for r: Dictionary in _results:
 			if int(r["cell"]) != i:
 				continue
 			by_depth[depth]["reps"] = int(by_depth[depth]["reps"]) + 1
 			by_depth[depth]["hull"] = float(by_depth[depth]["hull"]) + float(r["hull"])
+			# CLEARED FRACTION: how much of the node the pilot actually took apart
+			# before it died. See the print below for why this is here.
+			by_depth[depth]["cleared"] = float(by_depth[depth]["cleared"]) 					+ float(r["dent"]) / garrison
 			if r["outcome"] == &"complete":
 				by_depth[depth]["complete"] = int(by_depth[depth]["complete"]) + 1
 	var depths: Array = by_depth.keys()
@@ -544,9 +548,22 @@ func _print_curve() -> void:
 		var reps: int = int(row["reps"])
 		if reps == 0:
 			continue
-		print("[sortie_bench]   %d hop(s) out: %3.0f%% complete, %3.0f%% hull, %d reps"
+		print("[sortie_bench]   %d hop(s) out: %3.0f%% complete, %3.0f%% cleared, %3.0f%% hull, %d reps"
 				% [depth, float(row["complete"]) / float(reps) * 100.0,
+				float(row["cleared"]) / float(reps) * 100.0,
 				float(row["hull"]) / float(reps) * 100.0, reps])
 	print("[sortie_bench] H6 wants pocket 70-85%, mid 45-65%, deep 30-50%, HQ 25-40%")
+	# WHY THE SECOND COLUMN EXISTS (2026-08-03). The first full-theater sweep -
+	# 78 cells, 234 reps, all seven archetypes - returned 0% complete at EVERY
+	# depth from 3 to 10. A saturated column has no resolution: every node reads
+	# identical and the curve H6 asks for cannot be seen at all.
+	#
+	# The signal was in the dent the whole time. `cleared` is the fraction of the
+	# node's own strength the pilot took apart before dying, and across that same
+	# sweep it fell 54% -> 21% from depth 3 to depth 7 - a real gradient, in a
+	# metric that does not saturate when the pilot always dies. It is the SHAPE
+	# H6 wants even though it is not the UNIT H6 named.
+	print("[sortie_bench] `cleared` is the fraction of the node taken apart before dying:")
+	print("[sortie_bench] it keeps its resolution when `complete` saturates at 0%.")
 	print("[sortie_bench] read against a STOCK KESTREL + BLASTER - no earned loadout,")
 	print("[sortie_bench] no frame choice, so a low deep number is expected here.")

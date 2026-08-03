@@ -10313,3 +10313,49 @@ phase that needs them.
     2-rep sweep cannot say whether a node is in band. Settings in the invocation
     also keeps BALANCE.md's rule enforceable — runs compare only at identical
     settings, so the settings belong where the run records them.
+
+- **2026-08-03 — v2.13. THE LONG SWEEP: H7's debt is finally addressed, the SDI
+  turns out to SATURATE, and my own prediction about it was wrong.** 78 cells x
+  3 reps at a 300 s cap, every enemy node of theater 4242 with all seven
+  archetypes open — the run H7 has been waiting for since v1.7.
+  - **234 reps, zero completions, at every depth from 3 to 10.** The completion
+    rate IS the SDI (H6), and pinned at 0% it has no resolution: every node reads
+    identical, so the curve cannot be seen. Not because it is absent — because
+    the instrument is against its stop.
+  - **I PREDICTED THE CAUSE AND I WAS WRONG, which is why the A/B was run before
+    anything was concluded.** The night before, I wrote down that I expected my
+    own sight-clamp (v2.12) to be the reason, since it concentrates a garrison.
+    Node 12 re-flown with the clamp DISABLED: `best flak 0% (dent 9.7)` —
+    **identical to the clamped run, to one decimal**, with per-cell dents
+    matching within noise (blaster 3.0 vs 3.1, flak 9.7 vs 9.7, missile 3.6 vs
+    4.2). The clamp is a near no-op for a pilot that approaches from outside,
+    which is exactly what the bench does from 125 m. It changes only the case it
+    was written for — a pilot starting INSIDE the rings — so it neither caused
+    this result nor corrupted the measurement.
+  - **THE SIGNAL WAS IN THE DENT ALL ALONG.** Priced as a fraction of the node's
+    own strength, the same sweep gives a real gradient: **54% at depth 3, 52%,
+    39%, 29%, 21% at depth 7**, then flat at 26-28% because `garrison_cap` is 40
+    and every deep node sits at it. That is H6's SHAPE in a unit H6 never named,
+    and `sortie_bench` now prints it as a `cleared` column beside `complete`. An
+    instrument that reports a saturated metric and hides an unsaturated one is
+    the instrument's bug, not the game's.
+  - **The blaster is never a node's best answer: 0 of 26.** Flak 13, missile 13,
+    an exact split. R.q1 called the blaster the FLOOR weapon that never runs out;
+    this is that claim measured at sortie scale rather than asserted.
+  - **The theater has no pocket to measure.** Its shallowest enemy node is 3 hops
+    out because the player's pocket is 2, so H6's `pocket 70-85%` band has never
+    been measurable on this seed. The 54% at depth 3 is the shallowest reading
+    that EXISTS, not the shallow end of the band.
+  - **Five cells are rig faults and the bench's own guard caught them.** Node
+    16's blaster reps are the sharpest: **300 s, 0% hull taken, nothing killed.**
+    The pilot flew for five minutes, was never shot at, and could not hurt what
+    it was aiming at — an aegis, whose shield hard-counters a chip gun (P4.3), on
+    a node garrisoned by aegis and screamers. **Nothing there can threaten the
+    pilot and the pilot cannot threaten it.** That is the aegis passivity flagged
+    in v2.12 arriving as a measurement, and it is the strongest argument yet for
+    giving the aegis somewhere to go.
+  - **What this does NOT license: tuning.** H6 is explicit that difficulty is
+    measured, not authored, and the reading is against a STOCK KESTREL with one
+    weapon and no earned loadout — un-comparable to bands that describe an
+    equipped pilot. The finding is the SHAPE and the saturation, not a verdict on
+    any node's number.

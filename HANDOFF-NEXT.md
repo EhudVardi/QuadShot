@@ -265,9 +265,14 @@ briefing and debrief screens are largely reformatting text that already exists.
    firing site (`detected`) plus P1.5's HQ shield, which was enforced for the
    proxy and not for the player. **None of the five have been measured** — that
    is now job 2's problem, and it has more to chew on than it did before.
-2. **The long `sortie_bench` sweep at a realistic cap.** The 150 s cap is below
-   P2.q6's own 4-8 minute target, so every completion number so far is a FLOOR,
-   not a verdict. This is what H7's 127-sortie debt has been waiting for.
+2. ~~**The long `sortie_bench` sweep at a realistic cap.**~~ **RUN 2026-08-03
+   (v2.13):** 78 cells x 3 reps at a 300 s cap, all seven archetypes. **The SDI
+   SATURATES** - 234 reps, zero completions at every depth - so the completion
+   rate cannot see the curve at all. The signal is the DENT priced as a fraction
+   of the node's strength: **54% cleared at depth 3 falling to 21% at depth 7**,
+   then flat because `garrison_cap` is 40. `sortie_bench` now prints that as a
+   `cleared` column. Read BALANCE.md's "The SDI saturates" section before acting
+   on any of it - three caveats there decide what the numbers mean.
 3. **The Sentinel**, closing the bestiary. Least urgent: six types is already
    more variety than two archetypes can show off.
 

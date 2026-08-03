@@ -65,6 +65,13 @@ composer sets inputs, and this is the thing that reads the difficulty back out.
 Until it existed, the only difficulty signal in the project came from
 `war_soak`'s abstract proxy, which is a coin weighted by a `skill` float.
 
+**Read `cleared` before you believe a completion rate**, and read `dent` before
+you believe either. The first full-theater sweep (2026-08-03) returned **0%
+complete at every depth** — a saturated column with no resolution — while the
+`cleared` fraction fell 54% -> 21% from depth 3 to depth 7. When the pilot always
+dies, "how much of the node did it take apart" is the metric that still has a
+gradient in it.
+
 **Read `dent` before you believe a completion rate.** A cell reading 0% is
 equally consistent with a hard sortie and a broken rig, and the dent is the
 cheapest way to tell them apart: it is the war-currency value of what the pilot

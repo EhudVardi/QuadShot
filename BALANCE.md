@@ -289,6 +289,59 @@ fight, demoted from source-of-truth to cross-check: predicted product
 not noise — it NAMES an un-modeled factor (survival pressure, the deadline,
 the economy) to go model or accept. NOT for: populating the table.
 
+## The SDI saturates, and `cleared` is the column with the signal
+
+**Measured 2026-08-03**, first full-theater sweep: 78 cells (every enemy node x
+three weapons), 3 reps, 300 s cap, pilot v7, theater 4242, all seven archetypes
+open. **234 reps, 184 lost, 50 timed out, ZERO completions at every depth from 3
+to 10.**
+
+A completion rate pinned at 0% has no resolution. Every node reads identical, so
+the curve H6 asks for is invisible - not because it is absent, but because the
+instrument is against its stop.
+
+**The signal was in the dent the whole time.** Priced as a fraction of the node's
+own strength - how much of it the pilot took apart before dying - the same sweep
+produces a real gradient:
+
+| depth | mean garrison | fraction of the node cleared |
+|---|---|---|
+| 3 | 15.5 | **54%** |
+| 4 | 18.0 | 52% |
+| 5 | 20.5 | 39% |
+| 6 | 23.0 | 29% |
+| 7 | 34.8 | **21%** |
+| 8-10 | 37-40 | 26-28% (flat) |
+
+It falls by more than half from the shallow band to depth 7, then flattens
+because `garrison_cap` is 40 and the deep nodes are all at it. That is H6's SHAPE
+in a unit H6 did not name, and `sortie_bench` now prints it as a `cleared` column
+beside `complete` for exactly that reason.
+
+### Three things to know before reading any of those numbers
+
+1. **The pilot flies a STOCK KESTREL with ONE weapon**, no upgrades, no frame
+   choice, no pads spent by a human's judgement. H6's bands (pocket 70-85%)
+   describe an equipped pilot. 0% completion for a bare airframe against a full
+   garrison is not obviously wrong; it is un-comparable to the band.
+2. **The blaster is NEVER a node's best answer** - 0 of 26 nodes. Flak took 13
+   and the missile 13, an exact split. The chip gun is the floor weapon (R.q1)
+   and this is that statement measured at sortie scale.
+3. **THE THEATER HAS NO POCKET.** Its shallowest enemy node is 3 hops out,
+   because the player's pocket is 2. H6's pocket band cannot be measured on this
+   seed at all, and the 54% at depth 3 is the shallowest reading that exists
+   rather than the shallow end of the curve.
+
+### Five cells are rig faults, and the bench said so itself
+
+`dent 0.0 over 3 reps - the pilot never killed anything` fired on node 5 blaster,
+node 10 flak, node 16 blaster AND flak, and node 17 blaster. Node 16's blaster
+reps are the clearest: **300 s, 0% hull taken, nothing killed.** The pilot flew
+for five minutes, was never shot at, and could not hurt what it was aiming at -
+an aegis, whose shield hard-counters a chip gun (P4.3), on a node whose garrison
+is aegis and screamers. Nothing there can threaten the pilot and the pilot cannot
+threaten it. That is a stalemate the bench correctly refuses to call difficulty.
+
 ## The rulers
 
 - **PILOT_VERSION** (in `reference_pilot.gd`): one AI brain flies every
