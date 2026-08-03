@@ -342,6 +342,28 @@ an aegis, whose shield hard-counters a chip gun (P4.3), on a node whose garrison
 is aegis and screamers. Nothing there can threaten the pilot and the pilot cannot
 threaten it. That is a stalemate the bench correctly refuses to call difficulty.
 
+### The rig changed on 2026-08-03, so that whole table has a boundary under it
+
+`sortie_bench` used to spawn the pilot at a rig-invented **125 m on a fixed +Z
+bearing**, because the game had no ingress for it to borrow. The game has one now
+(A6): the pilot is put down on the node's own approach, **140-195 m out depending
+on the biome**, on the bearing the spec carries. The bench takes it — an
+instrument that measures a different approach from the one the player flies is
+measuring a different game.
+
+**Numbers taken before that date and after it are not comparable**, exactly as
+BALANCE.md's standing rule says of any settings change. Nothing else about the
+sweep moved, so a run at identical settings (`--reps 3 --cap 300`) across the
+boundary is a clean **A/B on the ingress itself**, and that is the only thing it
+is: it says what moving the spawn did, not what the game is worth.
+
+**The one deviation from the game, stated because it bounds every number here:**
+the game puts the pilot on the DECK and the bench keeps them at 14 m cruise.
+`ReferencePilot` has no take-off behaviour and teaching it one is a
+`PILOT_VERSION` bump plus a full board re-measure. So the bench flies the right
+distance on the right bearing at the wrong height, and a human's first seconds
+are a climb this does not model.
+
 ## The rulers
 
 - **PILOT_VERSION** (in `reference_pilot.gd`): one AI brain flies every

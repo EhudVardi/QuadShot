@@ -35,6 +35,13 @@ extends SceneTree
 ##    multi-unit fight is a commander's judgement the pilot does not have. The
 ##    policy below is deliberately simple and stated, so a number can be read as
 ##    "the model under THIS policy" rather than as an unqualified difficulty.
+## 2b. **IT FLIES THE GAME'S INGRESS SINCE 2026-08-03, so numbers taken before
+##    that date are not comparable to numbers taken after it.** The pilot used to
+##    start at a rig-invented 125 m on a fixed bearing; it now starts on the
+##    node's own approach (`SortieRunner.ingress_transform`), which is 140-195 m
+##    depending on the biome. Everything else about the sweep is unchanged, so a
+##    run at identical settings across that boundary is a clean A/B on the
+##    ingress itself — see BALANCE.md.
 ## 3. **REPS ARE NOT INDIVIDUALLY REPRODUCIBLE, AND THAT IS THE POINT.** The
 ##    runner seeds its own layout from the spec, so every rep faces the same
 ##    garrison in the same places — but flyers self-randomize their AI in
@@ -67,16 +74,31 @@ const THEATER_SEED: int = 4242
 ## stale arena assumption.
 const ARENA_CENTER := Vector3.ZERO
 const SPAWN_ALTITUDE: float = 14.0
-## How far out the pilot starts.
+## WHERE THE PILOT STARTS IS NO LONGER THIS BENCH'S DECISION (A6, 2026-08-03).
 ##
-## THE FIRST VALUE WAS 90 AND IT WAS MEASURING THE WRONG THING. The outer ring
+## It used to be `SPAWN_DISTANCE = 125.0` on a fixed +Z bearing — a rig invented
+## here because the game had no ingress to borrow. The game has one now, so the
+## bench takes it: `SortieRunner.ingress_transform` puts the pilot on the node's
+## own approach, at the range its biome earns (140 m through a city, 195 m over
+## open plains) and on the bearing the spec carries. An instrument that measures
+## a different approach from the one the player flies is measuring a different
+## game, and the whole point of the sortie layer is that it does not.
+##
+## THE ONE DEVIATION, stated because it changes what a number here means: the
+## game puts the pilot on the DECK and the bench keeps them at cruise altitude.
+## `ReferencePilot` has no take-off behaviour, and teaching it one is a pilot
+## behaviour change — a `PILOT_VERSION` bump and a full re-measure of every cell
+## on the board. So the bench flies the right distance and the right bearing at
+## the wrong height, and a human's first ten seconds are climb that this does not
+## model.
+##
+## The old constant's scar is kept because its lesson still bounds the band:
+## **the first value was 90 and it was measuring the wrong thing.** The outer ring
 ## sits at 74 +/- 9, so it reaches 83 - and a turret's 45 m sight range meant a
 ## mid-ring emplacement could open fire on the spawn point before the pilot had
 ## moved. Node 8 died in 5.3 s with a dent of 0.6, which reads as a crushing
 ## sortie and was actually a rig placing the pilot inside the envelope with no
-## approach. Past the outer ring by a clear margin, so the fight starts when the
-## pilot decides it does.
-const SPAWN_DISTANCE: float = 125.0
+## approach. The shipped ingress floor is 140 m, comfortably past that.
 
 ## The gun director's solution window, matching the duel harness exactly.
 ##
@@ -240,7 +262,14 @@ func _build() -> void:
 	# refuses `user://` overrides. An instrument measures what is committed.
 	_drone = Frames.build(Frames.KESTREL)
 	_arena.add_child(_drone)
-	_drone.global_position = ARENA_CENTER + Vector3(0.0, SPAWN_ALTITUDE, SPAWN_DISTANCE)
+	# The game's ingress, at the bench's altitude (see SPAWN_ALTITUDE's note).
+	# Transform, not position: facing the target is part of the approach, and the
+	# old rig only got that for free because +Z and an identity basis happened to
+	# agree.
+	var ingress: Transform3D = SortieRunner.ingress_transform(
+			cell["spec"], ARENA_CENTER)
+	ingress.origin.y = ARENA_CENTER.y + SPAWN_ALTITUDE
+	_drone.global_transform = ingress
 	_health = _drone.get_node("Health") as Health
 	_player_max = _health.max_health
 	_drone.arm()
