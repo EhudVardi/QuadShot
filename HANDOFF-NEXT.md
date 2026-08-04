@@ -53,6 +53,28 @@ to... fly low to avoid SAM sites"*). Do not ship half of it.
 3. **Does the layered garrison finally read as layers from the air?** That is the
    thing the clamp was destroying and the whole reason this was worth doing.
 
+### One new debt came out of measuring it, and it is the instrument's
+
+**`sortie_bench` does not reproduce across processes, and the sortie A/B is
+therefore unattributed.** The full 234-rep sweep was re-run at identical settings
+after the bench was pointed at the real ingress; `cleared` came back at roughly
+half its previous value at every depth. That is NOT a finding about difficulty:
+re-running four of the newly-zero cells in isolation showed `node 13 sam/city
+blaster` reading `hull 0%, dent 0.0, timeout` in the sweep and a live fight with a
+kill and 71% of hull spent on its own. Same shape as v2.01's delivery-bench
+diagnosis - results depending on what ran before them in one process. **Tune
+nothing on those numbers.** Full table and reasoning in BALANCE.md.
+
+**What the sweep DID find, solidly (two independent histories agree): the bench
+tows a screamer around the map.** The retargeting policy takes the nearest threat
+inside 60 m and can never let go, so against a screamer (holds standoff, carries
+no weapon) or an aegis (shield hard-counters a chip gun, flying a route rather
+than fighting) the pilot orbits at 30 m for the whole sortie and drifts to 149 m
+from the centre. Two candidate fixes are written up in BALANCE.md; the better one
+is to give the bench pilot the GAME'S signal leash, since an instrument whose
+pilot can leave the arena is measuring flights the player cannot make. **Not
+shipped** - it invalidates every sortie number and the call is the user's.
+
 ### Then, in order
 
 **The aegis rework** (A2, A.q1 decided — it stays only where bombers are BASED

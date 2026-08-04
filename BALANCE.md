@@ -364,6 +364,74 @@ the game puts the pilot on the DECK and the bench keeps them at 14 m cruise.
 distance on the right bearing at the wrong height, and a human's first seconds
 are a climb this does not model.
 
+### The A/B was RUN and it CANNOT ANSWER ITS QUESTION - the sweep does not reproduce
+
+**Measured 2026-08-04**, 234 reps at the identical `--reps 3 --cap 300`, same
+seed, same theater (node ids, depths and garrisons all match the 2026-08-03 run
+exactly, so the comparison was set up correctly). The `cleared` column came back
+roughly **half** its previous value at every depth:
+
+| depth | 2026-08-03, spawn at 125 m | 2026-08-04, spawn on the ingress |
+|---|---|---|
+| 3 | 54% | 31% |
+| 4 | 52% | 29% |
+| 5 | 39% | 23% |
+| 6 | 29% | 14% |
+| 7 | 21% | 7% |
+| 8-10 | 26-28% | 8-9% |
+
+**Do not read that as "the ingress made the game twice as hard."** Zero-dent rig
+faults went 5 cells to 11, and re-running four of the new ones in isolation
+showed the sweep's own numbers do not hold:
+
+- **`node 13 sam/city blaster` read `hull 0%, dent 0.0, timeout x3` in the
+  sweep.** A fresh 60 s run of the identical cell fought: 71% of hull spent, a
+  turret killed, dent 2.0. `hull 0%` over 300 s and `hull 29%` at 60 s cannot be
+  the same trajectory. **The cell does not agree with itself across processes.**
+- That is the same shape v2.01 diagnosed in the delivery bench - results
+  depending on what ran before them in the same process - now visible in the
+  sortie bench, where 234 reps share one process.
+
+So the halving is **unattributed**. It could be the ingress, it could be
+process-history divergence, and this instrument cannot currently tell them apart.
+**Nothing should be tuned on it.**
+
+### What the A/B DID find: the bench tows a screamer around the map
+
+Reproduced under two independent histories (in the sweep, and in isolation), so
+unlike the above this one is solid.
+
+`node 21 command/airfield_plains blaster`, instrumented per second: the pilot
+acquires a **Screamer** at 30 m and holds it at **30.0 m for eighty seconds**
+while its own distance from the arena centre swings between 99 m and 149 m. Hull
+100%, dent 0.00, nothing killed. The pilot is orbiting a target that keeps its
+standoff, and the pair drifts out of the fight together. `node 16
+command/industrial flak` does the same thing against a body it holds at 29-30 m
+for the whole run.
+
+**It is the bench's stated retargeting policy meeting two enemy types.** Limit 2
+in `sortie_bench.gd` already says the policy is the bench's and not the pilot's:
+nearest threat inside 60 m outranks the objective. Nothing in it can ever let go.
+Against a **screamer** (which holds standoff and carries no weapon, so it neither
+dies quickly nor punishes you) or an **aegis** (whose shield hard-counters a chip
+gun, and which is flying a route rather than fighting) that produces an infinite
+tow, and the bench correctly reports it as `dent 0.0` - a rig fault, not a
+difficulty reading.
+
+**Two candidate fixes, neither shipped, because changing the policy invalidates
+every sortie number and the choice is a real one:**
+
+1. **Blacklist a target that has taken no damage in N seconds** and pick the next
+   one. Models "a pilot gives up on something it cannot hurt", which is a
+   judgement a human obviously makes.
+2. **Give the bench pilot the GAME'S leash.** A human flying this sortie gets
+   SIGNAL WEAK at 220 m from the centre and loses the link at 300 m; the bench
+   pilot wandered to 149 m chasing a jammer with no such pressure. An instrument
+   whose pilot can leave the arena is measuring flights the player cannot make.
+
+(2) is the more principled one and it is also the one that fixes the drift rather
+than the symptom.
+
 ## The rulers
 
 - **PILOT_VERSION** (in `reference_pilot.gd`): one AI brain flies every
