@@ -3,8 +3,12 @@ extends SceneTree
 ## Headless run-structure regression (roadmap M4): clearing a sortie's only
 ## wave opens the exit gate, flying through it opens the paused upgrade
 ## draft, picking an option changes RunMods and launches a bigger sortie 2,
-## and death records the run in the profile. The player's real profile is
-## backed up and restored so test runs never pollute it.
+## and death records the run in the profile.
+##
+## Nothing here touches the player's real `user://profile.json` any more.
+## `PlayerProfile.save()` refuses to write under the headless driver, so the
+## borrow-and-restore this check used to carry is gone, and `_report` asserts
+## the refusal instead — see the notes on both functions.
 ##
 ## Run: <godot> --headless -s scripts/tests/run_check.gd --path .
 
@@ -20,7 +24,6 @@ var _phase: int = 0
 var _ticks: int = 0
 var _ticks_max: int
 var _run_end_report: Array = []
-var _profile_backup: Variant = null
 
 
 func _initialize() -> void:
@@ -118,8 +121,6 @@ func _setup() -> void:
 	_director = _main.get_node("WaveDirector") as WaveDirector
 	_gate = _main.get_node("ExitGate") as ExitGate
 	_draft = _main.get_node("DraftScreen") as DraftScreen
-	if FileAccess.file_exists(PROFILE_PATH):
-		_profile_backup = FileAccess.get_file_as_string(PROFILE_PATH)
 	var config: CombatConfig = _main.get("combat_config")
 	# One wave per sortie and a defanged opposition for determinism. Every
 	# field the assertions depend on is pinned explicitly — main auto-loads
@@ -138,27 +139,54 @@ func _setup() -> void:
 		_run_end_report = [sorties, waves, kills])
 
 
+## THE PROFILE ASSERTION HAD TO CHANGE WHEN THE PROFILE STOPPED BEING WRITTEN.
+##
+## This used to read `user://profile.json` back and assert `runs > 0`. That was
+## a real assertion while a headless run still wrote the file — and it became a
+## check that CANNOT FAIL the moment `PlayerProfile.save()` started refusing to
+## write headless (2026-08-04), because the file it reads is the human's real
+## career and their `runs` is 158 whatever this check does.
+##
+## So it asserts the two halves that still exist, and each is falsifiable:
+## the recording arithmetic, and the suppression itself. The second one is what
+## keeps the guard from being quietly deleted again.
 func _report() -> void:
-	var profile_ok: bool = false
-	if FileAccess.file_exists(PROFILE_PATH):
-		var data: Variant = JSON.parse_string(
-				FileAccess.get_file_as_string(PROFILE_PATH))
-		profile_ok = data is Dictionary and int(data.get("runs", 0)) > 0
+	var probe := PlayerProfile.new()
+	probe.record_run(2, 7, 900)
+	var recorded_ok: bool = probe.runs == 1 and probe.kills_total == 7 \
+			and probe.best_score == 900 and probe.best_sorties == 2
+
+	var before: String = FileAccess.get_file_as_string(PROFILE_PATH) \
+			if FileAccess.file_exists(PROFILE_PATH) else ""
+	probe.save()
+	var after: String = FileAccess.get_file_as_string(PROFILE_PATH) \
+			if FileAccess.file_exists(PROFILE_PATH) else ""
+	var suppressed: bool = before == after
+
 	var score: int = _main.get("score")
-	print("[run_check] run ended: report %s, score %d, profile ok %s"
-			% [str(_run_end_report), score, str(profile_ok)])
+	print("[run_check] run ended: report %s, score %d, recording ok %s, headless save suppressed %s"
+			% [str(_run_end_report), score, str(recorded_ok), str(suppressed)])
+	if not recorded_ok:
+		print("[run_check] FAIL: record_run did not tally the run it was given")
+	if not suppressed:
+		print("[run_check] FAIL: a headless save wrote the player's real profile.json")
 	# Died in sortie 2: one sortie and one wave cleared, both kills in wave 1.
-	var ok: bool = _run_end_report == [1, 1, 2] and score > 0 and profile_ok
+	var ok: bool = _run_end_report == [1, 1, 2] and score > 0 \
+			and recorded_ok and suppressed
 	_finish(ok)
 
 
+## THE BORROW-AND-RESTORE IS GONE, and its absence is the point.
+##
+## This check used to copy `user://profile.json` aside and write it back here.
+## That was correct and it was never the leak — `wave_check` was, and it had no
+## such machinery, which is the recurring lesson: a rule kept in the CALLERS is
+## a rule most callers will not keep. `PlayerProfile.save()` now refuses to
+## write headless, so there is nothing to undo, and restoring by hand would mean
+## this check still writes the human's real file for no reason.
+##
+## `_report` asserts the suppression directly, so deleting the guard fails here
+## rather than silently re-arming the leak.
 func _finish(ok: bool) -> void:
-	# Leave the player's real profile exactly as we found it.
-	if _profile_backup == null:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(PROFILE_PATH))
-	else:
-		var file: FileAccess = FileAccess.open(PROFILE_PATH, FileAccess.WRITE)
-		if file != null:
-			file.store_string(_profile_backup)
 	print("[run_check] %s" % ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)

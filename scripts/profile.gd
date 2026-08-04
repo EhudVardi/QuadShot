@@ -20,7 +20,30 @@ func record_run(sorties_cleared: int, kills: int, score: int) -> void:
 	best_sorties = maxi(best_sorties, sorties_cleared)
 
 
+## A HEADLESS RUN IS NOT A CAREER (found 2026-08-04, by backing `user://` up
+## before a board run and diffing it after).
+##
+## `main.gd` records a finished run here, and nine of the nineteen checks
+## instantiate `main.tscn` — `run_check`'s whole job is to end a run. So every
+## board run either of us has ever done has permanently inflated the human's
+## lifetime stats: one board pass moved `runs` 158 -> 159 and `kills_total`
+## 524 -> 526. It never lost data and it never touched the campaign, so nothing
+## looked broken; the number is simply not the number it claims to be.
+##
+## Guarded HERE rather than in each check, for the reason the borrow-and-restore
+## pattern keeps failing: the file is the thing that knows it should not be
+## written, and a rule kept in nine callers is a rule eight of them will keep.
+## `Blackbox` sets the same precedent with the same test (`blackbox.gd`).
+##
+## Loading stays unguarded on purpose — a check reading real bests is harmless,
+## and `_bests_line()` wants something to print.
+static func writes_are_live() -> bool:
+	return DisplayServer.get_name() != "headless"
+
+
 func save() -> void:
+	if not writes_are_live():
+		return
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
 		push_warning("[profile] cannot write %s" % SAVE_PATH)
