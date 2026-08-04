@@ -68,8 +68,83 @@ func _probe_room() -> void:
 	if _room == null or not _room.is_node_ready():
 		return
 	process_frame.disconnect(_probe_room)
+	# Order matters: `_check_the_loop_closed` asserts the debrief is UP, and the
+	# click gate check dismisses it on its way to testing the animation gate.
 	_check_the_loop_closed()
+	_check_click_is_gated()
+	_room.queue_free()
+	WarLaunch.clear()
 	_finish()
+
+
+## AUDIT F5: A CLICK MUST NOT REACH THE MAP THROUGH THE GATES WRITTEN TO STOP IT.
+##
+## The mouse branch of `_unhandled_input` used to sit ABOVE the debrief gate and
+## the animation gate and return unconditionally, so clicking selected a node in
+## both states. The animation gate's own comment states the invariant it was
+## protecting — "selecting a node mid-animation would read the war it is halfway
+## through becoming" — and the click did exactly that.
+##
+## What the player actually saw: during a debrief the map draws the PRE-tick
+## snapshot and `_reasons` is the pre-tick refusal set, while `_update_card`
+## reads `_state`, which is POST-tick. So a click produced a card describing the
+## war after the tick, judged flyable-or-not by the war before it, over a map
+## showing neither.
+##
+## THE SECOND HALF IS WHAT MAKES THIS AN ASSERTION rather than a tautology: the
+## identical click, replayed once the debrief is dismissed and the animation is
+## finished, MUST select. "Ignore every click" would pass the first half alone.
+func _check_click_is_gated() -> void:
+	var debrief: PanelContainer = _room.get_node(^"Ui/Debrief")
+	_expect(debrief.visible, "the room is showing a debrief to click through")
+
+	var selected: int = _room._selected
+	var other: int = -1
+	for id: int in _room._table.centers:
+		if id != selected:
+			other = id
+			break
+	_expect(other >= 0, "the table has a second node to click on")
+	var at: Vector2 = _room._camera.unproject_position(_room._table.top_of(other))
+	_expect(_room._pick_screen(at) == other,
+			"and that point really does pick it (%d)" % _room._pick_screen(at))
+
+	_room._unhandled_input(_click_at(at))
+	_expect(_room._selected == selected,
+			"a click during the debrief does not move the selection (%d, was %d)"
+			% [_room._selected, selected])
+	_expect(debrief.visible, "and does not dismiss the debrief either")
+
+	# Dismiss, then click again while the TICK is animating - the second gate.
+	_room._unhandled_input(_accept())
+	_expect(not debrief.visible, "the debrief closes on ui_accept")
+	if _room._table.is_playing():
+		_room._unhandled_input(_click_at(at))
+		_expect(_room._selected == selected,
+				"a click mid-animation does not read the war it is halfway through becoming (%d)"
+				% _room._selected)
+		_room._table.finish_changes()
+
+	# And the same click, on a settled map, MUST work.
+	_room._unhandled_input(_click_at(at))
+	_expect(_room._selected == other,
+			"while the same click on a settled map selects normally (%d, wanted %d)"
+			% [_room._selected, other])
+
+
+func _click_at(at: Vector2) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	event.position = at
+	return event
+
+
+func _accept() -> InputEventAction:
+	var event := InputEventAction.new()
+	event.action = &"ui_accept"
+	event.pressed = true
+	return event
 
 
 func _finish() -> void:
@@ -949,9 +1024,6 @@ func _check_the_loop_closed() -> void:
 	_expect(not WarLaunch.flew and WarLaunch.result.is_empty(),
 			"and the handoff is consumed, so the same sortie cannot be priced twice")
 	_expect(not WarLaunch.from_room, "and the room is no longer in a launched state")
-
-	_room.queue_free()
-	WarLaunch.clear()
 
 
 ## A hand-built four-node theater: q = 0..3 on one row, so consecutive nodes are

@@ -103,19 +103,22 @@ func _read_command_line() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _state.is_empty():
 		return
-	# CLICK selects; hovering does not. Motion-to-select was written first and it
-	# is wrong for a screen you read: the ring chases the cursor, so moving the
-	# mouse toward the card changes the node the card is describing, and any
-	# jiggle overrides an arrow-key selection. Phase 3 hangs a launch off this
-	# selection, which makes "the thing I picked stays picked" load-bearing.
-	if event is InputEventMouseButton and event.is_pressed() \
-			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-		var picked: int = _pick_screen((event as InputEventMouseButton).position)
-		if picked >= 0:
-			_select(picked)
-		return
+	# THE TWO GATES COME FIRST, AND THE CLICK USED TO JUMP THEM (audit F5).
+	#
+	# The mouse branch was written above both of these and returned
+	# unconditionally, so a left-click selected a node while the debrief was up
+	# and while the tick was animating — which is precisely what the animation
+	# gate's own comment says must not happen. The damage is not cosmetic: during
+	# a debrief the map is deliberately drawing the PRE-tick snapshot and
+	# `_reasons` is the pre-tick refusal set, while `_update_card` reads `_state`,
+	# which is POST-tick. Clicking produced a card describing a garrison, weather
+	# and intel age from after the tick, with a flyability verdict from before it,
+	# over a map showing neither.
+	#
+	# Ordering IS the fix. Every input the room refuses has to be refused before
+	# anything acts on it, so new input kinds cannot each be forgotten separately.
 	if _debrief.visible:
-		# The debrief owns every key while it is up, so the launch bound to the
+		# The debrief owns every input while it is up, so the launch bound to the
 		# same key cannot fire through it into another sortie.
 		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
 			_debrief.visible = false
@@ -127,6 +130,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _table.is_playing():
 		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
 			_table.finish_changes()
+		return
+	# CLICK selects; hovering does not. Motion-to-select was written first and it
+	# is wrong for a screen you read: the ring chases the cursor, so moving the
+	# mouse toward the card changes the node the card is describing, and any
+	# jiggle overrides an arrow-key selection. Phase 3 hangs a launch off this
+	# selection, which makes "the thing I picked stays picked" load-bearing.
+	if event is InputEventMouseButton and event.is_pressed() \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var picked: int = _pick_screen((event as InputEventMouseButton).position)
+		if picked >= 0:
+			_select(picked)
 		return
 	# A raw key rather than an InputMap action on purpose. The bindings system
 	# exists for FLYING — it rewrites the map at runtime and has a paused context
