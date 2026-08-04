@@ -339,12 +339,25 @@ func _check_trigger_selection() -> void:
 	# `after_s` guarantees nothing releases on its own inside this function.
 	root.add_child(runner)
 	runner.egress_opened.connect(func() -> void: _probe_egress += 1)
-	runner.spec = spec
-	runner.phase = SortieRunner.Phase.ENGAGED
-	for trigger: Dictionary in spec["triggers"]:
-		runner._triggers.append(trigger)
-		runner._trigger_spent.append(false)
-		runner._trigger_released.append(false)
+	# DRIVEN THROUGH start(), NOT HAND-BUILT (audit F3, and the second time this
+	# function has had this exact fault).
+	#
+	# It used to set `spec` and `phase` by hand and then append to `_triggers`,
+	# `_trigger_spent` AND `_trigger_released` itself - supplying the very
+	# bookkeeping whose maintenance is the joint's whole responsibility. Deleting
+	# `_trigger_released.append(false)` from `start()` left this check fully green,
+	# including all four assertions whose text is about reserves being held, and
+	# the consequence in the real game is v2.01's bug back: `reserves_held()`
+	# returns 0 unconditionally, so the egress opens the instant the field is clear
+	# with a whole wave still on its timer - which also pays you to fly away.
+	#
+	# `start()` is safe to call here: the spec has two unreleased reserves, so the
+	# empty-field guard (audit F1) sees `reserves_held() == 2` and leaves it
+	# ENGAGED rather than opening an egress this probe has not earned.
+	runner.start(spec)
+	_expect(runner.phase == SortieRunner.Phase.ENGAGED,
+			"start() leaves a sortie with reserves outstanding ENGAGED (phase %d)"
+			% runner.phase)
 	_expect(runner.reserves_held() == 2, "two structurally similar reserves stay distinct")
 
 	runner._fire_trigger(&"wave_cleared")
