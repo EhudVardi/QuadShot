@@ -44,6 +44,13 @@ const REASON_NO_PILOTS: StringName = &"no_pilots"
 ## proxy sortie; nothing enforced it for the PLAYER, which did not matter for as
 ## long as the Raid was an archetype nobody could fly.
 const REASON_HQ_LOCKED: StringName = &"hq_shielded"
+## Audit F1: the node composes correctly and there is NOTHING IN IT. A garrison
+## ground below the cheapest unit's price projects no units, and an `airspace`
+## node has no structure to flatten either — so the sortie would be an empty sky
+## with no way to end it. The tick engine has always refused this target for its
+## own proxy (`war_sim.gd`'s anti-treadmill rule); nothing refused it for the
+## PLAYER, and a treadmill of deep un-capturable nodes produces it constantly.
+const REASON_NOTHING_THERE: StringName = &"nothing_there"
 
 ## Short map labels for P1.2's node taxonomy. Four characters is what a hex top
 ## holds at a readable pixel size; the full name lives on the inspection card.
@@ -156,11 +163,17 @@ static func refusals(state: Dictionary, config: WarConfig) -> Dictionary:
 				and WarSim.command_posts_alive(state) \
 						> int(config.hq_unlock_command_posts):
 			reasons[id] = REASON_HQ_LOCKED
-		elif not SortieComposer.is_slice_ready(
-				SortieComposer.compose(node, state, config)):
-			reasons[id] = REASON_ARCHETYPE
 		else:
-			reasons[id] = REASON_NONE
+			# Composed ONCE and asked two questions, rather than composed twice.
+			# The second question is audit F1's: a spec can name a buildable
+			# archetype and still describe an empty sky.
+			var spec: Dictionary = SortieComposer.compose(node, state, config)
+			if not SortieComposer.is_slice_ready(spec):
+				reasons[id] = REASON_ARCHETYPE
+			elif not SortieComposer.has_anything_to_fight(spec):
+				reasons[id] = REASON_NOTHING_THERE
+			else:
+				reasons[id] = REASON_NONE
 	return reasons
 
 
@@ -324,4 +337,9 @@ static func refusal_line(reason: StringName, config: WarConfig,
 			return "NO PILOTS LEFT - your road ends; the war does not"
 		REASON_HQ_LOCKED:
 			return "SHIELDED - break the command network before the HQ can be raided"
+		REASON_NOTHING_THERE:
+			# Said as a fact about the ground rather than as an error, because it
+			# usually means the player already took this position apart. It is
+			# the map agreeing with them, not refusing them.
+			return "ABANDONED - nothing left here to fly against"
 	return ""

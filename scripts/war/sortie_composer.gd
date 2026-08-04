@@ -175,6 +175,43 @@ static func is_slice_ready(spec: Dictionary) -> bool:
 	return spec["archetype"] in SLICE_ARCHETYPES
 
 
+## Is there anything in this spec for a pilot to DO?
+##
+## THE EMPTY SORTIE (found by audit F1, 2026-08-04). A node whose garrison has
+## been ground below the price of the cheapest unit in the game — 1.000, a
+## raider — projects to an EMPTY unit list: `WarManifest.project` returns `[]`
+## for `budget <= 0.0`, and its greedy fill never enters below `cheapest`. An
+## `airspace` node has `assets: 0`, so such a spec carries no units, no
+## structure and no reserves, and is still perfectly legal. `is_slice_ready`
+## says yes, because it only reads the archetype's NAME.
+##
+## Flown, that is an empty sky the pilot cannot leave: `SortieRunner` opens a
+## dogfight's egress from `_check_field_cleared`, which is reachable only when a
+## unit dies or a reserve arrives, and there are neither. Quitting is defined as
+## losing the sortie (P1.q4), so it is a dead end with a cost.
+##
+## ONE PREDICATE, TWO READERS, on purpose. `WarView.refusals` uses it to keep
+## the node off the launch list and `SortieRunner.start` uses it to end such a
+## sortie anyway. Two implementations of "is there a fight here" would be two
+## things to keep in sync, and the map is the one that would drift.
+##
+## The war-sim already knew this state was worthless and only ever told itself:
+## `_proxy_sortie` skips any node under garrison 3.0 it cannot capture (the
+## anti-treadmill rule, `war_sim.gd`). This is the same knowledge, published.
+static func has_anything_to_fight(spec: Dictionary) -> bool:
+	if int(spec.get("objective_assets", 0)) > 0:
+		return true
+	for layer: StringName in LAYER_ORDER:
+		for unit: Dictionary in spec["layers"][layer]:
+			if int(unit["count"]) > 0:
+				return true
+	for trigger: Dictionary in spec.get("triggers", []):
+		for unit: Dictionary in trigger["units"]:
+			if int(unit["count"]) > 0:
+				return true
+	return false
+
+
 ## Everything the sortie can field, flattened — the placed layers plus every
 ## reserve that could still arrive. This is the sum a completed sortie is
 ## priced against, and it must equal the node's garrison (P2.q4).

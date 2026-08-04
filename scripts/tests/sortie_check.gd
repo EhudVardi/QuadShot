@@ -386,6 +386,52 @@ func _bare_spec(archetype: StringName, objective: StringName,
 	}
 
 
+## AUDIT F1, THE RUNNER'S HALF: a sortie that starts with nothing in it must
+## still be able to END.
+##
+## The map now refuses to offer such a node (`war_room_check` asserts that), but
+## a runner that hangs on an empty spec is a hazard independent of who hands it
+## one — a bench, a future caller, a saved spec. The failure is the worst shape
+## this file exists for: pilot alive, nothing to shoot, no egress, and quitting
+## is defined as losing the sortie.
+##
+## The PAIR is the point. "An empty spec ends immediately" is satisfied by a
+## runner that ends every sortie immediately, so the second half asserts that one
+## unit is enough to keep it open.
+func _check_empty_spec_can_end() -> void:
+	var empty := SortieRunner.new()
+	root.add_child(empty)
+	var opened: Array[int] = []
+	empty.egress_opened.connect(func() -> void: opened.append(1))
+	var spec: Dictionary = _bare_spec(&"dogfight", &"clear_airspace", 0)
+	_expect(not SortieComposer.has_anything_to_fight(spec),
+			"a spec with no units and no structure holds no fight")
+	empty.start(spec)
+	_expect(empty.phase == SortieRunner.Phase.EGRESS,
+			"a sortie with nothing in it opens its egress at once rather than hanging (phase %d)"
+			% empty.phase)
+	_expect(opened.size() == 1,
+			"and says so exactly once (%d)" % opened.size())
+	empty.queue_free()
+
+	# The other half: something to fight must NOT end the sortie.
+	var live := SortieRunner.new()
+	root.add_child(live)
+	var live_opened: Array[int] = []
+	live.egress_opened.connect(func() -> void: live_opened.append(1))
+	var manned: Dictionary = _bare_spec(&"dogfight", &"clear_airspace", 0)
+	manned["layers"][&"outer"] = [{"type": &"raider", "count": 1, "bodies": 1,
+			"strength": 1.0}]
+	_expect(SortieComposer.has_anything_to_fight(manned),
+			"one raider is a fight")
+	live.start(manned)
+	_expect(live.phase == SortieRunner.Phase.ENGAGED,
+			"a sortie with a garrison stays ENGAGED (phase %d)" % live.phase)
+	_expect(live_opened.is_empty(),
+			"and does not hand out an egress nobody earned (%d)" % live_opened.size())
+	live.queue_free()
+
+
 ## ---------- Part B: two composed sorties, in a real arena ----------
 
 func _on_physics_frame() -> void:
@@ -399,6 +445,7 @@ func _on_physics_frame() -> void:
 	if not _probed:
 		_probed = true
 		_check_trigger_selection()
+		_check_empty_spec_can_end()
 		if not _failures.is_empty():
 			_report()
 			return

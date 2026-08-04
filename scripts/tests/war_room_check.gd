@@ -266,11 +266,16 @@ func _check_refusals(state: Dictionary, config: WarConfig) -> void:
 	for node: Dictionary in state["nodes"]:
 		var id: int = int(node["id"])
 		var reason: StringName = reasons[id]
-		var ready: bool = SortieComposer.is_slice_ready(
-				SortieComposer.compose(node, state, config))
+		var spec: Dictionary = SortieComposer.compose(node, state, config)
+		var ready: bool = SortieComposer.is_slice_ready(spec)
+		# Derived HERE rather than by calling `has_anything_to_fight`, which is
+		# half of the thing under test. Counting the spec's own units is the
+		# independent walk.
+		var fightable: bool = _spec_holds_a_fight(spec)
 		match reason:
 			WarView.REASON_NONE:
-				if node["owner"] == &"player" or not in_range.has(id) or not ready:
+				if node["owner"] == &"player" or not in_range.has(id) or not ready \
+						or not fightable:
 					wrong += 1
 			WarView.REASON_FRIENDLY:
 				if node["owner"] != &"player":
@@ -280,6 +285,9 @@ func _check_refusals(state: Dictionary, config: WarConfig) -> void:
 					wrong += 1
 			WarView.REASON_ARCHETYPE:
 				if node["owner"] == &"player" or not in_range.has(id) or ready:
+					wrong += 1
+			WarView.REASON_NOTHING_THERE:
+				if node["owner"] == &"player" or not in_range.has(id) or fightable:
 					wrong += 1
 	_expect(wrong == 0, "every verdict matches the node it was given for (%d wrong)" % wrong)
 
@@ -341,6 +349,110 @@ func _check_refusal_coverage(config: WarConfig) -> void:
 	_expect(not SortieComposer.is_slice_ready({"archetype": &"not_an_archetype"}),
 			"and the slice guard still refuses an archetype nobody built")
 	_check_hq_shield(config)
+	_check_abandoned_node(config)
+
+
+## Bodies a spec can actually field, counted directly off the spec. The
+## independent half of the `has_anything_to_fight` assertions: if this walk and
+## the function under test ever disagree, one of them is wrong and the check
+## says so instead of agreeing with itself.
+func _spec_holds_a_fight(spec: Dictionary) -> bool:
+	if int(spec.get("objective_assets", 0)) > 0:
+		return true
+	var units: int = 0
+	for layer: StringName in SortieComposer.LAYER_ORDER:
+		for unit: Dictionary in spec["layers"][layer]:
+			units += int(unit["count"])
+	for trigger: Dictionary in spec.get("triggers", []):
+		for unit: Dictionary in trigger["units"]:
+			units += int(unit["count"])
+	return units > 0
+
+
+## AUDIT F1: A NODE WITH NOTHING IN IT MUST NOT BE OFFERED.
+##
+## A garrison ground below the price of the cheapest unit in the game projects
+## to an empty list (`WarManifest.project` returns `[]` under `cheapest`), and an
+## `airspace` node has no structure either — so the spec is legal, slice-ready,
+## and describes an empty sky the pilot could not leave, because the only two
+## things that open a dogfight's egress are a unit dying and a reserve arriving.
+##
+## Measured before the fix: a player who repeatedly clears deep un-capturable
+## ground — which the war's own proxy refuses to do, and the room never stopped a
+## human doing — produced this in 34 of 40 seeds. On seed 4242 it appeared at
+## tick 0. Supply decay alone produced it in 1 of 40 seeds with no player at all.
+##
+## The fixture is a HAND-BUILT four-node war rather than a swept theater, for the
+## reason the HQ shield needed one: a generated theater's garrisons are all
+## healthy, so a sweep would read `REASON_NONE` everywhere and assert nothing.
+func _check_abandoned_node(config: WarConfig) -> void:
+	var state: Dictionary = _abandoned_state()
+	var cheapest: float = INF
+	for type_id: StringName in WarManifest.ROSTER:
+		cheapest = minf(cheapest, WarManifest.unit_strength(WarManifest.roster()[type_id]))
+	_expect(cheapest > 0.0, "the roster has a cheapest unit to price against (%.3f)" % cheapest)
+
+	# Node 1 is the airspace the player has taken apart; node 2 is an identical
+	# neighbour left intact, and it is the half that makes this real. Without it
+	# "refuse everything" would pass.
+	var picked_over: Dictionary = WarSim.node_by_id(state, 1)
+	var intact: Dictionary = WarSim.node_by_id(state, 2)
+	picked_over["garrison"] = WarSim.quantize(cheapest * 0.5)
+	intact["garrison"] = WarSim.quantize(cheapest * 12.0)
+
+	var reasons: Dictionary = WarView.refusals(state, config)
+	_expect(reasons.get(1) == WarView.REASON_NOTHING_THERE,
+			"a garrison below one unit's price is refused, not offered (got '%s')"
+			% reasons.get(1, &"?"))
+	_expect(reasons.get(2) == WarView.REASON_NONE,
+			"while its intact neighbour is still flyable (got '%s')" % reasons.get(2, &"?"))
+	_expect(not WarView.flyable_ids(state, config).has(1),
+			"and the launch list does not contain it")
+	_expect(WarView.refusal_line(WarView.REASON_NOTHING_THERE, config) != "",
+			"the refusal has a sentence to show the player")
+
+	# The BOUNDARY, because "refuse anything under 12x" would satisfy the pair
+	# above. One unit's worth of garrison is a fight; a hair under is not.
+	picked_over["garrison"] = WarSim.quantize(cheapest * 1.05)
+	_expect(WarView.refusals(state, config).get(1) == WarView.REASON_NONE,
+			"one unit's worth of garrison IS a sortie (got '%s')"
+			% WarView.refusals(state, config).get(1, &"?"))
+	picked_over["garrison"] = 0.0
+	_expect(WarView.refusals(state, config).get(1) == WarView.REASON_NOTHING_THERE,
+			"and an empty one is not")
+
+	# The card must say so too, or the player reads a normal briefing for a node
+	# the ENTER key will refuse.
+	var card: String = "\n".join(WarView.card_lines(
+			WarSim.node_by_id(state, 1), state, config, WarView.REASON_NOTHING_THERE))
+	_expect(card.contains("ABANDONED"),
+			"and the inspection card says why rather than reading like a briefing")
+
+
+## Player airbase with two enemy airspace nodes adjacent to it, so both are in
+## strike range and neither is the HQ. The HQ sits further out and keeps the
+## sim's win condition off this fixture.
+func _abandoned_state() -> Dictionary:
+	return {
+		"seed": 909, "tick": 3, "pilots": 4, "sorties": 0, "winner": &"",
+		"rng_state": 0, "aggression": 0.5, "caution": 0.4,
+		"nodes": [
+			_abandoned_node(0, 0, 0, &"airbase", &"player", 18.0),
+			_abandoned_node(1, 1, 0, &"airspace", &"enemy", 9.0),
+			_abandoned_node(2, 0, 1, &"airspace", &"enemy", 9.0),
+			_abandoned_node(3, 3, 0, &"hq", &"enemy", 30.0),
+		],
+	}
+
+
+func _abandoned_node(id: int, q: int, r: int, type_id: StringName,
+		owner: StringName, garrison: float) -> Dictionary:
+	return {
+		"id": id, "q": q, "r": r, "type": type_id, "owner": owner,
+		"garrison": WarSim.quantize(garrison), "fort": 1.0, "intel_age": 0,
+		"biome": &"hills", "weather": &"clear", "home": id == 0,
+		"hq": type_id == &"hq",
+	}
 
 
 ## P1.5 IS THE ARC OF THE CAMPAIGN, so the map has to enforce it: the HQ is

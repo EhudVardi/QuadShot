@@ -240,6 +240,17 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	announced.emit("%s - %s" % [String(spec["archetype"]).to_upper(),
 			String(spec["objective"]).replace("_", " ")])
 	set_physics_process(true)
+	# A SPEC CAN DESCRIBE AN EMPTY SKY (audit F1, 2026-08-04), and until this line
+	# that sortie could never end. `_check_field_cleared` is the only thing that
+	# opens a dogfight's egress and its only two callers are a unit dying and a
+	# reserve arriving — so a garrison ground below the cheapest unit's price
+	# (`SortieComposer.has_anything_to_fight`) left the pilot alive in an empty
+	# arena with no exit, and quitting is defined as losing the sortie.
+	#
+	# Calling the EXISTING path rather than writing a second ending: whatever
+	# "the field is clear" means, it has to mean the same thing when the field
+	# started clear as when the pilot emptied it.
+	_check_field_cleared()
 
 
 ## Units still up. UNITS, not bodies (P4.q5) — a gnat cloud is one.
