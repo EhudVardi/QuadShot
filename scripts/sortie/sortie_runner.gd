@@ -393,8 +393,18 @@ static func ingress_range(spec: Dictionary) -> float:
 	# hard-coded [150, 400] here would silently start clipping the day a biome's
 	# cover economics changed.
 	var shortest: float = SortieComposer.INGRESS_OPEN_M - SortieComposer.INGRESS_COVER_M
+	# A DEGENERATE BAND WOULD BE A NaN SPAWN, silently (noted beside audit F4).
+	# `inverse_lerp` divides by the band's width, so `INGRESS_COVER_M` set to 0
+	# makes every ingress a NaN transform origin - a drone at no position at all,
+	# with no error anywhere. Cover economics is data and data gets edited.
+	if is_equal_approx(shortest, SortieComposer.INGRESS_OPEN_M):
+		return INGRESS_MAX_M
 	var t: float = clampf(
 			inverse_lerp(shortest, SortieComposer.INGRESS_OPEN_M, fiction), 0.0, 1.0)
+	# ORDER PRESERVED, and asserted by `sortie_check` rather than only claimed
+	# here: more fiction metres means a longer run in this arena too, so open
+	# ground still buys the longest exposed approach and a city still drops you
+	# closest. Inverting this pair reads as a retune and is a design inversion.
 	return lerpf(INGRESS_MIN_M, INGRESS_MAX_M, t)
 
 

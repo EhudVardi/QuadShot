@@ -273,6 +273,47 @@ func _check_ingress() -> void:
 			"different approaches give different ingress ranges (%d specs -> %d ranges)"
 			% [distinct_specs, distinct_ranges.size()])
 
+	# AND THE ORDER, WHICH IS THE ENTIRE CONTENT OF THE REMAP (audit F4).
+	#
+	# Distinctness alone said nothing about which way round. Swapping the lerp's
+	# endpoints - so a city drops the pilot at 195 m and open desert at 140 m,
+	# the exact opposite of the documented behaviour and of the reasoning it was
+	# built on - passed every assertion above, with the anti-constant one printing
+	# `ok (4 specs -> 4 ranges)`. The mapping was correct and nothing held it there.
+	var fictions: Array = ranges.keys()
+	fictions.sort()
+	var inversions: int = 0
+	for i: int in range(1, fictions.size()):
+		if float(ranges[fictions[i]]) < float(ranges[fictions[i - 1]]):
+			inversions += 1
+	_expect(inversions == 0,
+			"more fiction metres never means a shorter run in this arena (%d inversions over %d stops)"
+			% [inversions, fictions.size()])
+	_expect(fictions.size() < 2
+			or float(ranges[fictions[-1]]) > float(ranges[fictions[0]]),
+			"and the extremes really do differ, so a constant map is not 'monotonic'")
+
+	# Read straight off the composer's own constants, so this holds even on a
+	# theater that happens to offer one biome. THIS is the assertion that names
+	# the design: open ground buys the longest exposed approach, a city the
+	# shortest.
+	var city: float = SortieRunner.ingress_range({"approach": {"ingress_m":
+			SortieComposer.INGRESS_OPEN_M - SortieComposer.INGRESS_COVER_M}})
+	var open_ground: float = SortieRunner.ingress_range({"approach": {"ingress_m":
+			SortieComposer.INGRESS_OPEN_M}})
+	_expect(open_ground > city,
+			"open ground drops the pilot FARTHER out than a city does (%.0f m vs %.0f m)"
+			% [open_ground, city])
+	_expect(is_equal_approx(city, SortieRunner.INGRESS_MIN_M)
+			and is_equal_approx(open_ground, SortieRunner.INGRESS_MAX_M),
+			"and the two ends of the composer's band reach the two ends of the arena's (%.0f, %.0f)"
+			% [city, open_ground])
+	# A spec with no approach at all must still land somewhere real, not at NaN
+	# and not at zero.
+	var bare: float = SortieRunner.ingress_range({})
+	_expect(bare >= SortieRunner.INGRESS_MIN_M and bare <= SortieRunner.INGRESS_MAX_M,
+			"a spec carrying no approach still gets a real ingress (%.0f m)" % bare)
+
 
 ## ---------- Part A: the runner's contracts, without an arena ----------
 
