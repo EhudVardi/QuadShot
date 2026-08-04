@@ -210,14 +210,35 @@ func _resolve_returning_sortie() -> int:
 		return -1
 	_pre_tick = before
 	_pending_changes = WarDiff.between(before, _state)
-	_debrief_text.text = "%s\n\n%s" % ["\n".join(WarDebrief.lines(debrief)),
+
+	# THE SAVE IS ATTEMPTED BEFORE THE PLAYER IS TOLD ANYTHING (audit F7).
+	#
+	# It used to run last, after the debrief text was built and shown, and its
+	# `false` return decided only whether to print a line. So a failed write —
+	# disk full, path unwritable, the moved-aside-unreadable-save path having
+	# failed — left the player watching the tick play out on the map while the
+	# next launch quietly reloaded the war from before the sortie. The dent, the
+	# capture and a lost pilot all silently un-happened.
+	#
+	# That is not P1.q4's *exit without save*, which is a choice the player makes.
+	# This one is a lie they are told, and the fix is to stop telling it rather
+	# than to roll the war back: the sortie really was flown, the tick really did
+	# happen in memory, and what the player needs is to know it will not survive
+	# leaving the room, while there is still time to do something about the disk.
+	var saved: bool = not persist or WarSave.save(_state)
+	if saved and persist:
+		print("[war] saved %s" % WarSave.PATH)
+	elif not saved:
+		push_error("[war] could not write %s - this sortie will be lost on exit"
+				% WarSave.PATH)
+
+	var text: PackedStringArray = WarDebrief.lines(debrief, saved)
+	_debrief_text.text = "%s\n\n%s" % ["\n".join(text),
 			"the front: %s" % WarDiff.summary(_pending_changes)]
 	_debrief.visible = true
-	for line: String in WarDebrief.lines(debrief):
+	for line: String in text:
 		print("[war] %s" % line)
 	print("[war] the front: %s" % WarDiff.summary(_pending_changes))
-	if persist and WarSave.save(_state):
-		print("[war] saved %s" % WarSave.PATH)
 	return int(debrief["summary"]["node_id"])
 
 

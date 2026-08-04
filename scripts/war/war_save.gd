@@ -49,6 +49,13 @@ static func exists() -> bool:
 
 ## Write the war. Returns false and warns rather than throwing, because losing
 ## a campaign to a disk error should not also crash the game you were playing.
+##
+## THE CALLER MUST DO SOMETHING WITH THE `false` (audit F7). In the war room it
+## used to decide only whether a line was printed, so a failed write left the
+## player watching the tick play out on the map while the next launch quietly
+## reloaded the war from before the sortie — the dent, the capture and a lost
+## pilot all silently un-happening. `WarDebrief.lines` now takes the result of
+## this call and says so on the debrief.
 static func save(state: Dictionary) -> bool:
 	var file: FileAccess = FileAccess.open(PATH, FileAccess.WRITE)
 	if file == null:

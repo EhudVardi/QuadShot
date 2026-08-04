@@ -47,7 +47,18 @@ static func resolve(state: Dictionary, config: WarConfig,
 
 ## The debrief panel's text. Rendered to lines for the same reason the card is:
 ## it is then something a check can read.
-static func lines(debrief: Dictionary) -> PackedStringArray:
+##
+## `saved` IS THE F7 FIX AND IT IS A PARAMETER RATHER THAN A ROOM DETAIL. The
+## room used to apply the sortie, tick the war, build this text and show it, and
+## only THEN attempt the write — using the `false` return to decide whether to
+## print a line. A failed write therefore left the player watching the front move
+## on a map whose next launch would reload the war from before the sortie.
+##
+## Saying so belongs here because this is the function that speaks to the player,
+## and putting it here is what makes it assertable: a check can read the text and
+## see the warning without a viewport, exactly as `WarView.card_lines` made the
+## fog leak assertable.
+static func lines(debrief: Dictionary, saved: bool = true) -> PackedStringArray:
 	if debrief.is_empty():
 		return PackedStringArray(["the sortie resolved against nothing"])
 	var summary: Dictionary = debrief["summary"]
@@ -85,4 +96,11 @@ static func lines(debrief: Dictionary) -> PackedStringArray:
 		out.append("the war moves to tick %d" % int(debrief["tick_after"]))
 	if debrief["winner"] != &"":
 		out.append("THE WAR IS OVER - %s" % String(debrief["winner"]).to_upper())
+	# LAST, and loud. Everything above describes a war that moved; if the write
+	# failed, none of it survives leaving the room, and the player is the only
+	# one who can do anything about the disk.
+	if not saved:
+		out.append("")
+		out.append("*** NOT SAVED - %s could not be written" % WarSave.PATH)
+		out.append("*** this sortie is LOST if you leave the room")
 	return out

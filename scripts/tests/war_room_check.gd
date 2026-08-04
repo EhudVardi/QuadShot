@@ -790,6 +790,31 @@ func _check_debrief(config: WarConfig) -> void:
 	# hard. Comparing the post-tick garrison to the pre-sortie one measures the
 	# war's whole turn and calls it your sortie; this assertion caught itself
 	# doing exactly that on its first run.
+	# AUDIT F7: A FAILED WRITE MUST REACH THE PLAYER.
+	#
+	# The room applied the sortie, ticked, built this text and showed it, and only
+	# then attempted the save — using the `false` return to decide whether to
+	# print a line. So a disk failure left the player watching the front move on a
+	# map whose next launch reloads the war from before the sortie: the dent, the
+	# capture and a lost pilot all silently un-happening. That is not P1.q4's
+	# *exit without save*, which is a choice; it is a lie.
+	#
+	# Asserted as TEXT for the reason the intel card is: it is the only bug this
+	# path can have, and it is invisible on screen because the screen looks right.
+	var told: PackedStringArray = WarDebrief.lines(debrief, false)
+	var told_text: String = "\n".join(told)
+	_expect(told_text.contains("NOT SAVED") and told_text.contains(WarSave.PATH),
+			"a debrief whose save failed says so, and names the file")
+	_expect(told_text.contains("LOST"),
+			"and says what it costs the player rather than just reporting an error")
+	# The other half, or "always warn" would pass: a successful save is quiet.
+	var quiet: String = "\n".join(WarDebrief.lines(debrief, true))
+	_expect(not quiet.contains("NOT SAVED"),
+			"while a debrief that saved cleanly does not cry wolf")
+	_expect(not quiet.contains("NOT SAVED") and told.size() > WarDebrief.lines(debrief).size(),
+			"and the warning is ADDED to the normal debrief rather than replacing it (%d -> %d lines)"
+			% [WarDebrief.lines(debrief).size(), told.size()])
+
 	var summary: Dictionary = debrief["summary"]
 	_expect(float(summary["dent"]) > 0.0,
 			"a survived sortie dents the node it named (dent %.2f)"
