@@ -386,6 +386,68 @@ func _bare_spec(archetype: StringName, objective: StringName,
 	}
 
 
+## AUDIT F6: A RESERVE FIRED IN ONE SORTIE MUST NOT ARRIVE IN THE NEXT ONE.
+##
+## `_fire_trigger` hands a `SceneTreeTimer` a callable bound to an INDEX into
+## three arrays that `start()` clears and rebuilds, and the timer belongs to the
+## tree rather than to the runner. `phase == DONE` did not cover the gap, because
+## starting the next sortie sets ENGAGED again.
+##
+## What it would do, if a runner were reused: mark one of sortie B's reserves as
+## ARRIVED without it ever firing — which can open B's egress early, since
+## `reserves_held` gates it — and spawn A's units into B's arena, where they are
+## appended to B's unit list and credited to B's dent.
+##
+## Nothing shipped is affected: `sortie.gd` and `sortie_bench.gd` build a fresh
+## runner per sortie. This check exists so that stays true by assertion rather
+## than by nobody having tried it.
+##
+## It uses a REAL timer with a short fuse rather than calling `_release` by hand,
+## because calling it by hand is precisely the thing that cannot reproduce the
+## bug — the trap is that the timer outlives the sortie.
+func _check_reserve_does_not_leak_into_the_next_sortie() -> void:
+	var runner := SortieRunner.new()
+	root.add_child(runner)
+
+	var first: Dictionary = _bare_spec(&"dogfight", &"clear_airspace", 0)
+	first["triggers"] = [
+		{"on": &"wave_cleared", "wave": 1, "after_s": 0.05,
+			"units": [{"type": &"raider", "count": 3, "bodies": 3, "strength": 3.0}]},
+	]
+	runner.start(first)
+	runner._fire_trigger(&"wave_cleared")
+	_expect(runner.reserves_unfired() == 0, "sortie A's reserve is on its timer")
+
+	# Sortie B starts before A's fuse runs out - one placed raider, two reserves.
+	var second: Dictionary = _bare_spec(&"dogfight", &"clear_airspace", 0)
+	second["layers"][&"outer"] = [{"type": &"raider", "count": 1, "bodies": 1,
+			"strength": 1.0}]
+	second["triggers"] = [
+		{"on": &"wave_cleared", "wave": 1, "after_s": 60.0, "units": []},
+		{"on": &"wave_cleared", "wave": 2, "after_s": 60.0, "units": []},
+	]
+	runner.start(second)
+	var placed: int = runner.remaining()
+	_expect(placed == 1, "sortie B places its own garrison (%d)" % placed)
+	_expect(runner.reserves_held() == 2, "and holds its own two reserves")
+
+	# Outlast A's 0.05 s fuse by a wide margin.
+	for i: int in 40:
+		await physics_frame
+
+	_expect(runner.reserves_held() == 2,
+			"A's timer does not mark one of B's reserves as arrived (%d held, wanted 2)"
+			% runner.reserves_held())
+	_expect(runner.remaining() == placed,
+			"and does not spawn A's units into B's arena (%d units, wanted %d)"
+			% [runner.remaining(), placed])
+	_expect(runner.phase == SortieRunner.Phase.ENGAGED,
+			"so B is still being flown rather than declared clear (phase %d)" % runner.phase)
+
+	runner.queue_free()
+	_stage = 0
+
+
 ## AUDIT F1, THE RUNNER'S HALF: a sortie that starts with nothing in it must
 ## still be able to END.
 ##
@@ -449,6 +511,11 @@ func _on_physics_frame() -> void:
 		if not _failures.is_empty():
 			_report()
 			return
+		# The reserve-leak probe waits on a REAL timer, so it parks the stage
+		# machine while it runs and puts it back afterwards.
+		_stage = -1
+		_check_reserve_does_not_leak_into_the_next_sortie()
+		return
 	if _ticks > _ticks_max:
 		_fail("timed out at stage %d after %.0fs" % [_stage, MAX_SECONDS])
 		_report()

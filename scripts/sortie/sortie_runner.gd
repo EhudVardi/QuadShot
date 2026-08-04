@@ -174,6 +174,26 @@ var _rng := RandomNumberGenerator.new()
 var _triggers: Array[Dictionary] = []
 var _trigger_spent: Array[bool] = []
 var _trigger_released: Array[bool] = []
+## Which sortie the arrays above belong to (audit F6). Bumped by every `start()`.
+##
+## A reserve's arrival is a `SceneTreeTimer` owned by the TREE, not by this node,
+## carrying an INDEX into the three arrays beside it — and `start()` clears and
+## rebuilds those arrays. So a reserve fired in sortie A whose timer had not yet
+## run would, on a reused runner, land in sortie B: marking one of B's reserves
+## as arrived without it ever having fired (which can open B's egress early,
+## since `reserves_held` gates it), spawning A's units into B's arena where they
+## are credited to B's dent, or going out of range outright if B holds fewer
+## triggers.
+##
+## `phase == DONE` did not cover it, because `start()` sets ENGAGED again. The
+## generation does: a callable bound to a stale one is simply not this sortie's.
+##
+## Nothing shipped was affected — `sortie.gd` and `sortie_bench.gd` each build a
+## fresh runner per sortie and free the arena, so the callable's target dies with
+## it — and instrumenting `_release` showed the check was NOT experiencing it
+## either, contrary to the audit's expectation. It is a latent trap, fixed while
+## it is still cheap.
+var _generation: int = 0
 ## Collision RIDs of bodies freed by this start() call. They outlive the call by
 ## one frame (queue_free is deferred), so pad placement has to exclude them.
 var _stale_rids: Array[RID] = []
@@ -224,6 +244,9 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	_triggers.clear()
 	_trigger_spent.clear()
 	_trigger_released.clear()
+	# Any reserve timer still in flight from the last sortie belongs to a
+	# generation that no longer exists, so `_release` will refuse it.
+	_generation += 1
 	_objectives_down = 0
 	_egressed = false
 	_pilot_lost = false
@@ -610,12 +633,21 @@ func _fire_trigger(on: StringName) -> void:
 	announced.emit("contact - reserves inbound")
 	# Bound by INDEX, not by payload: `_release` has to flip the released flag,
 	# and two structurally identical waves are indistinguishable as dictionaries.
+	# The GENERATION rides along because the index alone outlives the arrays it
+	# points into — see `_generation`.
 	get_tree().create_timer(float(_triggers[pick].get("after_s", 0.0))) \
-			.timeout.connect(_release.bind(pick))
+			.timeout.connect(_release.bind(pick, _generation))
 
 
-func _release(index: int) -> void:
+func _release(index: int, generation: int = -1) -> void:
 	if phase == Phase.DONE:
+		return
+	# A timer from a sortie this runner has already moved on from (audit F6).
+	# The default keeps the direct calls in `sortie_check`'s trigger probe
+	# working, which drive `_release` by hand rather than through a timer.
+	if generation >= 0 and generation != _generation:
+		return
+	if index >= _triggers.size():
 		return
 	_trigger_released[index] = true
 	for unit: Dictionary in _triggers[index]["units"]:
