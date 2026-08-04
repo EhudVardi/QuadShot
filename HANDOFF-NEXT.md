@@ -19,7 +19,31 @@ give this project.
 
 ---
 
-## WAITING ON THE HUMAN'S HANDS: the INGRESS (A6 / W.q7) — BUILT 2026-08-03
+## FLOWN AND VALIDATED: the INGRESS (A6 / W.q7) — BUILT 2026-08-03, flown 2026-08-04
+
+**The user flew it: *"i did, and its awesome, and the true way to go."*** A6 is
+settled. Two things came back with the verdict, and the second is now the most
+interesting open question in the project:
+
+1. **The 140-195 m band is not perceptible** (*"i didnt feel any real difference...
+   its either or i think"*). Nothing changed on that yet - the band is bounded
+   below by the egress line and above by the signal leash, so there is little room
+   anyway.
+2. **THE APPROACH IS UNCONTESTED, AND IT IS NOT A PLACEMENT PROBLEM.** *"on both
+   cases the enemy did not attack me until i engaged."* The obvious hypothesis - a
+   ring of three bodies does not cover your arrival bearing - was **measured and
+   refuted**: walking the real ingress line for all 30 nodes of seed 4242, **0 of
+   30 fail to have the pilot in sight before the centre**, and the pilot flies a
+   mean of only **49 m unseen**. The gap is between SEEING and REACHING: a raider
+   is **14 m/s** with an **18 m** preferred range, a turret is **0 m/s** with 45 m
+   of sight, and a quad on an ingress run beats both. Full reasoning, the
+   confidence of each claim, and the one cheap test that settles it are in
+   GAMEPLAY-DESIGN v2.16. **Read it before touching the roster** - it is the same
+   hole A7 named, seen from the other end, and the falx may already be the answer.
+
+---
+
+## The build detail, kept for reference
 
 **The pilot now starts OUTSIDE the target area and flies their own approach.**
 Read the v2.15 entry at the tail of GAMEPLAY-DESIGN.md; TESTING.md says how to
@@ -42,16 +66,14 @@ earlier, nothing else. **Detection and cover are one feature**; they land with
 P1.9's terrain, which is A6's own motivation (*"hills that allow a smart player
 to... fly low to avoid SAM sites"*). Do not ship half of it.
 
-### What to ask the human after they fly it
+### The three questions that were asked, and what came back
 
-1. **Is 140-195 m the right band?** It is bounded below by the egress line and
-   above by the FPV leash, so there is not much room, but the whole band can
-   shift if the leash moves with it.
-2. **Is the target legible from the ingress?** There is no waypoint marker on
-   purpose. If they cannot find it, the answer is either a HUD marker or a
-   brighter objective, and that is a design call.
-3. **Does the layered garrison finally read as layers from the air?** That is the
-   thing the clamp was destroying and the whole reason this was worth doing.
+1. **Is 140-195 m the right band?** Answered: it makes no perceptible difference.
+   Left alone for now.
+2. **Is the target legible from the ingress?** Not raised as a problem, so treat
+   it as fine until it is.
+3. **Does the layered garrison read as layers from the air?** **No** - and that is
+   item 2 at the top of this file, the live question.
 
 ### One new debt came out of measuring it, and it is the instrument's
 

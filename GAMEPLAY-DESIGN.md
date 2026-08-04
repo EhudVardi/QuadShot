@@ -10721,3 +10721,56 @@ being rediscovered as a red board when A.q1 lands.
     child's `_ready` runs before its parent's, so `_spawn_transform` was already
     captured by the time the scene moved the drone — B (reset) would have
     teleported the pilot into the middle of the enemy base.
+
+- **2026-08-04 — v2.16. THE INGRESS FLOWN AND VALIDATED BY HAND, and the flight
+  produced a better question than the one it answered.** The user, having flown
+  it: *"i did, and its awesome, and the true way to go."* A6 is settled by the
+  only test that counts.
+  - **But the distance band is not perceptible.** *"as for the distance, i didnt
+    feel any real difference. on both cases the enemy did not attack me until i
+    engaged. its either or i think."* 140 m through a city and 195 m over open
+    plains read the same from the cockpit. **Nothing is changed on the strength of
+    that yet** — the band is bounded below by the egress line and above by the
+    signal leash, so there is little room to widen it, and the second half of the
+    sentence is the more interesting finding anyway.
+  - **THE APPROACH IS UNCONTESTED, AND IT IS NOT A PLACEMENT PROBLEM.** The
+    obvious hypothesis — a "ring" of three bodies at a uniform random angle does
+    not cover the bearing you arrive on — was **measured and refuted**. Walking
+    the real ingress line inward for all 30 nodes of seed 4242, testing every
+    placed unit's own `sight_range` as a disc: **0 of 30 sorties fail to have the
+    pilot in sight before the centre**, and the pilot flies a mean of only **49 m
+    of the approach unseen**. Four nodes (1, 6, 12, 23) have the pilot in sight
+    **at the spawn point itself**. The garrison sees you coming, every time.
+  - **So the gap is between SEEING and REACHING, and it is legible in two config
+    numbers.** A raider's `speed` is **14 m/s** and its `preferred_range` is
+    **18 m** — it engages at 60 m, then tries to close to 18 m, at a speed a
+    quad on an ingress run comfortably beats. A turret's `speed` is **0** and its
+    sight is **45 m**, so it is an inner-ring weapon by construction. `_try_fire`
+    has no range gate, so the outer ring does open fire at long range — at a fast
+    crossing target it cannot follow. Subjectively that is indistinguishable from
+    not being attacked at all, which is exactly what the user reported.
+    - **Stated as confidence:** the coverage figures are MEASURED; the
+      speed/range figures are READ FROM CONFIG; *"they shoot and miss and cannot
+      keep up"* is an INFERENCE and is not yet measured.
+    - **The one cheap test that settles it:** fly a straight-line ingress at
+      cruise speed and log enemy shots fired and hits landed against distance
+      from the centre. If shots are fired and miss, this is a speed and lethality
+      finding; if no shots are fired, `_has_line_of_sight` or the armed gate is
+      the culprit and the diagnosis above is wrong.
+  - **This is the same hole A7 already named, seen from the other end.** A7 says
+    the roster has no heavy DEFENDER; the ingress shows it has no defender that
+    can contest a fast approach either. The falx — boom-and-zoom, held on open
+    approaches by `LAYERING` — is the one type designed for exactly this job, and
+    whether it already does it is the first thing to look at before anything new
+    is built.
+  - **A.q7 (new) — what contests an approach?** Not decided, and deliberately not
+    designed here. The candidates visible from the code are: the falx doing its
+    stated job, an outer-ring type with reach rather than speed, or the approach
+    being contested by terrain and detection rather than by bodies (which is
+    P1.9 again).
+  - **The give-up-on-a-target rule is DECLINED.** Offered as the only thing that
+    could move `sortie_bench`'s zero-dent cells; the user: *"no. lets keep it
+    simple."* The arena bound shipped 2026-08-04 stands as the whole of that fix.
+    Recorded so it is not re-proposed: the zeros are a loadout mismatch the bench
+    correctly refuses to call difficulty, and each node's SDI is taken from its
+    best weapon regardless.
