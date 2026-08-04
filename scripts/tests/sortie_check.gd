@@ -639,6 +639,39 @@ func _stage_verify() -> void:
 	_expect(bool(done["objective_complete"]), "which completes the strike")
 	_expect(bool(done["egressed"]), "and the pilot got out")
 	_expect(_egress_opened == 2, "each sortie opened its egress once (%d)" % _egress_opened)
+
+	# AUDIT F2: A FLAWLESS STRIKE DENTS BY ZERO, and the result must still be able
+	# to say so. `dent` is priced from KILLS ONLY - `_on_objective_destroyed`
+	# increments `_objectives_down` and emits points but never touches the kill
+	# tally - so a pilot who flattens every structure and shoots no defender
+	# produces `outcome=complete` with `dent 0.000`. Reproduced by execution on
+	# node 8: 3 of 3 down, kills {}, dent 0.000, which `sortie_bench` printed as
+	# `cleared 0.0%` - the same reading as a pilot who arrived and did nothing.
+	#
+	# THE DENT IS NOT THE THING TO CHANGE. It is the war's exchange rate, and
+	# P2.q4's identity only holds because objective structures are not part of the
+	# garrison; the campaign already prices them in `apply_sortie`'s
+	# capture/degrade branch. What has to be true is that the RESULT carries both
+	# halves separately, so the instrument can stop conflating them - which is
+	# what `sortie_bench`'s new `struck` column reads.
+	_expect(done.has("objectives_destroyed") and done.has("objective_assets"),
+			"the result carries the objective half separately from the dent")
+	var did_nothing: Dictionary = _bare_spec(&"strike", &"destroy_production", 3)
+	var idle := SortieRunner.new()
+	root.add_child(idle)
+	idle.start(did_nothing)
+	idle.abort("gave up")
+	var nothing: Dictionary = idle.result()
+	idle.queue_free()
+	# The pair that matters: a pilot who flattened everything and a pilot who did
+	# nothing BOTH read dent 0.0, so the dent alone cannot tell them apart - and
+	# the objective count can. That is the whole of what F2 costs the instrument.
+	_expect(is_zero_approx(float(nothing["dent"])) and is_zero_approx(float(done["dent"])),
+			"a flawless strike and an abandoned one both dent by 0.0 (%.3f, %.3f)"
+			% [float(done["dent"]), float(nothing["dent"])])
+	_expect(int(done["objectives_destroyed"]) > int(nothing["objectives_destroyed"]),
+			"but the objective count separates them (%d vs %d)"
+			% [int(done["objectives_destroyed"]), int(nothing["objectives_destroyed"])])
 	# P2.q4: the result is serializable, because the war has to eat it and the
 	# save has to carry it (F4).
 	var round_trip: Variant = str_to_var(var_to_str(done))

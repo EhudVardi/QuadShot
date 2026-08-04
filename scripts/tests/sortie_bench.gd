@@ -471,6 +471,10 @@ func _record(outcome: StringName) -> void:
 		"seconds": float(_ticks) / float(Engine.physics_ticks_per_second),
 		"dent": float(_result.get("dent", WarManifest.dent_from_kills(_runner.kills))),
 		"objectives": int(_result.get("objectives_destroyed", 0)),
+		# The DENOMINATOR for the objective half (audit F2). Recorded per rep
+		# rather than read off the cell, because a rep that never built its
+		# structures should read 0 of 0 rather than 0 of 3.
+		"objective_assets": int(_result.get("objective_assets", 0)),
 	})
 	# Printed ALWAYS, not just when watching: a sweep of this length is run in
 	# the background, and a run you cannot read until it finishes is a run you
@@ -545,8 +549,12 @@ func _report() -> void:
 		for key: StringName in tally:
 			parts.append("%s %d" % [key, int(tally[key])])
 		var n: float = float(reps.size())
-		if dent <= 0.0:
-			_failures.append("%s: dent 0.0 over %d reps - the pilot never killed anything, which is a rig fault rather than a difficulty reading"
+		# THE GUARD HAD TO LEARN ABOUT OBJECTIVES (audit F2). `dent` counts KILLS
+		# only, so a pilot who flattened every structure and shot no defender
+		# scored dent 0.0 and was reported as a rig fault - which is the opposite
+		# of what happened. It fires now only when the pilot did nothing at all.
+		if dent <= 0.0 and objectives <= 0.0:
+			_failures.append("%s: dent 0.0 and no objective touched over %d reps - the pilot achieved nothing at all, which is a rig fault rather than a difficulty reading"
 					% [cell["name"], reps.size()])
 		print("[sortie_bench] %-26s %5d %6.1f %6.0f%% %5.0f%% %5.1fs %6.1f %5.1f  %s"
 				% [cell["name"], int(cell["depth"]), float(cell["garrison"]),
@@ -627,15 +635,26 @@ func _print_curve() -> void:
 	for i: int in _cells.size():
 		var depth: int = int(_cells[i]["depth"])
 		if not by_depth.has(depth):
-			by_depth[depth] = {"complete": 0, "reps": 0, "hull": 0.0, "cleared": 0.0}
+			by_depth[depth] = {"complete": 0, "reps": 0, "hull": 0.0, "cleared": 0.0,
+					"struck": 0.0, "with_objectives": 0}
 		var garrison: float = maxf(float(_cells[i]["garrison"]), 0.001)
 		for r: Dictionary in _results:
 			if int(r["cell"]) != i:
 				continue
 			by_depth[depth]["reps"] = int(by_depth[depth]["reps"]) + 1
 			by_depth[depth]["hull"] = float(by_depth[depth]["hull"]) + float(r["hull"])
-			# CLEARED FRACTION: how much of the node the pilot actually took apart
-			# before it died. See the print below for why this is here.
+			# STRUCK FRACTION (audit F2): the OBJECTIVE half of what a node is,
+			# kept separate from `cleared` rather than fused into it. Averaged only
+			# over the reps that had structures to flatten, so a dogfight cannot
+			# dilute a strike's reading toward zero.
+			var assets: int = int(r.get("objective_assets", 0))
+			if assets > 0:
+				by_depth[depth]["with_objectives"] = \
+						int(by_depth[depth]["with_objectives"]) + 1
+				by_depth[depth]["struck"] = float(by_depth[depth]["struck"]) \
+						+ float(r["objectives"]) / float(assets)
+			# CLEARED FRACTION: how much of the node's GARRISON the pilot took
+			# apart before it died. See the print below for why this is here.
 			by_depth[depth]["cleared"] = float(by_depth[depth]["cleared"]) 					+ float(r["dent"]) / garrison
 			if r["outcome"] == &"complete":
 				by_depth[depth]["complete"] = int(by_depth[depth]["complete"]) + 1
@@ -646,9 +665,13 @@ func _print_curve() -> void:
 		var reps: int = int(row["reps"])
 		if reps == 0:
 			continue
-		print("[sortie_bench]   %d hop(s) out: %3.0f%% complete, %3.0f%% cleared, %3.0f%% hull, %d reps"
+		var with_objectives: int = int(row["with_objectives"])
+		var struck: String = "   n/a"
+		if with_objectives > 0:
+			struck = "%5.0f%%" % (float(row["struck"]) / float(with_objectives) * 100.0)
+		print("[sortie_bench]   %d hop(s) out: %3.0f%% complete, %3.0f%% cleared, %s struck, %3.0f%% hull, %d reps"
 				% [depth, float(row["complete"]) / float(reps) * 100.0,
-				float(row["cleared"]) / float(reps) * 100.0,
+				float(row["cleared"]) / float(reps) * 100.0, struck,
 				float(row["hull"]) / float(reps) * 100.0, reps])
 	print("[sortie_bench] H6 wants pocket 70-85%, mid 45-65%, deep 30-50%, HQ 25-40%")
 	# WHY THE SECOND COLUMN EXISTS (2026-08-03). The first full-theater sweep -
@@ -661,7 +684,27 @@ func _print_curve() -> void:
 	# sweep it fell 54% -> 21% from depth 3 to depth 7 - a real gradient, in a
 	# metric that does not saturate when the pilot always dies. It is the SHAPE
 	# H6 wants even though it is not the UNIT H6 named.
-	print("[sortie_bench] `cleared` is the fraction of the node taken apart before dying:")
+	print("[sortie_bench] `cleared` is the fraction of the node's GARRISON taken apart:")
 	print("[sortie_bench] it keeps its resolution when `complete` saturates at 0%.")
+	# WHY THE THIRD COLUMN EXISTS (audit F2, 2026-08-04). `cleared` is dent over
+	# garrison, and `dent` is priced from KILLS ONLY - `_on_objective_destroyed`
+	# never touches the kill tally. So a pilot who flew node 8's strike, flattened
+	# all three production structures and shot no defender produced
+	# `objectives 3/3, objective_complete=true, outcome=complete` and `dent 0.000`,
+	# reading as `cleared 0.0%` - identical to a pilot who arrived and did nothing.
+	# Six of the seven archetypes carry objectives, so the depth curve v2.13 was
+	# read from could not see the objective half of almost all of them.
+	#
+	# THE DENT WAS DELIBERATELY NOT CHANGED. It is the war's exchange rate, and
+	# P2.q4's identity - clear everything a sortie can field and you have dented
+	# the node by precisely its garrison - only holds because objective structures
+	# are NOT part of the garrison. The campaign already prices the objective
+	# separately, in `apply_sortie`'s capture/degrade branch. It was the
+	# INSTRUMENT that was blind, so the instrument is what changed.
+	print("[sortie_bench] `struck` is the objective half - structures flattened.")
+	print("[sortie_bench] the two are NOT fused: a node is a garrison AND a target,")
+	print("[sortie_bench] and how much one is worth in units of the other is not")
+	print("[sortie_bench] something this bench is allowed to decide (H6).")
+	print("[sortie_bench] `struck` averages only over reps that HAD structures.")
 	print("[sortie_bench] read against a STOCK KESTREL + BLASTER - no earned loadout,")
 	print("[sortie_bench] no frame choice, so a low deep number is expected here.")
