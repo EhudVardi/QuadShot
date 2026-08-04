@@ -418,19 +418,51 @@ gun, and which is flying a route rather than fighting) that produces an infinite
 tow, and the bench correctly reports it as `dent 0.0` - a rig fault, not a
 difficulty reading.
 
-**Two candidate fixes, neither shipped, because changing the policy invalidates
-every sortie number and the choice is a real one:**
+**Two candidate fixes were offered. The user chose the arena rule** (*"op1 fits
+more to a REAL pilot, but for our bench, op2 is an obvious choice"*), and their
+separation of concerns is the right one: giving up on a target is pilot judgement,
+staying in the arena is a rig constraint.
 
 1. **Blacklist a target that has taken no damage in N seconds** and pick the next
-   one. Models "a pilot gives up on something it cannot hurt", which is a
-   judgement a human obviously makes.
-2. **Give the bench pilot the GAME'S leash.** A human flying this sortie gets
-   SIGNAL WEAK at 220 m from the centre and loses the link at 300 m; the bench
-   pilot wandered to 149 m chasing a jammer with no such pressure. An instrument
-   whose pilot can leave the arena is measuring flights the player cannot make.
+   one. Models "a pilot gives up on something it cannot hurt".
+2. **Bound the fight** — shipped 2026-08-04 as `IN_FIGHT_RADIUS_M`.
 
-(2) is the more principled one and it is also the one that fixes the drift rather
-than the symptom.
+### What (2) fixed, and what it did not — measured, not assumed
+
+**The bound is on the TARGET, not on the pilot, and that is not a detail.** The
+game's leash warns at 220 m and the shipped ingress spawns the pilot at up to
+195 m, so any *pilot*-side radius tight enough to bite at 149 m would kill the
+pilot at spawn. The tow never left the leash. The bound that fires is the one on
+what counts as being IN the fight, and it reuses `EGRESS_RADIUS` (105 m) because
+that is already this project's definition of outside-the-fight — the line a strike
+ends by crossing. The 300 m leash ships too, as a distinct `signal_lost` outcome
+and a pure safety net.
+
+**Traced on `node 21 command/airfield_plains blaster`, 120 s, per ten seconds:**
+
+| | before | after |
+|---|---|---|
+| pilot's distance from centre | swung 99 - 149 m, drifting out | stayed **18 - 96 m** |
+| target's distance from centre | dragged with it | stayed **11 - 91 m** |
+| target switches | n/a | **5 in 120 s** - no chatter |
+| dent | 0.00 | **0.00** |
+| hull spent | 0% | **0%** |
+
+**So the drift is gone and the stalemate is not.** The pilot now holds station
+inside the arena and spends the whole sortie on a Screamer it still cannot kill:
+the screamer's own jam field shuts the gun director, the pilot falls back to the
+manual 6 deg cone against an evader, and it misses forever. That is not a
+geography problem and no arena rule can see it.
+
+**Whether the remainder is even a defect is a real question.** BALANCE.md already
+says of node 16 that a stalemate is *"what the bench correctly refuses to call
+difficulty"* — the blaster is hard-countered here (P4.3's counter-matrix), the
+node's SDI is taken from its BEST weapon anyway (node 21's is missile, dent 9.0),
+and `dent 0.0` firing is the assertion working. What is still wrong is narrower:
+**a pilot that spends 300 s on a target it cannot hurt reports 0.0 where a pilot
+that broke off would have reported the two raiders it could have killed instead.**
+That distinguishes "the blaster is weak here" from "the blaster achieved literally
+nothing", and only (1) can buy it.
 
 ## The rulers
 

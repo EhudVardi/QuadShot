@@ -35,6 +35,10 @@ extends SceneTree
 ##    multi-unit fight is a commander's judgement the pilot does not have. The
 ##    policy below is deliberately simple and stated, so a number can be read as
 ##    "the model under THIS policy" rather than as an unqualified difficulty.
+##    Since 2026-08-04 the policy also refuses candidates that have left the
+##    fight (`IN_FIGHT_RADIUS_M`), which is an ARENA rule rather than a pilot
+##    judgement — see that constant for the tow it fixes and for why the bound is
+##    on the target rather than on the pilot.
 ## 2b. **IT FLIES THE GAME'S INGRESS SINCE 2026-08-03, so numbers taken before
 ##    that date are not comparable to numbers taken after it.** The pilot used to
 ##    start at a rig-invented 125 m on a fixed bearing; it now starts on the
@@ -118,6 +122,41 @@ const THREAT_PRIORITY_RANGE: float = 60.0
 ## How often the policy re-decides. Every tick would make the pilot jitter
 ## between two equidistant targets and never settle on either.
 const RETARGET_PERIOD_S: float = 0.5
+
+## THE ARENA IS A BOUNDARY AND THE BENCH PILOT NOW OBEYS IT (2026-08-04, the
+## user's call: the give-up-on-a-target rule "fits more to a REAL pilot, but for
+## our bench" the arena constraint is the right shape).
+##
+## THE BUG IT FIXES. The policy above takes the nearest threat inside 60 m and
+## has no way to ever let go. Against a **screamer** — which holds a standoff and
+## carries no weapon, so it neither dies quickly nor punishes you — the pilot
+## orbits at its own orbit radius while the screamer backs away, and the pair
+## drifts out of the fight together. Instrumented on `node 21
+## command/airfield_plains blaster`: a Screamer held at **30.0 m for eighty
+## seconds** while the pilot's distance from the sortie centre swung between 99 m
+## and 149 m. Hull 100%, dent 0.00, nothing killed, for the whole 300 s cap. An
+## **aegis** does the same for a different reason: its shield hard-counters a chip
+## gun and it is flying a delivery route rather than fighting.
+##
+## WHY THE BOUNDARY IS ON THE TARGET AND NOT ON THE PILOT, which is the one thing
+## about this that is not obvious. The game's own leash is anchored at the sortie
+## centre and warns at 220 m; the shipped ingress spawns the pilot at up to 195 m,
+## so ANY pilot-side radius tight enough to bite at 149 m would kill the pilot at
+## spawn. The tow never left the leash. So the arena bound that actually fires is
+## the one on what counts as being IN the fight.
+##
+## `EGRESS_RADIUS` is reused rather than a new number invented, and that is the
+## argument for it: 105 m is already this project's definition of "outside the
+## fight" — it is the line a strike ends by crossing. A body dragged past the line
+## the pilot would END the sortie by crossing is not part of the sortie any more,
+## and the bench and the game now agree on where the fight is.
+const IN_FIGHT_RADIUS_M: float = SortieRunner.EGRESS_RADIUS
+
+## The game's leash, kept as a SAFETY NET rather than as the fix (see above). With
+## the target boundary in place the pilot should never reach it; if a run ever
+## records `signal_lost`, something has dragged the instrument somewhere the
+## player cannot go and that is a finding rather than a difficulty reading.
+const SIGNAL_LOST_M: float = 300.0
 
 var _cells: Array[Dictionary] = []
 var _filtered: bool = false
@@ -332,6 +371,15 @@ func _on_physics_frame() -> void:
 		_runner.abort("pilot down")
 		_record(&"lost")
 		return
+	# The game's leash, as its own outcome rather than folded into `timeout`. A
+	# human loses the link here and hands the war back NOTHING; a bench pilot that
+	# gets here has been dragged somewhere the player cannot fly, so the cell is a
+	# rig fault and must not be able to hide inside a difficulty reading.
+	if Vector2(_drone.global_position.x - ARENA_CENTER.x,
+			_drone.global_position.z - ARENA_CENTER.z).length() >= SIGNAL_LOST_M:
+		_runner.abort("signal lost")
+		_record(&"signal_lost")
+		return
 	if _ticks > _ticks_max:
 		_runner.abort("out of time")
 		_record(&"timeout")
@@ -339,14 +387,24 @@ func _on_physics_frame() -> void:
 
 ## The bench's targeting policy, stated in the header as limit 2. Nearest live
 ## THREAT inside the priority range, else the nearest live objective structure,
-## else the nearest anything.
+## else the nearest anything — and every candidate must be INSIDE THE FIGHT
+## (`IN_FIGHT_RADIUS_M`, see its note).
+##
+## The fallback CHAIN is what breaks the tow, not the filter on its own. When the
+## screamer the pilot is chasing crosses the line, it stops being a candidate and
+## the next rung down is the objective, which sits at the centre — so the pilot
+## turns around and flies back into the sortie instead of following it out. A
+## dogfight has no objective and drops to the nearest remaining in-fight body,
+## which is also inward. Only if the fight is empty of everything does the target
+## go null, and a parked pilot is a visible rig fault where an infinite tow was
+## not.
 func _retarget() -> void:
 	var best: Node3D = null
 	var best_d: float = INF
 	var at: Vector3 = _drone.global_position
 	for unit: Node in _runner.units:
 		var body: Node3D = _nearest_body(unit, at)
-		if body == null:
+		if body == null or not _in_fight(body.global_position):
 			continue
 		var d: float = at.distance_to(body.global_position)
 		if d < best_d:
@@ -360,11 +418,22 @@ func _retarget() -> void:
 	for asset: ObjectiveAsset in _runner.objectives:
 		if not is_instance_valid(asset) or not asset.alive():
 			continue
+		if not _in_fight(asset.global_position):
+			continue
 		var d: float = at.distance_to(asset.global_position)
 		if d < objective_d:
 			objective_d = d
 			objective = asset
 	_pilot.target = objective if objective != null else best
+
+
+## Is this body still part of the sortie? Measured FLAT, from the sortie's centre,
+## because the fight is a disc rather than a sphere: an aegis on its bomb run at
+## 26 m up is at the heart of the thing and would be excluded by a spherical test
+## the moment it climbed.
+func _in_fight(at: Vector3) -> bool:
+	return Vector2(at.x - ARENA_CENTER.x, at.z - ARENA_CENTER.z).length() \
+			<= IN_FIGHT_RADIUS_M
 
 
 ## A unit may be a single body or a container (a gnat cloud). Reach through to

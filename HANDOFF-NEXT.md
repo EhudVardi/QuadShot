@@ -70,10 +70,20 @@ tows a screamer around the map.** The retargeting policy takes the nearest threa
 inside 60 m and can never let go, so against a screamer (holds standoff, carries
 no weapon) or an aegis (shield hard-counters a chip gun, flying a route rather
 than fighting) the pilot orbits at 30 m for the whole sortie and drifts to 149 m
-from the centre. Two candidate fixes are written up in BALANCE.md; the better one
-is to give the bench pilot the GAME'S signal leash, since an instrument whose
-pilot can leave the arena is measuring flights the player cannot make. **Not
-shipped** - it invalidates every sortie number and the call is the user's.
+from the centre.
+
+**HALF-FIXED 2026-08-04, and the half that remains is the interesting one.** The
+user chose the arena rule over the give-up-on-a-target rule, on the reasoning that
+the second is pilot judgement and the first is a rig constraint - which is the
+right separation. `sortie_bench.IN_FIGHT_RADIUS_M` now refuses to target anything
+dragged past `EGRESS_RADIUS` from the sortie centre, and the drift is gone: node
+21's pilot went from swinging 99-149 m out to holding 18-96 m, with 5 target
+switches in 120 s and no chatter. **The zero dent did not move**, because the
+pilot is now stalemated in place against a screamer whose jam shuts its own gun
+director. No arena rule can see that. Only the give-up-on-a-target rule can, and
+the case for adding it is in BALANCE.md - it is what separates "the blaster is
+weak here" from "the blaster achieved literally nothing". **The user has not been
+asked for that one yet.**
 
 ### Then, in order
 
