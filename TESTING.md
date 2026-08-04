@@ -89,6 +89,52 @@ reference pilot has no egress behaviour, and teaching it one would cost a
 pilot's, and individual reps are **not** reproducible — the rate is the
 measurement, no single rep is.
 
+### The approach bench — what the garrison can do to you on the way IN
+
+```
+<godot> --headless -s scripts/tests/approach_bench.gd --path .
+<godot> --headless -s scripts/tests/approach_bench.gd --path . -- --nodes 8,12 --speeds 6,14,26
+```
+
+Built 2026-08-04 to answer the one test **GAMEPLAY-DESIGN v2.16** named, after the
+user flew the new ingress and reported *"on both cases the enemy did not attack me
+until i engaged."* It flies a **sled** — a body moved along the spec's own ingress
+bearing at a fixed speed, no return fire, no evasion — and logs what the garrison
+manages to do to it.
+
+**Speed is the independent variable**, not a constant, because the hypothesis
+under test is about speed. Picking one "cruise speed" would beg the question.
+
+**It is a SLED rather than `ReferencePilot` on purpose.** The question is what the
+GARRISON can do to a crossing target; a fighting brain would orbit, shoot back and
+change the geometry, and it carries the cross-process reproducibility debt that
+makes every other bench number unattributed. Its `linear_velocity` is real, so the
+enemies' lead solution is the real one.
+
+Four readouts, and the last two are the ones that decide anything:
+
+- **the engage gate, decomposed** — out of range / no line of sight / ENGAGED, as
+  a percentage of gun-frames. This is what separates *"shoots and misses"* from
+  *"never shoots"*, and it is what cleared `_has_line_of_sight` and the armed gate.
+- **shots and hits by distance band** from the sortie centre.
+- **how close the rounds came** — the closest approach of every enemy round.
+  A round passing 2 m away and a round passing 30 m away are different problems
+  wanting different answers, and this is the only column that tells them apart.
+- **who contests, by bestiary type** — shots and engaged-frames per placed body,
+  which is how A.q7's *"does the falx already do this job"* gets an answer instead
+  of an opinion.
+
+**Contact stings are counted separately from shots, and that is load-bearing.**
+`gnat_swarm.gd` damages by distance test with no projectile and no cooldown, so
+the shot counter cannot see it while `Health.struck` can. The first version fused
+them and printed a **250% hit rate** on node 8 — the instrument saying out loud
+that it was measuring two things and calling them one. A sting always kills the
+gnat that delivered it and the sled never fires, so any gnat body lost is exactly
+one sting; the split is exact rather than a proximity guess.
+
+It writes **no artifact and asserts nothing**. It is a reading for a human, and
+per H6 nothing it prints licenses a tuning change.
+
 ### The delivery benches — isolated measurements
 
 ```
