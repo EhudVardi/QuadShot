@@ -10774,3 +10774,182 @@ being rediscovered as a red board when A.q1 lands.
     Recorded so it is not re-proposed: the zeros are a loadout mismatch the bench
     correctly refuses to call difficulty, and each node's SDI is taken from its
     best weapon regardless.
+
+- **2026-08-05 — v2.17. AN OUTSIDE AUDIT, TRIAGED AND FIXED — and the one finding
+  that was wrong is recorded as carefully as the six that were right.** Seven
+  findings came back from an external reader; all seven re-derived here before
+  anything was touched, six confirmed exactly, one confirmed in mechanism and
+  WRONG in its stated symptom, and an eighth found by following the audit's own
+  safety advice. The request and the response are committed as
+  `AUDIT-REQUEST-2026-08-04_.md` and `AUDIT-HANDOFF-2026-08-04.md` so both are
+  citable by line rather than living in a chat log.
+  - **THE CAMPAIGN-DESTROYER WAS REAL AND MORE REACHABLE THAN REPORTED (F1).** A
+    node ground below the price of the cheapest unit in the game — 1.000, a
+    raider — projects to an EMPTY unit list, and an `airspace` node has no
+    structure either, so the spec is legal, `is_slice_ready` says yes because it
+    only reads the archetype's NAME, and the war room offers it. Flown, it is an
+    empty sky with no exit: a dogfight's egress opens only from
+    `_check_field_cleared`, whose two callers are a unit dying and a reserve
+    arriving, and there are neither. Quitting is defined as losing the sortie
+    (P1.q4), so it is a dead end that charges you for leaving.
+  - **How reachable, measured rather than asserted, because that is what decides
+    whether it is a hazard or a curiosity.** 40 seeds x 80 ticks: supply decay
+    with NO player produced it in 1 of 40 (seed 4633, tick 17, node 23 at
+    garrison 0.978); a player who repeatedly clears deep un-capturable ground
+    produced it in **34 of 40 seeds, 1179 offers**, and on seed 4242 — the seed
+    every repro command uses — at tick 0.
+  - **THE SIM ALREADY KNEW AND ONLY EVER TOLD ITSELF.** `_proxy_sortie` skips any
+    node under garrison 3.0 it cannot capture — the anti-treadmill rule, *"don't
+    re-bomb rubble that can't be captured"*. The war's own AI has refused this
+    target for as long as it has existed; nothing refused it for the PLAYER. So
+    the fix publishes knowledge the sim had rather than inventing a rule:
+    `SortieComposer.has_anything_to_fight`, one predicate with two readers —
+    `WarView.refusals` keeps the node off the launch list, and
+    `SortieRunner.start` ends such a sortie anyway by calling the EXISTING
+    `_check_field_cleared`. Two implementations of "is there a fight here" would
+    be two things to keep in sync, and the map is the one that would drift.
+  - **TWO CHECKS THAT COULD NOT FAIL, both caught by the audit and both verified
+    blind before being repaired.** `sortie_check`'s trigger probe hand-built the
+    three arrays whose maintenance is the joint's whole responsibility, so
+    deleting `_trigger_released.append(false)` from `start()` left it fully green
+    — and that deletion is v2.01's bug back, AIRSPACE CLEAR announced with a wave
+    still on its timer. And the ingress remap's ORDER PRESERVED claim, stated in
+    four documents, was asserted nowhere: inverting it so a city drops you
+    farthest and open desert closest passed, with the anti-constant assertion
+    printing `ok (4 specs -> 4 ranges)`. **This is the third and fourth time the
+    cheap mechanical question has paid**, and both were in the newest file.
+  - **ONE FINDING WAS WRONG WHERE IT MATTERED (F6), and the correction is worth
+    more than the fix.** The stale-reserve-timer mechanism is real — a
+    `SceneTreeTimer` owned by the tree, holding an index into arrays `start()`
+    rebuilds, guarded only by `phase == DONE` — but the audit's *"sortie_check is
+    very likely already experiencing it silently"* is not. Instrumenting
+    `_release` showed four releases, all the dogfight's own, all while ENGAGED,
+    because a dogfight's egress REQUIRES every fired reserve to have arrived, so
+    no timer can still be in flight when it ends. Fixed with a generation counter
+    anyway; recorded as a latent trap rather than a live one, because the
+    difference between those two is exactly what a triage is for.
+  - **THE EIGHTH FINDING IS MINE AND THE AUDIT COULD NOT HAVE FOUND IT.** Its own
+    section 6 says to back `user://` up before running the board. Doing that and
+    diffing afterwards: `runs` 158 -> 159, `kills_total` 524 -> 526 in the human's
+    real `profile.json`. `main.gd` records a finished run and nine of nineteen
+    checks instantiate `main.tscn`, so **every board run for months has inflated a
+    player-facing career record**. It never lost data and never touched the
+    campaign, which is why nobody saw it. The audit machine had no `profile.json`
+    at all, so this is a hazard that only exists where somebody actually plays.
+  - **AND THE CULPRIT WAS NOT THE CHECK ANYONE WOULD SUSPECT.** `run_check` has
+    backed up and restored the profile since it was written and was correct
+    throughout; isolating each `main.tscn` check against a fresh copy named
+    `wave_check`, which ends a run as a side effect of what it measures and
+    carried no such machinery. That is the argument for where the guard goes: **a
+    rule kept in the CALLERS is a rule most callers will not keep.**
+    `PlayerProfile.save()` now refuses to write headless — `Blackbox`'s own
+    precedent — and `run_check`'s borrow-and-restore is DELETED, because there is
+    nothing left to undo and restoring by hand meant it still wrote the real file.
+  - **A CHECK BECAME UNFAILABLE THE MOMENT THAT LANDED, and was replaced rather
+    than deleted.** `run_check` asserted `runs > 0` by reading the file back —
+    real while a headless run still wrote it, vacuous the instant it did not,
+    because the file it reads is the human's career and their `runs` is 158
+    whatever the check does. It now asserts the recording arithmetic and the
+    suppression itself, so deleting the guard fails here instead of silently
+    re-arming the leak.
+  - **THE DENT IS BLIND TO OBJECTIVES (F2), AND THE DENT WAS NOT THE THING TO
+    CHANGE.** A pilot who flies node 8's strike, flattens all three structures and
+    shoots no defender produces `outcome=complete` and `dent 0.000`, which
+    `sortie_bench` printed as `cleared 0.0%` — the same reading as a pilot who
+    took off and did nothing. Six of the seven archetypes carry objectives, so the
+    depth curve v2.13 was read from could see one half of almost every node it
+    measured. But `dent` is the war's exchange rate, and P2.q4's identity holds
+    only because objective structures are NOT part of the garrison; the campaign
+    already prices them separately (verified: garrison 36.400 -> 26.400 on that
+    same flawless strike). **The campaign was never blind. The instrument was.**
+    So the bench gained a `struck` column and the two are deliberately NOT fused —
+    how much a production structure is worth in units of garrison strength is an
+    authored weight, and H6 says difficulty is measured rather than authored.
+  - **A process note worth keeping, because it cost real time.** Mutations were
+    first reverted with `git checkout --` on files carrying UNCOMMITTED work,
+    which reverted the fix along with the mutation and silently invalidated two of
+    four mutation results. Everything after that reverted from scratchpad copies
+    instead. **Never `git checkout` a file you have unpushed edits in**, and a
+    mutation result taken against a tree you did not verify is not a result.
+
+- **2026-08-05 — v2.18. THE UNCONTESTED APPROACH, MEASURED — and A.q7 decided by
+  the user on grounds of IDENTITY rather than of difficulty.** v2.16 named one
+  cheap test and honestly marked its own diagnosis as an inference.
+  `approach_bench.gd` is that test, and the diagnosis was right.
+  - **THE ANSWER: shots ARE fired, and they miss.** Over 6 nodes of theater 4242:
+    at 6 m/s the garrison lands 16 of 195 (8%) for 165 damage; at 14 m/s **1 of
+    62 (2%) for 10 damage**; at 26 m/s **0 of 40, for nothing**. A Kestrel's hull
+    is 100, so crossing six whole enemy positions at cruise costs a tenth of one
+    drone. Line of sight failed on **0-1% of gun-frames everywhere**, so
+    `_has_line_of_sight` and the armed gate — the two alternatives v2.16 offered
+    against its own reading — are ruled out rather than merely doubted.
+  - **TWO THINGS COLLAPSE AT ONCE, which is why it reads as total.** You are
+    inside anyone's range for less time (195 shots -> 40) AND the shots that do
+    get off connect less often (8% -> 0%).
+  - **THE NUMBER NOBODY HAD: the rounds are not missing wildly, they miss by a
+    metre and a half.** Median closest approach 0.9 m at 6 m/s, **1.5 m at 14
+    m/s**, 4.6 m at 26 m/s — against a drone whose collision box is **0.28 m**
+    across. At cruise, two thirds of enemy rounds pass within 2 m of a 28 cm
+    target and essentially none connect. The arithmetic closes on its own: a
+    falx's `aim_jitter_deg` is 2.5 deg, and 2.5 deg at 40 m is ~1.7 m of lateral
+    spread. **The deliberate dodgeability cone alone accounts for the whole
+    effect.** Nothing else has to be wrong.
+  - **THE FALX ALREADY DOES THE JOB, and that reframes A.q7 completely.** Per
+    placed body at 14 m/s: falx 4.8 shots and 918 engaged-frames, raider 3.0 and
+    461, turret 0.8 and 119. It engages twice as long as a raider and eight times
+    as long as a turret, exactly as `LAYERING` holding it on the outer ring
+    intends — and the whole garrison still landed 1 hit in 62 shots. **The roster
+    does not lack a contester. Contesting is not the same as connecting.**
+  - **A.q7 -> DECIDED (user): terrain is the real answer (P1.9), plus a small buff
+    to the falx's REACH.** Both halves of the reasoning are the user's and both
+    are about identity rather than about a difficulty target.
+    - **The dispersion knob was REFUSED as the fix and KEPT as a knob.**
+      Tightening `aim_jitter_deg` would have closed the whole gap in one line, and
+      that is precisely why it was offered and why it was declined: *"it means
+      that a falx pilot tries harder if his enemy evades a lot, which for me
+      sounds silly and not realistic."* Accuracy must not be a function of how
+      much the player is dodging. It stays on the board as a **global difficulty
+      knob** for a future difficulty setting to move alongside others — *"its a
+      VERY GOOD difficulty knob... bottom line - its not the solution, but still
+      its a usefull difficulty knob."*
+    - **The falx is a SHARPSHOOTER, and the buff serves the character rather than
+      the curve.** *"the falx should be more of a sharp shooter, since it flys
+      fast, make short dramatic engagements and flees out of range... it should
+      fire from far away, making the player wonder where the hell he is getting
+      shot at. the falx already suprises me with such things, and i think it
+      perfectly flashes out its identity."*
+  - **What the buff IS, and what it measurably did.** `sight_range` 90 -> 110. In
+    `falx.gd` that number gates exactly three things and nothing else: when it
+    leaves patrol, how far it will take a shot, and how long its rounds live — so
+    it makes the falx START ITS RUN and OPEN FIRE from further out **without
+    touching how well it shoots**. Same three falx-bearing nodes, before and
+    after, at 14 m/s: falx shots **38 -> 54**, engaged-frames **7352 -> 10003**,
+    share of gun-frames engaged **43% -> 56%**. Median miss unchanged at 1.5-1.7 m
+    and ranged hits still **zero** — which is the point. The change delivers the
+    fiction and deliberately does not deliver lethality, because lethality on the
+    approach is terrain's job.
+  - **The sharpest single reading is a node that stopped being silent.** Node 0 at
+    14 m/s fired **nothing at all** at 90 m, and fires **8 rounds, first at 75 m**
+    at 110 m. That is *"where the hell is that coming from"* arriving as a number.
+  - **It is a FEEL change and the human's hands are the test.** Nothing here was
+    tuned toward a bench reading, and the bench deliberately shows the lethality
+    unmoved.
+  - **Two side findings from the same sweep, neither acted on.** Node 21
+    (command/airfield_plains) fires **nothing at any speed**, 100% out of range
+    with 2 guns placed — an entire decapitation node that cannot touch an
+    approach. And node 8 (factory), the LARGEST garrison in the sample at 10 guns,
+    engages on **1% of gun-frames** — the biggest position contests least.
+  - **The bench caught its own instrument lying, recorded because it is the house
+    failure mode.** The first run printed **6 shots / 15 hits** on node 8 — a 250%
+    hit rate, an instrument announcing that it was measuring two things and
+    calling them one. `gnat_swarm` stings by distance test with no projectile and
+    no cooldown, so the shot counter could not see what `Health.struck` could.
+    Split exactly rather than by proximity guess: a sting always kills the gnat
+    that delivered it and the sled never fires, so any gnat body lost is one sting.
+  - **NEW ON THE BOARD: a BESTIARY game mode** (user's idea). A leaf off the menu
+    tower that displays every enemy, every ally, every weapon and their statistics
+    — *"this would help to get a macro view of the current content."* It is the
+    first proposed screen whose purpose is the DESIGNER's view rather than the
+    player's, and it lands naturally beside the war room's inspection card, which
+    already renders facts to text so a check can read them. Not scheduled;
+    recorded so it is not reinvented.

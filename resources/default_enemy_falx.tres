@@ -23,6 +23,27 @@
 ; hull 26 is under the raider's 40 (P4.2: "light — fragile is the price of
 ; speed"), and it is what makes the flak `++` on the P4.3 row achievable: one
 ; burst that catches the pass should end it.
+;
+; `sight_range` 110 IS THIS TYPE'S FIRE RANGE, and it was raised from 90 on
+; 2026-08-05 by the user's call, answering A.q7. It gates three things in
+; `falx.gd` and nothing else: when it leaves patrol, how far it will take a shot,
+; and how long its rounds live. So raising it makes the falx START ITS RUN and
+; OPEN FIRE from further out, without touching how well it shoots.
+;
+; The reasoning is the type's identity rather than a difficulty target. The user:
+; *"the falx should be more of a sharp shooter, since it flys fast, makes short
+; dramatic engagements and flees out of range... it should fire from far away,
+; making the player wonder where the hell he is getting shot at."*
+;
+; `aim_jitter_deg` was deliberately NOT touched, and that decision is worth
+; keeping written down. The approach bench measured enemy rounds arriving a
+; median 1.5 m from a 0.28 m drone at 14 m/s, which is almost exactly the 2.5°
+; cone at typical range — so tightening it would have "fixed" the uncontested
+; approach in one line. It was refused because it makes accuracy a function of
+; how much the player evades: *"it means that a falx pilot tries harder if his
+; enemy evades a lot, which for me sounds silly and not realistic."* The cone
+; stays a GLOBAL difficulty knob for a future difficulty setting to move, not a
+; per-problem lever.
 [gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
@@ -39,7 +60,7 @@ shield_regen_delay = 0.0
 speed = 25.0
 accel = 11.0
 turn_speed_deg = 70.0
-sight_range = 90.0
+sight_range = 110.0
 damage = 9.0
 fire_rate = 4.0
 muzzle_speed = 60.0
