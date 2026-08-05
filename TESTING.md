@@ -153,6 +153,34 @@ Four kinds of cell, and they measure different things:
 
 Useful filters: `jammed`, `evade: atlas`, `kestrel x raider`, `flak x gnats`.
 
+#### The reproduction instrument (Track 5, 2026-08-05)
+
+```
+<godot> --headless -s scripts/tests/delivery_bench.gd --path . -- --trace <dir> [filter]
+<godot> --headless -s scripts/tests/delivery_bench.gd --path . -- --range 27:39 --trace <dir>
+```
+
+`--trace` writes one CSV per cell with the whole simulation state every physics
+tick at full precision; `--range A:B` runs cells by INDEX so a history can be
+bisected (a name filter cannot express a prefix). Both make the run a LOOK, so
+neither can overwrite `delivery_factors.json`.
+
+**What they are for, and what they found.** Diff two trace directories and read
+the FIRST tick that disagrees — that names a mechanism instead of ranking
+suspects. An isolated cell is **bit-for-bit identical across two processes**
+(6720 ticks); a three-cell run is not, and measured `evade: kestrel x raider
+[jink]` at **0.29 and 0.00** from the identical command. The divergence is a
+binary **-0.0817 rad/s** pitch impulse on a cell's first tick, present or absent,
+and **the first cell of a run never diverges**. Full reasoning in BALANCE.md and
+GAMEPLAY-DESIGN v2.22.
+
+**Two rules for using it.** Compare full float precision, never rounded — the
+whole value is in the first differing tick. And check that the trace's own rows
+CHANGE between ticks before believing an "identical": the first version of this
+instrument formatted with `%.17g`, which GDScript's `%` operator does not
+support, so it silently wrote the format string 6720 times and four separate
+comparisons came back "bit-for-bit identical" on literal text.
+
 ---
 
 ## 3. Running the actual game

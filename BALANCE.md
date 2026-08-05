@@ -396,6 +396,54 @@ So the halving is **unattributed**. It could be the ingress, it could be
 process-history divergence, and this instrument cannot currently tell them apart.
 **Nothing should be tuned on it.**
 
+### DIAGNOSED 2026-08-05 (v2.22) — and it is BOTH, with the two halves needing opposite evidence
+
+The section above and v2.01's below were asking one question that is really two,
+and gluing them together is what kept this open for two sessions.
+
+**"Two processes disagree" and "a cell reads differently in a sweep than alone"
+cannot have the same cause.** Shared state is *deterministic* state — two
+processes replaying the same cell order mutate it identically and must agree. So
+the enumeration of `static var`s everybody wanted could never have explained the
+cross-process symptom everybody quoted. Both effects are real; they are separate.
+
+`delivery_bench` now carries the instrument that separates them: `-- --trace
+<dir>` dumps the whole simulation state every physics tick at full precision, and
+`-- --range A:B` runs cells by index so a history can be bisected. The comparison
+is the FIRST TICK two traces disagree.
+
+| what was run | result |
+|---|---|
+| one cell alone, two processes | **bit-for-bit identical**, 6720 ticks |
+| three cells, two processes | `kestrel x raider [jink]` = **0.29 and 0.00** |
+| the same cell under four histories | **0.08 / 0.36 / 0.44 / 0.62** |
+
+**The cross-process divergence is a binary impulse on the first tick of a cell**,
+not accumulated drift: angular velocity reads either ~0 or **-0.0817 rad/s** of
+pitch, the same value every time, present or absent. **The first cell of a run
+never diverges** — only cells with a predecessor.
+
+**`jink_hold_cone_deg` is refuted**, and it was this file's own leading suspect.
+`ReferencePilot.jinking()` returns at the `match` for both `Jink.ALWAYS` and
+`Jink.NEVER` and never reaches `_shot_lined_up` — and those two modes ARE the
+`[jink]` and `[steady]` cells named as the movers, so the 14 deg cone has no
+effect in the cells it was invoked to explain. The traces agree: `lined_up` flips
+one field *after* the attitude has already diverged.
+
+**Wall clock provably leaks into the run.** The trace carries the tree root's
+child count and it disagrees across processes at the same physics tick, because
+`Effects.explosion` parents blasts to `get_tree().root` and `explosion.gd` frees
+them with a `SceneTreeTimer`, which counts idle-frame time. Explosions have no
+collider, so that is the leak made visible rather than the impulse itself. **The
+exact path from residue to impulse is NOT proven.** Ruled out by experiment: the
+arena teardown — an immediate `free()` instead of `queue_free()` changes nothing.
+
+**What this costs: `balance/delivery_factors.json` is written by a 49-cell run,
+and every cell after the first is one of the cells that does not reproduce. The
+artifact is not a stable measurement.** Standing rule 1 — *compare cells WITHIN a
+single run, never across runs* — has been protecting this project from exactly
+that, without anyone knowing why.
+
 ### What the A/B DID find: the bench tows a screamer around the map
 
 Reproduced under two independent histories (in the sweep, and in isolation), so

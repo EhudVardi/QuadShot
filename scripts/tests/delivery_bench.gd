@@ -476,6 +476,27 @@ var _cells: Array[Dictionary] = []
 ## than a MEASUREMENT (see `_write_factors`).
 var _filtered: bool = false
 
+## ---------- THE REPRODUCTION TRACE (Track 5) ----------
+##
+## `-- --trace <dir>` writes one CSV per cell recording the whole simulation
+## state every physics tick, at full float precision. Off unless asked for, and
+## it never changes what the bench measures — it only reads.
+##
+## IT EXISTS TO ANSWER ONE QUESTION, and the question has been mis-stated for
+## two sessions. The symptom on record is that two processes running the
+## identical command produce different numbers, and the leading explanation is
+## shared state surviving between cells in one process. **Those cannot both be
+## true of the same run.** Shared state is deterministic state: two processes
+## replaying the identical sequence of cells mutate it identically and must
+## agree. History can only explain "cell N depends on cell N-1" WITHIN a
+## process; it cannot make the same process disagree with itself run to run.
+##
+## So the decisive comparison is not cell-order at all. It is ONE CELL, ALONE,
+## TWICE — and then the first tick at which the two traces differ, which names
+## the mechanism instead of ranking suspects.
+var _trace_dir: String = ""
+var _trace: FileAccess = null
+
 var _pps: float
 var _combat: CombatConfig
 var _phase: int = BUILD
@@ -535,11 +556,39 @@ var _threat_exclude_rids: Array[RID] = []
 ## ruler.
 func _select_cells() -> void:
 	var filter: String = ""
+	var want_trace: bool = false
+	var want_range: bool = false
+	# `--range A:B` runs CELLS[A..B), by INDEX. It exists to bisect history: the
+	# cell list is fixed and ordered, so "which earlier cell changes this one"
+	# is answered by moving one boundary and re-running, and a name filter cannot
+	# express a prefix. Like any filter, it makes the run a LOOK.
+	var from_i: int = 0
+	var to_i: int = CELLS.size()
 	for argument: String in OS.get_cmdline_user_args():
-		if argument.strip_edges() != "":
-			filter = argument.strip_edges().to_lower()
-			break
-	for cell: Dictionary in CELLS:
+		var arg: String = argument.strip_edges()
+		if arg == "":
+			continue
+		if arg == "--trace":
+			want_trace = true
+			continue
+		if arg == "--range":
+			want_range = true
+			continue
+		if want_trace:
+			_trace_dir = arg
+			want_trace = false
+			continue
+		if want_range:
+			var bounds: PackedStringArray = arg.split(":")
+			if bounds.size() == 2:
+				from_i = clampi(int(bounds[0]), 0, CELLS.size())
+				to_i = clampi(int(bounds[1]), from_i, CELLS.size())
+			want_range = false
+			continue
+		if filter == "":
+			filter = arg.to_lower()
+	for i: int in range(from_i, to_i):
+		var cell: Dictionary = CELLS[i]
 		if filter == "" or String(cell["name"]).to_lower().contains(filter):
 			_cells.append(cell)
 	_filtered = _cells.size() != CELLS.size()
@@ -562,12 +611,80 @@ func _initialize() -> void:
 	physics_frame.connect(_on_physics_frame)
 
 
+## ---------- the trace (Track 5) ----------
+
+## One file per cell, named after the cell, so two runs produce two directories
+## that diff line for line.
+func _trace_open() -> void:
+	if _trace_dir == "":
+		return
+	DirAccess.make_dir_recursive_absolute(_trace_dir)
+	var slug: String = String(_cells[_cell_i]["name"]).to_lower()
+	for bad: String in [" ", ":", "/", "\\", "[", "]"]:
+		slug = slug.replace(bad, "_")
+	_trace = FileAccess.open("%s/%s.csv" % [_trace_dir, slug], FileAccess.WRITE)
+	if _trace != null:
+		_trace.store_line("tick,px,py,pz,vx,vy,vz,wx,wy,wz,qx,qy,qz,qw,shots,lined_up,jinking,tx,ty,tz,threat_shots,connects,taken,roots,contacts")
+
+
+func _trace_close() -> void:
+	if _trace != null:
+		_trace.close()
+		_trace = null
+
+
+## FULL PRECISION on every float. A trace rounded to four decimals would agree
+## with itself for thousands of ticks after the divergence had already happened,
+## which is the one thing this instrument must never do — the whole value is in
+## the FIRST tick that differs.
+##
+## `%.12f`, NOT `%.17g`. GDScript's `%` operator has no `g` conversion, and when
+## the format is applied to a runtime array it does not raise — it returns the
+## FORMAT STRING ITSELF. The first version of this trace therefore wrote 6720
+## identical lines of `%d,%.17g,...` to every file, and four separate history
+## comparisons came back "bit-for-bit identical" because they were comparing the
+## same literal text. An instrument that cannot tell two runs apart reports
+## agreement, which is the most dangerous failure a bench can have — and it is
+## the same shape as the two unfailable checks v2.17 found. Caught only because
+## one of those "identical" traces belonged to a run whose PRINTED result was
+## visibly different.
+func _trace_tick() -> void:
+	if _trace == null or _drone == null or not is_instance_valid(_drone):
+		return
+	var p: Vector3 = _drone.global_position
+	var v: Vector3 = _drone.linear_velocity
+	var w: Vector3 = _drone.angular_velocity
+	var q: Quaternion = _drone.global_basis.get_rotation_quaternion()
+	# PLAIN FIELD READS ONLY. `_live_target_body()` would be the richer answer for
+	# a swarm, but aim and survive cells never call it, so tracing through it
+	# would put a call into the tick that the measured run does not make — and an
+	# instrument that changes the thing it measures is worse than no instrument.
+	var target := Vector3.INF
+	if _target != null and is_instance_valid(_target) and _target is Node3D:
+		target = (_target as Node3D).global_position
+	elif _threat_position != Vector3.INF:
+		target = _threat_position
+	# `lined_up` is the author's own suspect (`jink_hold_cone_deg`, 14 deg) and
+	# `jinking` is what it gates, so the trace can say whether a divergence
+	# STARTED at that flag or merely passed through it.
+	var lined_up: bool = _pilot != null and bool(_pilot.get(&"_shot_lined_up"))
+	var jink: bool = _pilot != null and _pilot.jinking()
+	_trace.store_line("%d,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,%.12f,%d,%d,%d,%d,%d"
+			% [_ticks, p.x, p.y, p.z, v.x, v.y, v.z, w.x, w.y, w.z, q.x, q.y, q.z, q.w,
+			_weapon.shots_fired if _weapon != null else -1,
+			1 if lined_up else 0, 1 if jink else 0,
+			target.x, target.y, target.z, _threat_shots, _connects, _taken,
+			root.get_child_count(), _drone.get_contact_count()])
+
+
 func _on_physics_frame() -> void:
 	match _phase:
 		BUILD:
 			_build_cell()
+			_trace_open()
 			_phase = FIRE
 		FIRE:
+			_trace_tick()
 			_drive()
 			_ticks += 1
 			if _ticks >= _fire_ticks:
@@ -577,6 +694,7 @@ func _on_physics_frame() -> void:
 			# Shots already in the air still resolve; the pilot keeps flying
 			# (a crashed rig would eat its own in-flight bolts' geometry), the
 			# perfect shooter keeps tracking, but nobody pulls a trigger.
+			_trace_tick()
 			_drive()
 			# _drive() runs the PILOT on aim cells, and the pilot re-arms
 			# `missile.fire_override` every tick — so ceasing fire once at the
@@ -1373,6 +1491,7 @@ func _duty_cycle(cell: Dictionary, shots: int) -> float:
 
 
 func _teardown() -> void:
+	_trace_close()
 	# Released between cells so a forgotten override cannot leak into the next
 	# one — the same hygiene the arena teardown below exists for. Every cell sets
 	# it in _build_cell anyway; this is the belt to that pair of braces.

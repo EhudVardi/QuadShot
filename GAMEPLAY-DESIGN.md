@@ -11207,3 +11207,88 @@ being rediscovered as a red board when A.q1 lands.
     raise is narrower than "is it in the fight": **is three passes at one far-out
     point the right pacing, when only the first is contestable without breaking
     off?** Recorded for the user to answer.
+
+- **2026-08-05 — v2.22. TRACK 5 ANSWERED: the benches DO reproduce across
+  processes, until a second cell runs — and the leading hypothesis is refuted.**
+  The audit's Track 5 asked for an enumeration of process-global state and then
+  ONE decisive test. The enumeration turned out to be the less useful half, for a
+  reason worth stating before any of the findings.
+  - **THE QUESTION HAD TWO HALVES GLUED TOGETHER, and they need opposite
+    evidence.** "Two processes running the identical command disagree" and "a
+    cell reads differently in a sweep than in isolation" are different claims.
+    **Shared state cannot cause the first.** Shared state is deterministic state:
+    two processes replaying the identical cell order mutate it identically and
+    must agree. History can only make cell N depend on cell N-1 *within* a run —
+    and since the order is fixed, that is perfectly reproducible. So the
+    enumeration everybody wanted could never have explained the symptom everybody
+    quoted.
+  - **THE ENUMERATION, done anyway, and it comes back clean.** Of the 15
+    `static var`s, `delivery_bench` can reach four. `Jamming.bench_override` is
+    stated by every cell and reset in teardown. `RunMods.current` is read and
+    never written. `Blackbox._active` and `SoundBank._instance` are headless
+    no-ops. `WarManifest._roster_cache` is a pure memo. The rest belong to the war
+    and the menu and are unreachable. Beyond the statics: every enemy config is
+    `.duplicate()`d, every enemy is explicitly `ai_seed`ed, `Frames.build` sets
+    `load_user_overrides = false` so `user://` never reaches a bench, and the one
+    genuinely shared mutable field — `CombatConfig.fire_assist_miss_m` on the
+    shared `.tres` — is written by every cell before use rather than restored
+    after. **No unseeded RNG and no wall-clock read exists anywhere in the sim
+    path.** That predicted bit-reproducibility, which is a falsifiable claim, and
+    the test falsified half of it.
+  - **THE DECISIVE TEST: one cell, alone, twice.** `delivery_bench` gained
+    `-- --trace <dir>`, which writes the whole simulation state every physics tick
+    at full precision, and `-- --range A:B`, which runs cells by index so history
+    can be bisected. Then the comparison is the first tick at which two traces
+    disagree, which names a mechanism instead of ranking suspects.
+  - **RESULT 1: an isolated cell is BIT-FOR-BIT IDENTICAL across two processes**,
+    6720 ticks, every float. The engine, the pilot, the configs and the physics
+    are deterministic. Whatever is wrong is not chaos and not the RNG.
+  - **RESULT 2: a MULTI-CELL run is not.** The identical three-cell command in two
+    processes measured `evade: kestrel x raider [jink]` at **0.29 and 0.00**.
+    Same command, same machine, same minute.
+  - **RESULT 3: the divergence is a BINARY IMPULSE ON THE FIRST TICK, not drift.**
+    Angular velocity at tick 1-2 reads either ~0 or **-0.0817 rad/s** of pitch —
+    the same value every time, present or absent. Nothing accumulates into it.
+    And **the first cell of a run never diverges**; only cells with a predecessor
+    do, so it is carried across the cell boundary.
+  - **RESULT 4: `jink_hold_cone_deg` IS REFUTED, twice, and it was the author's
+    own leading suspect.** First by reading: `jinking()` returns at the `match`
+    for both `Jink.ALWAYS` and `Jink.NEVER` and never reaches `_shot_lined_up`,
+    and those two modes ARE the `[jink]` and `[steady]` cells v2.01 named as the
+    movers — so the 14 deg cone has no effect in the cells it was invoked to
+    explain. Second by measurement: in every trace `lined_up` flips one field
+    AFTER the attitude has already diverged. It is a consequence, not a cause.
+  - **RESULT 5: wall clock demonstrably leaks into the run, and here is the
+    proof.** The trace carries the tree root's child count, and it disagrees
+    across processes AT THE SAME PHYSICS TICK — 6 against 5. `Effects.explosion`
+    parents every blast to `get_tree().root` and `explosion.gd` frees it with a
+    `SceneTreeTimer`, which counts IDLE-frame time rather than physics ticks. So
+    how many nodes exist at tick N is a function of machine load. Explosions carry
+    no collider, so this is the leak made VISIBLE rather than the impulse itself.
+  - **What was ruled out by experiment rather than by argument:** the arena
+    teardown. Replacing the between-cell `queue_free()` with an immediate `free()`
+    changes nothing — same impulse, same tick.
+  - **WHAT IS NOT PROVEN, stated plainly:** the exact object or code path that
+    applies the 0.0817 rad/s pitch. The residue is proven, the coupling is
+    inferred. That is a narrow, well-posed question with an instrument already
+    pointed at it, which is a better handoff than a hypothesis.
+  - **THE CONSEQUENCE FOR THE MODEL, which is the part that costs something.**
+    `balance/delivery_factors.json` is written by a 49-cell run, and the cells
+    after the first are exactly the ones that do not reproduce. **The artifact is
+    not a stable measurement.** Standing rule 1 — *compare cells WITHIN a single
+    run, never across runs* — turns out to have been protecting the project from
+    this the whole time without anyone knowing why.
+  - **AND THE HISTORY EFFECT IS SEPARATELY REAL AND LARGE.** The same cell,
+    `evade: kestrel x turret [jink]`, measured **0.08** inside the full run,
+    **0.36** and **0.62** under two shorter histories, and **0.44** alone. A 5x
+    spread on a factor the model treats as a property of a frame.
+  - **A THIRD UNFAILABLE CHECK, and this one was MINE.** The trace's first version
+    formatted floats with `%.17g`. GDScript's `%` operator has no `g` conversion,
+    and applied to a runtime array it does not raise — it returns the format
+    string. So every trace file was 6720 identical lines of `%d,%.12f,...`, and
+    **four separate comparisons came back "bit-for-bit identical" because they
+    were comparing the same literal text.** It was caught only because one of
+    those "identical" runs had a visibly different printed result. The diff tool
+    now refuses to report on a trace whose own rows never change. Three unfailable
+    checks in two sessions, all in the newest code, and the lesson is the same one
+    every time: **an instrument that cannot disagree will always agree.**
