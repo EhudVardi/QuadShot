@@ -29,7 +29,32 @@ extends RefCounted
 ## asked for — and it is byte-identical to what produced it.
 
 ## The file. One war, one file, portable by copying it (F4).
-const PATH: String = "user://war.save"
+const DEFAULT_PATH: String = "user://war.save"
+
+## WHERE THE WAR IS WRITTEN. A static rather than a const so a CHECK can point
+## itself somewhere else, and nothing in the game ever moves it.
+##
+## Found 2026-08-05, and it is the same shape as the `profile.json` leak: a check
+## that borrows the human's real file and puts it back has a WINDOW. `war_loop_
+## check` legitimately tests save, load and CLEAR, so for part of its run the
+## player's campaign did not exist on disk — and by then the human had a
+## 30-sortie war in there. Nothing had gone wrong yet; the exposure was the bug.
+##
+## Redirecting beats borrowing because there is no window to get wrong. The
+## borrow-and-restore has been deleted rather than kept beside this, for the same
+## reason v2.15 deleted the sight clamp instead of keeping both: two mechanisms
+## for one problem is how the weaker one survives.
+static var PATH: String = DEFAULT_PATH
+
+
+## Point the save somewhere harmless. Checks only — `use_path` has no caller in
+## the game, and `war_loop_check` asserts that the real file is untouched.
+static func use_path(path: String) -> void:
+	PATH = path
+
+
+static func use_default_path() -> void:
+	PATH = DEFAULT_PATH
 ## Bumped when the state's SHAPE changes, so an old save is rejected loudly
 ## rather than half-read into a war that behaves strangely.
 const SAVE_VERSION: int = 1

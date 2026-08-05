@@ -28,18 +28,19 @@ extends SceneTree
 const THEATER_SEED: int = 4242
 
 var _failures: Array[String] = []
-## The player's real campaign, held while this check scribbles on user://war.save.
-var _saved_war: PackedByteArray = PackedByteArray()
-var _had_war: bool = false
+## The scratch file this check writes instead of the player's campaign.
+const CHECK_SAVE_PATH: String = "user://war_check.save"
+var _real_save_modified: int = 0
 
 
 func _init() -> void:
-	# THIS CHECK WRITES TO THE REAL SAVE PATH, so it borrows the file rather than
-	# destroying it. Running the suite used to wipe an in-progress war - the
-	# player's campaign deleted by a green test run, which is the worst possible
-	# trade. `run_check` set the precedent for backing up and restoring; this one
-	# had never adopted it.
-	_backup_war()
+	# THIS CHECK WRITES A SAVE FILE, so it REDIRECTS WarSave rather than borrowing
+	# the player's. Borrowing left a WINDOW in which their campaign did not exist
+	# on disk, because this check tests `clear()` as well as save and load - and
+	# by the time that was noticed the human had a 30-sortie war in there.
+	# Nothing had gone wrong; the exposure was the bug. Redirecting has no window.
+	_real_save_modified = _real_save_mtime()
+	_use_scratch_save()
 	var config := WarConfig.new()
 	_check_runner_result_feeds_the_war(config)
 	_check_dent_applies(config)
@@ -327,32 +328,32 @@ func _fail(message: String) -> void:
 	print("[war_loop_check]   FAIL %s" % message)
 
 
-func _backup_war() -> void:
-	if not WarSave.exists():
-		return
-	var file: FileAccess = FileAccess.open(WarSave.PATH, FileAccess.READ)
-	if file == null:
-		return
-	_saved_war = file.get_buffer(file.get_length())
-	file.close()
-	_had_war = true
+func _real_save_mtime() -> int:
+	if not FileAccess.file_exists(WarSave.DEFAULT_PATH):
+		return 0
+	return int(FileAccess.get_modified_time(WarSave.DEFAULT_PATH))
 
 
-func _restore_war() -> void:
-	if not _had_war:
-		WarSave.clear()
-		return
-	var file: FileAccess = FileAccess.open(WarSave.PATH, FileAccess.WRITE)
-	if file == null:
-		push_error("[war_loop_check] could not restore the campaign it borrowed")
-		return
-	file.store_buffer(_saved_war)
-	file.close()
-	print("[war_loop_check]   ..   restored the pre-existing %s" % WarSave.PATH)
+func _use_scratch_save() -> void:
+	WarSave.use_path(CHECK_SAVE_PATH)
+	WarSave.clear()
+
+
+## THE ASSERTION THAT KEEPS THE REDIRECT HONEST: the player's real campaign must
+## never have been opened. Compared by MODIFICATION TIME rather than by
+## existence, because "the file is still there" passes for a check that wrote an
+## identical copy over it - which is exactly what the old borrow-and-restore did,
+## and exactly what made the window invisible.
+func _expect_real_save_untouched() -> void:
+	var after: int = _real_save_mtime()
+	_expect(after == _real_save_modified,
+			"the player's real campaign was never opened (mtime %d)" % after)
+	WarSave.clear()
+	WarSave.use_default_path()
 
 
 func _report() -> void:
-	_restore_war()
+	_expect_real_save_untouched()
 	if _failures.is_empty():
 		print("[war_loop_check] PASS")
 	else:
