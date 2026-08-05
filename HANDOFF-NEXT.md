@@ -8,7 +8,52 @@ what happens next.
 
 ---
 
-## WHERE IT STANDS, 2026-08-05
+## WHERE IT STANDS, 2026-08-05 (LATE SESSION — read this block first)
+
+**HEAD is `2ed598c`. Board 20/20 green. `PILOT_VERSION` still 7. Tree clean.**
+
+Three things landed, each its own commit, and the third changes what you can
+trust.
+
+1. **THE AEGIS BOMB IS A BOMB** (`664c862`, v2.21). It leaves the rack, falls for
+   ~2 s and detonates on the ground. The blast moved out of the bomber and into
+   the bomb, so **interception's deadline is the RELEASE, not the kill** — a
+   bomber killed after letting go still lands that one. The release is a
+   BOMBSIGHT (predicted impact on the aim point) rather than a lead distance,
+   because a lead computed from level flight was 23 m wide on the re-attack
+   passes; worst miss is now 0.8 m against a 9 m blast. New knob
+   `EnemyConfig.bomb_fall_gravity_scale` — **the fall IS the telegraph**.
+   **NOT FLOWN BY HANDS.**
+2. **THE "FLIES A BIT TO THE CENTER" NOTE IS MEASURED, NOT TUNED** (v2.21b).
+   Pass 1 crosses the arena; **passes 2 and 3 never come back inside 84 m**, at
+   any spawn bearing, against an outer garrison ring at 74 m. Two of three bombs
+   land where the player has no reason to be. **This is a pacing call and it is
+   waiting on the human** — see the question at the end of v2.21b.
+3. **TRACK 5 IS ANSWERED** (`2ed598c`, v2.22), and the answer has a cost.
+   - **An isolated cell reproduces bit-for-bit across processes** (6720 ticks).
+     **A multi-cell run does not**: the identical command measured
+     `evade: kestrel x raider [jink]` at **0.29 and 0.00**.
+   - The divergence is a **binary -0.0817 rad/s pitch impulse on a cell's first
+     tick**, present or absent. The **first cell of a run never diverges**.
+   - **`jink_hold_cone_deg` is refuted** — `jinking()` returns before reading it
+     in both ALWAYS and NEVER, which are the very cells named as the movers.
+   - **`balance/delivery_factors.json` is therefore not a stable measurement.**
+     Standing rule 1 has been protecting the project from this all along.
+   - The instrument is permanent: `delivery_bench -- --trace <dir>` and
+     `-- --range A:B`. **The remaining unknown is narrow**: what applies the
+     impulse. The arena teardown is ruled out by experiment.
+   - **Also found: the predicted column had been blank on every harness run since
+     v2.18**, because the falx reach buff staled the config stamp and nobody read
+     the line that said so. Re-measured; it is live again (`156fdb3`).
+   - **And the aegis rework killed the harness's intercept clock**: `_bombed` is
+     unreachable inside a 10 s cap now that a bomber needs three passes, so the
+     Aegis rows read the same 0% for a different reason. Recorded in the file;
+     the rig-side fix (`payload = 1`) is deliberately NOT taken because it moves
+     a published band.
+
+---
+
+## WHERE IT STOOD BEFORE THAT, 2026-08-05
 
 **The board is 20 checks, all green.** `aegis_check` is the newest and it landed
 with the rework it guards.
