@@ -1,0 +1,33 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/bomb.gd" id="1_bomb"]
+
+[sub_resource type="StandardMaterial3D" id="mat_case"]
+albedo_color = Color(0.14, 0.1, 0.1, 1)
+metallic = 0.5
+roughness = 0.55
+
+[sub_resource type="BoxMesh" id="mesh_case"]
+material = SubResource("mat_case")
+size = Vector3(0.42, 0.42, 1.6)
+
+[sub_resource type="StandardMaterial3D" id="mat_fin"]
+shading_mode = 0
+albedo_color = Color(1, 0.28, 0.18, 1)
+emission_enabled = true
+emission = Color(1, 0.22, 0.12, 1)
+emission_energy_multiplier = 3.2
+
+[sub_resource type="BoxMesh" id="mesh_fin"]
+material = SubResource("mat_fin")
+size = Vector3(0.62, 0.62, 0.3)
+
+[node name="Bomb" type="Node3D"]
+script = ExtResource("1_bomb")
+
+[node name="Case" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_case")
+
+[node name="Fin" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.72)
+mesh = SubResource("mesh_fin")

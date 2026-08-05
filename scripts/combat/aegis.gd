@@ -40,9 +40,23 @@ extends CharacterBody3D
 ## ticking-bomb form is still one config field away, the dev room's `loop_route`
 ## specimen is untouched, and no other roster type has to know this file grew a
 ## magazine.
+##
+## THE ORDNANCE HALF WAS MISSING UNTIL v2.20 and is now here. The first version
+## of the rework "dropped" a bomb by exploding at the route waypoint, and that
+## waypoint is 26 m up — so the blast went off in mid-air at the bomber's own
+## position and nothing ever fell. Flown, that reads as *"it looked like it got
+## an explosion right next to it... i didnt see anything dropped and explode on
+## the ground."* The bomber now RELEASES a `Bomb` body, and it flies a bombsight
+## to do it — letting go at the moment its ordnance's predicted impact is on the
+## aim point — so the thing lands where it was aimed instead of a whole fall's
+## worth downrange of it.
 
 signal destroyed(points: float)
-## One bomb delivered. The per-pass event, distinct from the unit being over.
+## One bomb LET GO, carrying the release point. The per-pass event, distinct both
+## from the unit being over and from the bomb landing — the ordnance is a body
+## with its own flight time now, and it emits `Bomb.exploded` when it arrives.
+## This is the one the magazine and the war count, because a bomb off the rack is
+## spent whatever happens to the bomber next.
 signal bomb_dropped(at: Vector3)
 ## Payload spent and it got out. THE ENEMY SURVIVED — a different outcome from
 ## being killed, and the one A.q3 prices back into the war.
@@ -53,8 +67,22 @@ signal escaped
 ## unit is over without dying", so its meaning is unchanged by the rework.
 signal detonated
 
+## The ordnance it releases. Preloaded here rather than inside `bomb.gd`, which
+## would be a scene preloading the script that preloads it back.
+const BOMB_SCENE: PackedScene = preload("res://scenes/combat/bomb.tscn")
+
 ## Encounter-design constants (not flight/input physics).
 const ARRIVE_RADIUS: float = 3.0
+## How far above and below the route waypoint the aim probe looks for ground.
+## Down far enough to find a valley floor, up just enough that a waypoint sitting
+## inside a rooftop still finds the roof rather than starting underneath it.
+const AIM_PROBE_UP: float = 6.0
+const AIM_PROBE_DOWN: float = 240.0
+## How close the bombsight's predicted impact has to be to the aim point before
+## the rack lets go. At 240 Hz a bomber moves 3 cm per tick, so the prediction
+## sweeps through the aim point smoothly and this is a window it cannot skip —
+## it is a sampling tolerance, not an accuracy budget.
+const RELEASE_TOLERANCE: float = 0.75
 const DEFAULT_ROUTE_LENGTH: float = 120.0
 ## How far past its target a spent bomber has to get before it counts as AWAY.
 ## Clear of the outer ring rather than off the map: the run home is counterplay
@@ -110,6 +138,12 @@ var _phase: int = Phase.RUN_IN
 var _phase_time: float = 0.0
 var _reattack_point: Vector3
 var _bombs_dropped: int = 0
+## One release per pass, so a bomber loitering inside the release window cannot
+## empty its whole rack on a single run.
+var _pass_released: bool = false
+## Where the bombs are meant to LAND: the ground under the route waypoint, probed
+## once and cached. Vector3.INF until it has been asked for.
+var _aim_point: Vector3 = Vector3.INF
 
 
 func _ready() -> void:
@@ -178,6 +212,7 @@ func _physics_process(delta: float) -> void:
 ## the target. The telegraph is that you can see exactly where it is going and
 ## exactly how long you have.
 func _run_in(delta: float) -> void:
+	_maybe_release()
 	var offset: Vector3 = route_end - global_position
 	if offset.length() < ARRIVE_RADIUS:
 		_arrive()
@@ -185,8 +220,55 @@ func _run_in(delta: float) -> void:
 	_fly_toward(route_end, delta)
 
 
-## THE ARRIVAL. With a payload this is a bomb and the bomber lives; without one
-## it is the old ticking bomb going off, unchanged.
+## THE AIM POINT: the ground under the route waypoint. `route_end` is where the
+## BOMBER flies (26 m up, above the greybox skyline); it was never where the
+## ordnance is supposed to end up, and reading it as both is exactly the bug this
+## file grew a bomb to fix.
+##
+## Probed lazily rather than in `_ready`, because a physics query issued the same
+## frame the arena's static bodies were added sees an empty world — and the
+## bomber has a whole run-in to spend before the answer is needed.
+func bomb_aim_point() -> Vector3:
+	if _aim_point != Vector3.INF:
+		return _aim_point
+	_aim_point = Vector3(route_end.x, 0.0, route_end.z)
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if space != null:
+		var query := PhysicsRayQueryParameters3D.create(
+				route_end + Vector3.UP * AIM_PROBE_UP,
+				route_end + Vector3.DOWN * AIM_PROBE_DOWN)
+		query.exclude = _own_rids()
+		var hit: Dictionary = space.intersect_ray(query)
+		if not hit.is_empty():
+			_aim_point = hit["position"]
+	return _aim_point
+
+
+## THE RELEASE, and it happens BEFORE the waypoint rather than on it. A bomb let
+## go directly over the target lands a whole fall's worth downrange — 2 s at
+## 7 m/s is 14 m, which is well outside a 9 m blast — so the bomber has to let go
+## early, and the question is exactly how early.
+##
+## IT IS SOLVED AS A BOMBSIGHT RATHER THAN AS A LEAD DISTANCE: every tick it asks
+## `Bomb.predicted_impact` where the bomb WOULD land if released now, and lets go
+## the moment that answer is on the aim point. That costs the same as a lead
+## calculation and is right in the cases a lead is wrong — descending off a
+## re-attack leg, mid-turn, or slowed by acceleration — because the prediction
+## reads the actual velocity instead of assuming level flight at cruise.
+func _maybe_release() -> void:
+	if loop_route or unlimited() or _pass_released or not has_ammo():
+		return
+	var aim: Vector3 = bomb_aim_point()
+	var impact: Vector3 = Bomb.predicted_impact(
+			Bomb.release_point(global_position), velocity, aim.y,
+			enemy_config.bomb_fall_gravity_scale)
+	if Vector2(impact.x - aim.x, impact.z - aim.z).length() <= RELEASE_TOLERANCE:
+		_drop_bomb()
+
+
+## THE ARRIVAL. With a payload the bomber has already let its bomb go and simply
+## overflies the target; without one it is the old ticking bomb going off,
+## unchanged.
 func _arrive() -> void:
 	if loop_route:
 		# The dev-room / delivery-bench specimen: spend nothing, start again.
@@ -199,7 +281,12 @@ func _arrive() -> void:
 		detonated.emit()
 		queue_free()
 		return
-	_drop_bomb()
+	# The safety net, and it is a real case rather than paranoia: a pass that
+	# started INSIDE its own release window (a short re-attack leg, a bomber
+	# nudged off its route by scenery) would otherwise reach the target having
+	# dropped nothing and go round forever.
+	if not _pass_released:
+		_drop_bomb()
 	if rounds > 0:
 		_enter_reattack()
 		return
@@ -216,36 +303,32 @@ func _arrive() -> void:
 	_enter(Phase.EGRESS)
 
 
-## One bomb. It damages what it lands ON rather than the bomber, which is the
-## whole difference between a bomber and a kamikaze.
+## ONE BOMB, LET GO. It damages what it lands ON rather than the bomber, which is
+## the whole difference between a bomber and a kamikaze — and since v2.20 that is
+## a real falling body rather than a blast at the bomber's own altitude.
+##
+## The bomb is parented to the BOMBER'S PARENT, not to the bomber. That single
+## line is what lets ordnance outlive the aircraft: kill the aegis a second after
+## release and the bomb it already let go of still lands. Interception has a
+## deadline and the deadline is the release.
 func _drop_bomb() -> void:
 	rounds = maxi(rounds - 1, 0)
 	_bombs_dropped += 1
-	Effects.explosion(get_tree().root, route_end, 2.4)
-	SoundBank.play_at(&"explosion", route_end, -4.0, 0.6)
-	_splash(route_end)
-	bomb_dropped.emit(route_end)
+	_pass_released = true
+	var at: Vector3 = global_position
+	Bomb.release(get_parent(), BOMB_SCENE, at, velocity, enemy_config, team,
+			_own_rids())
+	bomb_dropped.emit(at)
 
 
-## Blast, applied to anything of the other team inside the radius. Deliberately
-## a distance test over the two groups rather than a physics query: the same
-## reasoning `gnat_swarm` uses for its sting, and a bomb that only hurt bodies
-## with colliders in the right layer would be a bomb that mostly did nothing.
-func _splash(at: Vector3) -> void:
-	for node: Node in get_tree().get_nodes_in_group(&"player") \
-			+ get_tree().get_nodes_in_group(&"objectives"):
-		if not is_instance_valid(node) or not (node is Node3D):
-			continue
-		if node.get(&"team") == team:
-			continue
-		var distance: float = (node as Node3D).global_position.distance_to(at)
-		if distance > enemy_config.bomb_radius:
-			continue
-		# Linear falloff, so standing at the edge of a bomb is meaningfully
-		# better than standing on it.
-		var scale: float = 1.0 - distance / maxf(enemy_config.bomb_radius, 0.001)
-		if node.has_method(&"take_hit"):
-			node.call(&"take_hit", enemy_config.bomb_damage * scale)
+## The bomber's own colliders, so its ordnance does not detonate on the aircraft
+## that just released it. Both of them: the hull and the shield shell, which is a
+## separate body and is solid whenever the shield is up.
+func _own_rids() -> Array[RID]:
+	var rids: Array[RID] = [get_rid()]
+	if is_instance_valid(_shell):
+		rids.append(_shell.get_rid())
+	return rids
 
 
 ## Climb away, then come round for the next pass. The window a shielded thing is
@@ -284,6 +367,8 @@ func _egress(delta: float) -> void:
 func _enter(phase: int) -> void:
 	_phase = phase
 	_phase_time = 0.0
+	if phase == Phase.RUN_IN:
+		_pass_released = false
 
 
 func _restart_run() -> void:

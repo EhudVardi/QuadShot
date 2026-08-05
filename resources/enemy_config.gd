@@ -124,6 +124,15 @@ extends TunableConfig
 @export var bomb_damage: float = 45.0
 ## Blast radius of one bomb.
 @export var bomb_radius: float = 9.0
+## How fast a released bomb falls, as a multiple of project gravity.
+##
+## THIS IS THE TELEGRAPH LENGTH, which is why it is a knob rather than a
+## constant. The fall is the only part of a bomb run the pilot can still react
+## to, and how long it lasts decides whether "bombs away" is a warning or a
+## result — 1.0 is about 2.3 s from the 26 m run height. It also sets how far
+## ahead of the aim point the bomber has to release, because the bomber computes
+## its own lead from these same ballistics (`Bomb.fall_time`).
+@export var bomb_fall_gravity_scale: float = 1.0
 
 @export_group("Strategic")
 @export var points: float = 150.0

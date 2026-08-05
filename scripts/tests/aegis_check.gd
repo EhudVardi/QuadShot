@@ -14,7 +14,7 @@ extends SceneTree
 ## nothing killed. Nothing there could threaten the pilot and the pilot could not
 ## threaten it. A behaviour check is what turns that from a mystery into a line.
 ##
-## Six things it holds, each of which is a decision somebody made:
+## Seven things it holds, each of which is a decision somebody made:
 ##
 ##   1. A2 - a bomber with a payload flies PASSES and survives them. It drops,
 ##      climbs away, comes back, and is not spent on arrival.
@@ -26,19 +26,50 @@ extends SceneTree
 ##      never in a defensive garrison.
 ##   5. A.q1 - a composed sortie aims it OUTWARD, not at its own objective.
 ##   6. A.q3 - an escaped bomber costs the PLAYER ground, and the war says which.
+##   7. v2.20 - THE BOMB FALLS AND LANDS. New, and it is the one this check could
+##      not have caught in the shape it shipped in.
 ##
 ## Plus the hazard the magazine grammar introduced: an enemy magazine must not be
 ## refillable by the player's own resupply gates.
+##
+## WHY 7 IS PHRASED THE WAY IT IS. The bug the user flew was invisible to every
+## assertion here, and the reason is worth keeping: the old check asked *"does a
+## drop happen, and is it aimed at the right place"*, which the mid-air blast
+## answered perfectly. It never asked whether anything DESCENDED. So the new
+## assertions are about the two things a release-point test structurally cannot
+## see — a body that exists after the release, and a detonation whose ALTITUDE is
+## the ground rather than the bomber's. A check that watched only `bomb_dropped`
+## would pass on the broken build again, so this one watches the `bombs` group
+## and the impact height, and the mutation that proves it is deleting the fall.
 ##
 ## Run: <godot> --headless -s scripts/tests/aegis_check.gd --path .
 
 const THEATER_SEED: int = 4242
 const MAX_SECONDS: float = 40.0
+## The arena's floor. A real StaticBody3D rather than an implied plane, because
+## the whole of assertion 7 is "the bomb meets the ground" and a check flown over
+## nothing would have no ground for it to meet.
+const GROUND_Y: float = 0.0
+const GROUND_SPAN: float = 400.0
+## The bomber's cruise altitude in the arena, and where its route ends.
+const FLIGHT_Y: float = 20.0
+const TICK_HZ: float = 240.0
 
 var _failures: int = 0
 var _arena: Node3D
 var _aegis: Aegis
 var _drops: Array[Vector3] = []
+## Where bombs actually WENT OFF. The list the old check had no way to build,
+## because nothing ever left the bomber.
+var _impacts: Array[Vector3] = []
+## Physics tick of the first release and of its impact. The gap between them is
+## the telegraph, and a gap of zero is precisely the bug.
+var _first_release_tick: int = -1
+var _first_impact_tick: int = -1
+var _first_release_at: Vector3 = Vector3.INF
+var _aim_point: Vector3 = Vector3.INF
+## Bombs already wired up, so the group poll connects each body exactly once.
+var _wired: Dictionary = {}
 var _escaped: int = 0
 var _detonated: int = 0
 var _ticks: int = 0
@@ -47,6 +78,10 @@ var _seen_two_passes: bool = false
 var _alive_when_unit_ended: bool = false
 var _drops_when_unit_ended: int = -1
 var _height_between_passes: float = -1.0
+## Stage 2 (the deadline): the bomber is killed the instant it lets go, and the
+## bomb has to land anyway.
+var _orphan_landed: bool = false
+var _bomber_dead_before_impact: bool = false
 
 
 func _initialize() -> void:
@@ -249,13 +284,13 @@ func _node(id: int, q: int, r: int, type_id: StringName, owner: StringName,
 func _fly_it() -> void:
 	_arena = Node3D.new()
 	root.add_child(_arena)
-	var config: EnemyConfig = load("res://resources/default_enemy_aegis.tres")
-	_aegis = (load("res://scenes/combat/aegis.tscn") as PackedScene).instantiate() as Aegis
-	_aegis.enemy_config = config
-	_aegis.position = Vector3(0.0, 20.0, 60.0)
-	_aegis.route_end = Vector3(0.0, 20.0, 0.0)
-	_arena.add_child(_aegis)
-	_aegis.bomb_dropped.connect(func(at: Vector3) -> void: _drops.append(at))
+	_arena.add_child(_ground())
+	_aegis = _bomber(Vector3(0.0, FLIGHT_Y, 60.0))
+	_aegis.bomb_dropped.connect(func(at: Vector3) -> void:
+		_drops.append(at)
+		if _first_release_tick < 0:
+			_first_release_tick = _ticks
+			_first_release_at = at)
 	_aegis.escaped.connect(func() -> void: _escaped += 1)
 	# THE UNIT ENDS WHILE THE BOMBER IS STILL FLYING, and that is the rule, not an
 	# accident of timing. `composition_check` found the alternative as a 60 s
@@ -268,9 +303,62 @@ func _fly_it() -> void:
 	physics_frame.connect(_on_physics_frame)
 
 
+## A floor for the ordnance to hit. Top face exactly at GROUND_Y, so an impact
+## altitude is a number the assertions can read literally.
+func _ground() -> StaticBody3D:
+	var body := StaticBody3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(GROUND_SPAN, 2.0, GROUND_SPAN)
+	var collision := CollisionShape3D.new()
+	collision.shape = shape
+	collision.position = Vector3(0.0, GROUND_Y - 1.0, 0.0)
+	body.add_child(collision)
+	return body
+
+
+func _bomber(at: Vector3) -> Aegis:
+	var bomber := (load("res://scenes/combat/aegis.tscn") as PackedScene).instantiate() as Aegis
+	bomber.enemy_config = load("res://resources/default_enemy_aegis.tres")
+	bomber.position = at
+	bomber.route_end = Vector3(0.0, FLIGHT_Y, 0.0)
+	_arena.add_child(bomber)
+	return bomber
+
+
+## THE ORDNANCE IS WATCHED THROUGH THE GROUP, not through the bomber. That is the
+## point of stage 2 and it costs nothing in stage 1: a bomb whose bomber has been
+## killed has no one left to relay its signal, so a check that could only hear
+## about impacts via the aegis could never assert that a released bomb outlives
+## the aircraft.
+func _wire_bombs() -> void:
+	for node: Node in get_nodes_in_group(&"bombs"):
+		var id: int = node.get_instance_id()
+		if _wired.has(id):
+			continue
+		_wired[id] = true
+		var bomber_alive: bool = is_instance_valid(_aegis)
+		(node as Bomb).exploded.connect(func(at: Vector3) -> void:
+			_impacts.append(at)
+			if _first_impact_tick < 0:
+				_first_impact_tick = _ticks
+			if _stage == 1:
+				_orphan_landed = true
+				_bomber_dead_before_impact = not is_instance_valid(_aegis) \
+						and bomber_alive)
+
+
 func _on_physics_frame() -> void:
 	_ticks += 1
-	if _ticks > int(MAX_SECONDS * 240.0):
+	_wire_bombs()
+	if _stage == 1:
+		# Stage 2 owns its own deadline AND its own sentence. Letting the timeout
+		# below cover both stages made a mutation report "the bomber finished its
+		# payload" when what had actually happened was that its ordnance was
+		# deleted along with it — a true failure naming the wrong thing, which is
+		# only marginally better than no failure at all.
+		_run_deadline_stage()
+		return
+	if _ticks > int(MAX_SECONDS * TICK_HZ):
 		_expect(false, "the bomber finished its payload inside %.0f s (dropped %d of %d)"
 				% [MAX_SECONDS, _drops.size(),
 				int((load("res://resources/default_enemy_aegis.tres") as EnemyConfig).payload)])
@@ -283,9 +371,13 @@ func _on_physics_frame() -> void:
 		_height_between_passes = maxf(_height_between_passes, distance)
 	if _drops.size() >= 2:
 		_seen_two_passes = true
-	if _escaped > 0 or not is_instance_valid(_aegis):
+	if is_instance_valid(_aegis):
+		_aim_point = _aegis.bomb_aim_point()
+	# The last bomb is still in the air when the bomber egresses, so the flight
+	# is not over until the ordnance has landed too.
+	if (_escaped > 0 or not is_instance_valid(_aegis)) \
+			and get_nodes_in_group(&"bombs").is_empty():
 		_verify()
-		return
 
 
 func _verify() -> void:
@@ -309,13 +401,109 @@ func _verify() -> void:
 	_expect(_drops_when_unit_ended == config.payload,
 			"and it ends when the PAYLOAD is spent, not when the body leaves (%d of %d)"
 			% [_drops_when_unit_ended, config.payload])
-	# Every drop must land on the ROUTE, not wherever the bomber happened to be.
-	var stray: int = 0
-	for at: Vector3 in _drops:
-		if at.distance_to(Vector3(0.0, 20.0, 0.0)) > Aegis.ARRIVE_RADIUS:
-			stray += 1
-	_expect(stray == 0, "every bomb lands on the target it was aimed at (%d stray)" % stray)
-	_report()
+	_verify_the_bomb_falls(config)
+	_stage = 1
+	_ticks = 0
+	_start_deadline_stage()
+
+
+## ---------- v2.20: the bomb is a BOMB ----------
+
+## THE FOUR THINGS A RELEASE-POINT TEST CANNOT SEE. Each of these fails on the
+## build the user flew, and the old check passed on it.
+func _verify_the_bomb_falls(config: EnemyConfig) -> void:
+	_expect(_impacts.size() == config.payload,
+			"every bomb released reaches the ground and goes off there (%d of %d)"
+			% [_impacts.size(), _drops.size()])
+
+	# EVERY ASSERTION BELOW READS `_impacts`, SO EVERY ONE OF THEM IS VACUOUS ON AN
+	# EMPTY LIST — which is exactly the state the broken build produces. Caught by
+	# running the mutation: restoring the mid-air blast left two of these printing
+	# `ok` over zero impacts. So each one carries the non-emptiness in its own
+	# condition rather than trusting the assertion above to have failed first.
+	# This is the house failure mode (v2.17's "two checks that could not fail")
+	# and the only defence against it is to run the mutation and read the output.
+	var landed: bool = not _impacts.is_empty()
+
+	# 1. IT EXPLODES ON THE GROUND, not at the bomber's altitude. This is the
+	#    user's report turned into a number: the old blast went off at FLIGHT_Y.
+	var airburst: int = 0
+	var highest: float = -INF
+	for at: Vector3 in _impacts:
+		highest = maxf(highest, at.y)
+		if absf(at.y - GROUND_Y) > 1.0:
+			airburst += 1
+	_expect(landed and airburst == 0,
+			"and it goes off ON THE GROUND rather than in mid-air (%d airburst of %d, highest %.1f m of %.0f m cruise)"
+			% [airburst, _impacts.size(), highest, FLIGHT_Y])
+
+	# 2. IT FELL. A blast one metre under the release point would satisfy the
+	#    altitude test on a bomber flying low; this one asks for the drop itself.
+	var fell: float = _first_release_at.y - (
+			_impacts[0].y if landed else _first_release_at.y)
+	_expect(landed and fell > FLIGHT_Y * 0.5,
+			"the bomb DESCENDS a real distance from the rack to the blast (%.1f m)" % fell)
+
+	# 3. THERE IS A WINDOW between bombs-away and the blast. Zero is the bug: the
+	#    old code emitted the drop and the explosion on the same tick, which is
+	#    why nothing was ever seen to fall.
+	var fall_s: float = float(_first_impact_tick - _first_release_tick) / TICK_HZ
+	_expect(_first_impact_tick > _first_release_tick and fall_s > 0.5,
+			"and there is a real fall between letting go and the blast (%.2f s)" % fall_s)
+
+	# 4. IT LANDS WHERE IT WAS AIMED, which is what the release lead buys. Without
+	#    the lead the bomb is let go over the aim point and carries a whole fall's
+	#    worth of the bomber's speed past it — 14 m at these settings, against a
+	#    9 m blast — so this is the assertion that holds the ballistics.
+	var aim: Vector3 = _aim_point if _aim_point != Vector3.INF \
+			else Vector3(0.0, GROUND_Y, 0.0)
+	var wide: int = 0
+	var worst: float = 0.0
+	for at: Vector3 in _impacts:
+		var miss: float = Vector2(at.x - aim.x, at.z - aim.z).length()
+		worst = maxf(worst, miss)
+		if miss > config.bomb_radius:
+			wide += 1
+	_expect(landed and wide == 0,
+			"every bomb lands inside its own blast radius of the aim point (%d wide of %d, worst %.1f m of %.1f m)"
+			% [wide, _impacts.size(), worst, config.bomb_radius])
+	# And the lead is REAL rather than incidental: the bomber lets go before the
+	# target, not over it.
+	var lead: float = Vector2(_first_release_at.x - aim.x,
+			_first_release_at.z - aim.z).length()
+	_expect(lead > Aegis.ARRIVE_RADIUS,
+			"because the bomber leads its aim point instead of dropping on top of it (%.1f m)"
+			% lead)
+
+
+## ---------- v2.20: the deadline is the RELEASE, not the kill ----------
+
+## A bomber killed a heartbeat after it lets go still lands that bomb. It is the
+## claim `_drop_bomb` makes by parenting the ordnance to the bomber's PARENT, and
+## the mutation that breaks it (parent to `self`) is one word — so it gets its
+## own flight rather than a comment.
+func _start_deadline_stage() -> void:
+	_wired.clear()
+	if is_instance_valid(_aegis):
+		_aegis.queue_free()
+	_aegis = _bomber(Vector3(0.0, FLIGHT_Y, 60.0))
+
+
+func _run_deadline_stage() -> void:
+	# Kill it the moment the rack is empty of its first bomb.
+	if is_instance_valid(_aegis) and _aegis.bombs_dropped() > 0:
+		_aegis.take_hit(100000.0)
+	if _orphan_landed:
+		_expect(_bomber_dead_before_impact,
+				"the bomber was destroyed before its bomb landed")
+		_expect(true, "and the bomb it had already let go of landed anyway")
+		_report()
+		return
+	if _ticks > int(MAX_SECONDS * TICK_HZ):
+		_expect(false,
+				"a bomb outlives the bomber that dropped it (nothing landed in %.0f s)"
+				% MAX_SECONDS)
+		_report()
 
 
 func _expect(condition: bool, message: String) -> void:

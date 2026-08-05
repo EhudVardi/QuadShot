@@ -357,13 +357,31 @@ across both ends of its field, does it hold a standoff, and **can it actually be
 caught** by a pursuing pilot.
 
 `aegis_check` (2026-08-05) is the newest, and it landed with the bomber rework
-rather than after it. It holds six decisions at once: the aegis flies PASSES and
+rather than after it. It holds seven decisions at once: the aegis flies PASSES and
 survives its own bombs (A2), its payload is a magazine in the player's own
 vocabulary (A.q2), a spent bomber EGRESSES and `escaped` fires (A2), it appears
 only where bombers are BASED (A.q1), a composed sortie aims it OUTWARD along the
 corridor the pilot came in on rather than at the objective it is defending
-(A.q1), and an escaped bomber costs the PLAYER ground with the war naming which
-node paid (A.q3).
+(A.q1), an escaped bomber costs the PLAYER ground with the war naming which
+node paid (A.q3), and — added the day it was flown — **the bomb falls and lands**.
+
+**The seventh is the one this check could not have caught in the shape it
+shipped in, and that is the lesson rather than the fix.** It asked *"does a drop
+happen, and is it aimed at the right place"*, which a blast at the bomber's own
+altitude answers perfectly. It never asked whether anything DESCENDED. So the
+new assertions are about what a release-point test structurally cannot see: a
+body that still exists after the release, a detonation whose altitude is the
+ground rather than the cruise height, a measurable gap between bombs-away and the
+blast, and an impact inside its own blast radius of the aim point. There is also
+a second flight whose whole purpose is one claim — the bomber is killed the
+instant it lets go, and the bomb has to land anyway, because interception's
+deadline is the release rather than the kill.
+
+Running the mutation is what made it honest: restoring the mid-air blast left two
+of the new assertions printing `ok` over an empty impact list, so each one now
+carries the non-emptiness in its own condition. Three mutations are on record —
+delete the falling body, delete the bombsight lead, parent the ordnance to the
+bomber — and each fails a different sentence.
 
 The scar it exists for is exactly rule 2's: the aegis spent months aimed at the
 sortie's own centre, so the enemy's bomber flew into the middle of the base it

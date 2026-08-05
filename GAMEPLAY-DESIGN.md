@@ -11120,3 +11120,90 @@ being rediscovered as a red board when A.q1 lands.
     - **It is therefore NOT a small addition**, and it is recorded as such rather
       than discovered mid-build: a target-ranking layer needs allied assets that
       are not the player to be worth ranking, and those do not exist yet either.
+
+- **2026-08-05 — v2.21. THE BOMB IS A BOMB: it leaves the rack, it falls, and it
+  goes off on the ground.** The ordnance half of A2, which v2.19 did not build
+  and v2.20 recorded rather than fixed. The user flew it and described the code
+  exactly: *"i think it dropped a bomb but the bomb immediately exploded. i didnt
+  see anything dropped and explode on the ground."*
+  - **WHAT WAS ACTUALLY WRONG, stated precisely because the fix is bigger than
+    the bug looks.** `_drop_bomb` called `Effects.explosion` at `route_end`, and
+    `route_end` carries `BOMB_RUN_HEIGHT` (26 m) — so the blast went off in
+    mid-air at the bomber's own position, on the same tick as the release. The
+    splash was applied correctly the whole time. It is the READING that was
+    missing, and P4.4 says a telegraph the player cannot see is not a telegraph.
+  - **`Bomb` (`scripts/combat/bomb.gd`) is a real body** on the house pattern:
+    manual integration with a segment raycast per step, so it cannot tunnel, the
+    same shape `projectile.gd` and `flak_shell.gd` already use. It is released
+    with the bomber's own velocity — which is what makes it read as DROPPED
+    rather than as fired — and it detonates on the first thing it meets, normally
+    the ground.
+  - **THE BLAST MOVED OUT OF THE BOMBER AND INTO THE BOMB, and that is a design
+    statement rather than a refactor.** Once ordnance is off the rack it is not
+    the aircraft's any more. The consequence is the one worth having: a bomber
+    killed BEFORE release drops nothing, a bomber killed AFTER release still
+    lands that bomb. **Interception has a deadline and the deadline is the
+    release, not the kill.** One line does it — the bomb is parented to the
+    bomber's PARENT — and `aegis_check` flies a second sortie whose only job is to
+    kill the bomber a heartbeat after it lets go and watch the bomb land anyway.
+  - **THE SECOND BUG WAS FOUND BY THE CHECK AND IS THE MORE INTERESTING ONE.** A
+    bomb let go directly over the target lands a whole fall's worth downrange —
+    2 s at 7 m/s is 14 m, against a 9 m blast — so the bomber has to release
+    early. The first version computed a lead from `t = sqrt(2h/g)`, the fall time
+    from LEVEL flight. It was right on pass 1 and **23 m wide on passes 2 and 3**,
+    because a bomber coming back off a re-attack leg is DESCENDING and its bomb
+    starts the fall already moving downward.
+  - **So the release is a BOMBSIGHT rather than a lead.** Every tick the bomber
+    asks `Bomb.predicted_impact` where its bomb would land if released now, and
+    lets go when that answer is on the aim point. Same cost, and right in every
+    case a lead is wrong: descending, mid-turn, or slowed by acceleration. Worst
+    miss across three passes went **23.1 m to 0.8 m**, against a 9 m blast.
+  - **`route_end` was being read as two different things**, which is why this was
+    ever possible. It is where the BOMBER flies — 26 m up, above the greybox
+    skyline — and it was never where the ordnance is supposed to end up. The aim
+    point is now derived: a downward probe from the waypoint, cached, so the bomb
+    lands on whatever is under the run rather than at flight altitude.
+  - **THE MUTATIONS ARE ON RECORD, and one of them caught the house failure
+    mode.** Deleting the falling body, deleting the bombsight, and parenting the
+    ordnance to the bomber each fail a different sentence. But the first mutation
+    also showed **two of the new assertions printing `ok` over an empty impact
+    list** — vacuous exactly when the bug is present, which is v2.17's "checks
+    that could not fail" for the fifth time. Each now carries the non-emptiness in
+    its own condition. *Running the mutation is what makes a check real*, and this
+    is the second time in two sessions that it paid inside the newest file.
+  - **A latent trap was fixed in the same pass**: the check's shared timeout
+    reported stage 1's sentence for a stage 2 failure — a true failure naming the
+    wrong thing, which is only marginally better than no failure at all.
+  - **NEW KNOB: `EnemyConfig.bomb_fall_gravity_scale`**, and it is a knob because
+    the fall IS the telegraph. How long a bomb takes to arrive decides whether
+    "bombs away" is a warning or a result. `bomb_damage` and `bomb_radius` got
+    overlay sliders at the same time — v2.19 shipped all three with no way to feel
+    them, which is only defensible while nothing falls.
+
+- **2026-08-05 — v2.21b. THE "FLIES A BIT TO THE CENTER" NOTE, MEASURED. Looked
+  at rather than tuned, and the observation is real.** v2.20 left it explicitly
+  unresolved and said to look first. Flying the sortie's real geometry (inner
+  ring 26 m, bomb run 95 m out) at three spawn bearings:
+  - **Pass 1 crosses the whole arena and is the only one flown near the fight**:
+    from the inner ring out to a release at **79 m**. Spawned on the far side, it
+    passes through the centre itself (closest approach **0 m**).
+  - **Passes 2 and 3 never come back inside 84 m**, at any spawn bearing. They
+    shuttle **84-96 m** out — 10 m beyond the outermost garrison ring (74 m) and
+    only 21 m inside the egress line (105 m). Two of the bomber's three bombs are
+    delivered somewhere the player has no reason to be.
+  - **That is exactly the user's sentence**: the inbound leg of the shuttle is
+    *"moving a bit toward the center"*, the release and blast is *"an explosion"*,
+    the outbound leg is *"the returning back"*, and 84 m is *"still out of the
+    actual fight"*.
+  - **WHY, mechanically.** `_enter_reattack` backs off along the axis the bomber
+    arrived on and `REATTACK_SECONDS` (3 s) cuts the leg short, so the re-attack
+    is a **shuttle rather than a circuit** — it reverses ~11 m and runs the same
+    short leg again instead of looping back through contested air.
+  - **NOT TUNED, because it is a pacing call and pacing is the human's.** Both
+    readings are defensible from the design already written: the aegis's stated
+    identity is *"can I kill this IN TIME"* — a priority call that costs you
+    leaving the fight — and a bomb run at 95 m is A.q1's *"past the outer ring so
+    it genuinely leaves the base"* working as specified. The question the numbers
+    raise is narrower than "is it in the fight": **is three passes at one far-out
+    point the right pacing, when only the first is contestable without breaking
+    off?** Recorded for the user to answer.

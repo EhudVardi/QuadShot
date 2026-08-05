@@ -165,6 +165,13 @@ const _ENEMY_FLOAT_ROWS: Array[Array] = [
 	["jam_range", 0.0, 120.0, 1.0],
 	["jam_full_range", 0.0, 60.0, 1.0],
 	["preferred_range", 0.0, 60.0, 1.0],
+	# ORDNANCE (the aegis's, and any bomber after it). All three are feel calls
+	# the human has to fly: how hard one bomb hits, how much ground it covers,
+	# and — the one the v2.20 rework exposed — how long the fall lasts, which is
+	# the whole telegraph between "bombs away" and the blast.
+	["bomb_damage", 0.0, 200.0, 5.0],
+	["bomb_radius", 0.0, 40.0, 0.5],
+	["bomb_fall_gravity_scale", 0.05, 4.0, 0.05],
 	["respawn_delay", 0.0, 60.0, 1.0],
 	["points", 0.0, 1000.0, 10.0],
 	["strength_cost", 0.0, 20.0, 0.5],
