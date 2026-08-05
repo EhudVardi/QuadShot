@@ -38,13 +38,29 @@ with the rework it guards.
    bomb, survives them, and **goes home** when it is spent. It lives only where
    bombers are BASED and its run goes OUT along the corridor you came in on.
 
-### What is waiting on the human's hands
+### FLOWN 2026-08-05 — both verdicts are in
 
-- **Fly a sortie with the reworked aegis.** Three passes is a pacing decision and
-  pacing is a feel call. The bench can only say it drops three, survives them,
-  climbs 12.3 m between passes and leaves.
-- **Fly the falx at its new reach.** It starts its run and opens fire from
-  further out; it is not more accurate, deliberately.
+- **The falx is a HIT.** *"its awesome! i like that enemy, it flys like a fast jet
+  and i can see its projectiles flying towards me before it even clears out of the
+  fog... I LIKE IT!"* A.q7 validated, and what they praise is exactly what the
+  reach buff bought rather than lethality, which was left alone on purpose.
+- **The aegis STRUCTURE works and its BOMB does not.** Three passes, the
+  re-attack loop, the escape and its message all read correctly. But: *"it looked
+  like it got an explosion right next to it... i didnt see anything dropped and
+  explode on the ground."* That is exactly what the code does — `_drop_bomb`
+  explodes at `route_end`, which carries `BOMB_RUN_HEIGHT` 26 m, so the blast
+  goes off in mid-air at the bomber's own position and **nothing ever falls**.
+  **This is the top of the next session's list.**
+- Unresolved from the same flight: *"it seems to fly a bit to the center but still
+  out of the actual fight."* Not settled by one sortie; look before tuning.
+
+### STANDING RULE ADDED 2026-08-05 — read this before costing any change
+
+**Breaking an in-progress saved war is ALLOWED and PREFERRED over slowing
+development.** Bump `SAVE_VERSION`, change the state shape, delete the save. The
+user starts a new war and enjoys doing it. Full wording in `CLAUDE.md` under
+Conventions. The only carve-out: a test must still never destroy user data by
+*accident* — deliberate schema breaks are progress, a crashed borrow is a bug.
 
 ### The next things, and none of them are started
 

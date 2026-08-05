@@ -11032,3 +11032,91 @@ being rediscovered as a red board when A.q1 lands.
     the only heavy thing left in defence is a jammer with no weapon. *"The war
     escalates"* still means *"the war gets foggier"* almost everywhere. The
     Phalanx is the named answer and it is not scheduled.
+
+- **2026-08-05 — v2.20. THE AEGIS AND THE FALX FLOWN, A.q6 ANSWERED, and a
+  standing rule that changes how every future change gets costed.**
+  - **NEW STANDING RULE: BREAKING A SAVED WAR IS ALLOWED AND PREFERRED.** The
+    user, unprompted, and it is a development-velocity decision rather than a
+    tolerance: *"we should NOT try to preserve a persistent ongoing war i might be
+    playing — do NOT be afraid to make changes that might break a saved game. I
+    dont mind starting a new war. we are at the start of the development, things
+    SHOULD break because they develop over time."* And the reason they are relaxed
+    about it: *"seeing the war room changes as a result of my actions is EXTREMELY
+    SATISFYING, I can start a new game over and over and over again, no problems.
+    the development should take priority."*
+    - It is written into `CLAUDE.md` under Conventions rather than only here, so
+      it binds a session that never opens this file. It holds **until the game
+      solidifies**, and is revisited then.
+    - **They raised it because they suspected I was designing around save
+      compatibility, and they were partly right.** Real time went into
+      `war_loop_check`'s redirect this session. **The distinction worth keeping**
+      is not "protect saves" but *deliberate* versus *accidental*: bumping
+      `SAVE_VERSION` because the schema moved on is progress, and a check deleting
+      the file because it borrowed it and crashed is a bug whatever the save is
+      worth. The carve-out is recorded with the rule.
+  - **THE AEGIS FLIES, AND ITS BOMB IS NOT A BOMB YET.** Flown in the live
+    campaign: *"then after i think three of these moving a bit toward the center,
+    an explosion, the returning back and then repeat, then it flew away an
+    disappeared and i got a message that it escaped, just like you said."* Three
+    passes, the re-attack loop, the escape and its message all read correctly from
+    the cockpit — the structure works.
+    - **The defect, in their words:** *"it looked like it got an explosion right
+      next to it, i think it dropped a bomb but the bomb immediately exploded. i
+      didnt see anything dropped and explode on the ground."*
+    - **They are describing exactly what the code does.** `_drop_bomb` calls
+      `Effects.explosion` at `route_end` — and `route_end` carries
+      `BOMB_RUN_HEIGHT` (26 m), so the "bomb" detonates in mid-air at the
+      bomber's own altitude, at the bomber's own position. **There is no falling
+      body and nothing ever reaches the ground.** The splash is applied correctly;
+      it is the READING that is missing, and P4.4's readability rule says a
+      telegraph the player cannot see is not a telegraph.
+    - **This is the ordnance half of A2 still undone.** A bomber that carries
+      ordnance, spends it and leaves was built; a bomb that FALLS was not. The fix
+      is a real projectile body released at the drop point with gravity, exploding
+      on ground contact — which also makes the blast land where the fiction says
+      (on the ground, on your asset) rather than at 26 m.
+    - **Recorded before it is built** so the next session does not rediscover it
+      from the same flight.
+  - **A second observation from the same sortie, unresolved:** *"it seems to fly a
+    bit to the center but still out of the actual fight."* The bomb run ends 95 m
+    out along the player's own ingress bearing and the aegis is placed on the
+    INNER ring (`LAYERING` gives it `inner: 1.0`), so it should read as flying
+    outward and past the pilot. Whether "a bit to the center" means the placement,
+    the read, or the 95 m being too short is **not settled by one flight** and
+    wants a look before it is tuned.
+  - **THE FALX IS A HIT, and the reach buff did what it was chosen for.** *"its
+    awesome! i like that enemy, it flys like a fast jet and i can see its
+    projectiles flying towards me before it even clears out of the fog, this gives
+    it a feel of a dangerous and tenacious enemy. I LIKE IT!"* That is A.q7's
+    decision validated by the only test that counts — and note what they are
+    praising is precisely the thing the buff bought (rounds arriving from outside
+    visual range) rather than lethality, which was deliberately left alone.
+  - **A.q6 → ANSWERED: the Lance picks the BIGGEST THREAT IT CAN SEE.** The user's
+    formulation, and it dissolves the either/or the question was posed as:
+    *"i think it should choose the target based on the biggest threat that it can
+    see. so if i attack a node alone, then I AM the priority. however, in future
+    nodes where we have the chance to defend an allied node and it is dispached to
+    destroy a major allied asset, And I launch into the node to defend it, its
+    reasonable that it would prioritize the major asset and ignore me/evade me.
+    same for when it is dispached to destroy an allied bomber, it should
+    prioritize it and ignore/evade me."*
+    - **So it is not "the player" or "not the player" — it is a RANKING**, and the
+      player wins it by default today only because they are the sole thing on the
+      field worth hitting. That is a better answer than either lean, because the
+      same rule produces both behaviours without a mode switch.
+    - **NOTHING IN THE GAME RANKS TARGETS TODAY.** Checked rather than assumed:
+      `EnemyDrone`, `Falx`, `GnatSwarm`, `Turret` and `Screamer` all take
+      `get_first_node_in_group(&"player")` unconditionally, and the `Aegis` alone
+      ignores the player entirely and flies a `route_end` handed to it from
+      outside. There is no scoring, no priority list, no notion of a second thing
+      worth attacking. The user asked whether we were already in that state, and
+      the honest answer is no, and it is not planned either.
+    - **Which makes the Lance's target selection a SHARED system rather than a
+      Lance feature**, and that reframes A.q4's ordering. The aegis wants it too
+      (it is the type whose whole identity is "does not care about you", which is
+      a priority statement with nothing to rank), and P4.2's allied-asset fiction
+      needs it before "defend an allied node" can exist at all. Building it inside
+      the Lance would be the third type to hard-code a target.
+    - **It is therefore NOT a small addition**, and it is recorded as such rather
+      than discovered mid-build: a target-ranking layer needs allied assets that
+      are not the player to be worth ranking, and those do not exist yet either.

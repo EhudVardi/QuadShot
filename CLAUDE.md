@@ -29,6 +29,8 @@
 
 ## Conventions
 
+- **BREAKING A SAVED WAR IS ALLOWED, AND PREFERRED OVER SLOWING DEVELOPMENT** (user's rule, 2026-08-05, and it is a standing one). Do **not** design around, defer, or complicate a change to keep an in-progress `user://war.save` loadable. Bump `SAVE_VERSION`, change the state shape, rename fields — the human starts a new war and does not mind: *"i can start a new game over and over and over again, no problems. the development should take priority."* A campaign is meaningless a few iterations out; the systems are not. This holds **until the game solidifies**, at which point it gets revisited — until then, prefer the break.
+  - **The one thing this does NOT license**: a test or a bench *accidentally* destroying the human's data as a side effect of measuring something else. Deleting a save because the schema moved on is progress; deleting it because a check borrowed the file and crashed is a bug. Keep `user://` writes out of the harness (`PlayerProfile.save()` and `WarSave.PATH` are the two precedents).
 - **No magic numbers in physics/input code** — every tunable is an `@export` in `FlightConfig`; scripts read it, the debug overlay writes it live.
 - Static typing everywhere; `snake_case`; short focused functions; comments explain *why*, not *what*.
 - Composition over inheritance; scenes minimal; `.tscn`/`.tres`/`project.godot` are hand-edited text — keep them small and diff-readable.
