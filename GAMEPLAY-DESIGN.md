@@ -10953,3 +10953,82 @@ being rediscovered as a red board when A.q1 lands.
     player's, and it lands naturally beside the war room's inspection card, which
     already renders facts to text so a check can read them. Not scheduled;
     recorded so it is not reinvented.
+
+- **2026-08-05 — v2.19. THE AEGIS IS A BOMBER AGAIN: it carries ordnance, spends
+  it, and goes home.** Iteration 14's A2 built to the steering it already had
+  (A.q1-A.q3). It is a DRIFT REPORT rather than a redesign, and that is the whole
+  finding: P4.2 has said since Iteration 2 that the aegis flies toward a friendly
+  asset of YOURS and that its arrival is bad for you. It never said the aegis is
+  expended.
+  - **THE TWO HALVES THAT HAD DRIFTED, both now closed.** The implementation read
+    *"arrives"* as *"detonates"*, which quietly made it a kamikaze — a different
+    enemy in a different counter-web position. And `SortieRunner` aimed it at the
+    sortie's own CENTRE, so the enemy's bomber flew into the middle of the base it
+    was defending and blew up on its own objective. That surfaced as a measurement
+    rather than as a bug report: node 16, three reps, 300 s each, 0% hull taken,
+    nothing killed — nothing there could threaten the pilot and the pilot could
+    not threaten it.
+  - **THREE OUTCOMES WHERE SELF-DETONATION OFFERED TWO.** Kill it before it drops
+    anything; kill it between passes or on its way out; or fail and watch it go
+    home having done its damage. The third is the one the war-sim can price
+    differently, and it is now a field rather than a sentence.
+  - **A.q2's magazine is literal, not a metaphor.** `rounds`, `magazine()`,
+    `unlimited()`, `has_ammo()`, `rearm()`, joined to the `magazines` group — the
+    same field name and the same four methods the player's flak pod carries. A
+    bomber out of bombs is legible in exactly the way a pilot out of flak already
+    is, and one mechanism covers both.
+  - **THE GRAMMAR INTRODUCED A HAZARD AND THE CHECK HOLDS IT.** `ResupplyGate` and
+    `Salvage` refill everything in the `magazines` group that matches their
+    `kind`, so an enemy bomber joining that group could in principle be rearmed by
+    the player's own gates. It cannot, because gates are only ever laid as `flak`
+    or `missile` and the bomber's kind is `bomb` — but that is a property worth
+    asserting rather than trusting, and `aegis_check` asserts it.
+  - **A.q1 cost nothing to author, and that is `_weights` paying out.** Removing
+    the aegis from the `command` doctrine looks like it needs the 0.30
+    redistributing by hand; it does not, because `_weights` NORMALISES. The edit
+    deletes a type rather than retuning a node, which is the difference between a
+    doctrine change and a balance change.
+  - **The bomb run goes OUT ALONG YOUR OWN CORRIDOR** (`BOMB_RUN_OUT_M` 95): past
+    the outer ring so it genuinely leaves the base, and inside the pilot's ingress
+    band so the two paths cross. Killing it is an intercept; letting it through is
+    a blow landed on you. The assertion that guards it is *"the run is on the
+    PLAYER'S side"* rather than *"the run is not the centre"*, because a route
+    offset in any random direction would satisfy the weaker one.
+  - **A.q3 is priced against the node NEAREST the target, and deliberately NOT
+    folded into the dent.** What you did to them and what they did to you are
+    different sentences; netting them would let a good sortie hide a raid that got
+    through. Ties break on the lowest node id so the same war always names the
+    same victim, because F4's determinism has to reach this too. The user's own
+    reasoning went further and is recorded as the destination rather than as this:
+    killing a bomber ought to weaken the node that LAUNCHED it, which the war
+    cannot express because nothing records a raid's provenance. **Raid provenance
+    stays on the board** for when bomber raids are built, which is the cheapest
+    moment it will ever exist.
+  - **ONE DESIGN RULE WAS FOUND BY A CHECK RATHER THAN BY REASONING, and it is the
+    most useful thing in this entry.** `composition_check` timed out at 60 s with
+    one unit left: a wave was being held open by a bomber that had already dropped
+    everything it had and was flying away. The wrong fix is a longer timeout. The
+    right one is that **THE UNIT ENDS WHEN THE PAYLOAD DOES** — it came, it spent
+    its load, it is leaving, and a wave should not wait on an enemy that has
+    already done its worst.
+  - **That fix is better counterplay than the thing it replaced**, which is why it
+    is a rule and not a patch. The bomber stays alive and killable through the
+    whole run home: kill it on the way out and you get the kill, the dent, and no
+    raid priced against your ground, because `escaped` never fires. Three ways to
+    win against one body, and they pay differently.
+  - **What was deliberately left alone.** `payload` 0 preserves the original
+    ticking-bomb behaviour exactly, so no other roster type has to know the field
+    exists and the form is one config value away. `loop_route` short-circuits
+    ahead of everything, so `delivery_bench`'s aegis cells measure what they have
+    always measured. And the arcade `WaveDirector` still aims the bomber at
+    `ARENA_CENTER`, because A4 is right that there its route already points at
+    something of yours.
+  - **NOT YET FLOWN BY HANDS.** Three passes is a pacing decision and pacing is a
+    feel call; the bench can only say that it drops three bombs, survives them,
+    climbs 12.3 m between passes and leaves.
+  - **A4's warning survived contact, and A7 is now the exposed edge.** The HQ
+    still fields the aegis so `manifest_check`'s heavy-type assertion holds and
+    escalation keeps its anchor — but with the aegis out of defensive garrisons,
+    the only heavy thing left in defence is a jammer with no weapon. *"The war
+    escalates"* still means *"the war gets foggier"* almost everywhere. The
+    Phalanx is the named answer and it is not scheduled.

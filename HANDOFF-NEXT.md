@@ -2,9 +2,83 @@
 
 A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 [TESTING.md](TESTING.md) and [BALANCE.md](BALANCE.md) first, then the tail of
-[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) — entries **v2.03–v2.14** are this
-session's, and **Iteration 14 (A1–A7, A.q1–A.q6)** is the one that decides what
-happens next.
+[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) — entries **v2.17–v2.19** are the most
+recent session's, and **Iteration 14 (A1–A7, A.q1–A.q7)** is the one that decides
+what happens next.
+
+---
+
+## WHERE IT STANDS, 2026-08-05
+
+**The board is 20 checks, all green.** `aegis_check` is the newest and it landed
+with the rework it guards.
+
+**Three things happened in the last session, in this order.**
+
+1. **An outside audit was triaged and fixed** — seven findings, six confirmed
+   exactly, one (F6) confirmed in mechanism and **wrong** in its stated symptom,
+   plus an eighth found by following the audit's own safety advice. The request
+   and the response are committed as `AUDIT-REQUEST-2026-08-04_.md` and
+   `AUDIT-HANDOFF-2026-08-04.md`. Every fix is its own commit carrying the
+   mutation that proves it. See v2.17.
+   - The campaign-destroyer was real: a node ground below the cheapest unit's
+     price offered a sortie with **nothing in it and no way to end it**, in 34 of
+     40 seeds under ordinary play.
+   - **The board was editing the human's real `profile.json`** — `runs` 158 → 159
+     every time either of us ran it, for months. `wave_check` was the culprit,
+     not `run_check`. Fixed at the source; `PlayerProfile.save()` now refuses to
+     write headless.
+2. **A.q7 was measured and then decided** (v2.18). Shots ARE fired on the
+   approach and they miss by a median **1.5 m against a 0.28 m drone**; line of
+   sight is innocent at 0–1% of gun-frames. **The falx already contests** — twice
+   a raider's engagement per body, eight times a turret's — and still lands
+   nothing. The user declined the one-line dispersion fix on identity grounds and
+   chose **terrain (P1.9) plus a small falx reach buff** (`sight_range` 90 → 110).
+3. **The aegis rework shipped** (v2.19): it carries a payload, flies a pass per
+   bomb, survives them, and **goes home** when it is spent. It lives only where
+   bombers are BASED and its run goes OUT along the corridor you came in on.
+
+### What is waiting on the human's hands
+
+- **Fly a sortie with the reworked aegis.** Three passes is a pacing decision and
+  pacing is a feel call. The bench can only say it drops three, survives them,
+  climbs 12.3 m between passes and leaves.
+- **Fly the falx at its new reach.** It starts its run and opens fire from
+  further out; it is not more accurate, deliberately.
+
+### The next things, and none of them are started
+
+1. **P1.9's terrain.** It now blocks three named mechanics rather than one:
+   detection-on-sight, the approach's corridors/cover, and A.q7's real answer.
+   This is the biggest unblocked item on the list.
+2. **The Lance** (A5) — but **A.q6 is still open**: is it aimed at the player, or
+   at something that is not necessarily the player? They are different enemies.
+   **Ask before building.**
+3. **The Phalanx** (A7) — and it is now the exposed edge rather than a nice-to-
+   have. With the aegis out of defensive garrisons, the only heavy thing left in
+   defence is a jammer with no weapon, so *"the war escalates"* still means
+   *"the war gets foggier"* almost everywhere.
+4. **A BESTIARY game mode** (new, the user's idea): a menu-tower leaf showing
+   every enemy, ally and weapon with their statistics — *"a macro view of the
+   current content."* The first screen whose purpose is the designer's view.
+5. **Raid provenance** — a field on the bomber-raid structure that does not exist
+   yet, so that killing a bomber weakens the node that LAUNCHED it. Cheapest to
+   add the day raids are built.
+
+### Two debts that did NOT move, and one that got worse
+
+- **`sortie_bench` and `delivery_bench` still do not reproduce across processes**,
+  so the sortie difficulty sweep remains unattributed. The audit's Track 5 was
+  never reached; **the 15 `static var`s are still un-enumerated**. This is still
+  the highest-value open question in the project.
+- **`aim_jitter_deg` is now on the board as a GLOBAL difficulty knob** rather than
+  a per-problem lever — the user's call, and the reasoning is worth keeping: a
+  falx pilot must not aim better because you evade more.
+- **The aegis change invalidates any measured factor involving it.**
+  `delivery_bench`'s aegis cells are protected (they run with `loop_route`, which
+  short-circuits the rework), but `matchup_harness`'s Aegis rows now fight a
+  bomber that makes three passes before leaving. **Re-measure before trusting
+  them.**
 
 **BEFORE WRITING ANY REPORT, read `.claude/skills/report-back/SKILL.md`.** The
 user asked for it explicitly (2026-08-03): every report is Goal / Terms / What I
@@ -14,8 +88,9 @@ feels ordinary within minutes, and a report the user cannot parse cannot be
 argued with, which costs you the pushback that is the most valuable thing they
 give this project.
 
-**HEAD when this was written: the v2.15 commit. Working tree clean.
-`PILOT_VERSION` is 7. 19 headless checks, all passing.**
+**HEAD when this was written: the v2.19 commit. Working tree clean.
+`PILOT_VERSION` is 7 (unchanged - nothing touched the pilot). 20 headless checks,
+all passing.**
 
 ---
 
