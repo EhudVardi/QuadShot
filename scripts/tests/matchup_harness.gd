@@ -536,10 +536,23 @@ func _build_duel() -> void:
 		# from it), so positioning afterwards would build them around the origin.
 		# The arena sits at the origin, so local position is the global one.
 		(body as Node3D).position = _spawn_point(i, count)
-		# The bomber's route runs past the player and ends behind them, which makes
-		# the duel a real intercept clock rather than a health bar: ~60 m at its
-		# route speed, comfortably inside the duel cap, so "did you kill it in
-		# time" is a question the harness can actually answer.
+		# The bomber's route runs past the player and ends behind them: ~60 m at
+		# its route speed, so its FIRST bomb releases inside the duel cap.
+		#
+		# THE INTERCEPT CLOCK IS CURRENTLY DEAD, and it is the aegis rework that
+		# killed it (v2.19/v2.21, found by re-measuring these rows in v2.22). This
+		# used to read "comfortably inside the duel cap, so did-you-kill-it-in-time
+		# is a question the harness can answer" — true when arrival WAS detonation.
+		# A bomber now spends three passes before `detonated` fires, which is about
+		# 25-30 s against a 10 s cap, so `_bombed` is no longer reachable here.
+		#
+		# The Aegis rows still read the same 0% they always did, for a DIFFERENT
+		# REASON: "the bomber completed its run" has quietly become "the bomber
+		# survived the duel". That is standing rule 2's trap exactly, so it is
+		# written down rather than papered over. The fix, when someone wants the
+		# clock back, is a rig-side `payload = 1` on this bomber (the same kind of
+		# choice as IMMORTAL_HULL) — deliberately NOT taken here, because it moves
+		# a published band and that is the human's call.
 		if body.get(&"route_end") != null:
 			body.set(&"route_end", Vector3(0.0, ARENA_ALTITUDE, BOMB_TARGET_Z))
 		_arena.add_child(body)
