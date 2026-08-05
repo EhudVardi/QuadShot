@@ -50,8 +50,25 @@ const AIR_HEIGHT_MAX: float = 20.0
 ## from the wave director for the reason it was written there: a rooftop
 ## emplacement is a good outcome and a turret buried in a building is not.
 const GROUND_PROBE_HEIGHT: float = 60.0
-## The bomber's run ends over the middle, above the greybox skyline.
+## The bomber's run ends above the greybox skyline.
 const BOMB_RUN_HEIGHT: float = 26.0
+## HOW FAR OUT ALONG YOUR APPROACH THE BOMB RUN ENDS (Iteration 14 / A.q1).
+##
+## It used to be the sortie's own CENTRE, which is the drift A1 named: the
+## enemy's bomber flew into the middle of the base it was defending and
+## detonated on its own objective. Measured 2026-08-03 on node 16 — three reps,
+## 300 s each, 0% hull taken, nothing killed — because nothing there could
+## threaten the pilot and the pilot could not threaten it.
+##
+## A.q1 decided the aegis lives only where bombers are BASED and flies OUTWARD
+## from there, on the user's fiction rather than on arithmetic: *"why would the
+## enemy deploy his bombers in his own teritory?"* So the run ends out along the
+## bearing the PLAYER came in on — the direction their own ground lies — which
+## makes killing it an intercept and letting it through a blow landed on you.
+##
+## Past the outer ring (74 m plus jitter) so it genuinely leaves the base, and
+## well inside the pilot's own ingress band (140-195 m) so the two paths cross.
+const BOMB_RUN_OUT_M: float = 95.0
 
 ## Where the objective's structures sit relative to the sortie's centre.
 const OBJECTIVE_SPREAD: float = 13.0
@@ -198,6 +215,15 @@ var _generation: int = 0
 ## one frame (queue_free is deferred), so pad placement has to exclude them.
 var _stale_rids: Array[RID] = []
 var _objectives_down: int = 0
+## Bombers that spent their payload and got out (Iteration 14 / A.q3). A
+## DISTINCT OUTCOME from being killed: you did not just fail to stop a raid, you
+## failed to destroy the hardware before it went home. The war prices it against
+## your own ground.
+var _bombers_escaped: int = 0
+## Bombs actually delivered, whether or not the bomber survived to leave. Carried
+## so a debrief can tell "it got through twice and then I killed it" from "it got
+## clean away", which are different sentences about the same sortie.
+var _bombs_dropped: int = 0
 var _egressed: bool = false
 var _pilot_lost: bool = false
 var _player: Node3D
@@ -248,6 +274,8 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	# generation that no longer exists, so `_release` will refuse it.
 	_generation += 1
 	_objectives_down = 0
+	_bombers_escaped = 0
+	_bombs_dropped = 0
 	_egressed = false
 	_pilot_lost = false
 
@@ -325,6 +353,11 @@ func result() -> Dictionary:
 		"objective_complete": complete,
 		"egressed": _egressed,
 		"pilot_lost": _pilot_lost,
+		# A.q3: a bomber that spent its payload and got home is the enemy
+		# SURVIVING, which the war prices against your own ground rather than
+		# folding into the dent.
+		"bombers_escaped": _bombers_escaped,
+		"bombs_dropped": _bombs_dropped,
 		# The three-way spectrum P2.9 asks for, as one readable field. `complete`
 		# needs the egress too: getting the objective and not getting home is a
 		# genuinely different outcome from both, and the war can price it.
@@ -550,7 +583,10 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 	# history wandered home to the origin until v1.85 caught it.
 	(unit as Node3D).position = _point_for(row, layer)
 	if unit.get(&"route_end") != null:
-		unit.set(&"route_end", center + Vector3.UP * BOMB_RUN_HEIGHT)
+		# OUTWARD, along the bearing the player arrived on — see BOMB_RUN_OUT_M.
+		unit.set(&"route_end", center
+				+ ingress_direction(spec) * BOMB_RUN_OUT_M
+				+ Vector3.UP * BOMB_RUN_HEIGHT)
 	# A body that comes back makes its sortie permanently unclearable.
 	if unit.get(&"respawns") != null:
 		unit.set(&"respawns", false)
@@ -568,6 +604,17 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 		unit.connect(&"detonated", func() -> void:
 			announced.emit("bomber reached its target")
 			_on_unit_gone(unit))
+	# THE BOMBER'S TWO NEW EVENTS (Iteration 14 / A2). `bomb_dropped` is a pass
+	# landing, `escaped` is the raid getting home - three outcomes where the
+	# ticking bomb offered two, and the third is the one the war can price.
+	if (unit as Object).has_signal(&"bomb_dropped"):
+		unit.connect(&"bomb_dropped", func(_at: Vector3) -> void:
+			_bombs_dropped += 1
+			announced.emit("BOMBS AWAY - they hit your ground"))
+	if (unit as Object).has_signal(&"escaped"):
+		unit.connect(&"escaped", func() -> void:
+			_bombers_escaped += 1
+			announced.emit("the bomber got away"))
 
 
 ## A unit sits on its own ring at a uniformly random angle, and BOTH halves of

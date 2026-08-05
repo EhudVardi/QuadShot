@@ -89,6 +89,16 @@ static func lines(debrief: Dictionary, saved: bool = true) -> PackedStringArray:
 		out.append("THE NODE IS YOURS")
 	elif bool(summary["degraded"]):
 		out.append("degraded - no friendly ground adjacent to hold it")
+	# A.q3, and it is said as its own line rather than netted off the dent: what
+	# you did to them and what they did to you are different sentences, and a
+	# raid that got through must not be able to hide inside a good sortie.
+	var escaped: int = int(summary.get("bombers_escaped", 0))
+	if escaped > 0:
+		out.append("%d BOMBER%s GOT AWAY" % [escaped, "" if escaped == 1 else "S"])
+		if int(summary.get("bombed_node_id", -1)) >= 0:
+			out.append("your node %d lost %.1f to the raid"
+					% [int(summary["bombed_node_id"]),
+					float(summary.get("bombed_loss", 0.0))])
 	if bool(debrief["pilot_lost"]):
 		out.append("PILOT LOST - %d left" % int(debrief["pilots_left"]))
 	out.append("")

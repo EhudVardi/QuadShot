@@ -288,7 +288,7 @@ to arrive to).
 | `factory` | **strike** | 3 production structures |
 | `radar` / `sam` | **sead** | the dish or the launchers, ringed by **screamers** — your lock breaks as you close |
 | `airbase` | **strike_cap** | crater the runway while **falx** hold the outer ring and a scramble arrives on detection |
-| `command` | **decapitation** | the commander, guarded by **aegis**, and these nodes get **no pads** |
+| `command` | **decapitation** | the commander, guarded by raiders, turrets and a **screamer**, and these nodes get **no pads** |
 | `depot` | **interdiction** | 3 stores behind a turret belt |
 | `hq` | **raid** | 4 structures, and **shielded until the command network is broken** (P1.5) |
 
@@ -333,7 +333,7 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
-## 4. The check suite — 19 headless checks
+## 4. The check suite — 20 headless checks
 
 Run all of them before believing anything:
 
@@ -343,10 +343,10 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`, `ammo`, `sortie`, `war_loop`, `war_room`.
+`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`.
 
-`falx` and `screamer` are **behaviour checks**, and every new enemy type gets one
-the day it lands. The reason is scar tissue: the harness can only ever say *"this
+`falx`, `screamer` and `aegis` are **behaviour checks**, and every new enemy type
+gets one the day it lands. The reason is scar tissue: the harness can only ever say *"this
 cell reads 0%"*, which is equally consistent with a tough enemy, a broken enemy,
 and an enemy that has flown out of the level. Four separate Falx bugs looked
 identical from the results table.
@@ -355,6 +355,22 @@ identical from the results table.
 does it stay put, does a missile lock work at all (control), does its jam fade
 across both ends of its field, does it hold a standoff, and **can it actually be
 caught** by a pursuing pilot.
+
+`aegis_check` (2026-08-05) is the newest, and it landed with the bomber rework
+rather than after it. It holds six decisions at once: the aegis flies PASSES and
+survives its own bombs (A2), its payload is a magazine in the player's own
+vocabulary (A.q2), a spent bomber EGRESSES and `escaped` fires (A2), it appears
+only where bombers are BASED (A.q1), a composed sortie aims it OUTWARD along the
+corridor the pilot came in on rather than at the objective it is defending
+(A.q1), and an escaped bomber costs the PLAYER ground with the war naming which
+node paid (A.q3).
+
+The scar it exists for is exactly rule 2's: the aegis spent months aimed at the
+sortie's own centre, so the enemy's bomber flew into the middle of the base it
+was defending and detonated on its own objective — and the way that finally
+surfaced was `sortie_bench` reading node 16 as three reps of 300 s, 0% hull
+taken, nothing killed. Nothing there could threaten the pilot and the pilot could
+not threaten it.
 
 `heat_check` guards the blaster's duty cycle (v1.91), and the failure it exists
 for is the worst one available: a gun that locks out and **never comes back**

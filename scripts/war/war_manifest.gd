@@ -59,8 +59,23 @@ const DOCTRINE: Dictionary = {
 	&"sam": {&"turret": 0.60, &"raider": 0.15, &"gnat": 0.10, &"screamer": 0.15},
 	&"depot": {&"turret": 0.50, &"raider": 0.30, &"gnat": 0.20},
 	&"factory": {&"turret": 0.45, &"gnat": 0.35, &"raider": 0.20},
+	# THE AEGIS SITS ONLY WHERE BOMBERS ARE BASED (Iteration 14 / A.q1, decided
+	# 2026-08-03). An airbase and the theater HQ have hangars; a command post and
+	# a radar dish do not. The user's argument is fiction rather than arithmetic
+	# and it is the right one: *"why would the enemy deploy his bombers in his own
+	# teritory?"* A bomber at an airbase is a bomber at home; a bomber ringing a
+	# radar dish is a design error you can see from the cockpit.
+	#
+	# Removing it from `command` costs nothing that has to be re-authored, because
+	# `_weights` NORMALISES — the 0.30 redistributes across the remaining three in
+	# proportion, so this edit deletes a type rather than retuning a node.
+	#
+	# The escalation anchor survives: `HEAVY_TYPES` is [aegis, screamer] and the
+	# command post keeps its screamer. A7 is the open hole underneath — once the
+	# aegis leaves defence, "the war escalates" leans hard on a jammer with no
+	# weapon — and the Phalanx is the named answer, not scheduled here.
 	&"airbase": {&"raider": 0.40, &"falx": 0.25, &"turret": 0.20, &"aegis": 0.15},
-	&"command": {&"aegis": 0.30, &"raider": 0.30, &"turret": 0.20, &"screamer": 0.20},
+	&"command": {&"raider": 0.30, &"turret": 0.20, &"screamer": 0.20},
 	&"hq": {&"aegis": 0.30, &"raider": 0.20, &"turret": 0.15, &"gnat": 0.10,
 			&"falx": 0.15, &"screamer": 0.10},
 }

@@ -107,6 +107,24 @@ extends TunableConfig
 ## Seconds before a destroyed instance returns. 0 = never (wave-spawned types).
 @export var respawn_delay: float = 0.0
 
+@export_group("Payload")
+## BOMBS CARRIED (GAMEPLAY-DESIGN Iteration 14, A2 / A.q2). A bomber flies one
+## pass per bomb and LEAVES when the last one is gone.
+##
+## **0 means "not a bomber"**, which is how every other type in the roster keeps
+## its behaviour without knowing this field exists, and how the aegis's original
+## ticking-bomb form is still reachable from a config.
+##
+## A.q2 decided this is a MAGAZINE, in the same vocabulary Iteration 10 built for
+## the player's flak and missiles: `rounds`, spend, refuse when dry. One
+## mechanism covers both, so "a bomber out of bombs" is legible in exactly the
+## way "a pilot out of flak" already is.
+@export var payload: int = 0
+## Damage one bomb does to what it lands on.
+@export var bomb_damage: float = 45.0
+## Blast radius of one bomb.
+@export var bomb_radius: float = 9.0
+
 @export_group("Strategic")
 @export var points: float = 150.0
 ## Garrison strength one body of this type represents in the war-sim manifest

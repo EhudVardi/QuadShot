@@ -40,6 +40,19 @@ extends TunableConfig
 @export var sortie_range_hops: float = 4.0
 ## Garrison strength a successful sortie removes (scaled by skill).
 @export var sortie_damage: float = 10.0
+## GARRISON STRENGTH ONE ESCAPED BOMBER TAKES OFF YOUR OWN GROUND (Iteration 14
+## / A.q3). A bomber that spends its payload and gets home is the enemy
+## SURVIVING — a third outcome the sim had no verb for, distinct from you killing
+## it and from you failing to stop it.
+##
+## It is priced against the player node NEAREST the sortie, because the raid flew
+## outward along the corridor the pilot came in on. The user's own reasoning went
+## further and is recorded as the destination rather than as this: killing a
+## bomber ought to weaken the node that LAUNCHED it, which the war cannot express
+## because nothing records a raid's provenance. Raid provenance is on the board
+## for when bomber raids are built (P4.2), which is the cheapest moment it will
+## ever exist. Until then a landed blow costs you ground, which the map can show.
+@export var bomber_damage: float = 4.0
 ## Baseline chance a failed/contested sortie costs a pilot; risk adds more.
 @export var pilot_loss_base: float = 0.03
 ## HQ becomes attackable when enemy command posts alive <= this (P1.5).

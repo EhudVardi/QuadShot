@@ -104,6 +104,17 @@ static func apply_sortie(state: Dictionary, config: WarConfig,
 	if bool(result.get("pilot_lost", false)):
 		state["pilots"] = maxi(int(state["pilots"]) - 1, 0)
 
+	# A.q3: EVERY BOMBER THAT GOT HOME LANDED A BLOW ON YOU. Applied to the
+	# player node nearest the target, because the raid flew outward along the
+	# corridor the pilot came in on, and because "your ground got hit" has to be
+	# something the map can show rather than a line in a debrief.
+	#
+	# Deliberately NOT folded into the dent. The dent is what YOU did to THEM;
+	# this is what they did to you, and collapsing the two would let a good
+	# sortie hide a raid that got through.
+	var bombed: Dictionary = _apply_escaped_bombers(state, config, node,
+			int(result.get("bombers_escaped", 0)))
+
 	return {
 		"node_id": int(node["id"]),
 		"node_type": node["type"],
@@ -114,6 +125,42 @@ static func apply_sortie(state: Dictionary, config: WarConfig,
 		"captured": captured,
 		"degraded": degraded,
 		"pilots_left": int(state["pilots"]),
+		"bombers_escaped": int(result.get("bombers_escaped", 0)),
+		"bombed_node_id": int(bombed.get("node_id", -1)),
+		"bombed_loss": float(bombed.get("loss", 0.0)),
+	}
+
+
+## Price escaped bombers against the player's own ground, and say WHICH ground.
+##
+## Returns `{}` when nothing escaped or when the player holds nothing — a war in
+## which you have no nodes left has bigger problems than a raid, and inventing a
+## victim would be the sim reporting damage it did not do.
+static func _apply_escaped_bombers(state: Dictionary, config: WarConfig,
+		target: Dictionary, escaped: int) -> Dictionary:
+	if escaped <= 0:
+		return {}
+	var victim: Dictionary = {}
+	var best: int = 1 << 30
+	var target_cell := Vector2i(int(target["q"]), int(target["r"]))
+	for node: Dictionary in state["nodes"]:
+		if node["owner"] != &"player":
+			continue
+		var hops: int = TheaterGenerator.hex_distance(
+				target_cell, Vector2i(int(node["q"]), int(node["r"])))
+		# Ties break on the LOWEST id rather than on iteration order, so the same
+		# war always names the same victim (F4's determinism reaches this too).
+		if hops < best or (hops == best and int(node["id"]) < int(victim.get("id", 1 << 30))):
+			best = hops
+			victim = node
+	if victim.is_empty():
+		return {}
+	var before: float = float(victim["garrison"])
+	victim["garrison"] = quantize(maxf(
+			before - config.bomber_damage * float(escaped), 0.0))
+	return {
+		"node_id": int(victim["id"]),
+		"loss": quantize(before - float(victim["garrison"])),
 	}
 
 
