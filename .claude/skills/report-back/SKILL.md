@@ -1,6 +1,6 @@
 ---
 name: report-back
-description: The house format for reporting findings, results, diagnoses, measurements or completed work back to the human on QuadShot. Use this whenever you are about to summarise what you did, what a bench measured, what a bug turned out to be, what you recommend, or what changed - including short answers and follow-up questions about earlier work. Structure every such reply as Goal / Terms / What I found / What's next, and define every term the human has not personally used first.
+description: The house format for reporting findings, results, diagnoses, measurements or completed work back to the human on QuadShot. Use this whenever you are about to summarise what you did, what a bench measured, what a bug turned out to be, what you recommend, or what changed - including short answers and follow-up questions about earlier work. Structure every such reply as Goal / Terms / What I found / Try it yourself / What's next, and define every term the human has not personally used first. Whenever the report asks the human to fly, judge or confirm something, it MUST also give them the exact quickest command and route to reproduce that situation.
 ---
 
 # Reporting back
@@ -32,7 +32,9 @@ readable."* Length is not the cost to optimise. Comprehension is.
 
 ## The structure
 
-Four sections, in this order. The fourth is optional; the first three are not.
+Five sections, in this order. The first three are always required. "Try it
+yourself" is required whenever a human verdict is being asked for, and only then.
+"What's next" is optional.
 
 ```
 ## Goal
@@ -45,12 +47,55 @@ know - one line each, plain language. Omit the section only if genuinely empty.
 ## What I found
 The actual report. Findings, results, what changed, what broke.
 
+## Try it yourself
+Required whenever the report asks the human to judge, fly, look at or confirm
+something that is not one obvious click away. The exact quickest route.
+
 ## What's next
 Optional. Recommendations, open decisions, things waiting on them.
 ```
 
 Use these as literal headings. The human is scanning; consistent headings let
 them jump to the part they want.
+
+## "Try it yourself" — the section that unblocks them
+
+Added by the human 2026-08-06, and the trigger was concrete: a report said *"the
+aegis pacing question is waiting on you"* and *"nothing here has been flown by
+hands"* — and then did not say how to meet an aegis. They went looking, could not
+find one, and had to come back and ask. **The judgement they were being asked for
+was blocked on information only the agent had.**
+
+Their rule, in their words:
+
+> *"when you need me to do something that is not straight forward (like this
+> specific encounter with the aegis), you should also give me the most correct and
+> quickest way to put myself in the situation that you need me to give judgement."*
+
+**Include this section whenever the report asks for a human verdict.** "Please
+fly this", "does this feel right", "not flown by hands", "waiting on your call
+about the pacing" — every one of those is a request that must ship with its route.
+
+What it has to contain:
+
+- **A literal command line, copy-pasteable**, with the real executable path and
+  the real flags. Not `<godot> --path .` in a sentence — the actual line.
+- **Where the thing will be** once they are in: which direction, how far, how long
+  until it happens. A specimen 90 metres behind the spawn is a specimen they will
+  not find.
+- **What they should be looking for**, in one line, so they know when they have
+  seen it. Also what would count as it being WRONG.
+- **The quickest route, not the most representative one**, when those differ - and
+  then say so, and give both. A dev-room specimen that appears in five seconds
+  usually beats a campaign node that needs three menus, but if only the campaign
+  shows the real thing, say which is which and why.
+- **Verify the route before writing it down.** Run the command, or at minimum
+  confirm the node/seed/scene actually contains what the report claims. A route
+  that does not work costs more than no route, because they will assume the
+  feature is broken rather than the instructions.
+
+If the report asks for nothing, omit the section. If it asks for a verdict and
+omits the section, the report is incomplete.
 
 ## Choosing what goes in Terms
 
