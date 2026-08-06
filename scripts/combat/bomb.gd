@@ -133,29 +133,39 @@ func _physics_process(delta: float) -> void:
 		_detonate()
 
 
-## The blast. A distance test over the two groups rather than a physics query —
-## the same reasoning `gnat_swarm`'s sting and the aegis's old splash used, and a
-## bomb that only hurt bodies with colliders on the right layer would be a bomb
-## that mostly did nothing.
+## THE BLAST, shared. A distance test over the two groups rather than a physics
+## query — the same reasoning `gnat_swarm`'s sting and the aegis's old splash
+## used, and a bomb that only hurt bodies with colliders on the right layer would
+## be a bomb that mostly did nothing.
+##
+## Static and public because the LANCE detonates too (A5): a suicider is ordnance
+## that flies itself, so "what one blast does" must have exactly one definition
+## or the two types would drift into different physics for the same word.
+static func blast(tree: SceneTree, at: Vector3, config: EnemyConfig,
+		team: StringName) -> void:
+	if tree == null or config == null:
+		return
+	var radius: float = maxf(config.bomb_radius, 0.001)
+	for node: Node in tree.get_nodes_in_group(&"player") \
+			+ tree.get_nodes_in_group(&"objectives"):
+		if not is_instance_valid(node) or not (node is Node3D):
+			continue
+		if node.get(&"team") == team:
+			continue
+		var distance: float = (node as Node3D).global_position.distance_to(at)
+		if distance > radius:
+			continue
+		# Linear falloff, so standing at the edge of a blast is meaningfully
+		# better than standing on it.
+		if node.has_method(&"take_hit"):
+			node.call(&"take_hit", config.bomb_damage * (1.0 - distance / radius))
+	Effects.explosion(tree.root, at, radius * BLAST_VISUAL_SCALE)
+	SoundBank.play_at(&"explosion", at, -4.0, 0.6)
+
+
 func _detonate() -> void:
 	var at: Vector3 = global_position
-	if _config != null:
-		var radius: float = maxf(_config.bomb_radius, 0.001)
-		for node: Node in get_tree().get_nodes_in_group(&"player") \
-				+ get_tree().get_nodes_in_group(&"objectives"):
-			if not is_instance_valid(node) or not (node is Node3D):
-				continue
-			if node.get(&"team") == _team:
-				continue
-			var distance: float = (node as Node3D).global_position.distance_to(at)
-			if distance > radius:
-				continue
-			# Linear falloff, so standing at the edge of a bomb is meaningfully
-			# better than standing on it.
-			if node.has_method(&"take_hit"):
-				node.call(&"take_hit", _config.bomb_damage * (1.0 - distance / radius))
-		Effects.explosion(get_tree().root, at, radius * BLAST_VISUAL_SCALE)
-	SoundBank.play_at(&"explosion", at, -4.0, 0.6)
+	blast(get_tree(), at, _config, _team)
 	exploded.emit(at)
 	queue_free()
 

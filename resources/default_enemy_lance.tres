@@ -1,0 +1,87 @@
+; Lance — the committed suicider (GAMEPLAY-DESIGN Iteration 14 / A5, A.q5).
+;
+; The design in one line: "it tells you it is coming, and then it cannot change
+; its mind." Every number below serves that sentence.
+;
+; THE PAIR THAT IS THE WHOLE TYPE, read together:
+;
+;   speed 34 = the fastest thing in the roster, above the falx's 25.
+;   accel 9  = the LOWEST in the roster, below the falx's 11.
+;
+; `accel` is what `velocity.move_toward` spends to CHANGE direction, so a body
+; this fast with an accel this low physically cannot follow a moving target. The
+; commitment is emergent rather than scripted, exactly as the falx's wide arc is,
+; which is what makes P4.2's counterplay honest: "aimed at where you are, so
+; being somewhere else is the answer."
+;
+; hull 22 is the lightest flyer in the game, under the falx's 26. P4.2 asks for
+; "light, but fast enough that chip guns get one honest window" - and the window
+; is the ALIGN phase, where it holds still and glows. Miss that window and the
+; run itself is genuinely hard to track with a chip gun.
+;
+; damage/fire_rate/muzzle_speed are ZERO and that is not an oversight: the Lance
+; carries no gun. Its whole output is the contact blast, so `Lethality.incoming`
+; correctly reports delivery mode `contact` for it rather than a cadence.
+;
+; bomb_damage 55 / bomb_radius 7 are the BLAST, reusing the Payload group the
+; aegis introduced. That reuse is deliberate: a suicider is ordnance that flies
+; itself, and `Bomb.blast()` is one definition shared by both, so the two can
+; never drift into different physics for the same word. 55 against a Kestrel's
+; 100 hull is over half the aircraft in one hit - it must be frightening or the
+; telegraph is not worth reacting to - while a 7 m radius is small enough that
+; moving 8 m sideways is a complete answer.
+;
+; preferred_range 30 is re-read for this type again: not an orbit radius and not
+; a break-off distance, but the SETUP band it backs off to before committing, so
+; the run always has room to reach full speed. A suicider that commits from 5 m
+; has no telegraph at all.
+;
+; sight_range 95 sits between the raider's and the falx's 110. It should notice
+; you from a good way out - the type is an area-denial threat and a Lance you
+; never knew was there is a Lance that taught you nothing.
+;
+; strength_cost 1.5 is deliberately CHEAP, per P4.2: "cheap and expendable - the
+; type a losing enemy fields MORE of." A raider is 1.0, so a Lance is one and a
+; half raiders' worth of garrison, which lets a pressured node field a swarm of
+; them without blowing its strength budget.
+;
+; NOTHING HERE IS BALANCED. Per H6 these are authored starting points and the
+; harness measures the result; none of it should be tuned before it is measured,
+; and the human's hands decide the feel of the telegraph either way.
+
+[gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
+
+[resource]
+script = ExtResource("1_ecfg")
+type_id = &"lance"
+hull = 22.0
+armor = 0.0
+shield_max = 0.0
+shield_break_threshold = 0.0
+shield_regen = 0.0
+shield_regen_delay = 0.0
+speed = 34.0
+accel = 9.0
+turn_speed_deg = 90.0
+sight_range = 95.0
+damage = 0.0
+fire_rate = 0.0
+muzzle_speed = 0.0
+aim_jitter_deg = 0.0
+pack_size = 0.0
+swarm_spacing = 3.0
+swarm_separation_gain = 1.6
+swarm_cohesion_gain = 0.5
+swarm_pursuit_gain = 1.0
+swarm_jitter = 0.35
+swarm_sting_radius = 1.6
+preferred_range = 30.0
+payload = 0
+bomb_damage = 55.0
+bomb_radius = 7.0
+bomb_fall_gravity_scale = 1.0
+respawn_delay = 0.0
+points = 180.0
+strength_cost = 1.5

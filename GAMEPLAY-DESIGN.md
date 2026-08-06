@@ -11292,3 +11292,91 @@ being rediscovered as a red board when A.q1 lands.
     now refuses to report on a trace whose own rows never change. Three unfailable
     checks in two sessions, all in the newest code, and the lesson is the same one
     every time: **an instrument that cannot disagree will always agree.**
+
+- **2026-08-06 — v2.23. TRACK 5 IS CLOSED, and the cause is a camera.** v2.22
+  narrowed it to "a binary -0.0817 rad/s pitch impulse on a cell's first tick"
+  and honestly recorded that the coupling was inferred. It is now measured, and
+  the answer was in a function I had already inspected and dismissed.
+  - **THE MECHANISM.** `FlightController` applied the FPV camera's 44-degree
+    UPTILT in `_process` — the IDLE frame — and nowhere else. So whether the
+    camera was tilted when the first `_physics_process` ran depended on whether
+    an idle frame happened to fall in between, which is a function of machine
+    load. **The weapon is a CHILD of that camera**, so the gun line inherits the
+    tilt, and `ReferencePilot` aims by the gun's basis.
+  - **What that does to the pilot, in one line.** With the tilt missing the pilot
+    reads a LEVEL gun, concludes it is already on target, and commands nothing;
+    with it present it correctly pitches the nose down to put a 44-degree gun on
+    a level target. Measured: **the pilot's first commanded pitch rate came out
+    as 0.00008 in one process and -3.84 in another**, from the identical command
+    line. Every later difference — the attitude, `lined_up`, the shot count, the
+    measured factor — descends from that one tick.
+  - **I HAD READ THAT FUNCTION AND CLEARED IT.** v2.22 records checking
+    `FlightController._process` and concluding it "only sets camera fov and
+    uptilt — purely visual, doesn't affect physics." That was wrong, and the
+    error is worth more than the fix: **"visual" is a claim about what a value is
+    FOR, not about what reads it.** A camera is visual; a camera that a weapon
+    hangs off, in a game whose bot aims down the barrel, is an input.
+  - **THE FIX IS ONE CALL** — apply the camera config in `_ready` as well, keeping
+    the `_process` re-read so the overlay can still tune it live.
+  - **PROVEN, not asserted.** Three cells, two processes, identical command:
+    before, `[steady]` diverged at tick 1; after, **all three are bit-for-bit
+    identical for the full 6720 ticks**, and the printed factors match to the
+    decimal. The only columns that still differ are the two the trace carries ON
+    PURPOSE to measure wall clock (lingering explosion count), which is the
+    control working.
+  - **It is also a real one-frame defect in the GAME**, not only in the bench:
+    every flight's first frame was flown with an untilted camera.
+  - **What this buys.** `balance/delivery_factors.json` becomes a stable
+    measurement for the first time. The standing rule *compare cells WITHIN a
+    single run* can stay — it costs nothing and it is still good hygiene — but it
+    is no longer load-bearing.
+  - **The history effect is a SEPARATE thing and it has not gone away**: a cell
+    still reads differently depending on which cells ran before it. That is
+    deterministic and reproducible, so it is a property of the bench rather than
+    a defect in it, and it is why the within-run rule stays.
+
+- **2026-08-06 — v2.24. THE LANCE (A5), built with A.q6 deliberately stubbed.**
+  Iteration 14's fifth type, and the roster's third flight idiom: the raider
+  orbits, the falx flies passes and leaves, the Lance spends itself.
+  - **THE TELEGRAPH IS THE TYPE.** SEEK closes to a setup band, **ALIGN stops,
+    points and charges for 1.15 s**, RUN commits to a straight line at 34 m/s,
+    RESET swings wide if it missed. A suicider that simply flew at you would be a
+    reflex test; one that visibly and audibly commits a beat before it moves is a
+    DECISION test, which is P4.4's readability rule paying out.
+  - **The commitment is PHYSICAL, not scripted** — `speed` 34 against `accel` 9,
+    the fastest and least agile pair in the roster. `accel` is what `move_toward`
+    spends to change direction, so it literally cannot follow a target that moves
+    after the lock. The run aims at a POINT captured when ALIGN ends, so "be
+    somewhere else" is the counter, exactly as P4.2 specifies.
+  - **KILLING IT DURING THE WINDOW COSTS YOU NOTHING**, and `lance_check` asserts
+    it: a Lance destroyed before it commits does not blast. That is the reward the
+    telegraph exists to offer, and without it the telegraph would be a countdown
+    you cannot defuse — a different and worse enemy.
+  - **ONE DEFINITION OF A BLAST.** `Bomb.blast()` became a public static shared by
+    the falling bomb and the Lance. A suicider is ordnance that flies itself, so
+    letting the two types own separate splash code would be two physics for one
+    word. The Lance reuses the `Payload` config group for the same reason.
+  - **A.q6 IS ANSWERED IN DESIGN AND STUBBED IN CODE, on the user's call**
+    (2026-08-06): *"lets approach it for now that the lance will always pick me as
+    his only target... this one should be awesome but should not hold us back that
+    much."* The answered design is a RANKING — biggest threat it can see — and it
+    needs two things that do not exist: a shared target-ranking layer, and allied
+    assets worth ranking against the player.
+    - **The stub is `_find_player()`, one function**, and `lance_check` asserts
+      the SHAPE of the shortcut: target selection is one function, the player is
+      hard-coded in exactly one place, and the file names A.q6 out loud. So the
+      day the ranking layer lands, whoever moves it is told where the placeholder
+      was — and the day somebody deletes the seam, the check complains.
+    - **This is the third type to hard-code a target** (after the drone family and
+      the falx), which is the argument for the shared layer rather than against
+      it. Recorded as a debt with a named home, not as a design.
+  - **A measurement lesson, small and repeatable.** The check first inferred the
+    telegraph from "is it nearly stationary" and reported **0.23 s of a 1.15 s
+    phase**, because the body spends most of ALIGN decelerating. Inferring a state
+    from its side effects measures the side effect. The type now exposes
+    `telegraphing()` — the state is a design decision, so it gets a readout, and a
+    HUD threat indicator will want the same answer.
+  - **NOT BALANCED AND NOT FLOWN.** Per H6 every number in
+    `default_enemy_lance.tres` is an authored starting point; the harness measures
+    the result and the human's hands decide whether 1.15 s of warning is the right
+    amount of warning.

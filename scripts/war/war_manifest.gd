@@ -34,7 +34,7 @@ extends RefCounted
 ## `manifest_check` now asserts that against `WaveDirector.ROSTER` rather than
 ## trusting it.
 const ROSTER: Array[StringName] = [
-	&"raider", &"turret", &"gnat", &"aegis", &"falx", &"screamer",
+	&"raider", &"turret", &"gnat", &"aegis", &"falx", &"screamer", &"lance",
 ]
 
 ## Doctrine weights (P2.3 "doctrine-in-terrain", at the strategic scale):
@@ -54,9 +54,10 @@ const ROSTER: Array[StringName] = [
 ##     the command net. It is never the reason a node is defended, always the
 ##     reason the defence is hard to shoot at.
 const DOCTRINE: Dictionary = {
-	&"airspace": {&"raider": 0.50, &"gnat": 0.30, &"falx": 0.20},
+	&"airspace": {&"raider": 0.45, &"gnat": 0.25, &"falx": 0.20, &"lance": 0.10},
 	&"radar": {&"raider": 0.40, &"turret": 0.30, &"gnat": 0.15, &"screamer": 0.15},
-	&"sam": {&"turret": 0.60, &"raider": 0.15, &"gnat": 0.10, &"screamer": 0.15},
+	&"sam": {&"turret": 0.50, &"raider": 0.15, &"gnat": 0.10, &"screamer": 0.15,
+			&"lance": 0.10},
 	&"depot": {&"turret": 0.50, &"raider": 0.30, &"gnat": 0.20},
 	&"factory": {&"turret": 0.45, &"gnat": 0.35, &"raider": 0.20},
 	# THE AEGIS SITS ONLY WHERE BOMBERS ARE BASED (Iteration 14 / A.q1, decided
@@ -75,7 +76,8 @@ const DOCTRINE: Dictionary = {
 	# aegis leaves defence, "the war escalates" leans hard on a jammer with no
 	# weapon — and the Phalanx is the named answer, not scheduled here.
 	&"airbase": {&"raider": 0.40, &"falx": 0.25, &"turret": 0.20, &"aegis": 0.15},
-	&"command": {&"raider": 0.30, &"turret": 0.20, &"screamer": 0.20},
+	&"command": {&"raider": 0.30, &"turret": 0.20, &"screamer": 0.20,
+			&"lance": 0.15},
 	&"hq": {&"aegis": 0.30, &"raider": 0.20, &"turret": 0.15, &"gnat": 0.10,
 			&"falx": 0.15, &"screamer": 0.10},
 }
@@ -94,7 +96,7 @@ const COVER: Dictionary = {
 ## wherever the thing it escorts goes, so letting cover tint it would price the
 ## same decision twice (once on the escort, once on the escorted).
 const SWARM_TYPES: Array[StringName] = [&"gnat"]
-const FLYER_TYPES: Array[StringName] = [&"raider", &"aegis", &"falx"]
+const FLYER_TYPES: Array[StringName] = [&"raider", &"aegis", &"falx", &"lance"]
 
 ## Escalation (P4.6) shifts the mix toward the expensive end rather than
 ## simply adding bodies — a war that has been running fields heavier things,

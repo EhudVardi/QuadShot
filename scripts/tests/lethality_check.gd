@@ -30,6 +30,11 @@ const ENEMIES: Array[String] = [
 	# is not a reason to leave it out: an unlisted type's stats drift without
 	# anything noticing, which is the v1.27 rule.
 	"res://resources/default_enemy_screamer.tres",
+	# The Lance carries no gun (damage 0, fire_rate 0) and kills by CONTACT blast,
+	# so `Lethality.incoming` reports mode `contact` for it — the gnat precedent.
+	# Being unusual in that direction is exactly why it has to be listed: the
+	# v1.27 rule is that an unlisted type's stats drift without anything noticing.
+	"res://resources/default_enemy_lance.tres",
 ]
 ## ARMOR PROBES. Flat armor landed with the Atlas (P3.3), whose armor sits on
 ## the PLAYER's frame — and Layer 1 never models being shot at, so no roster row

@@ -361,7 +361,7 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
-## 4. The check suite — 20 headless checks
+## 4. The check suite — 21 headless checks
 
 Run all of them before believing anything:
 
@@ -371,9 +371,9 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`.
+`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`, `lance`.
 
-`falx`, `screamer` and `aegis` are **behaviour checks**, and every new enemy type
+`falx`, `screamer`, `aegis` and `lance` are **behaviour checks**, and every new enemy type
 gets one the day it lands. The reason is scar tissue: the harness can only ever say *"this
 cell reads 0%"*, which is equally consistent with a tough enemy, a broken enemy,
 and an enemy that has flown out of the level. Four separate Falx bugs looked

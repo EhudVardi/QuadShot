@@ -140,6 +140,12 @@ const ROSTER: Dictionary = {
 		"scene": "res://scenes/combat/screamer.tscn",
 		"ground": false, "threat": false,
 	},
+	# A suicider is a threat even though it never fires a shot: it can end you by
+	# arriving, which is the same reason the bomber is flagged `threat`.
+	&"lance": {
+		"scene": "res://scenes/combat/lance.tscn",
+		"ground": false, "threat": true,
+	},
 }
 
 ## Composition by sortie (rows) and wave (entries): the named units this wave
@@ -157,14 +163,15 @@ const PLAN: Array = [
 	# Sortie 2 — ground fire you have to go and dig out, then the cloud under
 	# escort: first a falx pulling you off it, then the EW asset that takes
 	# your gun director away while it arrives.
-	[{&"turret": 1}, {&"gnat": 1, &"falx": 1}, {&"gnat": 1, &"screamer": 1}],
+	[{&"turret": 1, &"lance": 1}, {&"gnat": 1, &"falx": 1},
+			{&"gnat": 1, &"screamer": 1}],
 	# Sortie 3+ — where a long run actually lives, so every wave carries a
 	# cloud: the pressure that never lets a single-target answer settle. Then
 	# the intercept clock, and P4.3's first designed pair — a bomber you must
 	# kill in time, escorted by the thing that takes your lock away.
 	[{&"gnat": 1, &"falx": 1, &"turret": 1},
-			{&"gnat": 1, &"aegis": 1},
-			{&"gnat": 2, &"aegis": 1, &"screamer": 1}],
+			{&"gnat": 1, &"aegis": 1, &"lance": 1},
+			{&"gnat": 2, &"aegis": 1, &"screamer": 1, &"lance": 2}],
 ]
 
 @export var combat_config: CombatConfig
