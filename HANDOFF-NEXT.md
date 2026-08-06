@@ -2,13 +2,124 @@
 
 A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 [TESTING.md](TESTING.md) and [BALANCE.md](BALANCE.md) first, then the tail of
-[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) — entries **v2.17–v2.19** are the most
-recent session's, and **Iteration 14 (A1–A7, A.q1–A.q7)** is the one that decides
+[GAMEPLAY-DESIGN.md](GAMEPLAY-DESIGN.md) — entries **v2.21 onward** are the most
+recent session's, and **Iteration 14 (A1–A7, A.q1–A.q9)** is the one that decides
 what happens next.
 
 ---
 
-## WHERE IT STANDS, 2026-08-06 — read this block first
+## WHERE IT STANDS, 2026-08-06 (end of session) — read this block first
+
+**HEAD `be7e232`. Board 21/21 green. Tree clean. `PILOT_VERSION` 7 (untouched).
+Seven roster types. Track 5 is CLOSED.**
+
+### The five things that landed, and what each one costs you to know
+
+1. **TRACK 5'S ROOT CAUSE WAS A CAMERA** (v2.23/v2.25). `FlightController`
+   applied the FPV camera's 44-degree uptilt only in `_process` — the IDLE frame
+   — so whether it existed on the first physics tick depended on machine load.
+   **The weapon is a child of that camera and `ReferencePilot` aims by the gun's
+   basis**, so the bot read a level gun, decided it was on target, and commanded
+   nothing. Its first pitch command measured **0.00008 in one process and -3.84
+   in another**.
+   - **BOTH symptoms went**: 49 of 49 delivery cells now bit-identical across two
+     processes, AND a cell reads the same alone as inside the full run (5 of 5,
+     two byte-identical down to the gun count). v2.23 claimed the history effect
+     survived; that was an inference stated without a re-test, corrected in v2.25.
+   - **`balance/delivery_factors.json` is a stable measurement for the first
+     time.** Standing rule 1 (compare within a run) stays as hygiene.
+   - It was also a real one-frame defect in the GAME.
+2. **THE AEGIS BOMB IS A BOMB** (v2.21). It leaves the rack, falls ~2 s, and
+   detonates on the ground. The blast lives on the BOMB, so a bomber killed after
+   release still lands it — **interception's deadline is the release, not the
+   kill**. Release is a bombsight (predicted impact on the aim point), because a
+   lead computed from level flight was 23 m wide on the re-attack passes.
+   **FLOWN AND LIKED**: *"i kinda like the bomb dropping. they drop slow, giving
+   a heavy feeling."* Deferred by the user: *"the explosion maybe should be
+   bigger, but thats not for now."*
+3. **THE LANCE SHIPPED AND WAS FLOWN** (v2.24/v2.26, A5). Telegraphs 1.15 s, then
+   commits to a line it cannot steer, then detonates. A proximity fuse was added
+   after the first flight and validated on the second: *"proximity now makes it
+   more dangerous."*
+4. **COMMITTED FLYERS NO LONGER WEDGE ON GEOMETRY** (v2.26). A bomber was
+   measured pressing into a building at 0.0 m/s for the rest of the scene. Two
+   fixes: an unstick (no travel for 0.8 s -> climb) and an egress that flies back
+   the way it CAME rather than straight on into whatever the run was pointed at.
+5. **THE WAR ROOM TAKES A CONTROLLER**: Cross launches, Circle backs out, Square
+   cycles the airframe. An unrecognised pad button prints its index to the
+   console — **if Cross still does nothing, that index is what is needed.**
+
+### THE NEXT JOB: three items, in this order
+
+1. **A.q8 — the Lance's warning should be CONTINUOUS and proximity-driven.**
+   *"i feel that the lock should have more dramatic sound, a continous warning
+   sound that increase the more the danger is close."* The current cue is a
+   1.05 s one-shot at the start of the wind-up, so it goes quiet for the whole
+   run — the stretch where the information is worth most. Needs a LOOPING emitter
+   modulated by a live scalar; the only precedent in the project is the drone's
+   own motor/wind emitters (`scripts/audio/`). **Drive it off
+   `blast_fuse_radius`**, so the warning and the damage read the same number.
+2. **A.q9 — let the Lance steer SLIGHTLY during its run.** *"maybe we can allow
+   it to steer slightly toward the target to make it even more dangerous and
+   interesting."* **Read v2.27 before building it**: this trades against the
+   type's founding rule (P4.2's *"aimed at where you are, so being somewhere else
+   is the answer"*), so it must be a CONFIG KNOB that is zero-able, and it should
+   be a maximum course-change RATE rather than a blend toward the player — a rate
+   cap punishes a small dodge while leaving a real break effective.
+   **Tune it together with the fuse**: both narrow the same escape, and doing one
+   blind after the other is how a type becomes undodgeable without anyone
+   choosing that. `lance_check`'s commitment assertion is the line that has to
+   survive; re-tune its threshold deliberately rather than relaxing it until it
+   passes.
+3. **The aegis is either FASTER or TOUGHER** — the user's call from the bomb-run
+   flight, still unspent. Not done because `speed` and `hull` are both in the
+   delivery config stamp, so either costs a full re-measure (~55 min).
+   **Batch it with any other config tuning rather than paying that twice.**
+
+### Smaller, known, and unfixed
+
+- **Units spawn overlapping each other.** `SortieRunner._point_for` picks a
+  uniformly random ring angle with no minimum separation, so aegis (and now
+  Lance) bodies can sit inside one another. The user saw it. Contained fix:
+  rejection-sample against already-placed units.
+- **`Blaster x Lance` reads `++` and its paper band says `0`.** The user does not
+  believe it and neither do I: the duel spawns the Lance 40 m away, so it spends
+  the fight seeking and telegraphing. Its measured EVASION (0.23 blaster / 0.58
+  flak / 1.00 missile) matches the user's own ordering exactly. The band is the
+  rig, not the gun.
+- **The aegis bombs empty ground** on purpose (A.q1 sends it out along your
+  ingress toward your territory) — but there is nothing out there, because
+  **allied assets do not exist**. Same hole blocks A.q6's target ranking.
+
+### After that — the standing queue, unchanged
+
+1. **P1.9's terrain.** Still the biggest unblocked item, and it now gates three
+   named mechanics: detection-on-sight, the approach's corridors/cover, and
+   A.q7's real answer. It is also what a moving GROUND unit would need.
+2. **The Phalanx (A7)** — the heavy DEFENDER the roster still lacks. With the
+   aegis out of defensive garrisons, escalation leans on a jammer with no weapon
+   and the Lance, which is cheap rather than heavy.
+3. **A BESTIARY game mode** — a menu-tower leaf showing every enemy, ally and
+   weapon with their statistics. The first screen whose purpose is the designer's
+   view. Cheap now that `WarView.card_lines` renders facts as text.
+4. **The target-ranking layer + allied assets** (A.q6, answered and stubbed). The
+   Lance is the third type to hard-code the player. Needs allied assets first.
+5. **The Sentinel**, closing the seven-type bestiary.
+6. **W.q8's hold phase**, **raid provenance**, **Iteration 11's transit gate**,
+   and the **stargate pool rework** (blocked on a house-rule call about
+   procedural noise — ask before picking one).
+
+### How to price any of it
+
+**BALANCE.md now has a costing section**, counted from the Lance rather than
+estimated: 3 new content files, 5 one-line registrations, 1 mandatory behaviour
+check, zero new code in existing systems, and ~12–16 new measurements. The one
+thing that makes it multiplicative is a type whose damage the existing factors
+cannot describe — that has happened once (the flak pod forced `splash`).
+
+---
+
+## WHERE IT STOOD EARLIER ON 2026-08-06 (kept for the reasoning trail)
 
 **Board 21/21 green. `PILOT_VERSION` still 7. The Lance is the seventh roster
 type. TRACK 5 IS CLOSED.**

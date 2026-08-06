@@ -11478,3 +11478,57 @@ being rediscovered as a red board when A.q1 lands.
     placer picks a random ring angle with no minimum separation — the same thing
     the user saw the aegis do), and its blaster paper band still disagrees with
     both the model and the duels.
+
+- **2026-08-06 — v2.27. THE PROXIMITY FUSE VALIDATED, and two more asks for the
+  Lance — one of which walks back part of its own design on purpose.** Flown:
+  *"proximity now makes it more dangerous."* A5's counterplay now has a gradient
+  and the type reads as a threat.
+  - **A.q8 OPENED — THE WARNING SHOULD BE CONTINUOUS AND PROXIMITY-DRIVEN.** The
+    user's words: *"i feel that the lock should have more dramatic sound, a
+    continous warning sound that increase the more the danger is close."*
+    - **This is not "make the charge louder".** The current cue is a 1.05 s
+      one-shot fired at the start of the wind-up, so it says *a Lance has
+      committed* and then goes quiet for the whole run — which is exactly the
+      stretch where the information is worth most. What is being asked for is a
+      second, LOOPING emitter whose intensity tracks how close the thing is to
+      killing you, i.e. the classic missile-warning idiom.
+    - **The mechanism does not exist yet.** `SoundBank` is a one-shot bank
+      (`play_at`); nothing in the game modulates a looping source by a live
+      scalar except the drone's own motor and wind emitters, which is the
+      precedent to copy (`scripts/audio/`, motor/wind).
+    - **The natural driver is the fuse itself.** `blast_fuse_radius` already
+      defines "close enough to hurt you", so a warning scaled on
+      `distance / blast_fuse_radius` is the same number the damage uses — one
+      definition, and the sound can never promise a danger the fuse does not
+      deliver.
+  - **A.q9 OPENED — SLIGHT STEERING DURING THE RUN, and it is a deliberate
+    trade against the type's founding rule.** *"maybe we can allow it to steer
+    slightly toward the target to make it even more dangerous and interesting."*
+    - **The tension has to be stated before it is built.** P4.2's web role for
+      this type is *"aimed at where you are, so being somewhere else is the
+      answer"*, and `lance.gd` says in its header that the run locks a POINT and
+      cannot re-decide. Steering weakens that. The user is not wrong to want it —
+      a perfectly committed run is beaten by any dodge of sufficient size and
+      becomes a timing puzzle rather than a duel — but the counter-web position
+      moves with the knob, so it must be a knob.
+    - **BOUNDED, and bounded in the right unit.** The honest form is a maximum
+      lateral correction RATE (deg/s of course change during the run), not a
+      blend toward the player: a rate cap means a small dodge is punished and a
+      large committed break still works, which preserves "be somewhere else" as
+      the answer while deleting "be somewhere else by one metre" as the answer.
+      At 0 the type is exactly what it is today, which is what makes it safe to
+      ship and safe to retract.
+    - **It interacts with the fuse and they should be tuned together**, because
+      both narrow the same escape: steering shrinks the dodge you need, the fuse
+      widens the miss that still hurts. Doing one blind after the other is how a
+      type ends up undodgeable without anyone choosing that.
+    - **`lance_check` already holds the line that has to survive this**: the
+      commitment assertion dodges on the telegraph edge and requires the body not
+      to follow. Whatever steering lands, that assertion's threshold is the
+      statement of how committed the type still is, and it should be re-tuned
+      deliberately rather than relaxed until it passes.
+  - **STILL OPEN AND UNCHANGED: the aegis is either FASTER or TOUGHER** (the
+    user's call, 2026-08-06, from the first bomb-run flight). Not done because
+    `speed` and `hull` are both in the delivery config stamp, so either costs a
+    full re-measure — worth batching with any other config tuning rather than
+    spending an hour twice.
