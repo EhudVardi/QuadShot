@@ -438,11 +438,31 @@ collider, so that is the leak made visible rather than the impulse itself. **The
 exact path from residue to impulse is NOT proven.** Ruled out by experiment: the
 arena teardown — an immediate `free()` instead of `queue_free()` changes nothing.
 
-**What this costs: `balance/delivery_factors.json` is written by a 49-cell run,
-and every cell after the first is one of the cells that does not reproduce. The
-artifact is not a stable measurement.** Standing rule 1 — *compare cells WITHIN a
-single run, never across runs* — has been protecting this project from exactly
-that, without anyone knowing why.
+### RESOLVED 2026-08-06 (v2.23/v2.25) — it was the FPV camera, and BOTH symptoms went
+
+`FlightController` applied the FPV camera's **44-degree uptilt only in
+`_process`** — the IDLE frame — so whether it existed on the first physics tick
+depended on machine load. **The weapon is a child of that camera** and
+`ReferencePilot` aims by the gun's basis, so with the tilt missing the bot read a
+level gun, concluded it was already on target, and commanded nothing. Its first
+commanded pitch rate measured **0.00008 in one process and -3.84 in another**.
+
+Fixed by applying the camera config in `_ready` as well. **Both symptoms went:**
+
+| | before | after |
+|---|---|---|
+| same command, two processes | one cell 0.29 vs 0.00 | **49 of 49 cells bit-identical**, printed output byte-identical |
+| same cell, alone vs in the full run | 0.08 / 0.36 / 0.44 / 0.62 | **5 of 5 cells identical**, two compared as whole lines down to the gun count |
+
+**It was always one race.** Whether an idle frame fell between a cell's build and
+its first physics tick depended on what the process had just been doing, which is
+exactly why cell ORDER appeared to matter as well. v2.23 claimed the history
+effect was a separate surviving problem; that was an inference stated without a
+re-test, and v2.25 corrects it.
+
+**`balance/delivery_factors.json` is a stable measurement in both directions
+now.** Standing rule 1 — *compare cells WITHIN a single run* — **stays anyway**:
+it costs nothing and it is still correct hygiene.
 
 ### What the A/B DID find: the bench tows a screamer around the map
 

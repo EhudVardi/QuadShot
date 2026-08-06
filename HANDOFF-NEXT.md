@@ -8,7 +8,52 @@ what happens next.
 
 ---
 
-## WHERE IT STANDS, 2026-08-05 (LATE SESSION — read this block first)
+## WHERE IT STANDS, 2026-08-06 — read this block first
+
+**Board 21/21 green. `PILOT_VERSION` still 7. The Lance is the seventh roster
+type. TRACK 5 IS CLOSED.**
+
+1. **TRACK 5'S ROOT CAUSE WAS A CAMERA** (v2.23). `FlightController` applied the
+   FPV camera's 44-degree uptilt only in `_process` — the IDLE frame — so whether
+   it existed on the first physics tick depended on machine load. **The weapon is
+   a child of that camera and `ReferencePilot` aims by the gun's basis**, so the
+   bot read a level gun, concluded it was on target, and commanded nothing. Its
+   first pitch command measured **0.00008 in one process and -3.84 in another**.
+   - Fixed by applying the camera config in `_ready` too. **Proof: 49 of 49
+     delivery cells bit-identical across two processes**, and the printed output
+     of both 49-cell runs is byte-identical.
+   - **`balance/delivery_factors.json` is a stable measurement for the first
+     time.** The within-run comparison rule stays as hygiene, not as a crutch.
+   - It was also a real one-frame defect in the GAME.
+   - **The history effect went too** (v2.25, corrected). A cell now reads the
+     same alone as it does inside the full 52-cell run — **5 of 5 cells, two of
+     them byte-identical down to the pilot's gun count**. It was always one race:
+     whether an idle frame fell before a cell's first physics tick depended on
+     what the process had just been doing, which is why cell ORDER appeared to
+     matter as well. v2.23 claimed it survived; that was an inference stated
+     without a re-test.
+   - **Standing rule 1 stays anyway** — compare cells WITHIN a run. It costs
+     nothing and is still correct hygiene.
+2. **THE LANCE SHIPPED** (v2.24, A5). Telegraphs for 1.15 s, then commits to a
+   straight line it cannot steer. Killing it during the telegraph costs you no
+   blast. **A.q6 is stubbed on the user's call** — it always targets the player —
+   and `lance_check` asserts the SHAPE of that stub so the ranking layer has a
+   named home. **Unflown and unbalanced**; the blaster's paper `0` measured `++`
+   and that gap is H6's output, not a number to move.
+3. **THE WAR ROOM TAKES A CONTROLLER** — Cross launches, Circle backs out, Square
+   cycles the airframe, and an unrecognised pad button prints its index.
+4. **BALANCE.md NOW PRICES A NEW TYPE** — counted from the Lance, with the
+   checklist and the one thing that makes it multiplicative.
+
+**Waiting on the human's hands:** the aegis bomb and its pacing, and the Lance's
+telegraph. Routes for both are in the report and in the dev room.
+
+**Next, in the user's own order: park Track 5 and BUILD** — the Phalanx (A7),
+P1.9's terrain, the bestiary screen.
+
+---
+
+## WHERE IT STOOD, 2026-08-05 (LATE SESSION)
 
 **HEAD is `2ed598c`. Board 20/20 green. `PILOT_VERSION` still 7. Tree clean.**
 

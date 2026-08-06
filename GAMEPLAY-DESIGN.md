@@ -11380,3 +11380,43 @@ being rediscovered as a red board when A.q1 lands.
     `default_enemy_lance.tres` is an authored starting point; the harness measures
     the result and the human's hands decide whether 1.15 s of warning is the right
     amount of warning.
+
+- **2026-08-06 — v2.25. CORRECTION to v2.23: the HISTORY EFFECT is gone as well,
+  and I asserted otherwise without re-testing.** v2.23 closed Track 5 with the
+  uptilt fix and then said, twice, that a second and separate problem remained —
+  *"a cell still reads differently depending on which cells ran before it... that
+  is deterministic, so it is a property of the bench rather than a defect in it."*
+  **That was an inference, not a measurement**, and it was wrong.
+  - **Where it came from.** The history numbers on record — one cell reading
+    **0.08 / 0.36 / 0.44 / 0.62** under four different cell orders — were all
+    taken BEFORE the fix. I never re-ran them afterwards. Having found one cause I
+    stopped looking, and wrote the leftover observation up as a standing property.
+  - **Measured after the fix, five cells, each run ALONE and again inside the full
+    52-cell run:**
+
+    | cell | alone | in the full run |
+    |---|---|---|
+    | `evade: kestrel x turret [jink]` | 0.36 | 0.36 |
+    | `evade: kestrel x turret [auto]` | 0.24 | 0.24 |
+    | `evade: kestrel x turret [steady]` | 0.40 | 0.40 |
+    | `evade: kestrel x raider [jink]` | 0.29 | 0.29 |
+    | `evade: atlas x turret [jink]` | 0.12 | 0.12 |
+
+    Two of them were compared as WHOLE LINES and are byte-identical down to the
+    pilot's own gun count — `43/122` and `7/63`. **Five for five.**
+  - **It was always the same bug.** Whether an idle frame fell between a cell's
+    build and its first physics tick depended on what the process had been doing
+    just before, which is precisely why cell ORDER appeared to matter. One race
+    produced two symptoms, and I described them as two problems because I found
+    them on different days.
+  - **So the delivery bench is now reproducible in both directions**: across
+    processes AND across cell orders. `balance/delivery_factors.json` is a
+    measurement in the full sense for the first time since it existed.
+  - **The within-run comparison rule stays anyway** (standing rule 1). It costs
+    nothing, it is still correct hygiene, and the reason to keep it is exactly the
+    reason this entry exists: a rule that survived being unnecessary for a while
+    is cheaper than rediscovering why it was needed.
+  - **The methodological lesson, which is the reason to write this down at all:**
+    *finding one cause is not evidence that the other symptom has a different
+    one.* The fix was verified against the symptom I had been chasing and not
+    against the symptom I had already catalogued. The re-test cost ninety seconds.
