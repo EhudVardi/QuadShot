@@ -109,6 +109,18 @@ enum Phase { RUN_IN, REATTACK, EGRESS }
 ## measures the aegis cells with this on, so preserving the old loop exactly is
 ## what keeps those measurements comparable across the rework.
 @export var loop_route: bool = false
+## Dev-room affordance (per instance, off everywhere else), and the SECOND one
+## this type carries. `loop_route` restarts the run WITHOUT spending the payload,
+## which is what keeps `delivery_bench`'s aegis cells comparable across the
+## rework; this one lets a bomber fly its whole three-pass sequence, leave, and
+## then come back to do it again. Both spawners force it false — `WaveDirector`
+## and `SortieRunner` each `set(&"respawns", false)` — so no wave or sortie can
+## be made unclearable by it.
+##
+## It exists so the falling bomb can be LOOKED AT more than once per launch. A
+## spent bomber leaves for good, and restarting the room to see the next bomb is
+## exactly the kind of friction that stops a feel question getting answered.
+@export var respawns: bool = false
 
 ## Read by projectiles: enemy fire never damages enemies.
 var team: StringName = &"enemy"
@@ -352,15 +364,33 @@ func _reattack(delta: float) -> void:
 
 ## Payload spent: go home. Getting out is the ENEMY SURVIVING (A2), so it is a
 ## separate signal from being killed and the war prices it separately.
+## IT GOES BACK THE WAY IT CAME, which is both the honest reading of "the run
+## home" and the only direction that is guaranteed to be flyable — the bomber
+## just flew through it.
+##
+## The first version steered by `global_position - route_end`, and near the
+## waypoint that vector is nearly zero, so it fell through to the body's own
+## HEADING: straight on, deeper into whatever the run was pointed at. In the dev
+## room that is a city, and the bomber pressed into a tower and stopped there for
+## the rest of the scene. "Away from the target" and "somewhere it can actually
+## fly" are different requests, and only the second one is always satisfiable.
 func _egress(delta: float) -> void:
-	var away: Vector3 = global_position - route_end
+	var away: Vector3 = _route_start - route_end
 	away.y = 0.0
+	if away.length() < 1.0:
+		away = global_position - route_end
+		away.y = 0.0
 	if away.length() < 1.0:
 		away = -global_basis.z
 	_fly_toward(global_position + away.normalized() * 40.0 + Vector3.UP * 4.0, delta)
 	if global_position.distance_to(route_end) >= EGRESS_RADIUS \
 			or _phase_time >= EGRESS_SECONDS:
 		escaped.emit()
+		if respawns:
+			_restart_run()
+			rearm()
+			_bombs_dropped = 0
+			return
 		queue_free()
 
 
@@ -378,10 +408,58 @@ func _restart_run() -> void:
 	_enter(Phase.RUN_IN)
 
 
+## How long a bomber may make no headway before it starts climbing out, and how
+## hard it climbs. A committed flyer wedged against geometry is not a stalemate
+## the player can do anything with — it is a body that has stopped being an enemy.
+const STUCK_SECONDS: float = 0.8
+const STUCK_CLIMB: float = 0.9
+## How far the body must actually TRAVEL to count as still flying. Metres.
+const STUCK_TRAVEL: float = 1.5
+
+var _stuck_time: float = 0.0
+var _stuck_anchor: Vector3 = Vector3.INF
+
+
+## THE UNSTICK, and it exists because a bomber was measured pressing into a
+## building at exactly 0.0 m/s for thirteen straight seconds and never recovering
+## (dev room, 2026-08-06, reported from the cockpit as *"the aegis is colliding
+## with it and stops, and cannot proceed"*).
+##
+## `move_and_slide` slides along a surface, which resolves a glancing hit and
+## does nothing at all for a head-on one: the slide vector is zero, so the body
+## sits there forever holding its route. **A raider recovers from this by
+## accident** — it orbits, so its goal keeps moving and the geometry stops being
+## in the way — while the aegis and the Lance fly committed straight lines and
+## have no such luck.
+##
+## An aircraft's answer to an obstacle is to CLIMB, so that is the answer here.
+## It costs nothing when nothing is in the way, because it only engages after the
+## body has genuinely stopped making headway.
+## IT MEASURES TRAVEL, NOT COLLISION, and the first version got that wrong in a
+## way worth keeping. It asked for `get_slide_collision_count() > 0` alongside a
+## low speed — and a body that has come to a COMPLETE stop against a wall moves
+## zero distance, so `move_and_slide` reports no collision at all and the
+## condition can never become true. **The detector could only fire while the body
+## was still moving, which is precisely when it did not need to.** Measured: the
+## bomber sat at the identical coordinate for sixteen seconds with the "fix" in.
+##
+## Travel is also phase-agnostic, which matters here because the egress goal is
+## recomputed every tick relative to the body itself — distance-to-goal would
+## read as no progress forever, and this reads it correctly as flying.
 func _fly_toward(point: Vector3, delta: float) -> void:
+	if _stuck_anchor == Vector3.INF \
+			or global_position.distance_to(_stuck_anchor) > STUCK_TRAVEL:
+		_stuck_anchor = global_position
+		_stuck_time = 0.0
+	else:
+		_stuck_time += delta
 	var offset: Vector3 = point - global_position
-	velocity = velocity.move_toward(offset.normalized() * enemy_config.speed,
-			enemy_config.accel * delta)
+	var desired: Vector3 = offset.normalized() * enemy_config.speed
+	if _stuck_time > STUCK_SECONDS:
+		# An aircraft's answer to an obstacle is to climb over it.
+		desired = (desired + Vector3.UP * enemy_config.speed * STUCK_CLIMB) \
+				.limit_length(enemy_config.speed)
+	velocity = velocity.move_toward(desired, enemy_config.accel * delta)
 	move_and_slide()
 
 
@@ -425,4 +503,11 @@ func _on_shield_broken() -> void:
 func _on_died() -> void:
 	Effects.explosion(get_tree().root, global_position, 2.0)
 	destroyed.emit(enemy_config.points)
+	if respawns:
+		# A killed specimen comes back too, or the first good burst ends the
+		# demonstration — the opposite of what a specimen is for.
+		_restart_run()
+		rearm()
+		_bombs_dropped = 0
+		return
 	queue_free()

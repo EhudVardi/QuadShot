@@ -52,7 +52,7 @@ extends CharacterBody3D
 ## will always pick me as his only target... this one should be awesome but should
 ## not hold us back that much."*
 ##
-## **The seam is `_acquire()`.** When the ranking layer lands, that one function
+## **The seam is `_find_player()`.** When the ranking layer lands, that one function
 ## becomes a call into it and nothing else in this file changes. Written down
 ## here rather than only in the design doc, because the next person to read this
 ## file is the one who needs to know it is a placeholder.
@@ -93,6 +93,18 @@ enum Phase { SEEK, ALIGN, RUN, RESET }
 ## Per-instance seed, set before the node enters the tree. Rep index = seed, so a
 ## bench rep is the same fight every run (P4.8).
 @export var ai_seed: int = -1
+## Dev-room affordance (per instance, off everywhere else), the same shape the
+## turret's `respawns` and the aegis's `loop_route` already have. Both spawners
+## force this to false on anything they place — `WaveDirector` and `SortieRunner`
+## each do `set(&"respawns", false)` — so a wave or a sortie can never be made
+## unclearable by it.
+##
+## IT EXISTS BECAUSE THE SPECIMEN WAS UNWATCHABLE. Measured in the real dev room:
+## the Lance charges from 78 m and spends itself on the spawn pad at **7.35 s**,
+## which is before a pilot has finished arming. The user tried several times and
+## never saw it. A suicider is a ONE-SHOT by design, so the only way to look at
+## one twice is to let the specimen come back.
+@export var respawns: bool = false
 
 ## Read by projectiles: enemy fire never damages enemies.
 var team: StringName = &"enemy"
@@ -110,10 +122,13 @@ var _player: Node3D
 var _locked: Vector3 = Vector3.INF
 var _setup_point: Vector3 = Vector3.INF
 var _charge_material: StandardMaterial3D
+## Where the specimen came back to, captured before it ever moves.
+var _home: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
 	add_to_group(&"enemies")
+	_home = global_position
 	if ai_seed >= 0:
 		_rng.seed = ai_seed
 	else:
@@ -249,7 +264,21 @@ func _spend(hit: bool) -> void:
 	if not hit:
 		SoundBank.play_at(&"explosion", global_position, -10.0, 0.4)
 	detonated.emit()
+	if respawns:
+		_respawn()
+		return
 	queue_free()
+
+
+## Back to where it started, ready to do it again. Dev-room only — see `respawns`.
+func _respawn() -> void:
+	global_position = _home
+	velocity = Vector3.ZERO
+	_health.revive()
+	_locked = Vector3.INF
+	_setup_point = Vector3.INF
+	_seek_time = 0.0
+	_enter(Phase.SEEK)
 
 
 func _enter(phase: int) -> void:
@@ -257,12 +286,38 @@ func _enter(phase: int) -> void:
 	_phase_time = 0.0
 	if phase != Phase.ALIGN:
 		_set_charge(0.0)
+	# The stuck detector measures TRAVEL, and ALIGN deliberately stops, so a
+	# phase change re-arms it rather than letting a legitimate hold read as a
+	# wedge. ALIGN never calls `_fly_toward` anyway; this is the belt.
+	_stuck_anchor = Vector3.INF
+	_stuck_time = 0.0
+
+
+## Same numbers and same reason as `Aegis`: see the long comment on its
+## `_fly_toward`. Both types fly COMMITTED straight lines, which is exactly the
+## shape that wedges head-on against geometry and never recovers, because
+## `move_and_slide`'s slide vector is zero on a square hit. The orbiting types do
+## not need this — their goal keeps moving, so the obstacle stops being in the
+## way on its own.
+const STUCK_SECONDS: float = 0.8
+const STUCK_CLIMB: float = 0.9
+const STUCK_TRAVEL: float = 1.5
+
+var _stuck_time: float = 0.0
+var _stuck_anchor: Vector3 = Vector3.INF
 
 
 func _fly_toward(point: Vector3, delta: float, speed: float) -> void:
+	if _stuck_anchor == Vector3.INF 			or global_position.distance_to(_stuck_anchor) > STUCK_TRAVEL:
+		_stuck_anchor = global_position
+		_stuck_time = 0.0
+	else:
+		_stuck_time += delta
 	var offset: Vector3 = point - global_position
-	velocity = velocity.move_toward(offset.normalized() * speed,
-			enemy_config.accel * delta)
+	var desired: Vector3 = offset.normalized() * speed
+	if _stuck_time > STUCK_SECONDS:
+		desired = (desired + Vector3.UP * speed * STUCK_CLIMB).limit_length(speed)
+	velocity = velocity.move_toward(desired, enemy_config.accel * delta)
 	move_and_slide()
 
 
@@ -314,4 +369,10 @@ func _on_died() -> void:
 	# down would have congratulated the enemy on it.
 	Effects.explosion(get_tree().root, global_position, 1.2)
 	destroyed.emit(enemy_config.points)
+	if respawns:
+		# The dev-room specimen comes back from a KILL too, not only from a
+		# spend. Otherwise the first good shot ends the demonstration, which is
+		# the opposite of what a specimen is for.
+		_respawn()
+		return
 	queue_free()

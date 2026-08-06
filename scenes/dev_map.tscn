@@ -129,10 +129,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 20, -90)
 loop_route = true
 
 [node name="AegisBomber" parent="." instance=ExtResource("27_aegis")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 26, 60)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 26, 80)
+respawns = true
 
 [node name="Lance" parent="." instance=ExtResource("33_lance")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 14, 55)
+respawns = true
 
 [node name="Falx" parent="." instance=ExtResource("29_falx")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95, 26, -70)
