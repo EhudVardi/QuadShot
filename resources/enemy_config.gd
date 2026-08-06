@@ -121,7 +121,14 @@ extends TunableConfig
 ## way "a pilot out of flak" already is.
 @export var payload: int = 0
 ## Damage one bomb does to what it lands on.
-@export var bomb_damage: float = 45.0
+##
+## **ZERO BY DEFAULT, and that is load-bearing rather than tidy.** It shipped at
+## 45.0, which meant every weaponless type in the roster silently carried a
+## 45-damage blast it never used — invisible until `Lethality.incoming` grew a
+## branch keyed on "does this type have a blast" (A5) and promptly priced the
+## SCREAMER as a contact threat. A damage field that defaults to a number is a
+## claim every config makes by saying nothing.
+@export var bomb_damage: float = 0.0
 ## Blast radius of one bomb.
 @export var bomb_radius: float = 9.0
 ## How fast a released bomb falls, as a multiple of project gravity.

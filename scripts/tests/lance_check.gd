@@ -92,6 +92,30 @@ func _check_registration() -> void:
 			% [config.bomb_damage, config.bomb_radius])
 	_expect(is_zero_approx(config.damage) and is_zero_approx(config.fire_rate),
 			"and no gun, so Layer 1 prices it as contact rather than as a cadence")
+	# AND LAYER 3a HAS TO AGREE, which it did not until this assertion existed.
+	# `Lethality.incoming` branched on `damage <= 0` and reported mode `none` —
+	# "carries no weapon against the player" — for a body that spends 55 damage on
+	# arrival. The harness printed that sentence under all three Lance rows for a
+	# whole run before anyone read it.
+	#
+	# The original version of this check asserted the CONFIG (no gun, has a blast)
+	# and never asked what the MODEL made of it, which is the difference between
+	# checking your inputs and checking your instrument.
+	var kestrel: FrameConfig = Frames.config(Frames.KESTREL)
+	var incoming: Dictionary = Lethality.incoming(config, kestrel)
+	_expect(incoming["mode"] == &"contact",
+			"and Layer 3a prices it as a CONTACT threat, not as harmless (mode `%s`)"
+			% incoming["mode"])
+	_expect(float(incoming["hull_fraction"]) > 0.0,
+			"so it costs a Kestrel real hull — %.0f%% of it in one blast"
+			% (float(incoming["hull_fraction"]) * 100.0))
+	# The aegis is the CONTROL, and it must stay `none`: it carries ordnance aimed
+	# at your GROUND rather than at you, which the war prices instead. Without
+	# this, "make the Lance contact" could be done by making every blast type
+	# contact, and the aegis's v1.72 finding would be silently overwritten.
+	var aegis: EnemyConfig = load("res://resources/default_enemy_aegis.tres")
+	_expect(Lethality.incoming(aegis, kestrel)["mode"] == &"none",
+			"while the aegis stays `none`, because it spends its bombs on your ground")
 	# P4.2 calls it cheap and expendable - the type a losing enemy fields MORE of.
 	var raider: EnemyConfig = load("res://resources/default_enemy_raider.tres")
 	_expect(config.strength_cost < raider.strength_cost * 2.5,

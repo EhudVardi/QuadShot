@@ -211,6 +211,47 @@ static func incoming(enemy: EnemyConfig, frame: FrameConfig) -> Dictionary:
 	var target: Dictionary = target_from_frame(frame)
 	var per_hit: float = maxf(enemy.damage - frame.armor, 0.0)
 
+	# A TYPE THAT *IS* THE ORDNANCE (the Lance, A5). It carries no gun — `damage`
+	# and `fire_rate` are both 0 — and kills with a contact blast, so reading
+	# `damage == 0` as harmless prices it at nothing against every frame.
+	#
+	# **Never read `damage == 0` as harmless.** That is the same lesson the gnat
+	# taught one level down, where `fire_rate == 0` had to stop meaning harmless,
+	# and it repeated here for exactly the same reason: the roster keeps growing
+	# ways to arrive that are not a cadence.
+	#
+	# `payload` is what separates BEING ordnance from CARRYING it. A Lance spends
+	# itself on you (payload 0, one body, one blast); an aegis spends bombs on
+	# your GROUND (payload 3), which is priced against the war rather than against
+	# your hull, and stays `none` here exactly as v1.72 decided.
+	if enemy.damage <= 0.0 and enemy.bomb_damage > 0.0 and enemy.payload <= 0:
+		var blast: float = maxf(enemy.bomb_damage - frame.armor, 0.0)
+		var hits: int = NEVER
+		if blast > 0.0:
+			hits = int(ceil(frame.hull / blast))
+		return {
+			"mode": &"contact",
+			"kills": blast >= frame.hull,
+			"shots": hits,
+			# No ttk, for the gnat's reason: how long it takes to ARRIVE is a
+			# delivery property, measured by a bench, never read from a config.
+			"ttk": 0.0,
+			"interval": 0.0,
+			"per_hit": blast,
+			# The pre-armor figure, so `lethality_check` can PLANT the same hit
+			# without knowing which config field this type keeps its damage in.
+			# Planting `per_hit` would apply armor twice, since Health.take does it.
+			"raw_per_hit": enemy.bomb_damage,
+			"bodies": 1,
+			"pack_damage": blast,
+			"hull_fraction": minf(blast / maxf(frame.hull, 0.001), 1.0),
+			"why": "" if blast >= frame.hull
+					else ("%.0f blast at or under the %.0f armor"
+					% [enemy.bomb_damage, frame.armor] if blast <= 0.0
+					else "one blast spends %.0f against %.0f hull"
+					% [blast, frame.hull]),
+		}
+
 	if enemy.damage <= 0.0:
 		var idle: Dictionary = _never(
 				"%s carries no weapon against the player" % enemy.type_id)
@@ -235,6 +276,7 @@ static func incoming(enemy: EnemyConfig, frame: FrameConfig) -> Dictionary:
 			"ttk": 0.0,
 			"interval": 0.0,
 			"per_hit": per_hit,
+			"raw_per_hit": enemy.damage,
 			"bodies": bodies,
 			"pack_damage": budget,
 			"hull_fraction": minf(budget / maxf(frame.hull, 0.001), 1.0),

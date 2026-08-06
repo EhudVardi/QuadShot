@@ -331,7 +331,12 @@ func _verify_contact() -> void:
 			for body: int in bodies:
 				if not health.alive:
 					break
-				health.take(enemy.damage)
+				# The model names the raw figure it derived from, so a type whose
+				# damage lives somewhere other than `damage` (the Lance keeps its in
+				# `bomb_damage`) is planted correctly without this bench learning the
+				# roster. Planting the wrong field is how a model and its own
+				# verification quietly stop describing the same thing.
+				health.take(float(predicted.get("raw_per_hit", enemy.damage)))
 			# Read `alive` directly rather than latching the `died` signal in a
 			# lambda: GDScript closures capture locals BY VALUE, so the flag set
 			# inside the callback never reaches this scope.
