@@ -755,3 +755,100 @@ because every roster type is still `armor = 0.0` and checking the code against
 zeros would verify nothing. Nothing balances off the probes; they exist so the
 calculator and the damage code cannot drift on a rule the roster does not use
 yet.
+
+## What a NEW BESTIARY TYPE costs to rebalance — priced, not guessed
+
+The user's question, 2026-08-06: *"if we want to add a new enemy type (i want some
+tanks, or any moving ground unit)... how can we asses the toll, the amount of work
+needed to rebalance the entire game again? i assume its not just a simple
+factor."*
+
+**It is very nearly a simple factor, and that is the whole reason the model is
+layered.** The number below was measured by adding the Lance (v2.24) and counting
+what it actually touched, rather than estimated.
+
+### The build cost, counted from the Lance
+
+| what | how much |
+|---|---|
+| new content files | **3** — `lance.gd`, `lance.tscn`, `default_enemy_lance.tres` |
+| registration edits | **5 one-liners** — `WarManifest.ROSTER` + `DOCTRINE` + `FLYER_TYPES`, `WaveDirector.ROSTER` + `PLAN`, `lethality_check.ENEMIES`, `delivery_bench.ENEMIES_FOR_STAMP`, the dev-room specimen |
+| new behaviour check | **1** — mandatory, standing rule 2 |
+| new code in existing systems | **0** |
+
+That last row is the point, and it is v1.85's promise holding: *adding a bestiary
+type to the run is a ROSTER row plus a PLAN slot, never new code.*
+
+### The rebalance cost, as an arithmetic
+
+A new type adds cells to the benches. It does **not** multiply them, because of
+how the layers are keyed:
+
+| layer | keyed by | cells a new type adds |
+|---|---|---|
+| 1 lethality | pure arithmetic | **0** (computed, not measured) |
+| 2 `aim_quality` | frame x weapon x jam — **not** the enemy | **0** |
+| 2 `evasion` | weapon x target | **3** (blaster, missile, flak) |
+| 2 `splash` | weapon x target | 3, inert unless it packs |
+| 3a incoming | arithmetic | **0** |
+| 3b player evasion | threat x frame x mode | **6**, and only if it is a RANGED threat |
+| validation | the duel web | **3–4** rows |
+
+So the marginal cost is **roughly 12–16 new measurements**, each 20–30 s of bench
+time, plus the design work of authoring its paper band against each player
+weapon. **A full `tools/balance_report` is about 55 minutes of wall clock** and
+that number does not grow much with a seventh or eighth type — it is 49 delivery
+cells and 29 duels today.
+
+### The ONE thing that turns it multiplicative — and it has happened once
+
+**A type that introduces a new KIND of delivery forces a new FACTOR, and a new
+factor re-measures everything.** The flak pod did exactly that: it could not be
+described by aim x evasion, so `splash` had to exist, and every cell was
+re-measured against the wider model.
+
+So the question to ask of any proposed type is not "how tough is it" but:
+
+> **Can the existing factors describe how its damage arrives?**
+
+If yes, it is additive and cheap. If no, budget a full re-measure of the board and
+a `BALANCE.md` edit. `Lethality.incoming` already knows three arrival modes —
+`ranged` (a cadence), `contact` (a consumable sting or a suicide blast), `none` —
+so a type using one of those three is additive by construction.
+
+### What a GROUND unit costs ON TOP, specifically
+
+A tank is not just another type; three things about it are genuinely new, and
+**none of them are balance work**:
+
+1. **Placement and movement over terrain that does not exist yet.**
+   `SortieRunner` places air units in its concentric rings by height and ground
+   units by probing downward. A *moving* ground unit needs somewhere to move over
+   and something to path around — which is **P1.9's terrain**, not the balance
+   instrument. This is the real cost, and it is already the biggest unblocked item
+   on the list.
+2. **The cover model has no category for it.** `WarManifest.COVER` tints
+   `SWARM_TYPES` up and `FLYER_TYPES` down per biome; the turret is deliberately
+   in neither because it is bolted down. A moving ground unit is a third case —
+   dense ground should probably help it — so `COVER` grows a category rather than
+   a row.
+3. **The counter-web needs an honest answer per weapon** (P4.3). "Can a chip gun
+   with a ballistic drop hit something hugging the ground" is a real question the
+   air roster never asked, and it is authored first and measured second.
+
+### The checklist, so this can be priced without me
+
+For any proposed type, in order:
+
+1. Which of the three arrival modes is it? *(Not one of them -> new factor -> full
+   re-measure.)*
+2. Does it need a new placement rule in `SortieRunner`? *(Ground movement -> yes,
+   and it waits on terrain.)*
+3. Does `COVER` know what to do with it?
+4. What is its paper band against each of the three player weapons?
+5. Which `DOCTRINE` rows field it, and is it heavy or light for escalation?
+6. What is its behaviour check going to assert? *(If you cannot answer this, the
+   type is not designed yet — standing rule 2.)*
+
+Steps 1–3 are engineering and are where a ground unit gets expensive. Steps 4–6
+are the design work, and they are the same for every type.
