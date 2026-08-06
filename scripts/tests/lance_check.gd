@@ -45,6 +45,8 @@ var _blast_taken: float = 0.0
 ## telegraph, measured rather than asserted from the constant.
 var _still_ticks: int = 0
 var _seen_moving: bool = false
+## Telegraph state last tick, so the true -> false EDGE can be detected.
+var _was_telegraphing: bool = false
 var _committed_at: Vector3 = Vector3.INF
 var _drift_after_commit: float = 0.0
 var _start_distance: float = 0.0
@@ -53,6 +55,7 @@ var _start_distance: float = 0.0
 func _initialize() -> void:
 	_check_registration()
 	_check_the_seam()
+	_check_the_fuse()
 	if _failures > 0:
 		_report()
 		return
@@ -147,6 +150,34 @@ func _check_the_seam() -> void:
 			"and the file says out loud that this is a placeholder, not a design")
 
 
+## ---------- the proximity fuse (2026-08-06, flown) ----------
+
+## THE COUNTERPLAY IS A DISTANCE, NOT A BINARY. The user flew the first version
+## and found that *"if i fly towards it and side step slightly, it just passes me
+## and explode in the original location"* — so a committed run could be beaten by
+## a metre, which made "commit to a point in space" mean "commit to missing".
+##
+## Asserted as ARITHMETIC here and as a flown pass below, because the two can
+## disagree: the ordering of the three radii is a design claim, and whether a
+## near miss actually trips the fuse is a behaviour claim.
+func _check_the_fuse() -> void:
+	var config: EnemyConfig = load("res://resources/default_enemy_lance.tres")
+	_expect(config.blast_fuse_radius > 0.0,
+			"the Lance carries a proximity fuse (%.0f m)" % config.blast_fuse_radius)
+	# The fuse must be WIDER than the blast, or there is no graze band at all and
+	# the dodge goes back to being an edge: in one metre you are unhurt, in the
+	# next you take the full 55.
+	_expect(config.blast_fuse_radius > config.bomb_radius,
+			"and it is wider than the blast, so a near miss GRAZES instead of missing (%.0f m fuse vs %.0f m blast)"
+			% [config.blast_fuse_radius, config.bomb_radius])
+	# And it must not be so wide that dodging is pointless. A run the player
+	# cannot get outside of is a run with no counterplay, which is the opposite
+	# failure and just as bad.
+	_expect(config.blast_fuse_radius < config.preferred_range * 0.5,
+			"while still being dodgeable — the fuse is well inside the setup range (%.0f m vs %.0f m)"
+			% [config.blast_fuse_radius, config.preferred_range])
+
+
 ## ---------- the flight ----------
 
 func _build(with_player: bool) -> void:
@@ -155,6 +186,7 @@ func _build(with_player: bool) -> void:
 	_ticks = 0
 	_still_ticks = 0
 	_seen_moving = false
+	_was_telegraphing = false
 	_detonated = 0
 	_blast_taken = 0.0
 	_committed_at = Vector3.INF
@@ -196,30 +228,38 @@ func _on_physics_frame() -> void:
 		return
 	if _stage == 0:
 		_watch_the_run()
+	elif _stage == 2:
+		_watch_the_near_miss()
 	else:
 		_watch_without_a_player()
 
 
+## THE TELEGRAPH EDGE IS THE ONLY HONEST TRIGGER, and getting it wrong made this
+## whole stage measure nothing. The first version dodged when the body exceeded
+## 12 m/s — but SEEK closes at 17 m/s, so the player teleported at 1.5 s while
+## the Lance was still 60 m away and had locked nothing. It then simply
+## re-acquired the moved player and hit them, and the "it is COMMITTED" assertion
+## passed anyway, on a distance that had nothing to do with commitment.
+##
+## `telegraphing()` going true -> false IS the lock: that transition is the tick
+## the run's aim point is captured. Dodging on that edge is the only test that
+## can tell a committed run from a homing one.
 func _watch_the_run() -> void:
 	if not is_instance_valid(_lance):
 		_verify_the_run()
 		return
-	var speed: float = _lance.velocity.length()
-	# THE TELEGRAPH, measured as it happens, through the type's own public
-	# readout. Measuring it as "nearly stationary" was tried first and was wrong:
-	# it counted only the tail of the phase, after the body had finished
-	# decelerating, and reported 0.23 s of a 1.15 s telegraph.
-	if _lance.telegraphing():
+	var telegraphing: bool = _lance.telegraphing()
+	# Only the FIRST wind-up counts toward the measured telegraph; a later one
+	# would inflate it.
+	if telegraphing and not _seen_moving:
 		_still_ticks += 1
-	if speed > 12.0:
+	var locked_now: bool = _was_telegraphing and not telegraphing
+	_was_telegraphing = telegraphing
+	if locked_now and not _seen_moving:
 		_seen_moving = true
-		if _committed_at == Vector3.INF:
-			_committed_at = _lance.global_position
-	# COMMITMENT, measured the only way it can be: move the player AFTER the run
-	# starts and see whether the Lance follows. A homing enemy would close on the
-	# new position; a committed one flies past where the player used to be.
-	if _seen_moving and _player != null and is_instance_valid(_player) \
-			and _player.global_position.distance_to(PLAYER_AT) < 0.01:
+		_committed_at = _lance.global_position
+		# Dodge 40 m, on the tick it committed. A homing enemy would close on the
+		# new position; a committed one flies past where the player used to be.
 		_player.global_position = PLAYER_AT + Vector3(40.0, 0.0, 0.0)
 	if _seen_moving and _player != null and is_instance_valid(_player):
 		_drift_after_commit = maxf(_drift_after_commit,
@@ -240,6 +280,16 @@ func _verify_the_run() -> void:
 	_expect(_drift_after_commit > 20.0,
 			"the run is COMMITTED - it flew at where the player WAS, ending %.0f m from where they went"
 			% _drift_after_commit)
+	# THE WIDE-MISS CONTROL. The player was moved 40 m, which is far outside the
+	# 11 m fuse, so this run must have cost them NOTHING. Without this the
+	# proximity test below could be satisfied by a fuse that always fires.
+	# THE WIDE-MISS CONTROL, and it is the partner to the near-miss stage below.
+	# A Lance spends itself at its aim point whether or not anyone is there, so a
+	# 40 m dodge is one run and one blast, 40 m away. Without this, the proximity
+	# fuse could be satisfied by a fuse that simply always fires.
+	_expect(_player_taken() == 0.0,
+			"and it cost the player NOTHING — a 40 m dodge is a clean miss (%.0f damage)"
+			% _player_taken())
 	_expect(_blast_taken > 0.0 or _drift_after_commit > 0.0,
 			"the run resolved rather than looping forever")
 	_check_the_window()
@@ -267,6 +317,49 @@ func _check_the_window() -> void:
 	_expect(float(dummy.get(&"taken")) == 0.0,
 			"a lance killed before it commits does NOT blast (took %.0f)"
 			% float(dummy.get(&"taken")))
+	_arena.free()
+	_arena = null
+	_stage = 2
+	_build(true)
+
+
+## Damage the stand-in player has absorbed, or 0 if it is gone.
+func _player_taken() -> float:
+	if _player == null or not is_instance_valid(_player):
+		return 0.0
+	return float(_player.get(&"taken"))
+
+
+## ---------- stage 2: the NEAR miss has to hurt ----------
+
+## The partner to the wide-miss control. The player side-steps only 6 m at the
+## moment of commitment — inside the 11 m fuse and outside the 7 m blast — so the
+## run misses them by a body length and the fuse has to notice. Before the fuse
+## existed this cost the player exactly nothing, which is the report this stage
+## was written from.
+func _watch_the_near_miss() -> void:
+	if not is_instance_valid(_lance):
+		_verify_the_near_miss()
+		return
+	if _lance.velocity.length() > 12.0 and _player != null 			and is_instance_valid(_player) 			and _player.global_position.distance_to(PLAYER_AT) < 0.01:
+		# Dodge, but only just.
+		_player.global_position = PLAYER_AT + Vector3(6.0, 0.0, 0.0)
+		_seen_moving = true
+	if _seen_moving and _player_taken() > 0.0:
+		_verify_the_near_miss()
+
+
+func _verify_the_near_miss() -> void:
+	var config: EnemyConfig = load("res://resources/default_enemy_lance.tres")
+	var taken: float = _player_taken()
+	_expect(taken > 0.0,
+			"a 6 m side-step is INSIDE the %.0f m fuse, so the run still catches them (%.0f damage)"
+			% [config.blast_fuse_radius, taken])
+	# And the falloff has to be doing its job: a graze at the edge of the blast
+	# must cost less than a direct hit, or the fuse just widened the kill radius.
+	_expect(taken < config.bomb_damage,
+			"and it GRAZES rather than landing whole — %.0f of a possible %.0f"
+			% [taken, config.bomb_damage])
 	_arena.free()
 	_arena = null
 	_stage = 1

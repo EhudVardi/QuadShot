@@ -43,6 +43,7 @@ func _ready() -> void:
 	_streams[&"explosion"] = _make_explosion(rng)
 	_streams[&"lock"] = _make_lock()
 	_streams[&"launch"] = _make_launch(rng)
+	_streams[&"charge"] = _make_charge()
 	for i: int in PLAYER_COUNT:
 		var player := AudioStreamPlayer3D.new()
 		player.max_distance = 250.0
@@ -204,6 +205,38 @@ static func _make_launch(rng: RandomNumberGenerator) -> AudioStreamWAV:
 		low += 0.15 * (rng.randf_range(-1.0, 1.0) - low)
 		var envelope: float = minf(t / 0.06, 1.0) * exp(-t * 5.0)
 		samples[i] = low * 2.5 * envelope
+	return _make_wav(samples)
+
+
+## THE LANCE'S TELEGRAPH (A5). A rising tone that arrives somewhere, so the ear
+## can tell how far through the wind-up the thing is without looking at it.
+##
+## It has to be UNMISTAKABLE against the rest of the bank, which is why it sweeps
+## instead of pulsing: `lock` is a two-tone beep, `shot` is a click, `launch` is
+## noise. The user asked for it in exactly those terms after flying the glow —
+## *"i think it should have a different sound just to differentiate"* — and the
+## reason it matters is P4.4's readability rule: a telegraph you can only see is
+## a telegraph you miss whenever you are looking somewhere else, which against a
+## thing that attacks from any bearing is most of the time.
+##
+## The sweep runs a shade under `Lance.ALIGN_SECONDS` so it FINISHES as the run
+## begins rather than being cut off by it.
+static func _make_charge() -> AudioStreamWAV:
+	var count: int = int(1.05 * MIX_RATE)
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	var phase: float = 0.0
+	for i: int in count:
+		var t: float = float(i) / MIX_RATE
+		var progress: float = t / 1.05
+		# Accelerating sweep: slow at first, urgent at the end, so the last
+		# quarter-second reads as "now" rather than as more of the same.
+		var freq: float = 220.0 + 700.0 * progress * progress
+		phase += TAU * freq / MIX_RATE
+		# A hard second harmonic keeps it from sounding like a UI tone.
+		var tone: float = sin(phase) * 0.7 + sin(phase * 2.0) * 0.3
+		var envelope: float = minf(t / 0.08, 1.0) * (0.35 + 0.65 * progress)
+		samples[i] = tone * 0.32 * envelope
 	return _make_wav(samples)
 
 

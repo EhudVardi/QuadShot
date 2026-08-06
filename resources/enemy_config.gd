@@ -131,6 +131,21 @@ extends TunableConfig
 @export var bomb_damage: float = 0.0
 ## Blast radius of one bomb.
 @export var bomb_radius: float = 9.0
+## PROXIMITY FUSE, metres. A committed suicider detonates when the player is
+## inside this and has stopped getting closer — the classic closest-approach
+## fuse, and 0 means contact-only.
+##
+## IT IS THE COUNTERPLAY, EXPRESSED AS A DISTANCE. Without it the answer to a
+## Lance is binary and far too cheap: the user flew it and found that *"if i fly
+## towards it and side step slightly, it just passes me and explode in the
+## original location"*. A committed run should still catch a near miss, or
+## "commit to a point in space" quietly means "commit to missing".
+##
+## Sized ABOVE `bomb_radius` on purpose. Inside the blast you take real damage;
+## between the blast and the fuse it goes off beside you and the falloff makes it
+## a graze. So the dodge has a gradient instead of an edge, which is the same
+## reasoning `flak_fuse_radius` and `flak_burst_radius` are two numbers.
+@export var blast_fuse_radius: float = 0.0
 ## How fast a released bomb falls, as a multiple of project gravity.
 ##
 ## THIS IS THE TELEGRAPH LENGTH, which is why it is a knob rather than a

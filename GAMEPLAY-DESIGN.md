@@ -11420,3 +11420,61 @@ being rediscovered as a red board when A.q1 lands.
     *finding one cause is not evidence that the other symptom has a different
     one.* The fix was verified against the symptom I had been chasing and not
     against the symptom I had already catalogued. The re-test cost ninety seconds.
+
+- **2026-08-06 — v2.26. THE LANCE FLOWN: a proximity fuse, its own sound, and a
+  check of mine that passed while measuring nothing.** First hands-on verdict on
+  A5, and the glow works — *"the glow is a good indication"*.
+  - **THE DODGE WAS BINARY AND FAR TOO CHEAP.** *"if i fly towards it and side
+    step slightly, it just passes me and explode in the original locatiob, i
+    think it should have some sort of a proximity mechanism."* They are right,
+    and the reason is sharper than "it should hurt more": a suicider that commits
+    to a point in space and is beaten by one metre has a counter that costs
+    nothing to execute, so **"commit to a point" quietly means "commit to
+    missing"**.
+  - **`EnemyConfig.blast_fuse_radius`, and it is CLOSEST-APPROACH rather than a
+    plain radius.** A plain radius detonates the instant you enter it, which
+    fires early on a head-on run and wastes the warhead at the edge of its own
+    blast; waiting until the range starts opening again puts the explosion at the
+    nearest point the two bodies ever get. That is what a real proximity fuse
+    does, and it is what makes a graze feel like a graze rather than a miss.
+  - **Sized ABOVE the blast on purpose — 11 m fuse over a 7 m blast.** Inside the
+    blast you take real damage; between blast and fuse it goes off beside you and
+    the falloff makes it a graze. **The dodge gets a gradient instead of an
+    edge**, which is the same reasoning the flak pod carries two radii for.
+    Measured: a 40 m dodge costs 0, a 6 m side-step costs 35 of a possible 55.
+  - **Armed only during the run.** The type is harmless until it commits — that
+    is what the telegraph promises — so flying into one mid-wind-up stays free,
+    and killing it there still costs you nothing.
+  - **A SOUND OF ITS OWN** (*"i think it should have a different sound just to
+    differentiate"*): `SoundBank._make_charge`, an accelerating sweep that
+    ARRIVES somewhere, played at the START of the wind-up rather than at the lock.
+    It sweeps because everything else in the bank pulses or clicks, and it starts
+    early because a sound played on commit would announce a decision already
+    taken. P4.4 again: a telegraph you can only SEE is one you miss whenever you
+    are looking elsewhere, which against a thing that attacks from any bearing is
+    most of the time.
+  - **AND THE CHECK THAT WAS SUPPOSED TO GUARD ALL THIS PASSED WHILE MEASURING
+    NOTHING.** `lance_check` proved the run was "committed" by teleporting the
+    player 40 m and watching the Lance not follow — but it triggered that dodge
+    on **speed > 12 m/s**, and the SEEK phase closes at 17. So the player moved
+    at 1.5 s while the body was still 60 m away with nothing locked; the Lance
+    simply re-acquired and hit them, and the assertion passed anyway on a
+    distance that had nothing to do with commitment.
+    - **The honest trigger is the telegraph EDGE.** `telegraphing()` going true ->
+      false IS the lock — that transition is the tick the aim point is captured —
+      so dodging on it is the only test that can tell a committed run from a
+      homing one. Rewritten around that, the drift reads 56 m and the dodge is
+      genuinely clean.
+    - **This is the sixth unfailable check in three sessions and the third that
+      was mine.** The pattern is identical every time: the assertion was written
+      against the mechanism I had in my head rather than against the one the code
+      runs, and only instrumenting the actual timeline showed the difference. The
+      cost was one print statement.
+  - **What the user said about pacing, kept because it answers an open question:**
+    *"when it'll have the proximity thing it will be way more dangerous"* — so
+    `ALIGN_SECONDS` 1.15 stays where it is for now, and the telegraph-length
+    question is deferred rather than closed.
+  - **Still open on this type:** it can spawn overlapping other units (the sortie
+    placer picks a random ring angle with no minimum separation — the same thing
+    the user saw the aegis do), and its blaster paper band still disagrees with
+    both the model and the duels.

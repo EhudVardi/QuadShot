@@ -81,6 +81,7 @@ preferred_range = 30.0
 payload = 0
 bomb_damage = 55.0
 bomb_radius = 7.0
+blast_fuse_radius = 11.0
 bomb_fall_gravity_scale = 1.0
 respawn_delay = 0.0
 points = 180.0

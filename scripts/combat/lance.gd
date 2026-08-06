@@ -121,6 +121,8 @@ var _player: Node3D
 ## updated afterwards — that is what "committed" means mechanically.
 var _locked: Vector3 = Vector3.INF
 var _setup_point: Vector3 = Vector3.INF
+## Nearest the player has been during this run. INF until the fuse arms.
+var _closest_approach: float = INF
 var _charge_material: StandardMaterial3D
 ## Where the specimen came back to, captured before it ever moves.
 var _home: Vector3 = Vector3.ZERO
@@ -204,6 +206,10 @@ func _seek(delta: float) -> void:
 ## THE TELEGRAPH. It stops, turns to face you, and charges visibly and audibly.
 ## Nothing about this phase is a threat; the whole point is that you are told.
 func _align(delta: float) -> void:
+	if _phase_time <= delta:
+		# AT THE START of the wind-up, not at the end. The sound IS the warning,
+		# so playing it on commit would announce a decision already taken.
+		SoundBank.play_at(&"charge", global_position, -3.0, 0.03)
 	# BRAKES HARD, and this multiplier is the difference between a telegraph and
 	# a coast. At the type's own `accel` of 9 it would still be doing 15 m/s most
 	# of the way through the phase, which does not read as "it has stopped and
@@ -222,9 +228,14 @@ func _align(delta: float) -> void:
 		_enter(Phase.RUN)
 
 
-## Committed. Full thrust at a fixed point; no re-aiming, no turning back.
+## Committed. Full thrust at a fixed point; no re-aiming, no turning back —
+## except for the fuse, which is not re-aiming: it changes WHEN the warhead goes
+## off, never where the body is going.
 func _run(delta: float) -> void:
 	_fly_toward(_locked, delta, enemy_config.speed)
+	if _proximity_triggered():
+		_spend(true)
+		return
 	if global_position.distance_to(_locked) <= ARRIVE_RADIUS:
 		_spend(true)
 		return
@@ -235,6 +246,34 @@ func _run(delta: float) -> void:
 		return
 	if _phase_time >= RUN_SECONDS:
 		_enter(Phase.RESET)
+
+
+## THE PROXIMITY FUSE: inside the fuse radius and no longer closing, go off.
+##
+## Closest-approach rather than a plain radius test, and the difference is the
+## whole mechanic. A plain radius detonates the instant you enter it, which fires
+## EARLY on a head-on run and wastes the warhead at the edge of its own blast.
+## Waiting for the range to start opening again puts the explosion at the nearest
+## point the two bodies ever get — which is what a real proximity fuse does, and
+## what makes a graze feel like a graze rather than a miss.
+##
+## Armed only during RUN. The type is harmless until it commits (that is what the
+## telegraph is promising), so flying into one while it is still aligning has to
+## stay free.
+func _proximity_triggered() -> bool:
+	if enemy_config.blast_fuse_radius <= 0.0:
+		return false
+	var range_m: float = global_position.distance_to(_player.global_position)
+	if range_m > enemy_config.blast_fuse_radius:
+		# Outside the fuse: forget any earlier approach, so a run that passes
+		# wide and comes back later is judged on its own pass.
+		_closest_approach = INF
+		return false
+	if range_m < _closest_approach:
+		_closest_approach = range_m
+		return false
+	# Inside the fuse and the range has started opening again.
+	return true
 
 
 ## It missed. Swing wide and rebuild the geometry rather than chasing, or the
@@ -291,6 +330,9 @@ func _enter(phase: int) -> void:
 	# wedge. ALIGN never calls `_fly_toward` anyway; this is the belt.
 	_stuck_anchor = Vector3.INF
 	_stuck_time = 0.0
+	# A fresh run gets a fresh fuse, or a previous pass's closest approach
+	# would detonate the next one the moment it armed.
+	_closest_approach = INF
 
 
 ## Same numbers and same reason as `Aegis`: see the long comment on its
