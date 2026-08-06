@@ -305,7 +305,13 @@ func _find_player() -> Node3D:
 func _on_died() -> void:
 	# Killed BEFORE it spent itself: no blast. That is the reward for taking the
 	# window the telegraph opened, and it is the whole reason the window exists.
+	#
+	# `detonated` is deliberately NOT emitted here, matching the aegis exactly.
+	# That signal means "the unit ended WITHOUT dying", and `destroyed` already
+	# closes the books on a kill. Emitting both is harmless to the counts — every
+	# consumer guards with `units.has(unit)` — but `WaveDirector` announces
+	# *"bomber reached its target"* on `detonated`, so a Lance the player shot
+	# down would have congratulated the enemy on it.
 	Effects.explosion(get_tree().root, global_position, 1.2)
 	destroyed.emit(enemy_config.points)
-	detonated.emit()
 	queue_free()

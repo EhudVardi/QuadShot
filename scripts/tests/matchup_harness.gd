@@ -242,6 +242,26 @@ const MATCHUPS: Array[Dictionary] = [
 	# bench with the director OFF.** Until that exists, `--` here is a fact about
 	# the bot's trigger, not about the weapon — and the honest fix is a human datum
 	# or hand-mode banding, which is the user's call and not the rig's.
+	# --- The Lance column (A5, added with the type in v2.24). The bands come from
+	# P4.2's web role: "answered by area weapons and by lateral speed", and "light,
+	# but fast enough that chip guns get one honest window" - the window being the
+	# telegraph, not the run. THESE ARE PAPER and unmeasured; the harness exists to
+	# argue with them.
+	#
+	# It also keeps the config stamp honest. `_config_stamp` builds its enemy list
+	# from THIS table, while the delivery bench builds its own from
+	# ENEMIES_FOR_STAMP - so a type that joins one list and not the other makes the
+	# two stamps disagree forever and silently blanks the predicted column. Caught
+	# on the day the Lance landed, by reading, before it could happen.
+	{"name": "Blaster x Lance", "weapon": "blaster", "type": "lance",
+			"enemy": "res://scenes/combat/lance.tscn",
+			"paper": "0", "mode": "win"},
+	{"name": "Missile x Lance", "weapon": "missile", "type": "lance",
+			"enemy": "res://scenes/combat/lance.tscn",
+			"paper": "+", "mode": "win"},
+	{"name": "Flak x Lance", "weapon": "flak", "type": "lance",
+			"enemy": "res://scenes/combat/lance.tscn",
+			"paper": "++", "mode": "win"},
 	{"name": "Blaster x Screamer", "weapon": "blaster", "type": "screamer",
 			"enemy": "res://scenes/combat/screamer.tscn",
 			"paper": "+", "mode": "win", "jam": "jammed"},
