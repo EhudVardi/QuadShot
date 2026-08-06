@@ -35,6 +35,28 @@ const PICK_RADIUS_PX: float = 70.0
 ## Cycles the hangar.
 const FRAME_KEY: Key = KEY_F
 
+## ---------- THE PAD (2026-08-06, the user flew it and could not launch) ----
+##
+## Godot's built-in `ui_accept` already lists joypad button 0, so in principle a
+## DualSense Cross should have launched a sortie from day one. On the user's pad
+## it does not, and rather than argue with the hardware the room now reads the
+## RAW joypad button — the same move it already makes for `FRAME_KEY`, and for
+## the same reason: a screen you read should not depend on an InputMap that the
+## flight bindings rewrite at runtime, nor on a focused Control not eating the
+## action first. Raw events reach `_unhandled_input` whatever either of those do.
+##
+## Indices are the SDL standard layout, which is what Godot reports for a
+## recognised pad: 0 = Cross/A, 1 = Circle/B, 2 = Square/X. If a pad ever reports
+## something else, `PAD_DEBUG` prints what it actually saw, so the next person
+## gets an index instead of a theory.
+const PAD_LAUNCH: int = JOY_BUTTON_A
+const PAD_BACK: int = JOY_BUTTON_B
+const PAD_FRAME: int = JOY_BUTTON_X
+## Prints every unrecognised pad button to the console. Cheap, silent unless a
+## button that does nothing is pressed, and it is the whole diagnosis if the
+## standard indices ever turn out to be wrong on someone's controller.
+const PAD_DEBUG: bool = true
+
 @export var theater_seed: int = 4242
 ## Resume `user://war.save` if there is one. `--fresh` clears it first.
 @export var persist: bool = true
@@ -119,8 +141,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# anything acts on it, so new input kinds cannot each be forgotten separately.
 	if _debrief.visible:
 		# The debrief owns every input while it is up, so the launch bound to the
-		# same key cannot fire through it into another sortie.
-		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
+		# same key cannot fire through it into another sortie. The pad has to be
+		# refused here too, or Cross would dismiss the debrief AND launch.
+		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel") \
+				or _pad_pressed(event, PAD_LAUNCH) or _pad_pressed(event, PAD_BACK):
 			_debrief.visible = false
 			_play_the_tick()
 		return
@@ -128,7 +152,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# mid-animation would read the war it is halfway through becoming. Any key
 	# jumps to the end, so the pacing is savoured by default and never endured.
 	if _table.is_playing():
-		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel"):
+		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel") \
+				or _pad_pressed(event, PAD_LAUNCH) or _pad_pressed(event, PAD_BACK):
 			_table.finish_changes()
 		return
 	# CLICK selects; hovering does not. Motion-to-select was written first and it
@@ -147,17 +172,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	# — and a map screen borrowing one of its actions is a way for a rebind to
 	# silently take the hangar away. The menu tower sets the same precedent by
 	# using only the built-in ui_* actions.
-	if event is InputEventKey and event.is_pressed() \
-			and (event as InputEventKey).keycode == FRAME_KEY:
+	if (event is InputEventKey and event.is_pressed()
+			and (event as InputEventKey).keycode == FRAME_KEY) \
+			or _pad_pressed(event, PAD_FRAME):
 		Hangar.cycle()
 		_update_hangar()
 		return
-	if event.is_action_pressed(&"ui_accept"):
+	if event.is_action_pressed(&"ui_accept") or _pad_pressed(event, PAD_LAUNCH):
 		_launch()
 		return
-	if event.is_action_pressed(&"ui_cancel"):
+	if event.is_action_pressed(&"ui_cancel") or _pad_pressed(event, PAD_BACK):
 		get_tree().change_scene_to_file(MENU_SCENE)
 		return
+	if PAD_DEBUG and event is InputEventJoypadButton \
+			and (event as InputEventJoypadButton).pressed:
+		print("[war room] pad button %d does nothing here (launch=%d back=%d frame=%d)"
+				% [(event as InputEventJoypadButton).button_index,
+				PAD_LAUNCH, PAD_BACK, PAD_FRAME])
 	# Hex neighbours, walked by whichever one lies most nearly in the pressed
 	# direction. Six neighbours and four keys never map cleanly; nearest-bearing
 	# is the version that always goes somewhere sensible.
@@ -319,6 +350,14 @@ func _pick_screen(at: Vector2) -> int:
 			best_distance = distance
 			best = id
 	return best
+
+
+## One raw joypad button, pressed this event. Deliberately not an InputMap
+## action: see the PAD_* block for why the room reads the hardware directly.
+func _pad_pressed(event: InputEvent, button: int) -> bool:
+	return event is InputEventJoypadButton \
+			and (event as InputEventJoypadButton).pressed \
+			and (event as InputEventJoypadButton).button_index == button
 
 
 func _step(direction: Vector3) -> void:
