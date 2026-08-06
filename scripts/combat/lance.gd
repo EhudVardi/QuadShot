@@ -86,6 +86,18 @@ const RESET_SECONDS: float = 2.4
 ## Fallback: a body that never manages to acquire anything still has to resolve
 ## rather than loitering forever in a sortie nobody can clear.
 const SEEK_TIMEOUT: float = 45.0
+## HOW FAR OUT THE WARNING OPENS, as a multiple of the fuse radius (A.q8).
+##
+## The fuse is the one number the cue is built from, and the important half of
+## that is where it SATURATES: full intensity means "you are inside the envelope
+## the warhead actually covers", so the sound can never promise a danger the fuse
+## does not deliver. This multiple only decides how much lead-in you get.
+##
+## 4x an 11 m fuse opens the warning at 44 m — a shade outside the 34.5 m setup
+## band the type commits from, so the telegraph starts the alarm quietly (~0.3)
+## and the run is what swells it. Opening it exactly at the setup band would mean
+## the lock arrived in silence, which is the opposite of what was asked for.
+const WARN_RANGE_FUSES: float = 4.0
 
 enum Phase { SEEK, ALIGN, RUN, RESET }
 
@@ -111,6 +123,7 @@ var team: StringName = &"enemy"
 
 @onready var _health: Health = $Health
 @onready var _charge: MeshInstance3D = $Visual/Charge
+@onready var _warning: AudioStreamPlayer3D = $Warning
 
 var _rng := RandomNumberGenerator.new()
 var _phase: int = Phase.SEEK
@@ -141,6 +154,7 @@ func _ready() -> void:
 	_health.died.connect(_on_died)
 	_charge_material = _charge.get_surface_override_material(0) as StandardMaterial3D
 	_set_charge(0.0)
+	_start_warning()
 
 
 func take_hit(damage: float) -> void:
@@ -159,6 +173,39 @@ func telegraphing() -> bool:
 	return _phase == Phase.ALIGN
 
 
+## HOW CLOSE THIS THING IS TO KILLING YOU: 0 clear, 1 inside the fuse (A.q8).
+##
+## Public for exactly the reasons `telegraphing()` is. It is a design decision
+## rather than an implementation detail, the audio warning is only its first
+## consumer (a HUD threat ring wants the same answer), and — the practical one —
+## **a headless check cannot hear a sound but it can assert the scalar that
+## drives one**, which is the difference between guarding this feature and
+## guarding a comment about it.
+##
+## Zero in SEEK and RESET, because the type is harmless in both. A warning that
+## is always on is not a warning.
+func warning_level() -> float:
+	if _player == null or not is_instance_valid(_player):
+		return 0.0
+	if _phase != Phase.ALIGN and _phase != Phase.RUN:
+		return 0.0
+	var full_at: float = _warn_full_radius()
+	var range_m: float = global_position.distance_to(_player.global_position)
+	return clampf(inverse_lerp(full_at * WARN_RANGE_FUSES, full_at, range_m),
+			0.0, 1.0)
+
+
+## The distance at which the warning calls maximum danger: the fuse when there is
+## one, the blast when there is not. `blast_fuse_radius` defaults to 0 across the
+## roster, and a contact-only Lance is still lethal — a cue that switched off with
+## the fuse would go silent on the one build where you have to be touched to be
+## hurt.
+func _warn_full_radius() -> float:
+	if enemy_config.blast_fuse_radius > 0.0:
+		return enemy_config.blast_fuse_radius
+	return maxf(enemy_config.bomb_radius, 1.0)
+
+
 func _physics_process(delta: float) -> void:
 	_phase_time += delta
 	_player = _find_player()
@@ -168,6 +215,7 @@ func _physics_process(delta: float) -> void:
 		# cockpit. Every second before the pilot ARMS is a second with no player.
 		velocity = velocity.move_toward(Vector3.ZERO, enemy_config.accel * delta)
 		move_and_slide()
+		_update_warning()
 		return
 	match _phase:
 		Phase.SEEK:
@@ -179,6 +227,7 @@ func _physics_process(delta: float) -> void:
 		Phase.RESET:
 			_reset(delta)
 	_face_travel(delta)
+	_update_warning()
 
 
 ## Close to the setup band and wait there. Harmless in this phase, which is what
@@ -385,6 +434,59 @@ func _set_charge(amount: float) -> void:
 		_charge_material.emission_energy_multiplier = 0.5 + amount * 7.0
 	if amount > 0.01:
 		_charge.scale = Vector3.ONE * (0.7 + amount * 0.9)
+
+
+## THE CONTINUOUS WARNING (A.q8), and it is the audible half of what `_set_charge`
+## does with light. The user flew the one-shot and named the gap precisely: *"i
+## feel that the lock should have more dramatic sound, a continous warning sound
+## that increase the more the danger is close."*
+##
+## `charge` stays as it is and this plays over it — the two say different things.
+## A one-shot can only ever announce an EVENT ("it has chosen"), and the run that
+## follows is where the player actually needs telling. This is a live readout.
+##
+## Volume and pulse rate are both driven by `warning_level()`, so what you hear
+## and what hurts you are the same number. That is the screamer's rule
+## (`_update_telegraph`: *"a cue that disagrees with the mechanic by even a little
+## teaches the player the wrong edge"*) applied to a second mechanic, and here the
+## wrong edge would be the expensive one — believing you are clear.
+##
+## STOPPED rather than faded to inaudible when the level is 0, because a Lance
+## spends most of its life harmless and several can be on the field: a silent
+## voice per body is a leak with a volume slider on it.
+func _update_warning() -> void:
+	if _warning == null or _warning.stream == null:
+		return
+	var level: float = warning_level()
+	if level <= 0.001:
+		if _warning.playing:
+			_warning.stop()
+		return
+	if not _warning.playing:
+		_warning.play()
+	# SQUARE-ROOTED for loudness, LINEAR for the scalar, and the split is
+	# deliberate. `warning_level()` is honest distance and stays that way — a HUD
+	# ring and a check both want the real number. But the level at the moment of
+	# commitment is only 0.14 (measured: it locks from ~39 m against a 44 m
+	# envelope), and a linear map puts that at -26 dB, which is under the motor
+	# bed and therefore not a warning at all. The curve buys audibility at the
+	# lock without moving where the alarm PEAKS, which is the half that has to
+	# keep meaning "inside the fuse".
+	_warning.volume_db = lerpf(-28.0, -3.0, sqrt(level))
+	# One dial, two dimensions of alarm: pitch_scale on a gated loop speeds the
+	# BEAT up as well as raising the tone, so 4 Hz at the lock becomes ~8 Hz
+	# inside the fuse without a second stream or a second curve.
+	_warning.pitch_scale = 0.85 + 1.05 * level
+
+
+func _start_warning() -> void:
+	# Headless: active playbacks leak at quit() under the Dummy audio driver, and
+	# no bench hears them (motor_audio.gd's rule, same reason). `warning_level()`
+	# keeps working, which is what the check reads.
+	if _warning == null or DisplayServer.get_name() == "headless":
+		return
+	_warning.stream = SoundBank.make_warning_loop()
+	_warning.volume_db = -60.0
 
 
 func _find_player() -> Node3D:

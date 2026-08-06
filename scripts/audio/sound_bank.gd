@@ -136,6 +136,50 @@ static func make_jam_loop() -> AudioStreamWAV:
 	return _make_wav(samples, true)
 
 
+## THE LANCE'S PROXIMITY WARNING (A.q8). A pulsed alarm over a continuous bed,
+## looping, with volume AND pulse rate driven live by how close the thing is to
+## killing you (`lance.gd`, `_update_warning`).
+##
+## It is a second cue rather than a louder `charge`, and the distinction is the
+## whole request. `charge` is a 1.05 s one-shot at the start of the wind-up: it
+## says *a Lance has committed* and then goes quiet for the entire run, which is
+## the stretch where the information is worth most. The user flew exactly that and
+## asked for *"a continous warning sound that increase the more the danger is
+## close"* — the classic missile-warning idiom, where the cue is not an event but
+## a live readout.
+##
+## TWO LAYERS, and both are load-bearing:
+##
+##   the PULSE  is the urgency. Nothing else in the bank beats at a steady rate,
+##              and driving `pitch_scale` speeds the beat up as well as raising
+##              the tone — one dial, two dimensions of alarm, for free.
+##   the BED    is the *continuous* half the user asked for. Pulses alone read as
+##              intermittent at low intensity, and a warning with gaps in it is a
+##              warning you can be half way through missing.
+##
+## Each pulse FALLS in pitch, which is what separates it from `lock` (two rising
+## pips, the friendly one): rising is confirmation, falling is alarm.
+static func make_warning_loop() -> AudioStreamWAV:
+	# Exactly 0.5 s holding exactly two pulses, so the gate is silent at the loop
+	# seam and the bed's 98 Hz closes on a whole number of cycles. A seam that
+	# clicks twice a second would be the loudest thing in the cue.
+	var count: int = int(0.5 * MIX_RATE)
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	var phase: float = 0.0
+	var bed_phase: float = 0.0
+	for i: int in count:
+		var t: float = float(i) / MIX_RATE
+		var within: float = fmod(t, 0.25)
+		# 4 Hz at rest, ~8 Hz once the pitch is driven to 1.9 inside the fuse.
+		var gate: float = exp(-within * 26.0) if within < 0.16 else 0.0
+		phase += TAU * (780.0 - 160.0 * (within / 0.16)) / MIX_RATE
+		bed_phase += TAU * 98.0 / MIX_RATE
+		var pulse: float = (sin(phase) * 0.72 + sin(phase * 3.0) * 0.28) * gate
+		samples[i] = clampf(pulse * 0.5 + sin(bed_phase) * 0.14, -1.0, 1.0)
+	return _make_wav(samples, true)
+
+
 ## Looping wind rush: one-pole lowpassed noise, crossfaded at the seam.
 static func make_wind_loop() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()

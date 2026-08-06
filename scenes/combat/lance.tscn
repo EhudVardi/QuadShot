@@ -49,3 +49,15 @@ shape = SubResource("shape_hull")
 
 [node name="Health" type="Node" parent="."]
 script = ExtResource("3_hp")
+
+; THE PROXIMITY WARNING (A.q8). attenuation_model 3 is ATTENUATION_DISABLED, and
+; turning the rolloff OFF is the point rather than an oversight: 3D distance
+; falloff and the fuse's envelope are two different curves, and a cue that
+; disagrees with the mechanic by even a little teaches the player a wrong edge
+; (the screamer's JamTone carries the same argument). lance.gd drives volume_db
+; itself, so the fuse is the ONLY loudness curve in play. What the 3D player is
+; kept for is PANNING — against a type that attacks from any bearing, which side
+; the alarm is on is half of what the warning is worth.
+[node name="Warning" type="AudioStreamPlayer3D" parent="."]
+attenuation_model = 3
+volume_db = -60.0

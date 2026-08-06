@@ -23,6 +23,11 @@ extends SceneTree
 ##   6. A.q6 — it targets the player, and the seam that will one day rank targets
 ##      is a single function. Asserted so that when the ranking layer lands,
 ##      whoever moves it is told where the placeholder was.
+##   7. A.q8 — the proximity WARNING rises as the danger does. A headless check
+##      cannot hear a sound, so it holds the scalar the sound is made of
+##      (`warning_level()`) and compares two runs that differ only in how close
+##      the thing got. A cue driven by a timer, a phase flag or a constant passes
+##      every single-run assertion and fails that comparison.
 ##
 ## Run: <godot> --headless -s scripts/tests/lance_check.gd --path .
 
@@ -50,12 +55,28 @@ var _was_telegraphing: bool = false
 var _committed_at: Vector3 = Vector3.INF
 var _drift_after_commit: float = 0.0
 var _start_distance: float = 0.0
+## A.q8's warning, sampled per tick. `_warn_before` is the loudest it ever got
+## while the type was still harmless; `_warn_peak` the loudest overall; `_warn_last`
+## the value on the final tick before it spent itself, which is what ties the cue
+## to the fuse.
+var _warn_before: float = 0.0
+## Latched once the body has been seen telegraphing, so "was it silent while it
+## was harmless" is decided from the outside rather than from the feature's own
+## phase enum. Independent of `_was_telegraphing`, which the run stage needs for
+## its EDGE and must not have moved under it.
+var _warn_seen_telegraph: bool = false
+var _warn_at_lock: float = 0.0
+var _warn_peak: float = 0.0
+var _warn_last: float = 0.0
+## Stage 0's peak, kept across the rebuild so stage 2 can be compared against it.
+var _wide_warn_peak: float = -1.0
 
 
 func _initialize() -> void:
 	_check_registration()
 	_check_the_seam()
 	_check_the_fuse()
+	_check_the_warning_wiring()
 	if _failures > 0:
 		_report()
 		return
@@ -178,6 +199,35 @@ func _check_the_fuse() -> void:
 			% [config.blast_fuse_radius, config.preferred_range])
 
 
+## ---------- A.q8: the warning, wired ----------
+
+## THE PARTS THAT MAKE A SOUND, asserted separately from the scalar that drives
+## it, because they fail in different ways. The flight stages below prove the
+## scalar rises with the danger — but a scalar with no emitter attached is a
+## silent feature that passes every behaviour test in this file.
+##
+## The attenuation assertion is the one worth spelling out. 3D rolloff and the
+## fuse's envelope are two different curves, so leaving the default model on would
+## quietly re-introduce a second loudness curve that disagrees with the mechanic —
+## which is the exact trap the screamer's `JamTone` carries a paragraph about. It
+## is set to DISABLED in the scene and `lance.gd` drives `volume_db` itself.
+func _check_the_warning_wiring() -> void:
+	var stream: AudioStreamWAV = SoundBank.make_warning_loop()
+	_expect(stream != null and stream.data.size() > 0,
+			"the bank makes a warning stream (%d bytes)"
+			% (0 if stream == null else stream.data.size()))
+	_expect(stream != null and stream.loop_mode == AudioStreamWAV.LOOP_FORWARD,
+			"and it LOOPS, so the warning is continuous rather than another one-shot")
+	var scene := (load("res://scenes/combat/lance.tscn") as PackedScene).instantiate()
+	var emitter := scene.get_node_or_null(^"Warning") as AudioStreamPlayer3D
+	_expect(emitter != null, "the Lance carries a warning emitter")
+	if emitter != null:
+		_expect(emitter.attenuation_model
+				== AudioStreamPlayer3D.ATTENUATION_DISABLED,
+				"with 3D rolloff DISABLED, so the fuse is the only loudness curve in play")
+	scene.free()
+
+
 ## ---------- the flight ----------
 
 func _build(with_player: bool) -> void:
@@ -191,6 +241,11 @@ func _build(with_player: bool) -> void:
 	_blast_taken = 0.0
 	_committed_at = Vector3.INF
 	_drift_after_commit = 0.0
+	_warn_before = 0.0
+	_warn_seen_telegraph = false
+	_warn_at_lock = 0.0
+	_warn_peak = 0.0
+	_warn_last = 0.0
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	if with_player:
@@ -249,6 +304,9 @@ func _watch_the_run() -> void:
 		_verify_the_run()
 		return
 	var telegraphing: bool = _lance.telegraphing()
+	# Sampled BEFORE the dodge below, so the lock value is the real range at the
+	# moment of commitment rather than the teleported one.
+	_sample_warning(telegraphing)
 	# Only the FIRST wind-up counts toward the measured telegraph; a later one
 	# would inflate it.
 	if telegraphing and not _seen_moving:
@@ -257,6 +315,7 @@ func _watch_the_run() -> void:
 	_was_telegraphing = telegraphing
 	if locked_now and not _seen_moving:
 		_seen_moving = true
+		_warn_at_lock = _lance.warning_level()
 		_committed_at = _lance.global_position
 		# Dodge 40 m, on the tick it committed. A homing enemy would close on the
 		# new position; a committed one flies past where the player used to be.
@@ -264,6 +323,23 @@ func _watch_the_run() -> void:
 	if _seen_moving and _player != null and is_instance_valid(_player):
 		_drift_after_commit = maxf(_drift_after_commit,
 				_lance.global_position.distance_to(_player.global_position))
+
+
+## One tick of A.q8's readout. `harmless` is true whenever the body has not yet
+## reached its first wind-up, which is the stretch the warning must be silent
+## through — asserted from the OUTSIDE (has it ever telegraphed) rather than from
+## the phase, so the check does not depend on the same enum the feature does.
+func _sample_warning(telegraphing: bool) -> void:
+	var level: float = _lance.warning_level()
+	if telegraphing:
+		_warn_seen_telegraph = true
+	elif not _warn_seen_telegraph:
+		_warn_before = maxf(_warn_before, level)
+	_warn_peak = maxf(_warn_peak, level)
+	# The LAST value before it spends itself. Kept rather than peaked, because the
+	# claim being tested is about the tick the warhead goes off.
+	if level > 0.0:
+		_warn_last = level
 
 
 func _verify_the_run() -> void:
@@ -292,7 +368,33 @@ func _verify_the_run() -> void:
 			% _player_taken())
 	_expect(_blast_taken > 0.0 or _drift_after_commit > 0.0,
 			"the run resolved rather than looping forever")
+	_verify_the_warning_wide()
 	_check_the_window()
+
+
+## ---------- A.q8: the warning, on a run that MISSED ----------
+
+## Half of the comparison. This run ends 40 m from the player, so it is the
+## control: the warning has to be silent while the thing is harmless, audible the
+## moment it locks, and it must NEVER reach maximum, because maximum means "inside
+## the fuse" and this run was nowhere near.
+func _verify_the_warning_wide() -> void:
+	_wide_warn_peak = _warn_peak
+	_expect(is_zero_approx(_warn_before),
+			"the warning is SILENT while the Lance is still harmless (%.2f in SEEK)"
+			% _warn_before)
+	_expect(_warn_at_lock > 0.0,
+			"and it opens on the LOCK rather than on contact (%.2f at commit)"
+			% _warn_at_lock)
+	# The one-shot `charge` already says "it has chosen". If the loop arrived at
+	# full strength there would be nothing left for the run to escalate into, which
+	# is the whole complaint A.q8 was opened about.
+	_expect(_warn_at_lock < 0.5,
+			"quietly, so the RUN has somewhere to escalate to (%.2f of 1.00)"
+			% _warn_at_lock)
+	_expect(_warn_peak < 0.99,
+			"and a run that misses by 40 m never reaches maximum — maximum means INSIDE the fuse (%.2f)"
+			% _warn_peak)
 
 
 ## ---------- A5: killing it during the telegraph costs you nothing ----------
@@ -341,6 +443,7 @@ func _watch_the_near_miss() -> void:
 	if not is_instance_valid(_lance):
 		_verify_the_near_miss()
 		return
+	_sample_warning(_lance.telegraphing())
 	if _lance.velocity.length() > 12.0 and _player != null 			and is_instance_valid(_player) 			and _player.global_position.distance_to(PLAYER_AT) < 0.01:
 		# Dodge, but only just.
 		_player.global_position = PLAYER_AT + Vector3(6.0, 0.0, 0.0)
@@ -360,10 +463,39 @@ func _verify_the_near_miss() -> void:
 	_expect(taken < config.bomb_damage,
 			"and it GRAZES rather than landing whole — %.0f of a possible %.0f"
 			% [taken, config.bomb_damage])
+	_verify_the_warning_close()
 	_arena.free()
 	_arena = null
 	_stage = 1
 	_build(false)
+
+
+## ---------- A.q8: the warning, on a run that CONNECTED ----------
+
+## THE OTHER HALF OF THE COMPARISON, and the assertion this whole feature stands
+## on. Stage 0 and this stage differ in exactly one thing — 40 m of dodge against
+## 6 m — so if the warning is louder here it is because the danger was closer, and
+## there is no other explanation available.
+##
+## That comparison is the reason the check is built as two runs rather than one.
+## Every single-run assertion (it opens, it rises, it stops) is passed just as
+## happily by a cue driven off a TIMER, off the phase, or off a constant. Only
+## running the same commitment against two different outcomes can tell the
+## difference, and A.q8's whole request was for a cue that tracks danger rather
+## than announcing an event.
+func _verify_the_warning_close() -> void:
+	if _wide_warn_peak < 0.0:
+		_expect(false, "the wide-miss run recorded a warning peak to compare against")
+		return
+	_expect(_warn_peak > _wide_warn_peak + 0.25,
+			"the warning RISES with the danger — %.2f on a 6 m pass against %.2f on a 40 m miss, same commitment"
+			% [_warn_peak, _wide_warn_peak])
+	# Maximum has one meaning and the fuse owns it. This ties the cue to the
+	# mechanic rather than to a distance somebody picked for the sound: the run
+	# that tripped the fuse is the run that reached 1.00.
+	_expect(_warn_peak >= 0.99,
+			"and it is at MAXIMUM on the tick the fuse fires, so full alarm means inside the envelope (%.2f)"
+			% _warn_peak)
 
 
 ## ---------- falx bug four, held for this type ----------

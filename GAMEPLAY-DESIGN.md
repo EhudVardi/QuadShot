@@ -11532,3 +11532,91 @@ being rediscovered as a red board when A.q1 lands.
     `speed` and `hull` are both in the delivery config stamp, so either costs a
     full re-measure — worth batching with any other config tuning rather than
     spending an hour twice.
+
+- **2026-08-06 — v2.28. A.q8 BUILT: the Lance's warning is continuous and
+  proximity-driven, and the scalar it is made of is public so a check can hold
+  it.** The user flew the one-shot and named the gap precisely: *"i feel that the
+  lock should have more dramatic sound, a continous warning sound that increase
+  the more the danger is close."*
+  - **WHAT WAS ACTUALLY MISSING, because it is not "make the charge louder".**
+    `charge` is a 1.05 s one-shot fired at the START of the wind-up. It can only
+    ever announce an EVENT — *a Lance has committed* — and then it stops, which
+    leaves the entire run silent. Measured on the real body: the run is **2.7 s**
+    of the 6.6 s cycle and it is the only part where the player can still act.
+    The cue was going quiet exactly where it was worth most.
+  - **`SoundBank.make_warning_loop()` — a pulsed alarm over a continuous bed.**
+    Two layers and both are load-bearing. The **pulse** is the urgency: driving
+    `pitch_scale` on a gated loop speeds the BEAT up as well as raising the tone,
+    so one dial buys two dimensions of alarm with no second stream. The **bed** is
+    the *continuous* half the user asked for — pulses alone read as intermittent
+    at low intensity, and a warning with gaps in it is a warning you can be half
+    way through missing. Each pulse FALLS in pitch, which is what separates it
+    from `lock`'s two rising pips: rising is confirmation, falling is alarm.
+  - **THE HANDOFF SAID THE ONLY PRECEDENT WAS THE DRONE'S MOTOR/WIND EMITTERS.
+    IT WAS WRONG, AND THE RIGHT ONE IS CLOSER.** `Screamer._update_telegraph`
+    already drives a looping `JamTone` off a live scalar sampled at the player,
+    and it is a better model in every way that matters here: it hangs off an
+    ENEMY rather than off the pilot's own airframe, and it carries the argument
+    this feature turns on. Copying the motor emitter would have meant reading
+    `owner as FlightController`, which a Lance is not.
+  - **DISTANCE ATTENUATION IS TURNED OFF ON THE EMITTER, and that is the design
+    rather than an oversight.** 3D rolloff and the fuse's envelope are two
+    different curves, so leaving the default model on would silently re-introduce
+    a second loudness curve that disagrees with the mechanic — the screamer's rule
+    (*"a cue that disagrees with the mechanic by even a little teaches the player
+    the wrong edge"*), and here the wrong edge is the expensive one: believing you
+    are clear. What the 3D player is kept for is **panning**. Against a type that
+    attacks from any bearing, which side the alarm is on is half of what a warning
+    is worth.
+  - **DRIVEN OFF THE FUSE, and it is where it SATURATES that carries the claim.**
+    `warning_level()` is `inverse_lerp(4 x fuse, fuse, range)`, so full alarm means
+    *you are inside the envelope the warhead actually covers* and the sound can
+    never promise a danger the fuse does not deliver. The 4x only decides the
+    lead-in: against an 11 m fuse the warning opens at 44 m, a shade outside the
+    band the type commits from, so the lock arrives quietly and the RUN is what
+    swells it. Opening it exactly at the setup band would have meant the lock
+    arrived in silence, which is the opposite of the request.
+  - **THE MEASURED TIMELINE, taken from the real body in a real process rather
+    than reasoned about** (silent -> lock -> run -> fuse):
+
+    | t | range | level | volume | pitch |
+    |---|---|---|---|---|
+    | 0.00-2.50 s | 70 -> 43 m | 0.00 | silent | — |
+    | 2.63 s (ALIGN) | 41.6 m | 0.07 | -21.2 dB | 0.93 |
+    | 3.00-3.88 s | 39.3 m | 0.14 | -18.6 dB | 1.00 |
+    | 5.00 s (RUN) | 32.3 m | 0.35 | -13.1 dB | 1.22 |
+    | 6.13 s | 14.0 m | 0.91 | -4.2 dB | 1.81 |
+    | 6.25 s (fuse) | 11.2 m | 0.99 | -3.1 dB | 1.89 |
+
+  - **VOLUME IS SQUARE-ROOTED AND THE SCALAR IS NOT, which is a split worth
+    stating.** `warning_level()` is honest distance and stays that way, because a
+    HUD threat ring and a headless check both want the real number. But the level
+    at commitment is only 0.14, and mapped linearly that is **-26 dB — under the
+    motor bed, and therefore not a warning at all**. The curve lives in the audio
+    mapping where aesthetic constants belong, and it buys audibility at the lock
+    without moving where the alarm peaks, which is the half that has to keep
+    meaning "inside the fuse".
+  - **THE READOUT IS PUBLIC FOR THE SAME REASON `telegraphing()` IS** (v2.24's
+    lesson, applied before it cost anything this time). A headless check cannot
+    hear a sound, but it can assert the scalar the sound is made of — which is the
+    difference between guarding this feature and guarding a comment about it.
+  - **THE CHECK IS TWO RUNS, AND THAT IS THE ONLY SHAPE THAT COULD WORK.** Every
+    single-run assertion — it opens, it rises, it stops — is passed just as happily
+    by a cue driven off a timer, off the phase, or off a constant. So the same
+    commitment is flown twice against different outcomes: a **40 m** dodge and a
+    **6 m** one. The warning peaks at **0.14 against 1.00**, and there is no
+    explanation available for that other than proximity.
+    - **Four mutations are on record and each fails a different sentence.** Drive
+      it off a TIMER: *"1.00 on a 6 m pass against 1.00 on a 40 m miss"*. Make it
+      a CONSTANT: the 40 m miss reaches maximum, and maximum has one meaning.
+      Delete the phase guard: it warns at 0.06 while still harmless. Re-enable 3D
+      rolloff: the wiring assertion goes. The timer mutation is the one worth
+      keeping in mind — it is the *original bug*, dressed as a fix.
+  - **`charge` STAYS.** The two cues say different things and the request was for
+    a second one, not a replacement: a one-shot marks the decision, a loop reports
+    the danger. Removing the transient would have made the commitment less legible
+    while making the run more so, which is a trade nobody asked for.
+  - **PROVISIONAL AND THE HUMAN'S TO JUDGE** (standing rule 9). The dB range, the
+    pitch range, the 4x lead-in and the waveform are authored starting points. The
+    one number that is NOT a free choice is where the alarm saturates: that is the
+    fuse, and it should stay the fuse.

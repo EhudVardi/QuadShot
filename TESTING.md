@@ -418,6 +418,31 @@ surfaced was `sortie_bench` reading node 16 as three reps of 300 s, 0% hull
 taken, nothing killed. Nothing there could threaten the pilot and the pilot could
 not threaten it.
 
+`lance_check` guards the committed suicider, and its newest stage (A.q8) is the
+one worth copying the SHAPE of. The Lance's proximity warning is a sound, and a
+headless check cannot hear a sound — so the type exposes `warning_level()`, the
+scalar the sound is made of, and the check holds that instead. **It flies the
+same commitment twice and compares**: a 40 m dodge and a 6 m one, which peak at
+`0.14` and `1.00`. That comparison is the whole point, because every single-run
+assertion available (it opens, it rises, it stops) is passed just as happily by a
+cue driven off a timer, off the phase, or off a constant — and a timer is exactly
+the bug A.q8 was opened to fix. Four mutations are on record and each fails a
+different sentence: drive it off a timer, make it a constant, delete the phase
+guard, re-enable 3D rolloff on the emitter.
+
+**To HEAR it rather than read it**, the dev room has a respawning specimen:
+
+```
+<godot> --path . scenes/dev_map.tscn
+```
+
+The Lance is at **(60, 14, 55)** — east and slightly south of the spawn. Arm,
+hold still, and let it come: silence while it closes, a rising sweep and a soft
+alarm when it stops and glows, then the alarm climbing in pitch and rate for the
+whole run. It saturates at 11 m, which is the fuse radius, so full alarm always
+means *inside the envelope*. `respawns = true` on the specimen, so it comes back
+however it ends.
+
 `heat_check` guards the blaster's duty cycle (v1.91), and the failure it exists
 for is the worst one available: a gun that locks out and **never comes back**
 leaves a pilot alive, armed, and unable to clear a wave. Nothing else in the
