@@ -141,10 +141,33 @@ func _ready() -> void:
 		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_spawn_transform = global_transform
 	body_entered.connect(_on_body_entered)
+	# THE UPTILT MUST EXIST BEFORE THE FIRST PHYSICS TICK, and until 2026-08-06 it
+	# did not. It was applied only in `_process`, which runs on the IDLE frame —
+	# so whether the camera was tilted when the first `_physics_process` ran
+	# depended on whether an idle frame happened to fall in between, which is a
+	# function of machine load.
+	#
+	# That is not a cosmetic race. The weapon is a CHILD of this camera, so the
+	# gun line inherits the tilt, and `ReferencePilot` aims by the gun's basis.
+	# With the tilt missing the pilot reads a level gun, concludes it is already
+	# on target, and commands nothing; with it present it correctly pitches the
+	# nose down to put a 44-degree gun on a level target. Measured: the pilot's
+	# first commanded pitch rate came out as 0.00008 in one process and -3.84 in
+	# another, from the identical command line — and from that tick the whole
+	# flight, the shot count and the measured factor diverge.
+	#
+	# **This is the Track 5 root cause** (GAMEPLAY-DESIGN v2.23). It is also a
+	# real one-frame defect in the GAME: every flight's first frame was flown with
+	# an untilted camera.
+	_apply_camera_config()
 
 
 func _process(_delta: float) -> void:
 	# Re-read every frame so the Phase 3 overlay can tune these live.
+	_apply_camera_config()
+
+
+func _apply_camera_config() -> void:
 	_fpv_camera.fov = config.fpv_fov_deg
 	_fpv_camera.rotation_degrees.x = config.fpv_uptilt_deg
 

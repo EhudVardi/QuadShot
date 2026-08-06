@@ -456,6 +456,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 	"res://resources/default_enemy_aegis.tres",
 	"res://resources/default_enemy_falx.tres",
 	"res://resources/default_enemy_screamer.tres",
+	"res://resources/default_enemy_lance.tres",
 ]
 
 ## Bench target name -> EnemyConfig.type_id, so the artifact is keyed by the
@@ -624,7 +625,18 @@ func _trace_open() -> void:
 		slug = slug.replace(bad, "_")
 	_trace = FileAccess.open("%s/%s.csv" % [_trace_dir, slug], FileAccess.WRITE)
 	if _trace != null:
-		_trace.store_line("tick,px,py,pz,vx,vy,vz,wx,wy,wz,qx,qy,qz,qw,shots,lined_up,jinking,tx,ty,tz,threat_shots,connects,taken,roots,contacts")
+		_trace.store_line("tick,px,py,pz,vx,vy,vz,wx,wy,wz,qx,qy,qz,qw,shots,lined_up,jinking,tx,ty,tz,threat_shots,connects,taken,roots,contacts,cmdx,cmdy,cmdz,thr,boom")
+
+
+## Lingering one-shot blasts. They are parented to the tree ROOT and freed by a
+## SceneTreeTimer, which counts IDLE-frame time rather than physics ticks, so
+## this number is wall clock made countable.
+func _explosions() -> int:
+	var n: int = 0
+	for child: Node in root.get_children():
+		if child is ExplosionEffect:
+			n += 1
+	return n
 
 
 func _trace_close() -> void:
@@ -669,12 +681,14 @@ func _trace_tick() -> void:
 	# STARTED at that flag or merely passed through it.
 	var lined_up: bool = _pilot != null and bool(_pilot.get(&"_shot_lined_up"))
 	var jink: bool = _pilot != null and _pilot.jinking()
-	_trace.store_line("%d,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,%.12f,%d,%d,%d,%d,%d"
+	_trace.store_line("%d,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,%.12f,%d,%d,%d,%d,%d,%.12f,%.12f,%.12f,%.12f,%d"
 			% [_ticks, p.x, p.y, p.z, v.x, v.y, v.z, w.x, w.y, w.z, q.x, q.y, q.z, q.w,
 			_weapon.shots_fired if _weapon != null else -1,
 			1 if lined_up else 0, 1 if jink else 0,
 			target.x, target.y, target.z, _threat_shots, _connects, _taken,
-			root.get_child_count(), _drone.get_contact_count()])
+			root.get_child_count(), _drone.get_contact_count(),
+			_drone.rate_override.x, _drone.rate_override.y, _drone.rate_override.z,
+			_drone.throttle_override, _explosions()])
 
 
 func _on_physics_frame() -> void:
