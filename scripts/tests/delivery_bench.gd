@@ -163,6 +163,7 @@ const RAIDER_SCENE: String = "res://scenes/combat/enemy_drone.tscn"
 const SWARM_SCENE: String = "res://scenes/combat/gnat_swarm.tscn"
 const AEGIS_SCENE: String = "res://scenes/combat/aegis.tscn"
 const TURRET_SCENE: String = "res://scenes/combat/turret.tscn"
+const LANCE_SCENE: String = "res://scenes/combat/lance.tscn"
 const FALX_SCENE: String = "res://scenes/combat/falx.tscn"
 const SCREAMER_SCENE: String = "res://scenes/combat/screamer.tscn"
 
@@ -283,6 +284,24 @@ const CELLS: Array[Dictionary] = [
 			"target": "falx", "seconds": 45.0},
 	{"name": "evasion: flak x falx", "kind": "evasion", "weapon": "flak",
 			"target": "falx", "seconds": 25.0},
+	# --- THE LANCE's evasion row (A5, v2.24). It is measured as a FLYING BODY
+	# like every other single-body target: how hard is it to hit while it does
+	# what it does. Its cycle is mostly NOT the run — it seeks, then holds still
+	# for a 1.15 s telegraph, then commits — so this factor is dominated by the
+	# easy phases, which is honest. The duel harness is where "can you take the
+	# window" gets answered; this is only "do shots arrive".
+	#
+	# It has to exist for the Lance's duel rows to have a PREDICTED value at all:
+	# `BalancePrediction` composes lethality x aim x evasion, and a target with no
+	# evasion factor cannot be predicted. Adding it to ENEMIES_FOR_STAMP without
+	# adding these cells was the half-done version, caught by reading the artifact
+	# back and finding no lance key in it.
+	{"name": "evasion: blaster x lance", "kind": "evasion", "weapon": "blaster",
+			"target": "lance", "seconds": 25.0},
+	{"name": "evasion: missile x lance", "kind": "evasion", "weapon": "missile",
+			"target": "lance", "seconds": 45.0},
+	{"name": "evasion: flak x lance", "kind": "evasion", "weapon": "flak",
+			"target": "lance", "seconds": 25.0},
 	# --- THE SCREAMER's evasion row (M6a step 7, v1.83). Three ordinary cells for
 	# an extraordinary type: here it is measured purely as a FLYING BODY — how hard
 	# is it to put a round on a thing that station-keeps at 40 m and slides
@@ -466,6 +485,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 const TYPE_IDS: Dictionary = {
 	"raider": "raider", "turret": "turret", "gnats": "gnat", "aegis": "aegis",
 	"raiderpack": "raider", "falx": "falx", "screamer": "screamer",
+	"lance": "lance",
 }
 
 enum { BUILD, FIRE, GRACE, RECORD }
@@ -943,6 +963,24 @@ func _build_target(type: String) -> Node:
 			_arena.add_child(falx)
 			_count_health_connects(falx.get_node("Health") as Health)
 			return falx
+		"lance":
+			# Immortal like every other single-body evasion target, so the cell
+			# measures a RATE rather than a kill — and for the Lance that matters
+			# more than usual, because a mortal one would SPEND ITSELF on arrival
+			# and end the window early, turning an evasion measurement into a
+			# race. Seeded 0 for determinism.
+			_enemy_config = (load("res://resources/default_enemy_lance.tres")
+					as EnemyConfig).duplicate() as EnemyConfig
+			_enemy_config.hull = IMMORTAL_HULL
+			var lance: Node3D = (load(LANCE_SCENE) as PackedScene).instantiate() 					as Node3D
+			lance.set(&"enemy_config", _enemy_config)
+			lance.set(&"ai_seed", 0)
+			# Started outside its own setup band, so the cell opens on the SEEK
+			# phase and sees a whole cycle rather than beginning mid-telegraph.
+			lance.position = Vector3(0.0, ALTITUDE, -RANGE_M - 20.0)
+			_arena.add_child(lance)
+			_count_health_connects(lance.get_node("Health") as Health)
+			return lance
 		"screamer":
 			# Immortal like every other single-body evasion target. It arrives in
 			# the arena as a member of the `jammers` group and that is FINE here:
