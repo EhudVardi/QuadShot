@@ -505,6 +505,25 @@ approaches must land at different distances**. A hard-coded spawn passes every
 distance assertion and is completely invisible, which is the state
 `spec["approach"]` was actually in for two months.
 
+Its newest stage (2026-08-07) holds that **units are not laid inside one
+another**, and it is worth reading as a template for guarding a *probabilistic*
+defect. Placement picked a uniform ring angle with no regard for what was already
+there; measured over 90 real sorties and 3260 unit pairs, that produced 4 pairs
+under 3 m — about **one sortie in twenty**. A check that built one ordinary
+sortie would therefore have passed nineteen times out of twenty with the bug
+fully present, which is worse than having no check, because an intermittent red
+gets explained away.
+
+So the stage builds a deliberately **crowded** ring to turn a rare failure into a
+certain one. **It shipped at 16 bodies and the mutation passed it** — a 26 m ring
+with 9 m of jitter is a wide annulus and sixteen draws usually miss each other
+anyway. Sweeping the un-fixed placer across five seeds gave the closest pair as
+6.25 m at 16 bodies, 4.83 at 24 and 32, and **2.86 at 48**, which is the first
+count where every seed collides. Shipped at 48 with a 4 m threshold: 6.03 m
+fixed, 2.83 m mutated. **Running the mutation is not sufficient on its own when
+the defect is probabilistic — the stress case has to be tuned until the mutation
+fails reliably, and that tuning is a measurement.**
+
 `ammo_check` is `heat_check`'s mirror (v1.92): not a gun that never comes back,
 but a magazine that never refills. There are four ways to put rounds back and
 each is a separate way to be silently broken - firing spends and a dry launcher

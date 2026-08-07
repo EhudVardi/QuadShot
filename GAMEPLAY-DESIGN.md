@@ -11781,3 +11781,119 @@ being rediscovered as a red board when A.q1 lands.
   - **`balance/delivery_factors.json` IS NOW STALE, deliberately.** `speed` and
     `run_steer_deg_s` are both stamped. No Layer 2 number may be quoted until it
     is re-measured.
+
+- **2026-08-07 — v2.32. UNITS NO LONGER SPAWN INSIDE ONE ANOTHER — and the check
+  that proves it was unfailable for its first ten minutes, at 16 bodies.** The
+  user saw an aegis do it, then a Lance. `SortieRunner._point_for` picked a
+  uniformly random ring angle with no regard for what was already standing there.
+  - **MEASURED BEFORE FIXING, because "how bad is it" is a different question
+    from "does it happen".** Ninety real composed sorties across three theater
+    seeds, 3260 unit pairs: **4 pairs under 3 m, the closest at 0.53 m**. That is
+    0.12% of pairs, roughly **one sortie in twenty**. Real, and rare — and the
+    rarity is the whole reason the check needed designing rather than writing.
+  - **REJECTION SAMPLING, with a best-effort fallback.** Up to 24 candidate
+    angles, keep the first at least `MIN_SEPARATION_M` (6 m) from every unit
+    placed so far, otherwise take the roomiest candidate seen. The fallback is
+    what makes it terminate: a while-until-clear loop on a ring that genuinely
+    cannot hold its garrison would spin forever. After: **closest pair across the
+    same 90 sorties is 6.18 m**, and the fallback never fired once.
+  - **IT DOES NOT COST THE UNIFORM ANGLE ITS MEANING**, which was the thing that
+    had to be protected. The existing comment argues that biasing the layers
+    toward `bearing_deg` would be the enemy reading the player's spawn point and
+    would delete P2.3's counterplay. Rejecting a candidate for being near another
+    ENEMY carries no information about where the player is, so the garrison still
+    does not know which way you are coming from.
+  - **The placed points are kept after their unit dies**, deliberately: a reserve
+    arriving later should not be able to materialise into the middle of the fight
+    just because the body standing there has since been shot down.
+  - **THE CHECK IS THE INTERESTING PART, AND THE FIRST VERSION OF IT WAS USELESS.**
+    A bug that fires in one sortie in twenty cannot be guarded by a check that
+    builds one ordinary sortie — it would pass nineteen times in twenty with the
+    defect fully present, and an intermittent red is eventually explained away.
+    So the stage builds a deliberately CROWDED ring to convert a probabilistic
+    failure into a deterministic one.
+    - **It shipped at 16 bodies and the mutation PASSED it** — closest pair 6.25 m
+      with rejection sampling disabled, identical to the fixed value. A 26 m ring
+      carrying 9 m of radial jitter is a wide annulus, and sixteen uniform draws
+      usually miss each other without help.
+    - **So the density was measured too.** Sweeping the UN-FIXED placer over five
+      spec seeds, closest pair by body count:
+
+      | bodies | 16 | 24 | 32 | 48 | 64 |
+      |---|---|---|---|---|---|
+      | worst seed | 6.25 m | 4.83 m | 4.83 m | **2.86 m** | 2.70 m |
+
+      Only at **48** does every seed collide. The fixed placer holds 6.0–6.5 m at
+      every count up to 64, so pass and fail are separated by a wide margin
+      instead of by luck. Shipped at 48 with a 4 m threshold: **6.03 m fixed,
+      2.83 m mutated.**
+    - **This is the eighth unfailable check found, the fourth that was mine, and
+      the first that was caught by the mutation rather than by a sweep.** The
+      lesson is narrower than the usual one and worth keeping separate: for a
+      *probabilistic* defect, running the mutation is not enough on its own — the
+      stress case has to be tuned until the mutation fails RELIABLY, and that
+      tuning is itself a measurement.
+  - **The threshold sits under `MIN_SEPARATION_M` on purpose.** Degrading
+    gracefully when a ring truly cannot hold its garrison is correct behaviour;
+    what must never happen is two bodies in the same space.
+
+- **2026-08-07 — v2.33. THE LANCE'S EVASION CELLS WERE MEASURING A STOPWATCH, and
+  the comment that said otherwise was the reason nobody looked.** Found while
+  waiting on a re-measure, by checking a claim rather than a number.
+  - **THE CLAIM.** `delivery_bench` built its Lance with `hull = IMMORTAL_HULL`
+    under a comment reading *"immortal ... so the cell measures a RATE rather than
+    a kill — and for the Lance that matters more than usual, because a mortal one
+    would SPEND ITSELF on arrival and end the window early."* The reasoning is
+    right and the conclusion is backwards: **`_spend()` calls `queue_free()`
+    regardless of hull, because spending itself is not dying.** Immortality buys
+    this type nothing at all.
+  - **MEASURED: the immortal Lance frees itself at 6.02 s.** The blaster and flak
+    cells run 25 s and the missile cell 45 s, so **76% and 87% of those cells had
+    no target in them**.
+  - **AND THE SHOOTER NEVER NOTICES, which is what turns a short window into a
+    wrong number.** An evasion cell freezes the pilot and holds `fire_override`
+    down for the whole duration; the aiming path does `if aim_at == null: return`
+    and never lowers the trigger. So the gun kept firing on its last bearing into
+    an empty arena, and every one of those rounds was booked as a shot that could
+    not connect.
+  - **THE ARITHMETIC IS THE TELL.** Recorded factors were **0.23** blaster / 0.58
+    flak / 1.00 missile. A 24% window against a 0.23 connect rate is not a
+    coincidence: the cell was measuring *how long the Lance stayed on the field*
+    and reporting it as *how hard the Lance is to hit*.
+  - **THE FIX ALREADY EXISTED.** `respawns` — the dev-room affordance written for
+    exactly this problem (*"a suicider is a ONE-SHOT by design, so the only way to
+    look at one twice is to let the specimen come back"*) — returns the body to
+    its start, revives it and re-enters SEEK. The cell now samples the whole cycle
+    repeatedly with a target present throughout. Both spawners force it false on
+    anything they place, so nothing in the game moves.
+  - **WHAT IT DOES TO THE NUMBERS, and the direction is the interesting part:**
+
+    | cell | before | after |
+    |---|---|---|
+    | evasion: blaster x lance | 0.23 | **0.85** |
+    | evasion: flak x lance | 0.58 | **0.96** |
+    | evasion: missile x lance | 1.00 | 1.00 |
+
+    **The Lance was on record as one of the hardest things in the game to hit and
+    is in fact one of the easiest** — which is exactly what a body that holds
+    perfectly still for 1.15 s while it telegraphs, then flies a straight line,
+    ought to measure.
+  - **IT CLOSES AN ANOMALY THE HANDOFF HAD LISTED AS UNEXPLAINED.** *"`Blaster x
+    Lance` reads `++` and its paper band says `0`. The user does not believe it and
+    neither do I."* The previous reading had the delivery factor (0.23, very hard
+    to hit) fighting the matchup harness (`++`, the blaster does well) — two
+    instruments disagreeing about one type. At 0.85 they agree, and the user's
+    instinct that something was wrong was right about the *rig* rather than about
+    the band.
+  - **THE IN-FLIGHT RE-MEASURE WAS KILLED RATHER THAN FINISHED.** A 52-cell run
+    was already 40 minutes in when this surfaced. Completing a measurement that is
+    known to be wrong only produces a number somebody quotes later, and the stamp
+    cannot protect against it because the stamp covers CONFIGS and this was the
+    RIG. Restarted from scratch under the corrected bench.
+  - **THE METHODOLOGICAL POINT, which is not the same as v2.30's.** The unfailable
+    checks are all *assertions that cannot fail*. This is a **comment that was
+    load-bearing and false** — it had been read at least twice by someone
+    wondering about this exact cell, and each time it answered the question and
+    stopped the enquiry. A wrong comment is worse than no comment, because it is
+    an authority: *the reason nobody measured the 6.02 s is that the file said it
+    had been thought about.*

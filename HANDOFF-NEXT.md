@@ -10,10 +10,10 @@ what happens next.
 
 ## WHERE IT STANDS, 2026-08-07 — read this block first
 
-**HEAD `256840c`. Board 21/21 green. Tree clean. `PILOT_VERSION` 7 (untouched).
-Seven roster types. `balance/delivery_factors.json` IS STALE ON PURPOSE.**
+**Board 21/21 green. `PILOT_VERSION` 7 (untouched). Seven roster types.
+`balance/delivery_factors.json` is being RE-MEASURED — see item 5.**
 
-Four things landed. Read **v2.28–v2.31** at the tail of GAMEPLAY-DESIGN.md.
+Six things landed. Read **v2.28–v2.33** at the tail of GAMEPLAY-DESIGN.md.
 
 1. **A.q8 CLOSED — the Lance's warning is continuous and proximity-driven**
    (v2.28). A looping alarm whose volume and beep-rate track `warning_level()`, a
@@ -32,22 +32,40 @@ Four things landed. Read **v2.28–v2.31** at the tail of GAMEPLAY-DESIGN.md.
 4. **THE AEGIS IS 3x TOUGHER AND A SHADE FASTER** (v2.31, the user's call): hull
    80 → 240, speed 7 → 8, on their principle *"the less it can maneuver, the more
    hull it should carry."* **NOT FLOWN.**
+5. **UNITS NO LONGER SPAWN INSIDE ONE ANOTHER** (v2.32). Rejection sampling in
+   `SortieRunner._point_for`; closest pair across 90 sorties went 0.53 m → 6.18 m.
+   The check for it **shipped unfailable at 16 bodies** and now runs at 48.
+6. **THE LANCE'S EVASION CELLS WERE MEASURING A STOPWATCH** (v2.33). The bench's
+   "immortal" Lance frees itself at 6.02 s of a 25 s cell, and the frozen shooter
+   holds its trigger down regardless — so **76% of the cell was an empty arena**
+   booked as missed shots. Blaster evasion 0.23 → **0.85**. It closes the
+   `Blaster x Lance` anomaly this file had listed as unexplained.
 
 ### THE NEXT JOB, and the first item is a decision
 
-1. **RE-MEASURE `balance/delivery_factors.json`** — `tools\balance_report`, ~55
-   min. `speed` and the new `run_steer_deg_s` are both stamped, so no Layer 2
-   number may be quoted until it runs. **It was deliberately NOT run yet**: the
-   user said *"if you can think of any additional dev things we can do before
-   that, then im on board"*, and **adding a bestiary type changes the stamp too**,
-   so building the **Phalanx (A7)** first would collapse two re-measures into one.
-   That question is open and is the thing to settle before spending the hour.
+1. **THE RE-MEASURE IS RUNNING** (`tools\balance_report`, ~55 min, started under
+   the corrected bench). An earlier in-flight run was **killed at 40 minutes**
+   when v2.33 surfaced — finishing a measurement already known to be wrong only
+   produces a number somebody quotes later, and the stamp cannot catch it because
+   the stamp covers CONFIGS and that was the RIG. **Check it finished and commit
+   `balance/delivery_factors.json`** before quoting any Layer 2 number.
 2. **Fly items 2–4 above.** Routes are in TESTING.md and in the report.
-3. Then the standing queue below, unchanged: P1.9 terrain, the bestiary screen,
-   the unit-overlap fix in `SortieRunner._point_for`, the target-ranking layer.
+3. **THE OPEN DECISION: build the Phalanx (A7) before or after the next
+   re-measure?** Adding a bestiary type changes the stamp, so doing it first
+   collapses two ~55 min runs into one. It was NOT started this session because a
+   new type's role and counter-web position are steering calls — the Lance took
+   three rounds of the user's input (A.q4, A.q5, A.q6) before it was built.
+4. Then the standing queue below: P1.9 terrain, the bestiary screen, the
+   target-ranking layer.
 
-### Two things worth carrying forward
+### Three things worth carrying forward
 
+- **A LOAD-BEARING COMMENT WAS FALSE, and that is a different failure from an
+  unfailable check.** `delivery_bench` asserted in prose that immortality stopped
+  the Lance ending its own cell. It had been read at least twice by someone
+  wondering about that exact cell, and each time it answered the question and
+  stopped the enquiry. **A wrong comment is worse than no comment, because it is
+  an authority.** Check claims, not just numbers.
 - **The seventh unfailable check was found, and it was INHERITED** — `lance_check`
   proved commitment with a MAXIMUM distance, which is reached on the tick of the
   teleport. It read **56.09 m at every steering rate including 45 deg/s**, so a
