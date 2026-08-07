@@ -146,6 +146,31 @@ extends TunableConfig
 ## a graze. So the dodge has a gradient instead of an edge, which is the same
 ## reasoning `flak_fuse_radius` and `flak_burst_radius` are two numbers.
 @export var blast_fuse_radius: float = 0.0
+## MAXIMUM COURSE-CHANGE RATE during a committed run, degrees per second (A.q9).
+## 0 = a pure ballistic commitment, which is what the Lance shipped as.
+##
+## IT IS A KNOB BECAUSE IT TRADES AGAINST THE TYPE'S FOUNDING RULE, and that
+## trade is the user's to make rather than mine to bake in. P4.2 gives the Lance
+## the web role *"aimed at where you are, so being somewhere else is the answer"*,
+## and steering weakens exactly that. The user asked for it anyway and was right
+## to: *"maybe we can allow it to steer slightly toward the target to make it even
+## more dangerous and interesting"* — a perfectly committed run is beaten by any
+## dodge of sufficient size, which makes the fight a timing puzzle rather than a
+## duel. But the counter-web position MOVES with this number, so at 0 the type is
+## exactly what it was, which is what makes it safe to ship and safe to retract.
+##
+## A RATE, NEVER A BLEND TOWARD THE PLAYER, and the unit is the whole design. A
+## blend re-aims by a fraction of the error every tick, so a small dodge and a
+## large one are defeated equally — that is a homing missile wearing a cap. A rate
+## cap spends a fixed budget of turn per second, so a one-metre side-step is
+## punished and a real committed break still works. It deletes *"be somewhere else
+## by one metre"* as the answer while leaving *"be somewhere else"* intact.
+##
+## Bounded from above by physics, not by this field. `accel / speed` is the fastest
+## a body can swing its velocity vector, which for the Lance is 9/34 = 0.26 rad/s
+## = about **15 deg/s** — so anything above that is capped by the airframe and the
+## commitment stays emergent rather than scripted, exactly as it was.
+@export var run_steer_deg_s: float = 0.0
 ## How fast a released bomb falls, as a multiple of project gravity.
 ##
 ## THIS IS THE TELEGRAPH LENGTH, which is why it is a knob rather than a

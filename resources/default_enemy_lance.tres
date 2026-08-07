@@ -40,6 +40,25 @@
 ; you from a good way out - the type is an area-denial threat and a Lance you
 ; never knew was there is a Lance that taught you nothing.
 ;
+; run_steer_deg_s 6 is A.q9 (the user: "maybe we can allow it to steer slightly
+; toward the target"), and 6 was MEASURED rather than chosen. It is the maximum
+; course-change rate the run may spend, in degrees per second, and it is the one
+; number here that walks back part of the type's own founding rule - so read
+; `EnemyConfig.run_steer_deg_s` before moving it, and note that 0 restores the
+; pure ballistic commitment exactly.
+;
+; What the sweep found, flying a real body against a 25 m side-step taken on the
+; telegraph edge, as metres of that dodge the steering ATE:
+;
+;   0 deg/s -> 0.0 m    3 -> 2.7 m    6 -> 5.6 m    9 -> 12.3 m    12 -> 16.5 m
+;
+; So with the 11 m fuse the break you need goes from about 11 m to about 17 m. 9
+; and 12 were rejected on that arithmetic rather than on taste: 12 puts the body
+; INSIDE the fuse against a 25 m dodge, which is a homing weapon with extra steps.
+; 6 bends the run a visible 8.5 degrees - enough to read as "it is following me",
+; which is the "interesting" half of the ask - while leaving a committed break
+; effective, which is the half P4.2 will not give up.
+;
 ; strength_cost 1.5 is deliberately CHEAP, per P4.2: "cheap and expendable - the
 ; type a losing enemy fields MORE of." A raider is 1.0, so a Lance is one and a
 ; half raiders' worth of garrison, which lets a pressured node field a swarm of
@@ -82,6 +101,7 @@ payload = 0
 bomb_damage = 55.0
 bomb_radius = 7.0
 blast_fuse_radius = 11.0
+run_steer_deg_s = 6.0
 bomb_fall_gravity_scale = 1.0
 respawn_delay = 0.0
 points = 180.0

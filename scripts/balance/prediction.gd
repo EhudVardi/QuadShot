@@ -166,6 +166,11 @@ const DELIVERY_FIELDS_ENEMY: Array[String] = [
 	"swarm_separation_gain", "swarm_cohesion_gain", "swarm_jitter",
 	"swarm_sting_radius",
 	"damage", "fire_rate", "muzzle_speed", "sight_range", "preferred_range",
+	# A.q9's steering. It is here for the same structural reason `preferred_range`
+	# is: it decides the GEOMETRY an evasion cell is measured at. `evasion x lance`
+	# asks how hard the body is to shoot, and a Lance that bends its run toward the
+	# pilot presents a different target than one flying a rail.
+	"run_steer_deg_s",
 ]
 ## The AIRFRAME's half of aim (Phase 4b): what the pilot is flying decides how
 ## well it can hold a line, so a frame's flight model is a delivery input in the

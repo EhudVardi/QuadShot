@@ -281,6 +281,7 @@ func _align(delta: float) -> void:
 ## except for the fuse, which is not re-aiming: it changes WHEN the warhead goes
 ## off, never where the body is going.
 func _run(delta: float) -> void:
+	_steer_the_run(delta)
 	_fly_toward(_locked, delta, enemy_config.speed)
 	if _proximity_triggered():
 		_spend(true)
@@ -295,6 +296,49 @@ func _run(delta: float) -> void:
 		return
 	if _phase_time >= RUN_SECONDS:
 		_enter(Phase.RESET)
+
+
+## A BOUNDED COURSE CORRECTION during the run (A.q9, `run_steer_deg_s`).
+##
+## It rotates the AIM POINT about the body at a capped angular rate, rather than
+## moving `_locked` toward the player or blending the two. Everything downstream —
+## the arrival test, `_fly_toward`, the fuse — keeps reading `_locked` and needs no
+## knowledge that this exists, and the run is still "fly at a point" rather than
+## "chase a body".
+##
+## THE RATE CAP IS THE DESIGN, and it is what keeps P4.2's counterplay intact.
+## Turn budget is spent per second, so the correction it can buy over a run is
+## bounded by how long the run lasts: a small dodge is inside that budget and gets
+## punished, a real break is outside it and still works. A blend toward the player
+## would have defeated both equally, which is a homing missile with a slow fuse.
+##
+## Rotation preserves the offset's LENGTH, so steering never brings the aim point
+## nearer or pushes it further — it only changes the bearing. Otherwise the knob
+## would quietly be an arrival-time knob as well.
+##
+## At 0 this function does nothing at all, which is the retraction path.
+func _steer_the_run(delta: float) -> void:
+	if enemy_config.run_steer_deg_s <= 0.0 or _player == null:
+		return
+	var offset: Vector3 = _locked - global_position
+	var toward: Vector3 = _player.global_position - global_position
+	if offset.length_squared() < 0.01 or toward.length_squared() < 0.01:
+		return
+	var from_dir: Vector3 = offset.normalized()
+	var to_dir: Vector3 = toward.normalized()
+	var error: float = from_dir.angle_to(to_dir)
+	if error <= 0.0001:
+		return
+	var budget: float = deg_to_rad(enemy_config.run_steer_deg_s) * delta
+	var axis: Vector3 = from_dir.cross(to_dir)
+	if axis.length_squared() < 1.0e-12:
+		# Exactly opposed or exactly aligned: no meaningful rotation axis, and
+		# picking one arbitrarily would make a 180-degree error swing a direction
+		# that depends on float noise.
+		return
+	var turned: Vector3 = from_dir.rotated(axis.normalized(),
+			minf(budget, error))
+	_locked = global_position + turned * offset.length()
 
 
 ## THE PROXIMITY FUSE: inside the fuse radius and no longer closing, go off.

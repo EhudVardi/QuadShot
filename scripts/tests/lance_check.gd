@@ -70,6 +70,12 @@ var _warn_peak: float = 0.0
 var _warn_last: float = 0.0
 ## Stage 0's peak, kept across the rebuild so stage 2 can be compared against it.
 var _wide_warn_peak: float = -1.0
+## A.q9's steering, stages 3 and 4. `_steer_override` is forced onto the config
+## the stage builds; `_closest` is the nearest the body got to the dodged player
+## during its run, which is the number the whole feature is judged on.
+var _steer_override: float = -1.0
+var _closest: float = INF
+var _rail_closest: float = -1.0
 
 
 func _initialize() -> void:
@@ -246,6 +252,7 @@ func _build(with_player: bool) -> void:
 	_warn_at_lock = 0.0
 	_warn_peak = 0.0
 	_warn_last = 0.0
+	_closest = INF
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	if with_player:
@@ -255,7 +262,13 @@ func _build(with_player: bool) -> void:
 	else:
 		_player = null
 	_lance = (load("res://scenes/combat/lance.tscn") as PackedScene).instantiate() as Lance
-	_lance.enemy_config = load("res://resources/default_enemy_lance.tres")
+	var config: EnemyConfig = load("res://resources/default_enemy_lance.tres")
+	if _steer_override >= 0.0:
+		# Duplicated, never mutated in place — the .tres is a shared instance and
+		# every other stage in this file reads the same object.
+		config = config.duplicate() as EnemyConfig
+		config.run_steer_deg_s = _steer_override
+	_lance.enemy_config = config
 	_lance.ai_seed = 0
 	_lance.position = LANCE_AT
 	_arena.add_child(_lance)
@@ -285,6 +298,8 @@ func _on_physics_frame() -> void:
 		_watch_the_run()
 	elif _stage == 2:
 		_watch_the_near_miss()
+	elif _stage == 3 or _stage == 4:
+		_watch_the_steering()
 	else:
 		_watch_without_a_player()
 
@@ -321,8 +336,10 @@ func _watch_the_run() -> void:
 		# new position; a committed one flies past where the player used to be.
 		_player.global_position = PLAYER_AT + Vector3(40.0, 0.0, 0.0)
 	if _seen_moving and _player != null and is_instance_valid(_player):
-		_drift_after_commit = maxf(_drift_after_commit,
-				_lance.global_position.distance_to(_player.global_position))
+		var range_m: float = _lance.global_position.distance_to(
+				_player.global_position)
+		_drift_after_commit = maxf(_drift_after_commit, range_m)
+		_closest = minf(_closest, range_m)
 
 
 ## One tick of A.q8's readout. `harmless` is true whenever the body has not yet
@@ -351,11 +368,27 @@ func _verify_the_run() -> void:
 	_expect(_detonated == 1,
 			"it spends itself exactly once, so a wave holding it can clear (%d)"
 			% _detonated)
-	# The player was teleported 40 m sideways the moment the run began. A homing
-	# enemy would have closed on the new position; this one must not have.
-	_expect(_drift_after_commit > 20.0,
-			"the run is COMMITTED - it flew at where the player WAS, ending %.0f m from where they went"
-			% _drift_after_commit)
+	# THE COMMITMENT ASSERTION, and it is measured on CLOSEST APPROACH because the
+	# measure it used until 2026-08-07 could not fail.
+	#
+	# It used to assert `_drift_after_commit > 20`, a MAXIMUM distance — and the
+	# maximum is reached on the very tick of the teleport, before the body has
+	# moved at all. Measured across steering rates 0, 6, 12, 20 and 45 deg/s, that
+	# number came back as **56.09 m every single time**, identical to two decimals,
+	# because it was reporting the length of the dodge rather than anything the
+	# Lance did. A perfectly homing enemy passed it. That is the seventh unfailable
+	# check found on this project and the first that was inherited rather than
+	# freshly written — v2.26 fixed this stage's TRIGGER and left its MEASURE.
+	#
+	# Closest approach is the honest number: it is exactly what "did it follow me"
+	# means. The threshold is set DELIBERATELY rather than to whatever passes —
+	# against the same 40 m break, rail and shipped read 40.1 m and 34.3 m, while
+	# 12 deg/s reads 19.5 m and 20 deg/s gets inside the fuse at 7.0 m. So 25 m
+	# says: *a 40 m committed break must leave at least 25 m of it intact*, which
+	# is a real ceiling on A.q9's knob rather than a formality.
+	_expect(_closest > 25.0,
+			"the run is COMMITTED - a 40 m break left %.1f m of clearance, so it flew at where the player WAS"
+			% _closest)
 	# THE WIDE-MISS CONTROL. The player was moved 40 m, which is far outside the
 	# 11 m fuse, so this run must have cost them NOTHING. Without this the
 	# proximity test below could be satisfied by a fuse that always fires.
@@ -366,8 +399,12 @@ func _verify_the_run() -> void:
 	_expect(_player_taken() == 0.0,
 			"and it cost the player NOTHING — a 40 m dodge is a clean miss (%.0f damage)"
 			% _player_taken())
-	_expect(_blast_taken > 0.0 or _drift_after_commit > 0.0,
-			"the run resolved rather than looping forever")
+	# DELETED 2026-08-07: `_blast_taken > 0 or _drift_after_commit > 0`, asserting
+	# "the run resolved rather than looping forever". `_drift_after_commit` is a
+	# distance from a teleported player, so it is above zero on the first tick of
+	# every possible run — the condition could not be false. The claim it was
+	# reaching for is already held twice over: `_detonated == 1` above, and the
+	# MAX_SECONDS timeout, which fails loudly and names the stage.
 	_verify_the_warning_wide()
 	_check_the_window()
 
@@ -466,8 +503,10 @@ func _verify_the_near_miss() -> void:
 	_verify_the_warning_close()
 	_arena.free()
 	_arena = null
-	_stage = 1
-	_build(false)
+	# On to A.q9: the same commitment on a rail, then with the shipped steering.
+	_stage = 3
+	_steer_override = 0.0
+	_build(true)
 
 
 ## ---------- A.q8: the warning, on a run that CONNECTED ----------
@@ -496,6 +535,92 @@ func _verify_the_warning_close() -> void:
 	_expect(_warn_peak >= 0.99,
 			"and it is at MAXIMUM on the tick the fuse fires, so full alarm means inside the envelope (%.2f)"
 			% _warn_peak)
+
+
+## ---------- A.q9: the run steers, and the steering is BOUNDED ----------
+
+## THE KNOB WALKS BACK PART OF THE TYPE'S FOUNDING RULE, so the check has to hold
+## both ends of the trade rather than just "the feature is on".
+##
+## P4.2 gives the Lance the web role *"aimed at where you are, so being somewhere
+## else is the answer"*. The user asked for a correction anyway — *"maybe we can
+## allow it to steer slightly toward the target to make it even more dangerous and
+## interesting"* — and the honest form is a maximum course-change RATE, because a
+## rate cap punishes a small dodge while leaving a real break effective. A blend
+## toward the player would defeat both equally, which is a homing missile.
+##
+## Two runs, the shape A.q8's stage established: the SAME commitment and the SAME
+## dodge, once with the knob at 0 and once with the shipped value. The only
+## difference between them is the knob, so the difference in closest approach is
+## what the knob bought, in metres, and nothing else can be claiming credit.
+##
+## Stage 3 is the rail (knob 0) and stage 4 the shipped value.
+const STEER_DODGE: float = 25.0
+
+
+func _watch_the_steering() -> void:
+	if not is_instance_valid(_lance):
+		_verify_the_steering()
+		return
+	var telegraphing: bool = _lance.telegraphing()
+	var locked_now: bool = _was_telegraphing and not telegraphing
+	_was_telegraphing = telegraphing
+	if locked_now and not _seen_moving:
+		_seen_moving = true
+		_player.global_position = PLAYER_AT + Vector3(STEER_DODGE, 0.0, 0.0)
+	if not _seen_moving:
+		return
+	if telegraphing:
+		# It missed and began a second wind-up: the run under test is over.
+		_verify_the_steering()
+		return
+	_closest = minf(_closest,
+			_lance.global_position.distance_to(_player.global_position))
+
+
+func _verify_the_steering() -> void:
+	var config: EnemyConfig = load("res://resources/default_enemy_lance.tres")
+	if _stage == 3:
+		_rail_closest = _closest
+		# THE CONTROL. At 0 the type must be exactly what it was: a body that
+		# flies at the point and does not follow. It should end roughly a full
+		# dodge away, which is also what makes the comparison below meaningful.
+		_expect(_closest > STEER_DODGE * 0.9,
+				"with steering at 0 the run is a RAIL — closest approach %.1f m against a %.0f m dodge"
+				% [_closest, STEER_DODGE])
+		_arena.free()
+		_arena = null
+		_stage = 4
+		_steer_override = -1.0
+		_build(true)
+		return
+	var ate: float = _rail_closest - _closest
+	_expect(config.run_steer_deg_s > 0.0,
+			"the shipped Lance steers during its run (%.1f deg/s)"
+			% config.run_steer_deg_s)
+	# 1. IT DOES SOMETHING. Without this the knob could be dead code and every
+	#    other assertion here would still pass.
+	_expect(ate > 1.0,
+			"and it EATS part of the dodge — closest %.1f m against the rail's %.1f m, so %.1f m of the break was taken"
+			% [_closest, _rail_closest, ate])
+	# 2. IT IS STILL BOUNDED, and this is the assertion P4.2 is standing behind.
+	#    A 25 m committed break has to remain a clean escape: outside the fuse,
+	#    therefore outside the blast, therefore free. If this ever fails, the type
+	#    has stopped being dodgeable and the knob has gone too far.
+	_expect(_closest > config.blast_fuse_radius,
+			"while a real %.0f m break still WORKS — %.1f m is outside the %.0f m fuse, so it costs nothing"
+			% [STEER_DODGE, _closest, config.blast_fuse_radius])
+	# 3. And it must not have eaten most of the dodge, which is the difference
+	#    between "it corrects" and "it homes". A rate cap spends a fixed budget of
+	#    turn per second; a blend would close nearly all of this.
+	_expect(ate < STEER_DODGE * 0.5,
+			"and it is a CORRECTION rather than a homing run — %.1f m of %.0f taken, under half"
+			% [ate, STEER_DODGE])
+	_arena.free()
+	_arena = null
+	_stage = 1
+	_steer_override = -1.0
+	_build(false)
 
 
 ## ---------- falx bug four, held for this type ----------
