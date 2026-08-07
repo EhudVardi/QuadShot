@@ -361,7 +361,7 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
-## 4. The check suite — 21 headless checks
+## 4. The check suite — 22 headless checks
 
 Run all of them before believing anything:
 
@@ -371,9 +371,9 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`, `lance`.
+`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`, `lance`, `phalanx`.
 
-`falx`, `screamer`, `aegis` and `lance` are **behaviour checks**, and every new enemy type
+`falx`, `screamer`, `aegis`, `lance` and `phalanx` are **behaviour checks**, and every new enemy type
 gets one the day it lands. The reason is scar tissue: the harness can only ever say *"this
 cell reads 0%"*, which is equally consistent with a tough enemy, a broken enemy,
 and an enemy that has flown out of the level. Four separate Falx bugs looked
@@ -442,6 +442,33 @@ alarm when it stops and glows, then the alarm climbing in pitch and rate for the
 whole run. It saturates at 11 m, which is the fuse radius, so full alarm always
 means *inside the envelope*. `respawns = true` on the specimen, so it comes back
 however it ends.
+
+`phalanx_check` (2026-08-07) guards the heavy defender, and both of its central
+claims are held by **comparing two runs that differ in one thing** — the shape
+that caught a timer-driven warning and a dead steering knob on the Lance the
+same day. Same body, same damage, same distance; only the side the attacker
+stands on changes, or how much time has passed. Every single-run assertion
+available (*it has a shield*, *it has guns*) is passed just as happily by a flat
+shield and cosmetic mounts.
+
+It also holds the **aegis as a control**: that type must stay all-round and
+threshold-gated, or "make the phalanx's shield an arc" could be satisfied by
+making every shield an arc and silently deleting the weapon-choice gate.
+
+Four mutations are on record. The one worth knowing is a slew of 400 deg/s — a
+shield fast enough to always face the pilot, which would make the type
+unkillable from any bearing. It fails *"the attacker's bearing is still open"*,
+so the guard rail is a check rather than something somebody has to notice while
+flying. Another mutation, an arc of 360, found a real float-precision defect by
+landing exactly on it: `Vector3.angle_to` computes in 32-bit floats and returns
+3.14159274 where `deg_to_rad(360) * 0.5` gives 3.14159265, so "covered from
+every side" had a hairline gap directly astern.
+
+**To fly it**, the dev room has a specimen at **(-70, 16, 60)** — northwest,
+in open sky over open ground, which is the terrain A7 says the type is best on
+and therefore the honest place to judge it. It holds that station and never
+follows, so you can leave and come back on a different bearing, which is the
+whole counterplay the shield exists to demand.
 
 `heat_check` guards the blaster's duty cycle (v1.91), and the failure it exists
 for is the worst one available: a gun that locks out and **never comes back**

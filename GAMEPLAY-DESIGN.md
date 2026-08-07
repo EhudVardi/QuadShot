@@ -11897,3 +11897,98 @@ being rediscovered as a red board when A.q1 lands.
     stopped the enquiry. A wrong comment is worse than no comment, because it is
     an authority: *the reason nobody measured the 6.02 s is that the file said it
     had been thought about.*
+
+- **2026-08-07 — v2.34. THE PHALANX (A7) IS BUILT: the roster's eighth type, its
+  first heavy DEFENDER, and the first enemy that cannot be beaten from one orbit
+  slot.** Steered by the user the same day (*"you can go on and start making the
+  Phalanx"*), with the two live forks answered by them rather than assumed.
+  - **IT EXISTS TO CLOSE AN ESCALATION HOLE, not to add variety.** A7's original
+    finding stands: once the aegis correctly left defensive garrisons (A.q1),
+    `HEAVY_TYPES` held *a bomber that is never there* and *a jammer with no
+    weapon*. P4.6 promises that a pressured enemy fields heavier things rather
+    than more things — and what that actually delivered was **"the war gets
+    foggier"** and nothing else. `phalanx_check` asserts the fix rather than the
+    intent: at least one HEAVY type must have `damage > 0`.
+  - **THE SHIELD IS AN ARC THAT CHASES ITS ATTACKER, and it is the whole type.**
+    The user picked this over a nose-mounted shield and over a free-spinning one,
+    and the reason it is the right pick is that it is the only one of the three
+    that delivers A7's own stated web role:
+
+    ```
+    park in one orbit slot -> the arc catches up  -> your damage stops landing
+    keep moving around it  -> the arc lags behind -> your damage lands
+    ```
+
+    A nose-mounted shield turns into a solved problem the moment you get behind
+    it; a free-spinning one makes the fight a rhythm puzzle where position stops
+    mattering. This one **punishes the peel-and-kill rhythm the raider
+    deliberately allows**, which is exactly what P4.2 asked the anti-orbit type
+    to do.
+  - **TWO SHIELDED TYPES, COUNTERED ON DIFFERENT AXES, and that is the whole
+    justification for a second one.** The aegis's screen asks **what are you
+    shooting with** — a threshold no chip gun can cross. The Phalanx's asks
+    **where are you shooting from**. Neither counter helps with the other, and
+    `phalanx_check` holds the aegis as a CONTROL: it must stay all-round and
+    threshold-gated, or *"make the phalanx's shield an arc"* could have been
+    satisfied by making every shield an arc and quietly deleting v1.25's
+    weapon-choice gate.
+  - **AND MOVING NEVER MAKES YOU SAFE**, which is the tension the type is built
+    on. Every surviving mount fires at you from wherever you are, so the arc does
+    not decide whether you are being shot — it decides whether YOUR shots count.
+    There is no slot that is both safe and useful.
+  - **THE MOUNTS ARE DESTRUCTIBLE, on the user's call.** Three, evenly spaced, so
+    there is no bearing without a gun on it; each is two bolts' worth of hull, so
+    stripping one is a reward for a burst rather than a second boss. The reason
+    they chose it over cosmetic mounts is pacing: *a heavy enemy whose threat only
+    ends when its health bar does is a health bar.* Now a long fight visibly
+    degrades it and the incoming volume falls as you work.
+  - **THE ARC IS TAKEN FROM WHERE THE PLAYER IS, not from the projectile**, and
+    that is a deliberate refusal to touch a contract. `take_hit(damage)` carries a
+    number and nothing else — every weapon in the game speaks it — so the bearing
+    is derived from the attacker's own position at the moment of the hit. It costs
+    no new plumbing and behaves identically for a bolt, a missile and a splash,
+    where a velocity-derived bearing would disagree with all three.
+  - **ONE OPTIONAL ARGUMENT ON `Health`, rather than a second shield.**
+    `take(amount, shielded := true)`. A directional shield owning its own pool
+    would be two physics for one word — the thing `Bomb.blast` was made a shared
+    static to avoid — and it would have had to re-derive the regen rules,
+    *including the one corrected in v2.29 the same morning*. The DIRECTION is the
+    caller's business, because only the caller knows its own geometry; what a
+    shield DOES stays in one place.
+  - **A FLOAT-PRECISION DEFECT, FOUND BY A MUTATION LANDING EXACTLY ON IT.**
+    Setting `shield_arc_deg` to 360 — "cover me from every side" — left a hairline
+    gap directly astern. `Vector3.angle_to` computes in 32-bit floats and returns
+    **3.14159274** for two opposed vectors, while `deg_to_rad(360) * 0.5` gives
+    the 64-bit **3.14159265**, so the comparison failed by nine decimal places at
+    exactly one bearing. It is guarded now. **The mutation was chosen badly and
+    that is why it was useful**: a test aimed at a degenerate value found a real
+    bug that a well-chosen test would have flown straight past.
+  - **THE CHECK IS TWO RUNS PER CLAIM, the shape that has now paid three times in
+    one day.** Same body, same damage, same distance; the only difference is which
+    side the attacker stands on, or how much time has passed. Every single-run
+    assertion available here — *it has a shield*, *it has guns* — is passed just
+    as happily by a flat shield and cosmetic mounts. Four mutations are on record
+    and each fails a different sentence, including the one that matters most: a
+    slew fast enough to always face the pilot (400 deg/s) fails *"the attacker's
+    bearing is still open"*, which is the unkillable failure mode caught by the
+    guard rail rather than by somebody flying it.
+  - **A LAYER 1 LIMIT, STATED SO NOBODY QUOTES IT WRONG.** `Lethality` models the
+    screen as a plain pool that always applies, because that is what `Health`
+    does. That is exactly right for a pilot inside the arc and pessimistic for one
+    outside it, so Layer 1 prices the WORST case and the gap to the harness IS the
+    directional shield. It is the instrument's output, not an error.
+  - **AND THE COMBO TABLE NOW SKIPS IT, which is a statement about what that table
+    is for.** `lethality_check` tabulates *"strip with X, finish with Y"* for every
+    shielded type, and self-asserts that a combo using one weapon twice equals that
+    weapon's solo row. The Phalanx failed that — correctly. `Lethality.combo`
+    splits the fight at shield-down and drops the carry-through of the round that
+    broke the screen, which only surfaces on a screen thin enough to be overshot
+    by one hit. But the deeper point is that a strip/finish table answers a
+    question this type does not pose: with no threshold, **every** weapon strips
+    it, and its counter is positional. The table is now gated on
+    `shield_break_threshold > 0`, and its failure message names the enemy — which
+    it did not, and that cost real time diagnosing this.
+  - **NOT FLOWN AND NOT BALANCED.** Every number is an authored starting point per
+    H6. `balance/delivery_factors.json` is stale again by design: a new type joins
+    `ENEMIES_FOR_STAMP`, which is the batching the user approved when they said
+    to build this before the next re-measure.

@@ -10,10 +10,23 @@ what happens next.
 
 ## WHERE IT STANDS, 2026-08-07 — read this block first
 
-**Board 21/21 green. `PILOT_VERSION` 7 (untouched). Seven roster types.
-`balance/delivery_factors.json` re-measured, PASS, and committed.**
+**Board 22/22 green. `PILOT_VERSION` 7 (untouched). EIGHT roster types.
+`balance/delivery_factors.json` IS STALE — the new type changed the stamp.**
 
-Six things landed. Read **v2.28–v2.33** at the tail of GAMEPLAY-DESIGN.md.
+Seven things landed. Read **v2.28–v2.34** at the tail of GAMEPLAY-DESIGN.md.
+
+0. **THE PHALANX IS BUILT (A7, v2.34)** — the roster's eighth type and its first
+   heavy DEFENDER, closing the escalation hole where `HEAVY_TYPES` held a bomber
+   that is never in defence and a jammer with no weapon. **Its shield is an ARC
+   that chases whoever hurts it**, so parking in one orbit slot stops your damage
+   landing while every surviving mount shoots you anyway — there is no slot that
+   is both safe and useful. Mounts are individually destructible. Both design
+   forks were the user's call. **NOT FLOWN, nothing balanced.**
+   - **Next action on it: `toolsalance_report` (~55 min).** A new type joins
+     `ENEMIES_FOR_STAMP`, so no Layer 2 number is quotable until it runs. It was
+     deliberately NOT run yet — the type's numbers are unflown authored guesses,
+     and measuring before the human's hands have moved them buys a number with a
+     short life. Fly it first.
 
 1. **A.q8 CLOSED — the Lance's warning is continuous and proximity-driven**
    (v2.28). A looping alarm whose volume and beep-rate track `warning_level()`, a
@@ -63,14 +76,23 @@ Six things landed. Read **v2.28–v2.33** at the tail of GAMEPLAY-DESIGN.md.
    - **The Aegis duel rows stay compromised** for v2.22's reason (the harness's
      intercept clock cannot resolve a bomber needing three passes inside its cap),
      so `Missile x Aegis` at 0% is **not** evidence about the hull retune.
-2. **Fly items 2–4 above.** Routes are in TESTING.md and in the report.
-3. **THE OPEN DECISION: build the Phalanx (A7) before or after the next
-   re-measure?** Adding a bestiary type changes the stamp, so doing it first
-   collapses two ~55 min runs into one. It was NOT started this session because a
-   new type's role and counter-web position are steering calls — the Lance took
-   three rounds of the user's input (A.q4, A.q5, A.q6) before it was built.
-4. Then the standing queue below: P1.9 terrain, the bestiary screen, the
-   target-ranking layer.
+2. **Fly the Phalanx and items 2–4 above.** Routes are in TESTING.md and in the
+   report. The Phalanx specimen is in the dev room at **(-70, 16, 60)**.
+3. ~~**Build the Phalanx**~~ **DONE**, and the re-measure it was batched with is
+   the item above.
+4. **THE LANCE'S DEFAULTS ARE STILL THE "a bit weak" ONES.** The user tuned it
+   live and liked the result — *"i've played with its parameters, its a bit more
+   dangerous"* — but the overlay only persists on SAVE and there is no
+   `user://enemy_lance.tres`, so that tuning was lost. Their standing note is
+   *"does not turn enough to be able to actually catch me"*, and the measured next
+   step is `run_steer_deg_s` 6 -> 9, which takes the dodge it eats from 5.6 m to
+   12.3 m. **Ask before moving it** — and batch it into the same re-measure.
+5. **A.q6 IS SETTLED FOR NOW** (2026-08-07): *"for now lets make the lance target
+   only me. when we'll start working on the allied side we'll start looking into
+   the subject of target ranking."* The `_find_player()` seam stays, and
+   `lance_check` still asserts its shape.
+6. Then the standing queue below: P1.9 terrain, the bestiary screen, the
+   target-ranking layer (blocked on allied assets, per item 5).
 
 ### Three things worth carrying forward
 
