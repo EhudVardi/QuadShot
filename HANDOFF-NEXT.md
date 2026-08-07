@@ -8,7 +8,59 @@ what happens next.
 
 ---
 
-## WHERE IT STANDS, 2026-08-06 (end of session) — read this block first
+## WHERE IT STANDS, 2026-08-07 — read this block first
+
+**HEAD `256840c`. Board 21/21 green. Tree clean. `PILOT_VERSION` 7 (untouched).
+Seven roster types. `balance/delivery_factors.json` IS STALE ON PURPOSE.**
+
+Four things landed. Read **v2.28–v2.31** at the tail of GAMEPLAY-DESIGN.md.
+
+1. **A.q8 CLOSED — the Lance's warning is continuous and proximity-driven**
+   (v2.28). A looping alarm whose volume and beep-rate track `warning_level()`, a
+   new public scalar that saturates at `blast_fuse_radius`, so full alarm means
+   *inside the envelope that actually hurts you*. Silent 0–2.5 s, opens at −21 dB
+   on the lock at 41.6 m, swells to −3 dB, saturates at 11.2 m. **The user flew
+   it: *"i think its good now."***
+2. **A.q9 CLOSED — the Lance bends its run by 6 deg/s** (v2.30), a maximum
+   course-change RATE (never a blend), zero-able, and measured: it eats 5.6 m of a
+   dodge, so the break you need goes 11 m → about 17 m. **NOT FLOWN.**
+3. **THE AEGIS'S SHIELD WAS BROKEN AND IT IS THE BIGGEST FIND** (v2.29). Hull hits
+   never delayed the screen's return, and the screen came back as a **0.05-point
+   sliver** that absorbed every chip round forever — so **a blaster could not kill
+   an aegis at all after the first four seconds**. One fix: any arriving hit holds
+   the screen down. It now does exactly what the user described. **NOT FLOWN.**
+4. **THE AEGIS IS 3x TOUGHER AND A SHADE FASTER** (v2.31, the user's call): hull
+   80 → 240, speed 7 → 8, on their principle *"the less it can maneuver, the more
+   hull it should carry."* **NOT FLOWN.**
+
+### THE NEXT JOB, and the first item is a decision
+
+1. **RE-MEASURE `balance/delivery_factors.json`** — `tools\balance_report`, ~55
+   min. `speed` and the new `run_steer_deg_s` are both stamped, so no Layer 2
+   number may be quoted until it runs. **It was deliberately NOT run yet**: the
+   user said *"if you can think of any additional dev things we can do before
+   that, then im on board"*, and **adding a bestiary type changes the stamp too**,
+   so building the **Phalanx (A7)** first would collapse two re-measures into one.
+   That question is open and is the thing to settle before spending the hour.
+2. **Fly items 2–4 above.** Routes are in TESTING.md and in the report.
+3. Then the standing queue below, unchanged: P1.9 terrain, the bestiary screen,
+   the unit-overlap fix in `SortieRunner._point_for`, the target-ranking layer.
+
+### Two things worth carrying forward
+
+- **The seventh unfailable check was found, and it was INHERITED** — `lance_check`
+  proved commitment with a MAXIMUM distance, which is reached on the tick of the
+  teleport. It read **56.09 m at every steering rate including 45 deg/s**, so a
+  perfectly homing enemy passed it. v2.26 had fixed that stage's *trigger* and left
+  its *measure*. Now on closest approach with a deliberately-set 25 m threshold.
+- **The two-run comparison is the shape that works** for a mechanic whose output
+  is not directly assertable (a sound, a trajectory): fly the SAME situation twice
+  changing only the thing under test, and assert the difference. It caught a
+  timer-driven warning and a dead steering knob on the same day.
+
+---
+
+## WHERE IT STOOD, 2026-08-06 (end of session)
 
 **HEAD `be7e232`. Board 21/21 green. Tree clean. `PILOT_VERSION` 7 (untouched).
 Seven roster types. Track 5 is CLOSED.**

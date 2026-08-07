@@ -11620,3 +11620,164 @@ being rediscovered as a red board when A.q1 lands.
     pitch range, the 4x lead-in and the waveform are authored starting points. The
     one number that is NOT a free choice is where the alarm saturates: that is the
     fuse, and it should stay the fuse.
+
+- **2026-08-07 — v2.29. THE AEGIS'S SHIELD DID NOT DO WHAT ITS OWN FIELD NAMES
+  PROMISED, and a 0.05-point sliver made the type unkillable.** The user asked a
+  question rather than reporting a bug — *"i saw the shield restored a few times,
+  is it restored when no hits are taken? because this sounds the correct thing to
+  happen"* — and then described the mechanic they expected: *"i need to take its
+  shield down with a missle, then maintain some damage on its hull to degrade it,
+  and if i cannot connect damage to it for X seconds, its shield should rearm."*
+  That is the design. It is not what the code did.
+  - **DEFECT ONE, which is the one the question was about.** `_regen_wait` was
+    rewound inside the `shield > 0` branch, so once the screen was down, hull hits
+    did not delay its return at all. The screen came back `shield_regen_delay`
+    after the last hit that landed while it was still UP, however hard the pilot
+    was working. **Staying on the target bought nothing.**
+  - **DEFECT TWO, which is the one that mattered, and it was invisible from the
+    stat block.** The screen returns as a SLIVER and the absorb gate is
+    `shield > 0`, not *shield worth anything*. Measured on a real `Health` at
+    240 Hz: 4 s after the break, **0.05 points** of shield came back — and from
+    that tick every chip round was absorbed whole and rewound the delay, so the
+    sliver could never grow and **the hull could never be touched again**. Hull
+    frozen at 99810 for the rest of the run while rounds kept arriving. *A blaster
+    could not kill an aegis, ever, after the first four seconds.*
+  - **ONE FIX FOR BOTH, because they were one bug seen from two ends**: any hit
+    that ARRIVES holds the screen down, on the shield or on the exposed hull. The
+    comment on the OVER-threshold path already named this exact failure — *"letting
+    a 2-point sliver of regenerated shield swallow a whole missile"* — and it was
+    still live on the under-threshold one, which is a lesson about fixing a class
+    of bug in one branch and calling it done.
+  - **MEASURED BOTH WAYS, and the before/after is the whole report.** Before: 8 s
+    of sustained fire on a cracked aegis delivered **160 of the 330 damage that
+    arrived**, the rest absorbed by the sliver. After: all 330 lands, the hull
+    falls continuously, and the screen rearms 4 s after cease-fire, climbing at
+    12/s to full in 5 s. That is the user's sentence, executed.
+  - **THE MODEL HAD TO MOVE WITH THE COMPONENT, and `lethality_check` is what
+    said so.** `Lethality` replays `Health.take` in arithmetic, so it carried the
+    identical bug; fixing only the component read as **"predicted 8 hits, planted
+    5"**. That bench exists precisely to catch the two drifting apart and it did
+    it the first time it mattered.
+  - **THE MEASURING RIG WAS WRONG FIRST, and it was caught by instrumenting it
+    rather than by trusting it.** The first run reported the shield back at FULL
+    within 0.5 s and the hull untouched — nonsense in both directions. The cause:
+    a Node added during `SceneTree._initialize()` does not get `_ready()` until
+    the first frame, so the `Health` had a zero hull, died to the first hit, and
+    every later reading was an artifact. **Two prints found it; no amount of
+    reading the game code would have, because the game code was not the problem.**
+  - **A behaviour check landed with the fix** (`aegis_check`, five assertions),
+    driving a DETACHED `Health` with its regen stepped by hand — no tree, no
+    frames, deterministic and instant. The load-bearing one is not *"the shield is
+    down"* but ***"every one of the 33 rounds still LANDS"***, because that is the
+    sentence the sliver breaks. Mutation on record: restore the old reset and it
+    fails at `160 hull over 8.0 s`.
+
+- **2026-08-07 — v2.30. A.q9 BUILT: the Lance may bend its run, by a measured
+  amount — and the check that was supposed to guard its commitment could not
+  fail.** *"maybe we can allow it to steer slightly toward the target to make it
+  even more dangerous and interesting."*
+  - **SHIPPED AS A RATE, NEVER AS A BLEND, and the unit is the design.** A blend
+    re-aims by a fraction of the error every tick, so a small dodge and a large one
+    are defeated equally — that is a homing missile wearing a cap. A rate spends a
+    fixed budget of turn per second, so *"be somewhere else by one metre"* stops
+    working while *"be somewhere else"* still does. `run_steer_deg_s`, 0 by
+    default across the roster, and at 0 the type is bit-for-bit what it was.
+  - **IT ROTATES THE AIM POINT, not the body and not `_locked` toward the
+    player.** The offset's LENGTH is preserved, so steering changes bearing and
+    never arrival time — otherwise the knob would quietly have been an
+    arrival-time knob as well. Everything downstream keeps reading `_locked`, so
+    the run is still *fly at a point* rather than *chase a body*.
+  - **6 deg/s WAS MEASURED, NOT CHOSEN.** Flying a real body against a 25 m
+    side-step taken on the telegraph edge, as metres of that dodge each rate ate:
+
+    | deg/s | 0 | 3 | 6 | 9 | 12 |
+    |---|---|---|---|---|---|
+    | dodge eaten | 0.0 m | 2.7 m | 5.6 m | 12.3 m | 16.5 m |
+
+    So against the 11 m fuse the break you need goes from **about 11 m to about
+    17 m**. 12 was rejected on arithmetic rather than taste: it puts the body
+    INSIDE the fuse against a 25 m dodge. 6 bends the run a visible 8.5 degrees —
+    enough to read as *it is following me*, which is the "interesting" half of the
+    ask — while leaving a committed break effective, which is the half P4.2 will
+    not give up. **Tuned together with the fuse as v2.27 required**, and the
+    combined arithmetic is stated so the user can argue with it.
+  - **THE COMMITMENT ASSERTION WAS UNFAILABLE. IT IS THE SEVENTH, AND THE FIRST
+    THAT WAS INHERITED RATHER THAN FRESHLY WRITTEN.** It asserted
+    `_drift_after_commit > 20` — a MAXIMUM distance from the dodged player. The
+    maximum is reached on the very tick of the teleport, before the body has moved
+    at all. Swept across steering rates **0, 6, 12, 20 and 45 deg/s, it came back
+    56.09 m every single time**, identical to two decimals. It was reporting the
+    length of the dodge. **A perfectly homing enemy passed it.**
+    - v2.26 rewrote this stage's TRIGGER (dodging on the telegraph edge rather
+      than on a speed threshold) and left its MEASURE, which is a distinct kind of
+      near-miss worth naming: *fixing when a test fires does not fix what it
+      reads*.
+    - Now measured on **closest approach**, which is what "did it follow me"
+      actually means, and the threshold is set deliberately rather than to
+      whatever passes: rail 40.1 m, shipped 34.3 m, 12 deg/s 19.5 m, 20 deg/s
+      7.0 m and inside the fuse. **25 m** therefore says *a 40 m committed break
+      must leave at least 25 m of it intact* — a real ceiling on this knob rather
+      than a formality, and the mutation at 20 deg/s now fails it at 2.7 m.
+    - **A second vacuous assertion was deleted** rather than kept beside the good
+      one: `_blast_taken > 0 or _drift_after_commit > 0` is true on the first tick
+      of every possible run, and its claim is already held twice by
+      `_detonated == 1` and the stage timeout.
+  - **The guarding stage is the two-run shape A.q8 established the same day**, and
+    it has now paid twice: the same commitment and the same dodge, once at 0 and
+    once at the shipped value, so the difference in closest approach is what the
+    knob bought and nothing else can be claiming credit.
+
+- **2026-08-07 — v2.31. THE AEGIS IS 3x TOUGHER AND A SHADE FASTER, and the
+  reasoning the user gave generalises past this type.** The call, unspent since the
+  first bomb-run flight, made in their own words:
+  *"since its a bomber, it should be way tougher, i.e. it should take way more
+  shots to take down... i think its hull should be at least 3 times tougher. think
+  about it, the less it can maneuver, the more hull it should carry. right? this
+  can be a great difficulty knob."*
+  - **DURABILITY PRICED AS THE INVERSE OF AGILITY.** That is a roster-wide rule
+    proposed by the user, not a number for one type, and it is worth holding
+    against the bestiary rather than applied silently. hull 80 -> **240**, speed
+    7 -> **8**.
+  - **THEY NAMED THE OBJECTION THEMSELVES**, which is why the answer is not a
+    smaller number: *"I dont like bullet sponges, i admit, but a bomber is exactly
+    that, a big body that attracts damage and can also inflict large damage with
+    its ammunition."* What redeems a sponge is what the body is FOR — **an aegis
+    you are grinding down is an aegis not delivering** — which is the trade P4.2
+    already wrote for this type (*"can I kill this IN TIME"*).
+  - **SPEED MOVED THE LEAST ON PURPOSE.** 8 m/s is still the slowest thing in the
+    roster by a distance (raider 14, falx 25, Lance 34) and well under half a
+    quad's cruise. Speed on this type attacks the CLOCK, and the clock's deadline
+    is the RELEASE rather than the kill (v2.21), so a large move here would be a
+    much bigger change than it looks.
+  - **WHAT LAYER 1 NOW SAYS, and it is exactly the loop the user described.**
+    Shielded: blaster **NEVER** and flak **NEVER** (both under the 40 break
+    threshold), missile **5 hits over 12.0 s**. Cracked: blaster **10 hits over
+    0.9 s**, flak 24 over 9.2 s, missile 4 over 9.0 s. *A missile to strip the
+    screen, then guns while you stay on it* — which only works at all because
+    v2.29 made staying on it mean something.
+  - **A COUNTED SAVING, and it is the reason this was batched here rather than
+    taken alone.** The handoff said `speed` AND `hull` were both in the delivery
+    config stamp, so either change cost a ~55 min re-measure. **`hull` is not in
+    it** — `DELIVERY_FIELDS_ENEMY` has no hull term, and every evasion cell
+    overrides the target's hull with `IMMORTAL_HULL` anyway, so it structurally
+    cannot move a factor. Only `speed` is stamped. And A.q9's `run_steer_deg_s`
+    had already bought the re-measure, so both aegis changes rode it for free.
+  - **A STALE CAP IN THE BENCH SURFACED AS A BALANCE FINDING, which is the trap
+    worth recording.** `lethality_check` capped every cell at a single 30 s
+    constant whose comment read *"the longest predicted kill (missile x aegis,
+    6 s) fits several times over"*. Tripling the hull pushed that cell past the
+    cap and the check reported **"predicted kill, planted shots no kill"** — a RIG
+    limit wearing the costume of a game result. The cap is now derived PER CELL
+    from that cell's own prediction, so it cannot go stale when a config moves;
+    a predicted-NEVER cell keeps the fixed endurance window, because "never" is a
+    claim about endurance and a derived cap would make it circular.
+  - **TWO KNOBS GOT SLIDERS THEY SHOULD HAVE HAD.** `blast_fuse_radius` shipped in
+    v2.26 with none — the one number the user had just validated by hand could not
+    be moved by hand — and `run_steer_deg_s` sits beside it, because the two narrow
+    the SAME escape from opposite ends and setting one blind against the other is
+    exactly how a type becomes undodgeable without anyone choosing it. The hull
+    slider's ceiling went 300 -> 600 so durability can actually be explored as the
+    difficulty axis the user proposed.
+  - **`balance/delivery_factors.json` IS NOW STALE, deliberately.** `speed` and
+    `run_steer_deg_s` are both stamped. No Layer 2 number may be quoted until it
+    is re-measured.
