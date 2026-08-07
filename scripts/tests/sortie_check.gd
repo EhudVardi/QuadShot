@@ -47,6 +47,7 @@ func _initialize() -> void:
 	_check_spec_shape()
 	_check_every_trigger_has_a_firing_site()
 	_check_ingress()
+	_check_units_do_not_overlap()
 	if not _failures.is_empty():
 		_report()
 		return
@@ -428,6 +429,73 @@ func _check_trigger_selection() -> void:
 			"only THEN does the empty field open the egress, exactly once (%d)"
 			% _probe_egress)
 	runner.queue_free()
+
+
+## ---------- units are not laid inside one another (2026-08-07) ----------
+
+## THE BUG WAS RARE, SO THE CHECK MAKES IT CERTAIN. That is the whole design of
+## this stage and it is worth stating, because the obvious version of it does not
+## work.
+##
+## `_point_for` used to pick a uniformly random ring angle with no regard for what
+## was already standing there, and the user saw an aegis and then a Lance sitting
+## inside another body. Measured across 90 real composed sorties and 3260 unit
+## pairs: **4 pairs under 3 m, closest 0.53 m** — 0.12% of pairs, about one sortie
+## in twenty. A check that built ONE ordinary sortie would pass roughly
+## nineteen times out of twenty with the bug fully present, which is worse than no
+## check at all: an intermittent red is eventually explained away.
+##
+## So it builds a deliberately CROWDED ring instead and asserts the minimum
+## pairwise distance, turning a probabilistic failure into a deterministic one.
+##
+## HOW MANY BODIES WAS ITSELF MEASURED, and the first answer was wrong — this
+## stage shipped for about ten minutes at 16 bodies, and **the mutation passed
+## it**. A 26 m ring with 9 m of radial jitter is a wide annulus, so sixteen
+## uniform draws usually miss each other anyway. Sweeping the UN-FIXED placer
+## across five spec seeds gave the closest pair as:
+##
+##   | bodies | 16 | 24 | 32 | 48 | 64 |
+##   |---|---|---|---|---|---|
+##   | worst seed | 6.25 m | 4.83 m | 4.83 m | **2.86 m** | 2.70 m |
+##
+## Only at 48 does every seed collide. The fixed placer holds 6.0-6.5 m at every
+## count up to 64, so the gap between pass and fail is wide and unambiguous.
+##
+## The threshold sits UNDER `MIN_SEPARATION_M` on purpose. The placer falls back
+## to its roomiest candidate when a ring genuinely cannot hold everything, and
+## degrading gracefully is correct behaviour rather than a failure — what must
+## never happen is two bodies in the same space.
+const CROWD_UNITS: int = 48
+const CROWD_MIN_M: float = 4.0
+
+
+func _check_units_do_not_overlap() -> void:
+	var host := Node3D.new()
+	root.add_child(host)
+	var runner := SortieRunner.new()
+	runner.center = Vector3(900.0, 0.0, 900.0)
+	host.add_child(runner)
+	var spec: Dictionary = _bare_spec(&"dogfight", &"clear_airspace", 0)
+	var crowd: Array = []
+	for i: int in CROWD_UNITS:
+		crowd.append({"type": &"raider", "count": 1, "bodies": 1, "strength": 1.0})
+	spec["layers"] = {&"outer": [], &"mid": [], &"inner": crowd}
+	runner.start(spec)
+	var points: Array[Vector3] = []
+	for unit: Node in runner.units:
+		if unit is Node3D and is_instance_valid(unit):
+			points.append((unit as Node3D).position)
+	_expect(points.size() == CROWD_UNITS,
+			"the crowded ring placed all %d bodies (got %d)"
+			% [CROWD_UNITS, points.size()])
+	var closest: float = INF
+	for i: int in points.size():
+		for j: int in range(i + 1, points.size()):
+			closest = minf(closest, points[i].distance_to(points[j]))
+	_expect(closest >= CROWD_MIN_M,
+			"and no two of them share a space — closest pair %.2f m with %d bodies on one ring"
+			% [closest, CROWD_UNITS])
+	host.free()
 
 
 func _bare_spec(archetype: StringName, objective: StringName,

@@ -44,6 +44,23 @@ const LAYER_RADIUS: Dictionary = {
 }
 ## Jitter so a ring is a ring and not a parade formation.
 const LAYER_JITTER: float = 9.0
+## How far apart two placed units try to be, metres. The uniform ring angle gives
+## no thought to what is already standing there, so bodies could be laid inside
+## one another — the user saw it happen to an aegis, and then to a Lance.
+##
+## MEASURED BEFORE FIXING, over 90 composed sorties and 3260 unit pairs: 4 pairs
+## under 3 m, the closest at **0.53 m**. So it is rare (0.12% of pairs, roughly
+## one sortie in twenty) rather than systemic — which is exactly why it needed
+## measuring rather than a guess about how bad it was.
+##
+## 6 m reads as "two separate aircraft" at the ranges these are seen from, and an
+## inner ring of 26 m radius still has room for two dozen bodies at that spacing.
+const MIN_SEPARATION_M: float = 6.0
+## Candidate angles tried before settling. The fallback is the BEST candidate
+## seen rather than the last one, so a crowded ring degrades to "as far apart as
+## I could manage" instead of to a random overlap — and placement always
+## terminates, which a while-until-clear loop would not guarantee.
+const PLACEMENT_TRIES: int = 24
 const AIR_HEIGHT_MIN: float = 7.0
 const AIR_HEIGHT_MAX: float = 20.0
 ## A ground unit sits on whatever is under it, probed from here down. Borrowed
@@ -171,6 +188,10 @@ var pads: Array[Node3D] = []
 var kills: Dictionary = {}
 
 var _rng := RandomNumberGenerator.new()
+## Where units have already been laid this sortie, so the next one is not put on
+## top of them (see `_point_for`). Cleared by `start` with everything else the
+## previous sortie built.
+var _placed: Array[Vector3] = []
 ## Reserve payloads, and two parallel flags. Deliberately NOT a Dictionary keyed
 ## by the trigger dict: Godot hashes a Dictionary by content, so two structurally
 ## identical waves would collide into one key and the second would silently never
@@ -236,6 +257,7 @@ func start(sortie_spec: Dictionary, player: Node3D = null) -> void:
 	_player = player
 	_rng.seed = int(spec.get("seed", 0))
 	kills.clear()
+	_placed.clear()
 	# EVERYTHING the last sortie built goes, not just the pads. Clearing the
 	# arrays without freeing the bodies left the previous sortie's units and
 	# structures in the parent tree with their signals still connected, so a stale
@@ -631,7 +653,37 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 ## reading the player's spawn point, and it would delete the counterplay P2.3
 ## describes — pick your side, arrive unseen, and only the quadrant you crossed
 ## gets a vote.
+## AND IT DOES NOT LAND ON TOP OF WHAT IS ALREADY THERE. Rejection sampling over
+## the ring, keeping the first candidate at least `MIN_SEPARATION_M` from every
+## unit placed so far, or the roomiest one it saw.
+##
+## THIS DOES NOT COST THE UNIFORM ANGLE ITS MEANING, which is the thing that had
+## to be protected. Rejecting a candidate for being near another ENEMY carries no
+## information about where the player is, so the garrison still does not know
+## which way you are coming from and P2.3's counterplay — pick your side, arrive
+## unseen — survives intact. Biasing toward `bearing_deg` would have been the
+## thing that broke it, and this is not that.
 func _point_for(row: Dictionary, layer: StringName) -> Vector3:
+	var best: Vector3 = Vector3.INF
+	var best_gap: float = -1.0
+	for attempt: int in PLACEMENT_TRIES:
+		var candidate: Vector3 = _candidate_point(row, layer)
+		var gap: float = _gap_to_placed(candidate)
+		if gap >= MIN_SEPARATION_M:
+			_placed.append(candidate)
+			return candidate
+		if gap > best_gap:
+			best_gap = gap
+			best = candidate
+	_placed.append(best)
+	return best
+
+
+## One draw from the layer's ring, finished into a real position — seated on the
+## ground or lifted to flight height. The separation test runs on the FINISHED
+## point, because a ground unit and an air unit sharing a ring angle are metres
+## apart vertically and are not a collision at all.
+func _candidate_point(row: Dictionary, layer: StringName) -> Vector3:
 	var radius: float = maxf(float(LAYER_RADIUS.get(layer, 60.0))
 			+ _rng.randf_range(-LAYER_JITTER, LAYER_JITTER), 8.0)
 	var angle: float = _rng.randf_range(0.0, TAU)
@@ -642,6 +694,18 @@ func _point_for(row: Dictionary, layer: StringName) -> Vector3:
 	if at.y < 0.0:
 		at.y = _rng.randf_range(AIR_HEIGHT_MIN, AIR_HEIGHT_MAX)
 	return at
+
+
+## Distance to the nearest already-placed unit, INF when this is the first.
+##
+## Points are kept even after the unit that stood on one dies, and that is
+## deliberate: a reserve arriving later should not be allowed to materialise into
+## the middle of the fight just because the body there has since been shot down.
+func _gap_to_placed(at: Vector3) -> float:
+	var nearest: float = INF
+	for point: Vector3 in _placed:
+		nearest = minf(nearest, at.distance_to(point))
+	return nearest
 
 
 ## Every collision RID under `node`, itself included. A unit is often a container
