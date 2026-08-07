@@ -35,6 +35,12 @@ const ENEMIES: Array[String] = [
 	# Being unusual in that direction is exactly why it has to be listed: the
 	# v1.27 rule is that an unlisted type's stats drift without anything noticing.
 	"res://resources/default_enemy_lance.tres",
+	# The heavy defender (A7). Its screen is DIRECTIONAL, which Layer 1 cannot
+	# see — the calculator models `Health`, and `Health` applies a shield to
+	# every hit. So these rows price the IN-ARC case, which is the worst one for
+	# the player, and the gap to the harness is the arc. Listed anyway, because
+	# the v1.27 rule is that an unlisted type's stats drift unnoticed.
+	"res://resources/default_enemy_phalanx.tres",
 ]
 ## ARMOR PROBES. Flat armor landed with the Atlas (P3.3), whose armor sits on
 ## the PLAYER's frame — and Layer 1 never models being shot at, so no roster row
@@ -195,7 +201,19 @@ func _add_incoming_cells() -> void:
 func _print_combos() -> void:
 	for enemy_path: String in ENEMIES:
 		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
-		if enemy.shield_max <= 0.0:
+		# A THRESHOLD GATE IS WHAT MAKES A COMBO A QUESTION. This table answers
+		# "strip with X, finish with Y", and that is only a real choice when some
+		# weapons cannot strip at all — the aegis, whose screen refuses anything
+		# under `shield_break_threshold`.
+		#
+		# The PHALANX has a screen with no threshold (A7): every weapon strips it,
+		# and its counter is POSITIONAL rather than a loadout. Tabulating combos
+		# for it answers a question the type does not pose — and it fails the
+		# self-consistency assertion below for a real reason: `Lethality.combo`
+		# splits the fight at shield-down and drops the carry-through of the hit
+		# that broke it, which only shows up on a screen thin enough to be broken
+		# and overshot by one round.
+		if enemy.shield_max <= 0.0 or enemy.shield_break_threshold <= 0.0:
 			continue
 		print("[lethality] combos vs %s (strip -> finish):" % enemy.type_id)
 		for strip: String in Lethality.WEAPONS:
@@ -219,9 +237,9 @@ func _print_combos() -> void:
 				if int(result["shots"]) != int(solo["shots"]) \
 						or absf(float(result["ttk"]) - float(solo["ttk"])) > 0.001:
 					_failures.append(
-							"%s->%s combo (%d hits, %.2fs) != %s solo (%d hits, %.2fs)"
-							% [strip, finish, result["shots"], result["ttk"],
-							strip, solo["shots"], solo["ttk"]])
+							"%s: %s->%s combo (%d hits, %.2fs) != %s solo (%d hits, %.2fs)"
+							% [enemy.type_id, strip, finish, result["shots"],
+							result["ttk"], strip, solo["shots"], solo["ttk"]])
 
 
 ## LAYER 3 COMPOSED (`BalancePrediction.survive`, v1.78). Nothing here plants a

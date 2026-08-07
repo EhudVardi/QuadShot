@@ -1,0 +1,84 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/phalanx.gd" id="1_phalanx"]
+[ext_resource type="Resource" path="res://resources/default_enemy_phalanx.tres" id="2_ephal"]
+[ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
+
+[sub_resource type="StandardMaterial3D" id="mat_hull"]
+albedo_color = Color(0.16, 0.15, 0.18, 1)
+metallic = 0.5
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="mesh_hull"]
+material = SubResource("mat_hull")
+size = Vector3(2.2, 0.9, 2.2)
+
+; The barrel is the mount's readable part: it swings, and it lights up as the
+; mount spins up. Local to the scene AND duplicated per mount in _build_mounts,
+; so one gun going hot does not light the whole ring.
+[sub_resource type="StandardMaterial3D" id="mat_barrel"]
+resource_local_to_scene = true
+albedo_color = Color(0.9, 0.22, 0.16, 1)
+emission_enabled = true
+emission = Color(1, 0.2, 0.1, 1)
+emission_energy_multiplier = 0.4
+
+[sub_resource type="BoxMesh" id="mesh_barrel"]
+material = SubResource("mat_barrel")
+size = Vector3(0.22, 0.22, 1.1)
+
+; THE SCREEN. A one-sided curved shell rather than a sphere, because the arc IS
+; the mechanic: a bubble would say "shielded" where this says "shielded FROM
+; HERE". Rotated by phalanx.gd every frame to match `shield_facing()`.
+[sub_resource type="StandardMaterial3D" id="mat_shell"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.35, 0.75, 1, 0.3)
+emission_enabled = true
+emission = Color(0.3, 0.7, 1, 1)
+emission_energy_multiplier = 1.4
+
+[sub_resource type="SphereMesh" id="mesh_shell"]
+material = SubResource("mat_shell")
+radius = 2.6
+height = 5.2
+is_hemisphere = true
+
+[sub_resource type="BoxShape3D" id="shape_hull"]
+size = Vector3(2.4, 1.2, 2.4)
+
+[node name="Phalanx" type="CharacterBody3D" groups=["enemies"]]
+motion_mode = 1
+script = ExtResource("1_phalanx")
+enemy_config = ExtResource("2_ephal")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Hull" type="MeshInstance3D" parent="Visual"]
+mesh = SubResource("mesh_hull")
+
+; Mounts are BUILT AT RUNTIME from the single child below, one per
+; `EnemyConfig.mount_count`, laid evenly around the body. The template is hidden
+; once the ring exists. Doing it in code rather than in the scene is what lets
+; the count be a config value instead of a scene edit.
+[node name="Mounts" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+
+[node name="MountTemplate" type="Node3D" parent="Visual/Mounts"]
+
+[node name="Barrel" type="MeshInstance3D" parent="Visual/Mounts/MountTemplate"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+mesh = SubResource("mesh_barrel")
+
+[node name="Shell" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
+mesh = SubResource("mesh_shell")
+surface_material_override/0 = SubResource("mat_shell")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_hull")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("3_hp")

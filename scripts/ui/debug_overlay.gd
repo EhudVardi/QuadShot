@@ -148,6 +148,15 @@ const _ENEMY_FLOAT_ROWS: Array[Array] = [
 	["shield_break_threshold", 0.0, 100.0, 1.0],
 	["shield_regen", 0.0, 60.0, 1.0],
 	["shield_regen_delay", 0.0, 10.0, 0.25],
+	# THE PHALANX'S TWO (A7), and the slew is the one to fly. Together they are
+	# the whole of its counterplay: how much of the body is covered, and how fast
+	# that cover chases you. A slew high enough to always face the pilot makes
+	# the type unkillable from any bearing, so this slider is also the guard
+	# rail — it is much easier to feel that edge than to reason about it.
+	["shield_arc_deg", 0.0, 360.0, 5.0],
+	["shield_slew_deg_s", 0.0, 180.0, 5.0],
+	["mount_count", 0.0, 8.0, 1.0],
+	["mount_hull", 0.0, 200.0, 5.0],
 	["speed", 0.0, 40.0, 0.5],
 	["accel", 0.0, 60.0, 1.0],
 	["turn_speed_deg", 10.0, 360.0, 10.0],

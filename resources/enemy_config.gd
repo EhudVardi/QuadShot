@@ -37,6 +37,42 @@ extends TunableConfig
 ## Quiet seconds after taking a hit before the shield starts regenerating.
 @export var shield_regen_delay: float = 0.0
 
+## DIRECTIONAL SHIELD (A7, the Phalanx). Width of the protected arc in degrees,
+## centred on a facing this type steers for itself. 0 = the shield is not
+## directional, which is every other type: the aegis's screen covers it from
+## every side and is gated on WEAPON CHOICE instead.
+##
+## THE TWO SHIELDED TYPES ARE COUNTERED ON DIFFERENT AXES, and that is the point
+## of building a second one. The aegis asks *what are you shooting with* — a
+## threshold no chip gun can cross. The Phalanx asks *where are you shooting
+## from* — an arc, with the guns still covering every bearing, so there is no
+## safe slot, only a slot where your damage lands. Two shielded enemies that
+## wanted the same answer would be one enemy.
+@export var shield_arc_deg: float = 0.0
+## How fast that arc swings toward whatever is hurting it, degrees per second.
+## 0 with a non-zero arc means a shield welded to one bearing.
+##
+## THIS IS THE TYPE'S DIFFICULTY KNOB and its whole counterplay lives here. The
+## shield tracks its attacker, so parking in one orbit slot lets it catch up and
+## your damage stops landing; moving faster than it can slew keeps you in the
+## open arc. Raise it and the type demands more speed from the pilot; at a slew
+## fast enough to always face you it becomes unkillable from any bearing, which
+## is the failure mode to keep an eye on.
+@export var shield_slew_deg_s: float = 0.0
+
+@export_group("Mounts")
+## Independently destructible weapon mounts (A7). 0 = this type fires from its
+## body, which is every other armed type in the roster.
+##
+## The user chose destructible over cosmetic (2026-08-07) and the reason is
+## pacing: a heavy enemy whose threat only ends when its health bar does is a
+## health bar. Stripping mounts one at a time makes a long fight visibly
+## degrade its attacker, so the pressure falls as you work.
+@export var mount_count: int = 0
+## Hull of ONE mount. Cheap relative to the body: taking a gun off should be a
+## reward for a burst, not a second boss.
+@export var mount_hull: float = 0.0
+
 @export_group("Mobility")
 @export var speed: float = 14.0
 @export var accel: float = 18.0

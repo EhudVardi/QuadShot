@@ -146,6 +146,12 @@ const ROSTER: Dictionary = {
 		"scene": "res://scenes/combat/lance.tscn",
 		"ground": false, "threat": true,
 	},
+	# The heavy DEFENDER (A7). Flies, but it holds a station rather than
+	# orbiting, so it reads as a fixed emplacement that happens to hover.
+	&"phalanx": {
+		"scene": "res://scenes/combat/phalanx.tscn",
+		"ground": false, "threat": true,
+	},
 }
 
 ## Composition by sortie (rows) and wave (entries): the named units this wave
@@ -171,7 +177,15 @@ const PLAN: Array = [
 	# kill in time, escorted by the thing that takes your lock away.
 	[{&"gnat": 1, &"falx": 1, &"turret": 1},
 			{&"gnat": 1, &"aegis": 1, &"lance": 1},
-			{&"gnat": 2, &"aegis": 1, &"screamer": 1, &"lance": 2}],
+			{&"gnat": 2, &"aegis": 1, &"screamer": 1, &"phalanx": 1, &"lance": 2}],
+	# Sortie 4+ — the escalation anchor arrives (A7), and it changes the SHAPE
+	# of a wave rather than its size: a body you cannot beat from one orbit
+	# slot, so the cloud and the suicider are now pressure you take while you
+	# are being made to move. The screamer beside it is P4.3's cruelest pair —
+	# the gun director goes quiet exactly when you need to place your shots.
+	[{&"gnat": 1, &"phalanx": 1, &"lance": 1},
+			{&"gnat": 1, &"phalanx": 1, &"falx": 1, &"turret": 1},
+			{&"gnat": 2, &"phalanx": 1, &"screamer": 1, &"aegis": 1, &"lance": 2}],
 ]
 
 @export var combat_config: CombatConfig

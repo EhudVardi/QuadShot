@@ -81,7 +81,17 @@ func _physics_process(delta: float) -> void:
 		shield = minf(shield + shield_regen * delta, shield_max)
 
 
-func take(amount: float) -> void:
+## `shielded` false sends the hit straight past the screen to the plating and the
+## hull. Every existing caller leaves it true and is unchanged.
+##
+## IT EXISTS FOR THE PHALANX (A7), whose screen covers an ARC rather than the
+## whole body, and it is one optional argument rather than a second shield
+## implementation on purpose. A directional shield that owned its own pool would
+## be two physics for one word — the thing `Bomb.blast` was made a shared static
+## to avoid — and it would have to re-derive the regen rules, including the one
+## corrected earlier today. The DIRECTION is the caller's business, because only
+## the caller knows its own geometry; what a shield DOES stays here.
+func take(amount: float, shielded: bool = true) -> void:
 	if not alive:
 		return
 	struck.emit(amount)
@@ -106,7 +116,7 @@ func take(amount: float) -> void:
 	# OVER-threshold path; it was still live on the under-threshold one.
 	if shield_max > 0.0:
 		_regen_wait = shield_regen_delay
-	if shield > 0.0:
+	if shield > 0.0 and shielded:
 		# Under the threshold: the shield shrugs it off completely. Deliberately
 		# not a partial absorb — a shield that leaks would make chip fire a slow
 		# win, which is exactly the loadout this type exists to punish.

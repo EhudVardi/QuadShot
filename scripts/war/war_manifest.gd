@@ -35,6 +35,7 @@ extends RefCounted
 ## trusting it.
 const ROSTER: Array[StringName] = [
 	&"raider", &"turret", &"gnat", &"aegis", &"falx", &"screamer", &"lance",
+	&"phalanx",
 ]
 
 ## Doctrine weights (P2.3 "doctrine-in-terrain", at the strategic scale):
@@ -56,10 +57,18 @@ const ROSTER: Array[StringName] = [
 const DOCTRINE: Dictionary = {
 	&"airspace": {&"raider": 0.45, &"gnat": 0.25, &"falx": 0.20, &"lance": 0.10},
 	&"radar": {&"raider": 0.40, &"turret": 0.30, &"gnat": 0.15, &"screamer": 0.15},
-	&"sam": {&"turret": 0.50, &"raider": 0.15, &"gnat": 0.10, &"screamer": 0.15,
-			&"lance": 0.10},
+	# THE PHALANX GARRISONS WHAT IS WORTH DEFENDING (A7). It holds ground and
+	# denies it, so it belongs where there is ground worth denying: the sensor
+	# and denial belt, the command net, and the theater HQ. It is deliberately
+	# ABSENT from `airspace` (nothing out there to stand over), from `depot` and
+	# `airbase` (a gunship parked on a fuel dump is the same immersion error as a
+	# bomber in its own back yard), and its share is small everywhere because at
+	# `strength_cost` 6 one body is most of a small node's budget.
+	&"sam": {&"turret": 0.45, &"raider": 0.15, &"gnat": 0.10, &"screamer": 0.15,
+			&"lance": 0.10, &"phalanx": 0.15},
 	&"depot": {&"turret": 0.50, &"raider": 0.30, &"gnat": 0.20},
-	&"factory": {&"turret": 0.45, &"gnat": 0.35, &"raider": 0.20},
+	&"factory": {&"turret": 0.45, &"gnat": 0.35, &"raider": 0.20,
+			&"phalanx": 0.12},
 	# THE AEGIS SITS ONLY WHERE BOMBERS ARE BASED (Iteration 14 / A.q1, decided
 	# 2026-08-03). An airbase and the theater HQ have hangars; a command post and
 	# a radar dish do not. The user's argument is fiction rather than arithmetic
@@ -77,9 +86,9 @@ const DOCTRINE: Dictionary = {
 	# weapon — and the Phalanx is the named answer, not scheduled here.
 	&"airbase": {&"raider": 0.40, &"falx": 0.25, &"turret": 0.20, &"aegis": 0.15},
 	&"command": {&"raider": 0.30, &"turret": 0.20, &"screamer": 0.20,
-			&"lance": 0.15},
+			&"lance": 0.15, &"phalanx": 0.18},
 	&"hq": {&"aegis": 0.30, &"raider": 0.20, &"turret": 0.15, &"gnat": 0.10,
-			&"falx": 0.15, &"screamer": 0.10},
+			&"falx": 0.15, &"screamer": 0.10, &"phalanx": 0.20},
 }
 
 ## Cover density per biome (P1.9 / P4.5 cover economics). Dense ground nests
@@ -109,7 +118,12 @@ const FLYER_TYPES: Array[StringName] = [&"raider", &"aegis", &"falx", &"lance"]
 ## interceptor is a peacetime asset as much as a wartime one.
 const ESCALATION_HEAVY_GAIN: float = 0.80
 const ESCALATION_LIGHT_LOSS: float = 0.30
-const HEAVY_TYPES: Array[StringName] = [&"aegis", &"screamer"]
+## A7 CLOSED THE HOLE THIS LIST HAD. With the aegis correctly out of defensive
+## garrisons (A.q1), "heavier things rather than more things" (P4.6) meant a
+## bomber that is never there and a jammer with no weapon — so escalation could
+## only ever make the war FOGGIER. The Phalanx is the heavy DEFENDER, and it is
+## the type a pressed node now buys instead of a handful of raiders.
+const HEAVY_TYPES: Array[StringName] = [&"aegis", &"screamer", &"phalanx"]
 const LIGHT_TYPES: Array[StringName] = [&"gnat"]
 
 ## Per-node character jitter, as a fraction of a weight. Two SAM sites in one

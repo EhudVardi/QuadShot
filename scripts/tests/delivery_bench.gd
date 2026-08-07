@@ -476,6 +476,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 	"res://resources/default_enemy_falx.tres",
 	"res://resources/default_enemy_screamer.tres",
 	"res://resources/default_enemy_lance.tres",
+	"res://resources/default_enemy_phalanx.tres",
 ]
 
 ## Bench target name -> EnemyConfig.type_id, so the artifact is keyed by the
@@ -485,7 +486,7 @@ const ENEMIES_FOR_STAMP: Array[String] = [
 const TYPE_IDS: Dictionary = {
 	"raider": "raider", "turret": "turret", "gnats": "gnat", "aegis": "aegis",
 	"raiderpack": "raider", "falx": "falx", "screamer": "screamer",
-	"lance": "lance",
+	"lance": "lance", "phalanx": "phalanx",
 }
 
 enum { BUILD, FIRE, GRACE, RECORD }

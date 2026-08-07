@@ -1,0 +1,107 @@
+; Phalanx - the heavy gunship (GAMEPLAY-DESIGN A7, roster type EIGHT).
+;
+; THE ESCALATION ANCHOR. P4.6 says a pressured enemy fields heavier things rather
+; than more things, and until this landed `HEAVY_TYPES` was [aegis, screamer] -
+; a bomber that correctly leaves defensive garrisons (A.q1) and a jammer with no
+; weapon. So "the war escalates" meant "the war gets foggier" and nothing else.
+; This is the heavy DEFENDER the roster never had.
+;
+; THE PAIR THAT IS THE TYPE, read together:
+;
+;   shield_arc_deg 140    = the screen covers a front arc, not the whole body.
+;   shield_slew_deg_s 45  = and it chases whoever is hurting it, at this rate.
+;
+; That is the whole counterplay and it is POSITIONAL, which is what makes this a
+; different enemy from the aegis rather than a bigger one. The aegis's screen
+; asks what you are shooting WITH (a damage threshold no chip gun crosses); this
+; one asks where you are shooting FROM. Park in one orbit slot and the arc
+; catches up and your damage stops landing; keep moving and it lags and your
+; damage lands. Meanwhile every surviving mount fires at you wherever you are, so
+; moving never makes you SAFE - it decides whether your shots count.
+;
+; 140 degrees leaves 220 open, so there is always somewhere that works. 45 deg/s
+; means a full swing to the far side takes about 4 seconds, which a quad crosses
+; comfortably and a heavy frame does not - P4.4's frame pressure, emergent from
+; one number rather than authored per frame.
+;
+; mount_count 3 at mount_hull 30 - evenly spaced, so there is no bearing without
+; a gun on it (A7: "no blind side you can simply sit in"). Destructible on the
+; user's call (2026-08-07): stripping a mount permanently opens that arc, so a
+; long fight visibly degrades it. 30 against a 25-damage bolt is two hits, which
+; makes taking a gun off a reward for a burst rather than a second boss.
+;
+; hull 140 sits between the falx's 26 and the aegis's 240. It is NOT the aegis's
+; job: this type's durability is meant to live in its arc and its guns, not in a
+; long health bar, or the sponge objection the user raised about bombers applies
+; here with less excuse - a gunship you grind down is not doing anything
+; interesting while you grind it.
+;
+; speed 8 / accel 7 / turn_speed_deg 60 - A7 asks for "slow and deliberate, it
+; does not chase, it holds ground and denies it". 8 is 0.6x a raider, matching
+; the sketch. `turn_speed_deg` is the MOUNT slew here, not the body's: the guns
+; track at 60 deg/s, which is what a jinking pilot degrades.
+;
+; damage 7 x fire_rate 1.2 x 3 mounts = about 25 damage a second with everything
+; alive, a quarter of a Kestrel. It has to be a reason to leave, not an instant
+; death, because the answer is repositioning and repositioning takes time.
+;
+; preferred_range 30 is the standoff it wants from what it guards - it slides
+; within a 14 m leash to keep the fight at arm's length and never follows.
+;
+; strength_cost 6 makes it the most expensive unit in the manifest, above the
+; aegis's 4. That is deliberate: it is what a node buys INSTEAD of a handful of
+; raiders when it is being pressed, which is P4.6's escalation expressed as a
+; price rather than as a spawn rule.
+;
+; NOTHING HERE IS BALANCED. Per H6 these are authored starting points; the
+; harness measures the result and the human's hands decide the feel.
+;
+; ONE THING LAYER 1 CANNOT SEE, stated so nobody quotes it wrong: `Lethality`
+; models the shield as a plain pool that always applies, because that is what
+; `Health` does. That is exactly right for a pilot inside the arc and pessimistic
+; for one outside it, so Layer 1 prices the WORST case. The gap between that and
+; the harness is the directional shield, and it is the instrument's output rather
+; than an error.
+
+[gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
+
+[resource]
+script = ExtResource("1_ecfg")
+type_id = &"phalanx"
+hull = 140.0
+armor = 0.0
+shield_max = 90.0
+shield_break_threshold = 0.0
+shield_regen = 10.0
+shield_regen_delay = 3.0
+shield_arc_deg = 140.0
+shield_slew_deg_s = 45.0
+mount_count = 3
+mount_hull = 30.0
+speed = 8.0
+accel = 7.0
+turn_speed_deg = 60.0
+sight_range = 70.0
+damage = 7.0
+fire_rate = 1.2
+muzzle_speed = 55.0
+aim_jitter_deg = 3.0
+pack_size = 0.0
+swarm_spacing = 3.0
+swarm_separation_gain = 1.6
+swarm_cohesion_gain = 0.5
+swarm_pursuit_gain = 1.0
+swarm_jitter = 0.35
+swarm_sting_radius = 1.6
+preferred_range = 30.0
+payload = 0
+bomb_damage = 0.0
+bomb_radius = 9.0
+blast_fuse_radius = 0.0
+run_steer_deg_s = 0.0
+bomb_fall_gravity_scale = 1.0
+respawn_delay = 0.0
+points = 500.0
+strength_cost = 6.0
