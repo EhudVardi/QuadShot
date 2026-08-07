@@ -964,17 +964,39 @@ func _build_target(type: String) -> Node:
 			_count_health_connects(falx.get_node("Health") as Health)
 			return falx
 		"lance":
-			# Immortal like every other single-body evasion target, so the cell
-			# measures a RATE rather than a kill — and for the Lance that matters
-			# more than usual, because a mortal one would SPEND ITSELF on arrival
-			# and end the window early, turning an evasion measurement into a
-			# race. Seeded 0 for determinism.
+			# IMMORTALITY IS NOT ENOUGH FOR THIS TYPE, and the comment that used to
+			# sit here said the opposite. It claimed hull `IMMORTAL_HULL` stopped a
+			# Lance spending itself and ending the window early — but `_spend()`
+			# calls `queue_free()` on arrival regardless of hull, because spending
+			# itself is not dying.
+			#
+			# MEASURED: the immortal Lance freed itself at **6.02 s**. The blaster
+			# and flak cells run 25 s and the missile cell 45 s, so **76% and 87%
+			# of those cells had no target in them at all** — and an evasion cell
+			# holds `fire_override` down for its whole duration, so every one of
+			# those rounds was counted as a shot that could never connect.
+			#
+			# The recorded factors were 0.23 blaster / 0.58 flak / 1.00 missile.
+			# 0.23 against a 24% window is not a coincidence: the cell was
+			# measuring HOW LONG THE LANCE STAYED ON THE FIELD and reporting it as
+			# how hard the Lance is to hit.
+			#
+			# `respawns` is the fix and it already exists — it is the dev-room
+			# affordance built for exactly this reason (*"a suicider is a ONE-SHOT
+			# by design, so the only way to look at one twice is to let the
+			# specimen come back"*). It returns the body to its start, revives it
+			# and re-enters SEEK, so the cell now samples the whole cycle —
+			# approach, stationary telegraph, committed run — repeatedly, with a
+			# target present throughout. Both spawners force this false on anything
+			# they place, so nothing in the game is affected.
 			_enemy_config = (load("res://resources/default_enemy_lance.tres")
 					as EnemyConfig).duplicate() as EnemyConfig
 			_enemy_config.hull = IMMORTAL_HULL
 			var lance: Node3D = (load(LANCE_SCENE) as PackedScene).instantiate() 					as Node3D
 			lance.set(&"enemy_config", _enemy_config)
 			lance.set(&"ai_seed", 0)
+			# See the block above: without this the cell measures a stopwatch.
+			lance.set(&"respawns", true)
 			# Started outside its own setup band, so the cell opens on the SEEK
 			# phase and sees a whole cycle rather than beginning mid-telegraph.
 			lance.position = Vector3(0.0, ALTITUDE, -RANGE_M - 20.0)
