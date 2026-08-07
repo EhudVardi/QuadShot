@@ -11,7 +11,7 @@ what happens next.
 ## WHERE IT STANDS, 2026-08-07 — read this block first
 
 **Board 21/21 green. `PILOT_VERSION` 7 (untouched). Seven roster types.
-`balance/delivery_factors.json` is being RE-MEASURED — see item 5.**
+`balance/delivery_factors.json` re-measured, PASS, and committed.**
 
 Six things landed. Read **v2.28–v2.33** at the tail of GAMEPLAY-DESIGN.md.
 
@@ -43,12 +43,26 @@ Six things landed. Read **v2.28–v2.33** at the tail of GAMEPLAY-DESIGN.md.
 
 ### THE NEXT JOB, and the first item is a decision
 
-1. **THE RE-MEASURE IS RUNNING** (`tools\balance_report`, ~55 min, started under
-   the corrected bench). An earlier in-flight run was **killed at 40 minutes**
-   when v2.33 surfaced — finishing a measurement already known to be wrong only
-   produces a number somebody quotes later, and the stamp cannot catch it because
-   the stamp covers CONFIGS and that was the RIG. **Check it finished and commit
-   `balance/delivery_factors.json`** before quoting any Layer 2 number.
+1. ~~**THE RE-MEASURE**~~ **DONE.** All three layers PASS, pilot v7, artifact
+   committed. **The diff is three lines** — the stamp, and the two lance cells the
+   rig fix moved. **49 of 52 cells came back bit-identical**, which is Track 5's
+   reproducibility finally paying out as a DIFF rather than as a claim. An earlier
+   in-flight run was killed at 40 minutes when v2.33 surfaced; finishing a
+   measurement already known to be wrong only produces a number somebody quotes
+   later, and the stamp cannot catch it because the stamp covers CONFIGS and that
+   was the RIG.
+   - **THE INSTRUMENT'S OUTPUT, for the human and not for tuning (H6):**
+     `Blaster x Lance` reads paper `0` -> predicted `++` -> validated `++`, win
+     100%, ttk 1.4 s, zero damage taken. **Predicted and validated now AGREE**, so
+     what is left is a paper-vs-measured gap — and Layer 1 names its cause in one
+     line: **the Lance has hull 22 against a 25-damage bolt, so ONE blaster hit
+     kills it** while it holds perfectly still for 1.15 s. P4.2's *"chip gun `0`,
+     one honest window"* does not survive its own hull number in a 1v1 duel. It
+     may still hold in a real sortie where that window is contested; that is the
+     question, and it is the user's.
+   - **The Aegis duel rows stay compromised** for v2.22's reason (the harness's
+     intercept clock cannot resolve a bomber needing three passes inside its cap),
+     so `Missile x Aegis` at 0% is **not** evidence about the hull retune.
 2. **Fly items 2–4 above.** Routes are in TESTING.md and in the report.
 3. **THE OPEN DECISION: build the Phalanx (A7) before or after the next
    re-measure?** Adding a bestiary type changes the stamp, so doing it first
