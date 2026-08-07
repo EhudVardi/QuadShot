@@ -60,10 +60,21 @@ const ARMOR_PROBES: Array[Dictionary] = [
 	{"enemy": "res://resources/default_enemy_aegis.tres", "armor": 36.0},
 ]
 
-## Sim cap per cell. A predicted-never cell must survive this long under
-## sustained planted fire to count as verified-never; the longest predicted
-## kill (missile x aegis, 6 s) fits several times over.
+## Sim cap for a predicted-NEVER cell: it must survive this long under sustained
+## planted fire to count as verified-never. Fixed, because "never" is a claim
+## about endurance and a cap derived from a prediction would make it circular.
 const MAX_SECONDS: float = 30.0
+## Extra time a predicted-KILL cell is given beyond its own predicted TTK.
+##
+## THE CAP USED TO BE A SINGLE CONSTANT, AND THAT MADE IT A LANDMINE. Its comment
+## read *"the longest predicted kill (missile x aegis, 6 s) fits several times
+## over"* — which went stale the moment the aegis's hull moved. Tripling it to 240
+## (2026-08-07) pushed that cell past 30 s, and the check reported *"predicted
+## kill, planted shots no kill"*: a RIG limit wearing the costume of a balance
+## finding. A per-cell cap derived from the cell's own prediction cannot go stale
+## when a config moves, which is the whole point of a bench that is supposed to
+## survive tuning.
+const KILL_MARGIN_SECONDS: float = 10.0
 ## Hit-count timing tolerance, physics ticks: the sim quantizes the cadence
 ## to the tick grid and regen order-of-operations within a tick can differ
 ## from the calculator's continuous credit by one tick either side.
@@ -86,7 +97,6 @@ var _ticks_cap: int = 0
 
 func _initialize() -> void:
 	_combat = load("res://resources/default_combat_config.tres") as CombatConfig
-	_ticks_cap = int(MAX_SECONDS * float(Engine.physics_ticks_per_second))
 	for enemy_path: String in ENEMIES:
 		var enemy: EnemyConfig = load(enemy_path) as EnemyConfig
 		# A shielded type is TWO targets in sequence (v1.25 state split), and
@@ -388,6 +398,13 @@ func _start_cell() -> void:
 	_ticks = 0
 	_hits_planted = 0
 	_death_tick = -1
+	# Per cell, from the cell's own prediction: a predicted kill gets its TTK plus
+	# a margin, a predicted never gets the fixed endurance window.
+	var predicted: Dictionary = cell["predicted"]
+	var seconds: float = MAX_SECONDS
+	if bool(predicted["kills"]):
+		seconds = float(predicted["ttk"]) + KILL_MARGIN_SECONDS
+	_ticks_cap = int(seconds * pps)
 
 
 func _on_physics_frame() -> void:

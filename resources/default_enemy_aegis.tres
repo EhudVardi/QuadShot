@@ -1,3 +1,35 @@
+; Aegis - the shielded bomber (GAMEPLAY-DESIGN P4.2, A2, A.q1-A.q3).
+;
+; hull 240 and speed 8 are the user's call of 2026-08-07, and the REASONING they
+; gave is worth more than the numbers, because it generalises past this type:
+;
+;   "the less it can maneuver, the more hull it should carry. right? this can be
+;    a great difficulty knob. I dont like bullet sponges, i admit, but a bomber
+;    is exactly that, a big body that attracts damage and can also inflict large
+;    damage with its ammunition."
+;
+; So durability is priced as the INVERSE of agility, and the sponge objection is
+; answered by what the body is FOR rather than by trimming the number: an aegis
+; you are grinding down is an aegis not delivering, which is the trade the type
+; exists to offer. hull 80 -> 240 is the stated "at least 3 times tougher".
+;
+; speed 7 -> 8 is "ever so slightly faster" as asked, and it is deliberately a
+; small move: 8 m/s is still the slowest thing in the roster by a wide margin
+; (raider 14, falx 25, lance 34) and well under half a quad's cruise. Speed on
+; this type attacks the CLOCK - how long you have between "it is here" and "it
+; has released" - and the release is the interception deadline, so a large move
+; here would be a much bigger change than it looks.
+;
+; THE SHIELD IS THE OTHER HALF, and it is behaviour rather than a number: as of
+; 2026-08-07 every hit that arrives holds the screen down, on the shield or on
+; the exposed hull, so the fight is exactly what the user described - break it
+; with a missile, then STAY on it, and it rearms only if you lose contact for
+; shield_regen_delay seconds. See health.gd; before that fix a 0.05-point sliver
+; of regenerated shield made this body permanently immune to a blaster.
+;
+; NOTHING HERE IS BALANCED. Per H6 these are authored starting points; the
+; harness measures the result and the hands decide the feel.
+
 [gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://resources/enemy_config.gd" id="1_ecfg"]
@@ -5,13 +37,13 @@
 [resource]
 script = ExtResource("1_ecfg")
 type_id = &"aegis"
-hull = 80.0
+hull = 240.0
 armor = 0.0
 shield_max = 60.0
 shield_break_threshold = 40.0
 shield_regen = 12.0
 shield_regen_delay = 4.0
-speed = 7.0
+speed = 8.0
 accel = 6.0
 turn_speed_deg = 45.0
 sight_range = 0.0

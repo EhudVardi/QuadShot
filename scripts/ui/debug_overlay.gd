@@ -138,7 +138,11 @@ const _COMBAT_FLOAT_ROWS: Array[Array] = [
 ## Bestiary (P4.8): one shared row table for every EnemyConfig — the roster is
 ## described in one vocabulary, so a new type is a new .tres, not new UI.
 const _ENEMY_FLOAT_ROWS: Array[Array] = [
-	["hull", 1.0, 300.0, 1.0],
+	# Hull's ceiling is 600 rather than 300 because the user named durability as a
+	# difficulty axis in its own right (2026-08-07): *"the less it can maneuver,
+	# the more hull it should carry... this can be a great difficulty knob"*. A
+	# slider that stops at twice the toughest type cannot be used to explore that.
+	["hull", 1.0, 600.0, 1.0],
 	["armor", 0.0, 30.0, 0.5],
 	["shield_max", 0.0, 300.0, 5.0],
 	["shield_break_threshold", 0.0, 100.0, 1.0],
@@ -172,6 +176,14 @@ const _ENEMY_FLOAT_ROWS: Array[Array] = [
 	["bomb_damage", 0.0, 200.0, 5.0],
 	["bomb_radius", 0.0, 40.0, 0.5],
 	["bomb_fall_gravity_scale", 0.05, 4.0, 0.05],
+	# THE SUICIDER'S TWO COUNTERPLAY KNOBS, and both are pure feel. They narrow
+	# the SAME escape from opposite ends — the fuse widens the miss that still
+	# hurts you, the steering shrinks the dodge you needed — so they have to be
+	# tunable side by side or one gets set blind against the other.
+	# `blast_fuse_radius` shipped in v2.26 with no slider at all, which meant the
+	# one number the user had just validated by hand could not be moved by hand.
+	["blast_fuse_radius", 0.0, 40.0, 0.5],
+	["run_steer_deg_s", 0.0, 20.0, 0.5],
 	["respawn_delay", 0.0, 60.0, 1.0],
 	["points", 0.0, 1000.0, 10.0],
 	["strength_cost", 0.0, 20.0, 0.5],
