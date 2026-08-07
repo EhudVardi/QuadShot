@@ -13,7 +13,7 @@
 		"kestrel:missile:clear": 1.0,
 		"kestrel:missile:jammed": 0.0
 	},
-	"config_stamp": "62d553f59d1f555b529594df633e6d36ffbdca5019bd96bdd79148a8d79782d7",
+	"config_stamp": "a5faf1345a58b629a1dc47c8693341afb9b396ef39c6aa86b6079495f850030a",
 	"contact_rate": {
 		"gnat:atlas": 0.91,
 		"gnat:kestrel": 2.07
@@ -29,14 +29,14 @@
 		"blaster:aegis": 0.99,
 		"blaster:falx": 0.51,
 		"blaster:gnat": 0.11,
-		"blaster:lance": 0.23,
+		"blaster:lance": 0.85,
 		"blaster:raider": 0.94,
 		"blaster:screamer": 0.87,
 		"blaster:turret": 0.99,
 		"flak:aegis": 0.96,
 		"flak:falx": 0.67,
 		"flak:gnat": 0.96,
-		"flak:lance": 0.58,
+		"flak:lance": 0.96,
 		"flak:raider": 0.96,
 		"flak:screamer": 0.96,
 		"flak:turret": 0.96,
