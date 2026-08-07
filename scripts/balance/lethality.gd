@@ -10,9 +10,9 @@ extends RefCounted
 ## weapon's own cadence.
 ##
 ## The one modeled loop is the shield exchange — a hit-by-hit replay, because
-## regen between shots makes the shielded case genuinely stateful (the regen
-## clock resets only on shield-TOUCHING hits; hull hits leave it running,
-## exactly as health.gd does it). That is still config arithmetic in the
+## regen between shots makes the shielded case genuinely stateful (EVERY arriving
+## hit rewinds the regen clock, on the screen or on the exposed hull, exactly as
+## health.gd does it). That is still config arithmetic in the
 ## BALANCE.md sense: deterministic, instant, and verified against the shipped
 ## Health node by the planted-shot bench (scripts/tests/lethality_check.gd).
 ##
@@ -406,7 +406,8 @@ static func _exchange(damage: float, interval: float, target: Dictionary,
 	var regen: float = float(target["shield_regen"])
 	var regen_delay: float = float(target["shield_regen_delay"])
 	var shield: float = shield_max
-	# Seconds until regen resumes; only shield-touching hits rewind it.
+	# Seconds until regen resumes. Every arriving hit rewinds it, so staying on a
+	# cracked target is what holds the window open.
 	var regen_wait: float = 0.0
 	# A real clock rather than hits x interval, because a vent makes the two
 	# different numbers.
@@ -424,8 +425,14 @@ static func _exchange(damage: float, interval: float, target: Dictionary,
 			if regen_time > 0.0:
 				shield = minf(shield + regen * regen_time, shield_max)
 		var amount: float = damage
-		if shield > 0.0:
+		# ANY arriving hit rewinds the regen clock, on the screen or on the exposed
+		# hull — `health.gd`'s rule as of 2026-08-07, and this line has to move with
+		# it or the model stops describing the component. `lethality_check` is what
+		# noticed: it plants shots into a real `Health` and compares, and the fix to
+		# the component alone read as `predicted 8 hits, planted 5`.
+		if shield_max > 0.0:
 			regen_wait = regen_delay
+		if shield > 0.0:
 			if amount < break_threshold:
 				# Absorbed outright — and since absorbed hits never lower the
 				# shield, no number of them ever will. The P4.3 chip-gun story

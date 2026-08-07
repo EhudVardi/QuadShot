@@ -89,6 +89,7 @@ func _initialize() -> void:
 	_check_magazine_grammar()
 	_check_outward_route()
 	_check_escaped_bomber_costs_you()
+	_check_shield_discipline()
 	if _failures > 0:
 		_report()
 		return
@@ -277,6 +278,118 @@ func _node(id: int, q: int, r: int, type_id: StringName, owner: StringName,
 		"biome": &"hills", "weather": &"clear", "home": id == 0,
 		"hq": false,
 	}
+
+
+## ---------- the shield is a WINDOW, and staying on it holds the window open ----------
+
+## THE AEGIS'S DEFINING TRAIT, asserted as a TIMELINE rather than as arithmetic,
+## because the defect this stage was written from was invisible to arithmetic.
+##
+## The user stated the intent exactly (2026-08-07): *"i need to take its shield
+## down with a missle, then maintain some damage on its hull to degrade it, and if
+## i cannot connect damage to it for X seconds, its shield should rearm"*. That is
+## the mechanic as designed — and two things were wrong with it.
+##
+## First, hull hits did not reset the regen delay at all, so the screen came back
+## `shield_regen_delay` after the last hit that landed while it was still UP,
+## however hard the pilot was working. Staying on the target bought nothing.
+##
+## Second, and this is the one that mattered: the screen comes back as a SLIVER,
+## and the absorb gate is `shield > 0`, not "shield worth anything". Measured
+## before the fix — 4 s after the break, **0.05 points** of shield returned, and
+## from that tick every chip round was absorbed whole and reset the delay, so the
+## sliver could never grow and **the hull could never be touched again**. The
+## aegis simply stopped being killable by a blaster, frozen for the rest of the
+## scene. A durability model that reads `hull 80, shield 60` describes none of it.
+##
+## Driven as a DETACHED component with its regen stepped by hand: no tree, no
+## frames, deterministic and instant. Stepping it directly is what makes the
+## timeline the thing under test rather than the scheduler.
+func _check_shield_discipline() -> void:
+	var config: EnemyConfig = load("res://resources/default_enemy_aegis.tres")
+	_expect(config.shield_max > 0.0 and config.shield_regen_delay > 0.0,
+			"the aegis carries a regenerating screen (%.0f points, %.1f s of quiet)"
+			% [config.shield_max, config.shield_regen_delay])
+	var chip: float = config.shield_break_threshold * 0.25
+	# 1. THE CONTROL: chip fire bounces while the screen is up. Without this the
+	#    stage below could be satisfied by a shield that never worked at all.
+	var h: Health = _fresh_aegis_health(config)
+	_sim(h, 2.0, 0.25, chip)
+	_expect(is_equal_approx(h.current, h.max_health),
+			"chip fire bounces off the raised screen — %.0f rounds, %.0f hull lost"
+			% [8.0, h.max_health - h.current])
+	# Detached Nodes are not refcounted, so they leak at exit unless freed —
+	# and a leak warning on a green board is how a real one gets ignored.
+	h.free()
+	# 2. A missile-sized hit breaks it and the EXCESS reaches the hull.
+	h = _fresh_aegis_health(config)
+	var missile: float = config.shield_max + config.shield_break_threshold
+	h.take(missile)
+	_expect(h.shield <= 0.0 and h.current < h.max_health,
+			"a %.0f-damage hit breaks the screen and %.0f gets through to the hull"
+			% [missile, h.max_health - h.current])
+	# 3. THE ONE THAT WAS BROKEN: sustained fire on the exposed hull HOLDS the
+	#    screen down, and the hull keeps falling for the whole window. Run it for
+	#    twice the regen delay, so a screen that was going to come back has had two
+	#    chances to.
+	var hull_at_break: float = h.current
+	var window: float = config.shield_regen_delay * 2.0
+	var fired: int = _sim(h, window, 0.25, chip)
+	var bled: float = hull_at_break - h.current
+	_expect(h.shield <= 0.0,
+			"staying on it HOLDS the screen down — still %.2f after %.1f s of fire, twice the %.1f s delay"
+			% [h.shield, window, config.shield_regen_delay])
+	# The sliver defect froze the hull dead, so this is the assertion that names
+	# it: not "the shield is down" but "the rounds are still arriving".
+	_expect(is_equal_approx(bled, chip * float(fired)),
+			"and every one of the %d rounds still LANDS — %.0f hull over %.1f s, not one absorbed"
+			% [fired, bled, window])
+	# 4. Cease fire and it rearms, which is the other half of the user's sentence.
+	var hull_before_quiet: float = h.current
+	_sim(h, config.shield_regen_delay + 2.0, 0.0, 0.0)
+	_expect(h.shield > 0.0,
+			"break contact for %.1f s and the screen REARMS (%.1f of %.0f back)"
+			% [config.shield_regen_delay + 2.0, h.shield, config.shield_max])
+	_expect(is_equal_approx(h.current, hull_before_quiet),
+			"having cost the pilot the hull they stopped taking (%.0f, unchanged)"
+			% h.current)
+	h.free()
+
+
+## A detached aegis-statted Health, outside the tree. `revive()` does what `_ready`
+## would have, which is the part that bites: a Node added during `_initialize` does
+## not get `_ready` until the first frame, and an un-readied Health has a zero hull
+## that dies to the first hit. That cost a wrong measurement before it was caught.
+func _fresh_aegis_health(config: EnemyConfig) -> Health:
+	var h := Health.new()
+	h.max_health = 1000.0
+	h.configure_defenses(config)
+	h.revive()
+	return h
+
+
+## One hit every `interval_s` for `seconds`, with the shield's own regen stepped
+## by hand at the project tick. `interval_s` 0 means hold fire.
+##
+## RETURNS THE ROUNDS IT ACTUALLY FIRED, so the caller compares hull loss against
+## what happened rather than against a formula it has to keep in sync. The first
+## version asserted `floor(window / interval)` and failed on a real mechanism,
+## because the volley also fires at t=0 — an off-by-one in the TEST that reads
+## exactly like a defect in the game.
+func _sim(h: Health, seconds: float, interval_s: float, damage: float) -> int:
+	var dt: float = 1.0 / TICK_HZ
+	var since: float = interval_s
+	var elapsed: float = 0.0
+	var fired: int = 0
+	while elapsed < seconds:
+		if interval_s > 0.0 and since >= interval_s:
+			h.take(damage)
+			since = 0.0
+			fired += 1
+		h._physics_process(dt)
+		since += dt
+		elapsed += dt
+	return fired
 
 
 ## ---------- A2: it actually flies passes, in a real arena ----------

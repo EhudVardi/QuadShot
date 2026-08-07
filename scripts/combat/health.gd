@@ -85,8 +85,28 @@ func take(amount: float) -> void:
 	if not alive:
 		return
 	struck.emit(amount)
-	if shield > 0.0:
+	# ANY hit that arrives holds the shield down — on the screen or on the exposed
+	# hull, it makes no difference. This reset used to live inside the `shield > 0`
+	# branch below, and moving it out fixes two defects that were really one.
+	#
+	# FIRST, it is what the mechanic is FOR. The user stated the intent exactly:
+	# *"i need to take its shield down with a missle, then maintain some damage on
+	# its hull to degrade it, and if i cannot connect damage to it for X seconds,
+	# its shield should rearm"*. Under the old rule, staying on the target did
+	# nothing at all — the screen came back `shield_regen_delay` after the last hit
+	# that landed while it was still UP, however hard you were hitting the hull.
+	#
+	# SECOND, and this is the one that made the type unkillable: the regenerated
+	# shield reappears as a SLIVER, and the gate is `shield > 0`, not "shield worth
+	# anything". Measured before the fix: 4 s after the break, 0.05 points of shield
+	# came back, and from that tick on every chip round was absorbed whole and reset
+	# the delay — so the sliver could never grow, the hull could never be touched,
+	# and the aegis simply stopped being killable by a blaster. Frozen for the rest
+	# of the scene. The comment below already names this failure for the
+	# OVER-threshold path; it was still live on the under-threshold one.
+	if shield_max > 0.0:
 		_regen_wait = shield_regen_delay
+	if shield > 0.0:
 		# Under the threshold: the shield shrugs it off completely. Deliberately
 		# not a partial absorb — a shield that leaks would make chip fire a slow
 		# win, which is exactly the loadout this type exists to punish.
