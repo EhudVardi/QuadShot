@@ -262,10 +262,25 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Flak x Lance", "weapon": "flak", "type": "lance",
 			"enemy": "res://scenes/combat/lance.tscn",
 			"paper": "++", "mode": "win"},
-	# --- The Phalanx column (A7, added with the type). Bands from the counter-web
-	# in `phalanx.gd`: stand-off `++` (reach it from outside its guns' comfort),
-	# burst `+` (a mount is cheap to strip in one pass), chip gun `-` (a trickle
-	# through a 250-degree arc is out-regenerated).
+	# --- The Phalanx column (A7, REBANDED with the A.q10 screen). Bands from the
+	# counter-web in `phalanx.gd`, and they moved because the counters did: the
+	# type used to be beaten by out-slewing a tracking arc and is now beaten by
+	# TIMING a rotating one and by PRECISION on a small stern plate.
+	#
+	# chip gun `-` -> `+`: a sustained, precisely-aimed gun is the only thing that
+	# can spend a two-second slot or a stern window, and it never runs dry doing
+	# it. burst `+` -> `0`: a slot is a duration rather than a moment, so one heavy
+	# round wastes most of an opening it paid to reach. flak `+` -> `-`: splash
+	# cannot exploit a 1.6 m plate, and a wide burst is mostly stopped by the
+	# panels either side of the slot. missile stays `+` — it arrives on its own
+	# line, but a lock spent while the shell is shut is a lock wasted.
+	#
+	# ALL FOUR ROWS READ `win 0%` TODAY and are expected to keep doing so: 1300
+	# points behind a screen open 17-42% of the time does not fall inside the
+	# harness's 10 s cap, and `model_kills` already requires the predicted ttk to
+	# fit that cap, so model and fight agree and nothing is flagged. These bands
+	# are therefore a claim about a REAL fight, not one this instrument can settle
+	# — see v2.37. The clean fix if it ever needs settling is a per-row cap.
 	#
 	# THESE ROWS ALSO KEEP THE TWO STAMPS AGREEING. `_config_stamp` builds its
 	# enemy list from THIS table and the delivery bench builds its own from
@@ -275,13 +290,13 @@ const MATCHUPS: Array[Dictionary] = [
 	# how it nearly happened for real.
 	{"name": "Blaster x Phalanx", "weapon": "blaster", "type": "phalanx",
 			"enemy": "res://scenes/combat/phalanx.tscn",
-			"paper": "-", "mode": "win"},
+			"paper": "+", "mode": "win"},
 	{"name": "Missile x Phalanx", "weapon": "missile", "type": "phalanx",
 			"enemy": "res://scenes/combat/phalanx.tscn",
-			"paper": "++", "mode": "win"},
+			"paper": "+", "mode": "win"},
 	{"name": "Flak x Phalanx", "weapon": "flak", "type": "phalanx",
 			"enemy": "res://scenes/combat/phalanx.tscn",
-			"paper": "+", "mode": "win"},
+			"paper": "-", "mode": "win"},
 	{"name": "Blaster x Screamer", "weapon": "blaster", "type": "screamer",
 			"enemy": "res://scenes/combat/screamer.tscn",
 			"paper": "+", "mode": "win", "jam": "jammed"},
@@ -296,13 +311,17 @@ const MATCHUPS: Array[Dictionary] = [
 	# the Kestrel flying the SAME weapon, and the blaster is the honest choice —
 	# it is the weapon that still works inside the bubble, so the row measures the
 	# airframe rather than the jam refusing a lock on both frames equally.
-	# The heavy frame against the anti-orbit type, and P4.4 predicts the worst row
-	# on the board: beating a tracking arc is a SLEW RACE, and the Atlas is the
-	# frame that cannot win one. Banded `--` against the Kestrel flying the same
-	# weapon.
+	# THE HEAVY FRAME AGAINST THE ANTI-ORBIT TYPE, and this band MOVED with the
+	# A.q10 screen. It was `--` because beating a tracking arc was a slew race and
+	# the Atlas cannot win one. Timing a rotating shell is not a race: a heavy
+	# frame holds a gun line BETTER, which is worth more against a two-second slot
+	# and worth much more against a 1.6 m plate at range. The light frame keeps an
+	# edge because matching a shell's rotation is still a speed problem, so the
+	# expectation is that the gap NARROWS rather than inverts — `0`, banded
+	# against the Kestrel flying the same weapon.
 	{"name": "Atlas x Phalanx", "frame": Frames.ATLAS, "weapon": "missile",
 			"type": "phalanx", "enemy": "res://scenes/combat/phalanx.tscn",
-			"paper": "--", "mode": "frame", "datum": "Missile x Phalanx"},
+			"paper": "0", "mode": "frame", "datum": "Missile x Phalanx"},
 	{"name": "Atlas x Screamer", "frame": Frames.ATLAS, "weapon": "blaster",
 			"type": "screamer", "enemy": "res://scenes/combat/screamer.tscn",
 			"paper": "-", "mode": "frame", "datum": "Blaster x Screamer",

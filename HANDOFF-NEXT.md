@@ -8,7 +8,52 @@ what happens next.
 
 ---
 
-## WHERE IT STANDS, 2026-08-07 — read this block first
+## WHERE IT STANDS, 2026-08-08 — read this block first
+
+**Board 22/22 green. `PILOT_VERSION` 7 (untouched). EIGHT roster types. Tree
+clean.**
+
+**A.q10 IS BUILT AND IT IS THE WHOLE SESSION.** Read **v2.38** at the tail of
+GAMEPLAY-DESIGN.md. The Phalanx's tracking arc is gone; its screen is now two
+counter-rotating shells of slotted armour plus a stern vent that opens on a
+window. The FORTRESS half (hull, mounts, size, battery) was signed off and was
+not touched.
+
+- **The pattern had to be DESIGNED, and the first design was refuted by its own
+  first measurement.** A plain two-shell rotation does NOT punish camping — the
+  open fraction is just the product of the two duty cycles, so a camper and an
+  orbiter read the same 16%. What makes it work is that a pilot can SEE a slot
+  and fly into it: locked to a shell's rotation, **42% open against a camper's
+  17%**, and a single shell would hand the camper 38%.
+- **The screen is a BARRIER, not a battery** — `shield_max` 300 → 0. The old arc
+  spent its pool in about a second, which is half of why it never read.
+- **A real bug the rework introduced and a rig caught**: the stern vent's
+  collider pushed its own parent `CharacterBody3D` off station at 5 m/s (49.6 m
+  in 5 s). Fixed with `add_collision_exception_with`; `phalanx_check` now guards
+  it with a stage that could not have caught it before.
+- **Layer 1 was 600 points short of every Phalanx fight** — it priced the hull
+  and ignored the battery, which every round from every bearing meets first.
+  Fixed in the model and the planted rig at once.
+- **`balance/delivery_factors.json` is NOT stale** — none of the shield fields is
+  in `DELIVERY_FIELDS_ENEMY` and the phalanx evasion cell forces the screen off
+  anyway. The full `tools/balance_report` was re-run regardless, because the
+  counter-web bands moved.
+
+**NOT FLOWN.** This is the top of the list, and the routes (three skills, in
+order) are in TESTING.md's `phalanx_check` section.
+
+### The one number the human has to judge
+
+The fortress was signed off at 1300 points against a screen that *nominally* shut
+65% of the time and in practice evaporated in about a second — so the fight they
+approved was roughly 1300 points at near-full delivery. It is now 1300 points at
+**17–42%** delivery. **On paper that is a 2.4x to 6x longer fight.** If it drags,
+the shield fields are the ones to move and all nine are sliders under BESTIARY:
+**gap widths set how OFTEN it is open, rates set how LONG each window lasts.**
+
+---
+
+## WHERE IT STOOD, 2026-08-07
 
 **Board 22/22 green. `PILOT_VERSION` 7 (untouched). EIGHT roster types.
 `balance/delivery_factors.json` re-measured with the new type in it, PASS, committed.**
@@ -91,7 +136,8 @@ listed too, so the difference is unambiguous.
 
 | what | verdict |
 |---|---|
-| **The Phalanx as a FORTRESS** (v2.35) | **UNFLOWN — the big one** |
+| **The Phalanx's ROTATING SCREEN + stern vent** (v2.38) | **UNFLOWN — the big one** |
+| The Phalanx as a FORTRESS (v2.35) | SIGNED OFF: *"its an air fortress with many turrets that takes a lot of damage to take down"* |
 | The aegis shield LOOP: missile, then stay on it, then it rearms (v2.29) | partly — they confirmed it "takes way more damage", not the rearm rhythm |
 | Units no longer overlapping in a sortie (v2.32) | **UNFLOWN** — needs a composed sortie, not the dev room |
 | Lance continuous warning (v2.28) | SIGNED OFF: *"i think its good now"* |

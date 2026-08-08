@@ -459,50 +459,81 @@ whole run. It saturates at 11 m, which is the fuse radius, so full alarm always
 means *inside the envelope*. `respawns = true` on the specimen, so it comes back
 however it ends.
 
-`phalanx_check` (2026-08-07) guards the heavy defender, and both of its central
-claims are held by **comparing two runs that differ in one thing** — the shape
-that caught a timer-driven warning and a dead steering knob on the Lance the
-same day. Same body, same damage, same distance; only the side the attacker
-stands on changes, or how much time has passed. Every single-run assertion
-available (*it has a shield*, *it has guns*) is passed just as happily by a flat
-shield and cosmetic mounts.
+`phalanx_check` guards the heavy defender. **Its shield stages were rewritten
+from scratch on 2026-08-08 (A.q10)**, because the ones they replaced asserted
+that the screen TRACKED its attacker and that an orbit found a reachable
+opening — and the type's screen is now two counter-rotating shells and a stern
+vent, so both were meaningless. Leaving either would have left an assertion that
+passes for a reason nobody intends.
 
-It also holds the **aegis as a control**: that type must stay all-round and
-threshold-gated, or "make the phalanx's shield an arc" could be satisfied by
-making every shield an arc and silently deleting the weapon-choice gate.
+What survived the rewrite is the **shape**: every claim is two runs differing in
+one thing, and the beatability claim **flies the real geometry** rather than
+asserting on a config field. Four claims:
 
-Four mutations are on record. The one worth knowing is a slew of 400 deg/s — a
-shield fast enough to always face the pilot, which would make the type
-unkillable from any bearing. It fails *"the attacker's bearing is still open"*,
-so the guard rail is a check rather than something somebody has to notice while
-flying. Another mutation, an arc of 360, found a real float-precision defect by
-landing exactly on it: `Vector3.angle_to` computes in 32-bit floats and returns
-3.14159274 where `deg_to_rad(360) * 0.5` gives 3.14159265, so "covered from
-every side" had a hairline gap directly astern.
+1. **The screen is a pattern, not a facing.** It turns on a fixed bearing with
+   nothing shooting it, and the whole pattern is identical whichever side the
+   attacker stands on. That second half is the regression test for the mechanic
+   that was *deleted* — if anyone re-adds tracking beside the rotation, it fails.
+2. **One slot is not an answer** (P4.2's anti-orbit job). Camped on one bearing
+   the screen is open **17%** of the time; flying with a shell's rotation, **42%**
+   — so reading the pattern is worth 2.5x the damage.
+3. **And it is still beatable from anywhere.** Twelve bearings are walked and the
+   *worst* of them must still get a window worth shooting through inside a
+   bounded wait.
+4. **The stern vent is a weak point, not a hole.** A round on the plate reaches
+   the hull while the window is open, past the whole battery, and does not while
+   it is shut — plus a guard that camping astern on the vent stays worse than
+   flying the pattern, which is the arithmetic of *"a permanently exposed stern
+   is a camping spot"*.
 
-Its newest stages (2026-08-07) came from the first flight. One is a regression
-test for a bug the user found — the screen only ever turned toward whatever had
-*shot* it, so a Phalanx nobody had fired at kept its spawn facing forever; the
-stage stands a threat off its blind side and **fires nothing**, and the screen
-has to come round on sight alone.
+It also holds the **aegis as a control**, and that control now says more than it
+used to: the two shielded types no longer share a mechanism at all. The aegis is
+a POOL you spend, gated on weapon choice; the phalanx is a BARRIER you time,
+which is why `shield_max` is 0 on it.
 
-The other flies a real **30 m orbit at 25 m/s** and asserts the shield's opening
-exists, opens inside 6 s, lasts long enough to shoot through, and still stays
-shut most of the time. That replaced a weak "still open after 0.5 s" proxy, and
-the reason is worth keeping: **whether this type is beatable is a property of
-the arc and the slew TOGETHER.** Measured, arc 250 with slew 28 opens at 1.8 s;
-the same arc at slew 45 takes 12.7 s; arc 290 at slew 45 **never opens at all**.
-Neither field is wrong on its own, so no assertion on either one could have
-caught the pair that produces an enemy nobody can hurt.
+**Six mutations are on record and each fails a different sentence:** delete the
+second shell (camping reads 40% against 17%), stop both shells, re-add tracking,
+vent never shuts, vent never opens, vent widened to 100 deg.
 
-**`lethality_check` now runs about 8 minutes** (up from 4) — the fortress's
-cells simulate far longer, and the board is now dominated by that one check.
+**The tracking mutation is the one worth knowing, because it PASSED the first
+version of its own stage.** That stage watched a single bearing with the attacker
+on either side; under a re-added tracker the bearing was blocked in both runs, so
+two constant timelines compared equal and the headline assertion passed on a body
+carrying exactly the defect it exists to refuse. Only the guard beside it noticed.
+It now fingerprints eight bearings at once. Same family as the seventh unfailable
+check: *fixing what a test fires on does not fix what it reads.*
+
+**And one stage measured the wrong thing before it measured the right one.** The
+camping assertion first parked the pilot on bearing (0,0,1) — dead astern, the
+one bearing with a designed hole in it — and read 34% instead of 17%, nearly
+failing the type's own role assertion by measuring the weak point.
+
+**`lethality_check` runs about 8 minutes** — the fortress's cells simulate far
+longer, and the board is dominated by that one check.
 
 **To fly it**, the dev room has a specimen at **(-70, 16, 60)** — northwest,
 in open sky over open ground, which is the terrain A7 says the type is best on
 and therefore the honest place to judge it. It holds that station and never
-follows, so you can leave and come back on a different bearing, which is the
-whole counterplay the shield exists to demand.
+follows.
+
+Three things to try, in this order, and they are three different skills:
+
+- **Camp one bearing and shoot.** Most of your rounds should visibly splash on a
+  lit panel. This is the loadout the type exists to refuse; if it feels fine,
+  the pattern is too generous.
+- **Read the shells and fly WITH one.** The outer (cyan, 3 slots) turns one way
+  at 26 deg/s, the inner (violet, 2 slots) the other at 16. Slide into a slot in
+  either and hold its rate — about **14 m/s** around a 30 m orbit for the outer,
+  **8 m/s** the other way for the inner. Your damage should roughly double.
+- **Watch the stern.** A plate low on the aft face brightens across the whole
+  9 s it is shut and goes white-hot for 2 s while a slot opens through both
+  shells. A round that HITS the plate in that window goes straight to the hull,
+  past all six guns. It is small on purpose — this is the accuracy skill.
+
+**If it drags**, the shield fields are the ones to move and every one is a
+slider under BESTIARY: gap widths set how OFTEN it is open, the rates set how
+LONG each window lasts. Hull, mounts and the battery are signed off and were not
+touched.
 
 `heat_check` guards the blaster's duty cycle (v1.91), and the failure it exists
 for is the worst one available: a gun that locks out and **never comes back**

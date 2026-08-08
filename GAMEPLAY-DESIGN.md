@@ -1003,6 +1003,32 @@ the camper; terrain answers almost everything except the clock-driven units
 (aegis, sentinel) — cover can't stop a countdown. That last row of stories
 is the game.
 
+**ADDENDUM 2026-08-08 — where the bands for types built after this table live.**
+The table above is paper v0 and has never been extended; the **Lance** and the
+**Phalanx** arrived long after it, and their bands live in
+`matchup_harness.MATCHUPS` (which is what the harness actually validates against)
+and in each type's own header comment. Recording that here rather than editing
+the table, because the table is history.
+
+**And one of those bands has already moved.** The Phalanx shipped as
+chip-gun `−` / burst `+` / missile `++` / flak `+`, banded against a screen that
+was a **tracking arc**. A.q10 replaced the mechanic, and the counters moved with
+it — from *out-slew the arc* to *time the pattern and hit the vent*:
+
+| Phalanx | Chip gun | Burst | Missile | Flak | Terrain |
+|---|---|---|---|---|---|
+| against the tracking arc | − | + | ++ | + | ++ |
+| against the rotating shells (A.q10) | **+** | **0** | + | **−** | + |
+
+The reasoning, one clause each: a sustained precisely-aimed gun is the only thing
+that can spend a two-second slot or a stern window and it never runs dry doing
+it; a slot is a *duration* rather than a moment, so one heavy round wastes most
+of an opening it paid to reach; a missile still arrives on its own line but a
+lock spent while the shell is shut is a lock wasted; splash cannot exploit a
+1.6 m vent plate and a wide burst is mostly stopped by the panels either side of
+the slot; terrain still crosses its open ground but no longer helps you reach a
+blind side, because there is not one.
+
 ### P4.4 — Frame-class pressure
 
 The same web priced against P3's frame classes (light interceptor /
@@ -1023,6 +1049,25 @@ loadout instead. **Intel composition → frame choice** becomes a real
 decision every briefing (P1.3 feeding P3, as designed), and the all-rounder
 column being all zeros is intentional: it's the frame you pick when intel is
 stale.
+
+**ADDENDUM 2026-08-08 — the Phalanx's frame-pressure row, and it moved with
+A.q10.** The type was banded light `++` / heavy `−−` on one sentence: *beating a
+tracking arc is a slew race, and the Atlas is the frame that cannot win one*.
+That sentence is no longer true. **Timing a rotating shell is not a race** — a
+heavy frame holds a gun line *better*, which is worth more against a two-second
+slot and worth much more against a 1.6 m stern plate at range. The light frame
+keeps an edge because matching a shell's rotation is still a speed problem, so
+the expectation is that the gap **narrows rather than inverts**:
+
+| Phalanx | Light | All-round | Heavy |
+|---|---|---|---|
+| against the tracking arc | ++ | 0 | −− |
+| against the rotating shells | **+** | 0 | **0** |
+
+`matchup_harness`'s `Atlas x Phalanx` row carries the new band. It is a
+**prediction**, not a measurement: that row reads `win 0%` for both frames inside
+a 10 s cap and will keep doing so, so this is a claim the instrument cannot
+currently settle (v2.37's per-row-cap note is the clean fix if it ever must be).
 
 ### P4.5 — Terrain pricing (cover economics, totaled)
 
@@ -10522,8 +10567,12 @@ convention). Their words: *"a heavy frame that moves slower and has multiple
 turrets that fire at me at the same time, something like the aegis but faster,
 carrying a shield/force field, and has multiple vectors of attack on the player."*
 
-- *Durability:* shielded like the aegis, but the shield is a **facing** thing
-  rather than a flat gate — the counter is to be where the guns are not.
+- *Durability:* shielded like the aegis, but the shield is a **timing** thing
+  rather than a flat gate. (This line originally read *"a **facing** thing... the
+  counter is to be where the guns are not"*, and it was built that way — a
+  tracking arc — until **A.q10** replaced it with two counter-rotating shells and
+  a stern vent. The reason is recorded in v2.38: the arc worked and could not be
+  read.)
 - *Mobility:* slow (~0.6× raider) and deliberate; it does not chase, it holds
   ground and denies it.
 - *Threat:* hull, from **several turrets at once**, which is what makes it
@@ -10532,9 +10581,13 @@ carrying a shield/force field, and has multiple vectors of attack on the player.
 - *Behavior:* holds a station near what it guards. The telegraph is spin-up —
   turrets tracking before they fire, so the commitment is visible.
 - *Web role:* the anti-orbit type. It punishes the peel-and-kill rhythm the
-  raider deliberately allows (P4.2 calls raider spacing "peelable"), and is
-  answered by stand-off weapons, by terrain, and by killing it from one arc while
-  its shield faces another.
+  raider deliberately allows (P4.2 calls raider spacing "peelable"). **How** it
+  punishes it changed in A.q10 and the role did not: a tracking arc caught up
+  with a pilot who sat still, and two shells at incommensurate rates make the
+  joint opening on a FIXED bearing rare and irregular while a pilot who flies
+  with one shell's rotation only has to time the other. Measured on the real
+  body: 17% of the time open camped, 42% flying the pattern. It is answered by
+  timing, by precision on its stern vent, and by terrain.
 - *Terrain:* open ground is its best; cover is the player's whole answer.
 - *Strategic:* **THIS is the escalation anchor.** A besieged enemy digging in
   behind heavier defensive hardware is immersive in a way that a bomber parked in
@@ -12216,3 +12269,141 @@ being rediscovered as a red board when A.q1 lands.
   - **DEFERRED TO A FRESH SESSION on the user's offer.** It is a new mechanic, new
     geometry, a check rewrite and another re-measure, arriving at the end of a very
     long session — and the type's whole counter-web row moves with it.
+
+- **2026-08-08 — v2.38. A.q10 BUILT: the Phalanx's screen is two counter-rotating
+  shells and a stern vent, and the pattern had to be DESIGNED to keep the type's
+  job.** The user's steering on both open forks, given before any code was
+  written: on the anti-orbit property, *"a non-uniform or multi-ring rotation
+  can't be timed from a single slot - yes that sounds great. something confusing
+  in some way. not impossible but difficult"*; on the weak point, *"you are
+  correct to push back... it should be a small caveat of the entire fortress. i
+  think it should be opened for a window of time."*
+  - **WHAT SHIPPED, in one line each.** Two nested shells of slotted armour —
+    outer 3 slots of 48 deg at **+26 deg/s**, inner 2 slots of 76 deg at
+    **-16 deg/s** — and a round reaches the body only when a slot in EACH is on
+    its bearing at that instant. Plus a **stern vent**: a 26 deg aperture cut
+    through both shells for 2.0 s of every 11.0 s, with a small physical plate
+    behind it whose hits go straight to the hull, past the screen and past the
+    whole battery.
+  - **THE FIRST DESIGN WAS REFUTED BY ITS OWN FIRST MEASUREMENT, and that is this
+    entry's main content.** The reasoning going in was *"flying with a shell parks
+    you inside its slot, so moving is rewarded"*. Swept across seven pilot
+    bearing-rates it came back flat: **16% open camped and 16% open at every orbit
+    rate**, because the open FRACTION is just the product of the two duty cycles
+    and a moving pilot samples the same joint distribution. Worse, camping gave
+    the LONGEST windows (1.08 s against 0.55 s at a fast orbit) — the opposite of
+    the intent.
+    - The rate-matched rows read **9%**, apparently worst of all, and that number
+      was the tell rather than the verdict: matching a shell's rotation locks you
+      to it, so you sit permanently inside one of its slots or permanently behind
+      one of its panels. Averaged over random start phases that is a **coin flip
+      the player never has to take** — they can SEE the slot and fly into it,
+      which is the entire point of the rework's visual.
+    - Re-measured with the pilot deliberately placed in a slot, the design works
+      and the numbers are the type's role: **camped 17% open with 9 s dry spells;
+      flying with a shell 42%, windows 1.8 s, dry spells 2.5 s.** Reading the
+      pattern is worth **2.5x the damage** of sitting in one slot.
+    - **The control is what makes that meaningful.** A SINGLE rotating shell hands
+      a camper **38%** — barely a shield at all, and trivially solved by matching
+      it (100%). *"Patterns that can confuse the attacker" is not a flourish on
+      the mechanic; without it there is no mechanic.*
+  - **THE SCREEN IS NOW A BARRIER, NOT A BATTERY, and this is the least obvious
+    change.** `shield_max` went 300 -> **0**. The old arc SPENT shield points on
+    every covered hit, so a blaster emptied the pool in about a second and the
+    directional mechanic stopped happening for the rest of the fight. **That is
+    half of why it never read**: it was working for the first second of a
+    twenty-second fight. A rotating screen that evaporated the same way would have
+    been just as unreadable. A blocked round is now REFUSED — nothing spent, the
+    screen never falls — which also makes the two shielded types share no
+    mechanism at all: the aegis is a pool gated on weapon choice, this is a
+    barrier gated on timing.
+  - **THE VISUAL WAS HALF THE FEATURE AND IT TOOK FOUR PASSES, ALL OF THEM LOOKED
+    AT.** A.q10 is a readability failure, so a plausible-looking shader would have
+    reproduced the original bug in a new shape. `shield_rings.gdshader` draws one
+    shell on a sphere and **discards the slots**, from the same phase the hit test
+    reads, so a gap you can see through is a gap your rounds go through.
+    1. Dense longitude+latitude seams made it a **glowing wireframe globe** with
+       the fortress invisible inside it. A globe is a shape with no direction —
+       the exact failure being fixed.
+    2. Dimming the panel body far enough to see the ship made panel and slot
+       **both black**: a legible edge and an unreadable face.
+    3. Longitude staves only, brighter, and the shells squashed into a **drum**:
+       now the face reads as armour and the slot as a hole.
+    4. **Back faces culled**, which was the largest single improvement. Two
+       double-walled spheres put FOUR curved surfaces over the same pixels and the
+       far wall's slot edges read exactly like the near wall's, so the one
+       question the screen answers was buried under three answers to other
+       bearings. Culling is also honest: the screen does not apply to an attacker
+       inside it, so there is nothing in there to draw.
+  - **A REAL BUG, FOUND BY LOOKING AND THEN BY A/B, THAT LOOKED EXACTLY LIKE AN AI
+    BUG.** The stern vent is a second physics body bolted to a `CharacterBody3D`,
+    overlapping the hull's own shape, so `move_and_slide` depenetrated against its
+    own child: the fortress slid away from the player at its full 5 m/s, **49.6 m
+    in 5 seconds**, forever. Caught because a screenshot rig kept photographing an
+    empty patch of sky, and settled by disabling the vent's collider and
+    re-running — 0.0 m. Fixed with `add_collision_exception_with`.
+    - **The aegis has the same arrangement and gets away with it** because its
+      shield sphere is centred on the body, so its depenetration cancels. That is
+      luck rather than design, and it is worth knowing before the next body grows
+      a second collider. Deliberately not changed here — it is not broken, and
+      touching it would cost a re-verify for no gain.
+  - **THE CHECK WAS REWRITTEN, NOT PATCHED, and six mutations are on record.** The
+    old shield stages asserted TRACKING and an orbit-measured opening; both became
+    meaningless, and leaving either would have left an assertion that passes for a
+    reason nobody intends. What survives is the shape: every claim is two runs
+    differing in one thing, and the beatability claim **flies the real geometry**,
+    because whether a pilot can get through is a property of the gap widths and
+    the rates together — the same lesson arc-250-at-slew-45 taught.
+    - Each mutation fails a different sentence: delete the second shell (camping
+      reads 40%), stop both shells (nine stages), re-add tracking, vent never
+      shuts, vent never opens, vent widened to 100 deg (camping astern beats
+      flying the pattern, 55% against 49%).
+    - **THE TRACKING MUTATION PASSED THE FIRST VERSION OF ITS OWN STAGE**, and it
+      is the ninth near-miss of this family. The stage compared the screen's
+      timeline along ONE bearing with the attacker standing on either side; under
+      a re-added tracker that bearing was blocked in both runs, so **two constant
+      timelines compared equal** and the headline assertion passed on a body
+      carrying exactly the defect it exists to refuse. Only the guard beside it
+      (*"and the timeline actually varies"*) noticed. It now fingerprints eight
+      bearings at once and fails on its own.
+    - **A stage also measured the wrong thing and said so loudly.** The
+      camping-is-punished stage first parked the pilot on bearing (0,0,1) — which
+      is dead astern, the one bearing with a designed hole in it — and read 34%
+      instead of 17%, nearly failing the type's own role assertion by measuring
+      the weak point. The vent is now asserted separately, *including* a guard
+      that camping astern must stay worse than flying the pattern, which is the
+      arithmetic of the objection the user endorsed.
+  - **LAYER 1 WAS 600 POINTS SHORT OF THE FIGHT, and it surfaced here for the same
+    reason v2.35's battery divergence did.** `Lethality.target_from_enemy` priced
+    the Phalanx's 700 hull and ignored its six 100-point mounts — but
+    `_mount_facing` picks the nearest LIVING mount from any bearing, so a pilot
+    firing from one slot must strip the whole battery before touching the hull. It
+    is one 1300-point sequence. Fixed on both sides at once (the model and the
+    planted rig now read the same function), because the entire value of that
+    bench is that the two agree. `mount_count` is 0 for every other type, so
+    nothing else moved.
+  - **WHAT LAYER 1 STILL CANNOT SEE, stated so nobody quotes it wrong.** There is
+    no pool left to price and a barrier's cost is a duty cycle rather than a
+    number of points, so Layer 1 now reports the time to chew through 1300 points
+    with **every round landing** — the BEST case, and the floor of the real fight.
+    Multiply by the open fraction for the honest range: about **2.4x** for a pilot
+    who reads the pattern, about **6x** for one who camps. Note this INVERTS the
+    previous convention — the arc's entry said Layer 1 priced the WORST case.
+  - **AND A NUMBER THE HUMAN HAS TO JUDGE, flagged rather than tuned (H6, standing
+    rule 9).** The fortress was signed off at 1300 points against a screen that
+    was *nominally* shut 65% of the time but in practice evaporated in about a
+    second — so the fight they approved was roughly 1300 points at near-full
+    delivery. It is now 1300 points at 17-42% delivery. **On paper that is a 2.4x
+    to 6x longer fight**, before the blaster's heat sink is counted. Nothing about
+    hull, mounts, size or the battery was touched, per their instruction; if the
+    fight now drags, the shield fields are the ones to move and they are all
+    sliders.
+  - **THE COUNTER-WEB MOVED WITH THE MECHANIC**, recorded as addenda under P4.3
+    and P4.4 rather than by editing those tables, and carried in
+    `matchup_harness.MATCHUPS`: chip gun `-` -> `+`, burst `+` -> `0`, missile
+    `++` -> `+`, flak `+` -> `-`, and P4.4's heavy column `--` -> `0`. That last
+    one is the line the rework most obviously invalidated: *"beating a tracking
+    arc is a slew race and the Atlas cannot win one"* stopped being true the
+    moment the arc stopped chasing. All of these are PREDICTIONS the harness
+    cannot currently settle — all four Phalanx duel rows read `win 0%` inside a
+    10 s cap and will keep doing so.
