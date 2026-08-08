@@ -582,8 +582,14 @@ being a look-and-feel item.
    `heat`, `ammo`, `sortie`, `war_loop`.
 3. **Never read an enemy's facing from its BODY basis.** A freshly spawned enemy
    has identity rotation and zero velocity. Read the heading (velocity).
-4. **Any new bestiary type joins `ENEMIES_FOR_STAMP` (delivery_bench), `ENEMIES`
-   (lethality_check) AND `WarManifest.ROSTER` the same day.** The third one is
+4. **Any new bestiary type joins FIVE lists the same day**, not three:
+   `ENEMIES_FOR_STAMP` **and a delivery CELL** (delivery_bench), `ENEMIES`
+   (lethality_check), `WarManifest.ROSTER`, `WaveDirector.ROSTER`+`PLAN`, **and a
+   `matchup_harness` row**. The last one is not optional bookkeeping: the harness
+   builds its config stamp from its OWN table, so a type in `ENEMIES_FOR_STAMP`
+   and not in the harness makes the two stamps disagree forever and SILENTLY
+   blanks the predicted column (v2.36). The original three-item version of this
+   rule was written before two of those lists existed. The third one is
    new and it is there because the falx and the screamer missed it for two weeks
    (v1.96) — `manifest_check` now asserts the two rosters against each other.
 5. **Watch one cell instead of all of them.** `tools\watch_matchups.cmd screamer`.

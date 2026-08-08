@@ -12071,3 +12071,57 @@ being rediscovered as a red board when A.q1 lands.
     parked deliberately** — *"for now lets make the lance target only me. when
     we'll start working on the allied side we'll start looking into the subject of
     target ranking."* The `_find_player()` seam stays exactly where it is.
+
+- **2026-08-07 — v2.36. TWO GAPS FOUND WHILE PREPARING THE RE-MEASURE, and the
+  second one is a defect in work committed four hours earlier the same day.**
+  Neither was found by a check failing. Both were found by asking *"is this type
+  actually in every list, and does anything actually receive what it emits."*
+  - **GAP ONE: the new type was in the stamp and in nobody's cell list.** The
+    Phalanx joined `ENEMIES_FOR_STAMP` the day it landed — standing rule 4, done
+    correctly — but no delivery cell and no harness row named it. A full balance
+    report would have measured **every type except the new one**, at a cost of an
+    hour, and produced an artifact that looked complete.
+    - **And it was worse than a hole.** `matchup_harness._config_stamp` builds its
+      enemy list from ITS OWN table while `delivery_bench` builds one from
+      `ENEMIES_FOR_STAMP`. A type in one list and not the other makes the two
+      stamps disagree **forever**, which silently blanks the harness's predicted
+      column — the exact failure the Lance's own comment predicted in v2.24
+      (*"caught on the day the Lance landed, by reading, before it could
+      happen"*). This time it was caught by reading that comment.
+    - **The lesson is about what "registered" means.** Standing rule 4 lists three
+      places a type must join. It is now five, and the rule was never wrong — it
+      was written before two of the lists existed. **A checklist that predates
+      half the things it is checking is a checklist with holes in it by
+      construction.**
+  - **GAP TWO: `mount_destroyed` had no listener anywhere in the game.** Stripping
+    a gun off a Phalanx awarded nothing at all. Meanwhile `phalanx_check` asserted
+    *"and it scores, so stripping guns is progress rather than a chore (180
+    points)"* and passed, and the design doc said the same thing in prose.
+    - **AN ASSERTION ABOUT A SIGNAL IS NOT AN ASSERTION ABOUT AN OUTCOME.** The
+      check connected to the signal itself, so it proved the emitter fires and
+      nothing else. Every layer of the description was true and the player got
+      nothing. This is the same family as v2.33's false comment and v2.30's
+      unfailable assertion, and it is the third variant found in one day: *the
+      thing that is checked is one link short of the thing that matters.*
+    - **The fix asserts the OUTCOME structurally**: both spawners are read as
+      source and must connect the signal, because those two files are the only
+      paths a Phalanx can reach a player through. Cheap, and it could have caught
+      this on day one.
+    - **A stripped mount scores but is NOT a kill**, and the wiring says so
+      explicitly rather than reusing `_on_points_scored`. That handler increments
+      a kill counter — and in a sortie the war's dent is priced per kill per type,
+      so a six-mount body would have booked **six kills for one unit** and dented
+      a node six times over for damage that destroyed nothing. You damaged it; you
+      did not destroy anything.
+  - **WHAT THE EVASION CELLS WILL SAY, and why it is not a boring row.** Measured
+    in a filtered look: **blaster 0.99, missile 1.00, flak 0.96.** The Phalanx is
+    trivially easy to hit, because it is a station-keeping fortress that barely
+    moves. That is the type stating where its defence is NOT. **A body this easy
+    to hit that still survives is a body defended entirely by its arc**, and the
+    gap between this table and the duel column is the directional shield, priced
+    where a fight can actually fly around it.
+    - The bench builds it with the screen and the mounts FORCED OFF for the same
+      reason. An evasion cell asks how hard a body is to HIT, and a round the arc
+      stops still arrived; leaving either up would fold *where was the shield
+      pointing* into a number the model reads as marksmanship. That is precisely
+      the aim/delivery confusion the layer split exists to prevent.
