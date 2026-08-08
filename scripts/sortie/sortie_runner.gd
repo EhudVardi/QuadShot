@@ -615,6 +615,20 @@ func _spawn_unit(type_id: StringName, layer: StringName) -> void:
 	get_parent().add_child(unit)
 	units.append(unit)
 	unit.connect(&"destroyed", _on_points_scored.bind(type_id))
+	# A STRIPPED MOUNT SCORES BUT IS NOT A KILL (A7). It has to reach the score,
+	# or "stripping guns is progress" is a claim the player never sees — the
+	# signal existed and NOTHING was connected to it, so six mounts were worth
+	# nothing at all while `phalanx_check` happily asserted the signal fired.
+	# An assertion about a signal is not an assertion about an outcome.
+	#
+	# Deliberately NOT routed through `_on_points_scored`, which counts a KILL:
+	# a six-mount body would book six kills for one unit, inflating the arcade
+	# counter and — far worse in a sortie — the war dent, which is priced per
+	# kill per type. You damaged it; you did not destroy anything.
+	if (unit as Object).has_signal(&"mount_destroyed"):
+		unit.connect(&"mount_destroyed", func(points: float) -> void:
+			if phase == Phase.ENGAGED or phase == Phase.EGRESS:
+				enemy_destroyed.emit(points))
 	# The UNIT is over when the unit is over: a cloud says so with `cleared`, a
 	# single body says so by dying, and a bomber that got through says so with
 	# `detonated` — opposite outcome, identical bookkeeping.

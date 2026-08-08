@@ -348,6 +348,26 @@ func _check_mounts_die_one_at_a_time() -> void:
 	_expect(scored.size() == 1 and scored[0] > 0.0,
 			"and it scores, so stripping guns is progress rather than a chore (%.0f points)"
 			% (scored[0] if scored.size() > 0 else 0.0))
+	# AND SOMETHING HAS TO BE LISTENING, which the assertion above does not check.
+	# It was written first, it passed from the day it was written, and the signal
+	# had NO connection anywhere in the game — so six mounts were worth nothing to
+	# the player while this check reported that stripping guns scores.
+	#
+	# An assertion about a SIGNAL is not an assertion about an OUTCOME. Both
+	# spawners are read as source here rather than flown, because the two of them
+	# are the only paths a Phalanx can reach a player through, and a structural
+	# assertion is the cheapest thing that could have caught it.
+	for spawner: String in ["res://scripts/combat/wave_director.gd",
+			"res://scripts/sortie/sortie_runner.gd"]:
+		var source: String = FileAccess.get_file_as_string(spawner)
+		_expect(source.contains("mount_destroyed"),
+				"and %s connects it, so the points reach the player"
+				% spawner.get_file())
+		# NOT through the kill counter: six mounts are not six kills, and in a
+		# sortie that number is priced into the war's dent per type.
+		_expect(not source.contains("mount_destroyed\", _on_points_scored"),
+				"without booking a KILL for it in %s — you damaged it, you did not destroy a unit"
+				% spawner.get_file())
 	var hull_before: float = float(_phalanx.get_node("Health").get(&"current"))
 	# A SECOND volley from the same bearing must find the NEXT mount, not the
 	# hull: `_mount_facing` skipping dead mounts is what makes stripping the guns

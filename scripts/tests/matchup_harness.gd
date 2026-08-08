@@ -262,6 +262,26 @@ const MATCHUPS: Array[Dictionary] = [
 	{"name": "Flak x Lance", "weapon": "flak", "type": "lance",
 			"enemy": "res://scenes/combat/lance.tscn",
 			"paper": "++", "mode": "win"},
+	# --- The Phalanx column (A7, added with the type). Bands from the counter-web
+	# in `phalanx.gd`: stand-off `++` (reach it from outside its guns' comfort),
+	# burst `+` (a mount is cheap to strip in one pass), chip gun `-` (a trickle
+	# through a 250-degree arc is out-regenerated).
+	#
+	# THESE ROWS ALSO KEEP THE TWO STAMPS AGREEING. `_config_stamp` builds its
+	# enemy list from THIS table and the delivery bench builds its own from
+	# `ENEMIES_FOR_STAMP`, so a type in one list and not the other makes the two
+	# disagree forever and SILENTLY blanks the predicted column. The Lance comment
+	# above predicted that failure; adding the type to the delivery list first is
+	# how it nearly happened for real.
+	{"name": "Blaster x Phalanx", "weapon": "blaster", "type": "phalanx",
+			"enemy": "res://scenes/combat/phalanx.tscn",
+			"paper": "-", "mode": "win"},
+	{"name": "Missile x Phalanx", "weapon": "missile", "type": "phalanx",
+			"enemy": "res://scenes/combat/phalanx.tscn",
+			"paper": "++", "mode": "win"},
+	{"name": "Flak x Phalanx", "weapon": "flak", "type": "phalanx",
+			"enemy": "res://scenes/combat/phalanx.tscn",
+			"paper": "+", "mode": "win"},
 	{"name": "Blaster x Screamer", "weapon": "blaster", "type": "screamer",
 			"enemy": "res://scenes/combat/screamer.tscn",
 			"paper": "+", "mode": "win", "jam": "jammed"},
@@ -276,6 +296,13 @@ const MATCHUPS: Array[Dictionary] = [
 	# the Kestrel flying the SAME weapon, and the blaster is the honest choice —
 	# it is the weapon that still works inside the bubble, so the row measures the
 	# airframe rather than the jam refusing a lock on both frames equally.
+	# The heavy frame against the anti-orbit type, and P4.4 predicts the worst row
+	# on the board: beating a tracking arc is a SLEW RACE, and the Atlas is the
+	# frame that cannot win one. Banded `--` against the Kestrel flying the same
+	# weapon.
+	{"name": "Atlas x Phalanx", "frame": Frames.ATLAS, "weapon": "missile",
+			"type": "phalanx", "enemy": "res://scenes/combat/phalanx.tscn",
+			"paper": "--", "mode": "frame", "datum": "Missile x Phalanx"},
 	{"name": "Atlas x Screamer", "frame": Frames.ATLAS, "weapon": "blaster",
 			"type": "screamer", "enemy": "res://scenes/combat/screamer.tscn",
 			"paper": "-", "mode": "frame", "datum": "Blaster x Screamer",

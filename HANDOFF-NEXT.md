@@ -66,6 +66,45 @@ Eight things landed. Read **v2.28–v2.35** at the tail of GAMEPLAY-DESIGN.md.
    booked as missed shots. Blaster evasion 0.23 → **0.85**. It closes the
    `Blaster x Lance` anomaly this file had listed as unexplained.
 
+### WAITING ON THE HUMAN'S HANDS — the standing reminder
+
+The user asked to be reminded of this (2026-08-07): *"remind me about these
+results later, i could not test them yet."* **Everything below is built, checked
+and committed, and none of it has been judged by a human.** Signed-off items are
+listed too, so the difference is unambiguous.
+
+| what | verdict |
+|---|---|
+| **The Phalanx as a FORTRESS** (v2.35) | **UNFLOWN — the big one** |
+| The aegis shield LOOP: missile, then stay on it, then it rearms (v2.29) | partly — they confirmed it "takes way more damage", not the rearm rhythm |
+| Units no longer overlapping in a sortie (v2.32) | **UNFLOWN** — needs a composed sortie, not the dev room |
+| Lance continuous warning (v2.28) | SIGNED OFF: *"i think its good now"* |
+| Lance steering at 6 deg/s (v2.30) | SIGNED OFF: *"the lance is ok now"* |
+| Aegis 3x hull, +1 speed (v2.31) | SIGNED OFF: *"a more worthy enemy"* |
+| Phalanx v1 (v2.34) | flown, and the feedback became v2.35 |
+
+**THE LANCE IS CLOSED.** They tuned it live, that tuning was never saved (the
+overlay only persists on SAVE, and there is no `user://enemy_lance.tres`), and
+after being told so they said *"the lance is ok now"* — so the shipped 6 deg/s
+stands and the 6 -> 9 bump offered earlier is **withdrawn unless they raise it**.
+
+**Routes**, all from `<godot> --path . scenes/dev_map.tscn`:
+
+- **Phalanx** at **(-70, 16, 60)**, northwest, open sky. Commit to a fast orbit:
+  the shield's opening should appear at about **2 s**, last about **3.5 s**, then
+  close. Strip a gun (4 blaster bolts on one bearing) and feel the return fire
+  drop. **If the window never appears the slew is too fast; if it is always open
+  the arc is too narrow** — both are live sliders under BESTIARY.
+- **Aegis** at **(70, 20, -90)**. Missile to break the screen, then *stay on it*
+  with the blaster: the hull must keep falling. Stop for 5 s and the screen comes
+  back.
+- **Overlapping units** needs a composed sortie: `<godot> --path .
+  scenes/sortie.tscn` or the war room.
+
+**One number to watch on the Phalanx:** Layer 1 says six mounts kill a Kestrel in
+**4.0 s**. That is the value most likely to be too sharp, and it is the first
+thing to move if the fight feels unfair rather than hard.
+
 ### THE NEXT JOB, and the first item is a decision
 
 1. ~~**THE RE-MEASURE**~~ **DONE.** All three layers PASS, pilot v7, artifact

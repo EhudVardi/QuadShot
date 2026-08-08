@@ -164,6 +164,7 @@ const SWARM_SCENE: String = "res://scenes/combat/gnat_swarm.tscn"
 const AEGIS_SCENE: String = "res://scenes/combat/aegis.tscn"
 const TURRET_SCENE: String = "res://scenes/combat/turret.tscn"
 const LANCE_SCENE: String = "res://scenes/combat/lance.tscn"
+const PHALANX_SCENE: String = "res://scenes/combat/phalanx.tscn"
 const FALX_SCENE: String = "res://scenes/combat/falx.tscn"
 const SCREAMER_SCENE: String = "res://scenes/combat/screamer.tscn"
 
@@ -302,6 +303,18 @@ const CELLS: Array[Dictionary] = [
 			"target": "lance", "seconds": 45.0},
 	{"name": "evasion: flak x lance", "kind": "evasion", "weapon": "flak",
 			"target": "lance", "seconds": 25.0},
+	# THE PHALANX (A7). Its evasion cells are expected to read HIGH — it is a
+	# station-keeping fortress and it barely moves, so a perfect solution lands
+	# almost every round. That is not a boring measurement, it is the type saying
+	# out loud where its defence lives: NOT in delivery. A body this easy to hit
+	# that still survives is a body defended by its arc, and the gap between this
+	# table and the duel column is exactly the directional shield.
+	{"name": "evasion: blaster x phalanx", "kind": "evasion", "weapon": "blaster",
+			"target": "phalanx", "seconds": 25.0},
+	{"name": "evasion: missile x phalanx", "kind": "evasion", "weapon": "missile",
+			"target": "phalanx", "seconds": 45.0},
+	{"name": "evasion: flak x phalanx", "kind": "evasion", "weapon": "flak",
+			"target": "phalanx", "seconds": 25.0},
 	# --- THE SCREAMER's evasion row (M6a step 7, v1.83). Three ordinary cells for
 	# an extraordinary type: here it is measured purely as a FLYING BODY — how hard
 	# is it to put a round on a thing that station-keeps at 40 m and slides
@@ -1004,6 +1017,34 @@ func _build_target(type: String) -> Node:
 			_arena.add_child(lance)
 			_count_health_connects(lance.get_node("Health") as Health)
 			return lance
+		"phalanx":
+			# The heavy defender (A7). Immortal like every other single-body evasion
+			# target, so the cell measures a RATE rather than a kill.
+			#
+			# ITS SHIELD IS FORCED OFF FOR THIS MEASUREMENT, and that is the whole
+			# reason this case needs a comment. An evasion cell asks ONE question —
+			# how hard is this body to hit — and a directional screen answers a
+			# different one, since a round the arc stops still ARRIVED. Leaving the
+			# screen up would fold "where was the shield pointing" into a number the
+			# model reads as marksmanship, which is the aim/delivery confusion the
+			# whole layer split exists to prevent. The arc is priced in the duel
+			# column instead, where a fight can actually fly around it.
+			_enemy_config = (load("res://resources/default_enemy_phalanx.tres")
+					as EnemyConfig).duplicate() as EnemyConfig
+			_enemy_config.hull = IMMORTAL_HULL
+			_enemy_config.shield_max = 0.0
+			_enemy_config.shield_arc_deg = 0.0
+			# And its mounts do not soak the rounds either, for the same reason: a
+			# mount absorbing a hit is armour, not evasion.
+			_enemy_config.mount_count = 0
+			var built: Node = (load(PHALANX_SCENE) as PackedScene).instantiate()
+			var phalanx: Node3D = built as Node3D
+			phalanx.set(&"enemy_config", _enemy_config)
+			phalanx.set(&"ai_seed", 0)
+			phalanx.position = Vector3(0.0, ALTITUDE, -RANGE_M)
+			_arena.add_child(phalanx)
+			_count_health_connects(phalanx.get_node("Health") as Health)
+			return phalanx
 		"screamer":
 			# Immortal like every other single-body evasion target. It arrives in
 			# the arena as a member of the `jammers` group and that is FINE here:
