@@ -12162,3 +12162,57 @@ being rediscovered as a red board when A.q1 lands.
       unfounded**. Against a pilot who keeps moving the type is far gentler than
       paper. `damage` and `fire_rate` should not be touched until hands have
       confirmed which of the two numbers the fight actually feels like.
+
+- **2026-08-07 — A.q10 OPENED. THE PHALANX'S SCREEN WORKS AND CANNOT BE READ, and
+  the user has asked to replace the mechanic rather than debug it.** Their verdict
+  after flying the fortress: *"I think the shield direction is still not working
+  correctly. I think we should change the way it works, and move away from a
+  dynamically directional shield and do another option you've suggested - a
+  rotating shield that needs good timing to penetrate. also i think it should have
+  a small weak point at the back of the ship, requiring some skilled accurate
+  firing to make use of. the current shield mainly looks funny."*
+  - **THE FORTRESS ITSELF IS SIGNED OFF**, and that half is closed: *"this is what
+    i think should be. its an air fortress with many turrets that takes a lot of
+    damage to take down."*
+  - **THE SCREEN IS NOT BROKEN, and that was measured before answering.** Standing
+    a threat due east and stepping the body 12 s: the screen tracks the pilot to
+    within 7.5 degrees (residual, because it is still slewing), the shell's yaw
+    matches `shield_facing()` to 0.0 degrees, and the mesh keeps its tipped basis
+    and swings horizontally. **A first inference that the yaw formula was flipped
+    180 degrees — every other type in the project uses `atan2(-x, -z)` and this one
+    uses `atan2(x, z)` — was WRONG, and measuring is what caught it.**
+  - **SO THE DEFECT IS IN THE READOUT, and it is the more interesting failure.**
+    The screen is a smooth translucent hemisphere with `cull_mode` disabled and no
+    surface detail, 7.5 m across a 6 x 2 x 8 m hull. **A featureless dome looks
+    the same from almost every angle**, so it carries no orientation cue: the
+    player is being asked to infer a bearing from a shape that does not express
+    one. The mechanic's whole counterplay is *where is it pointing right now*, and
+    the answer is not on screen.
+  - **A MECHANIC THAT READS AS BROKEN WHILE IT IS WORKING IS A FAILED MECHANIC.**
+    Twice now the user has reported it as a bug; the first report WAS a real bug
+    (v2.35, the screen only reacted to hits) and the second is not. That pattern —
+    a correct system that keeps generating bug reports — is the design signal, and
+    it outranks the code being right. P4.4's readability rule already says this
+    about telegraphs; it applies to defences too.
+  - **THE USER'S REPLACEMENT IS OPTION C FROM THE ORIGINAL FORK PLUS A WEAK
+    POINT**, and the combination is better than the option I ranked third. A
+    rotating screen is MECHANICAL rather than intentional — predictable,
+    learnable, and self-evidencing, because motion and pattern are visible in a
+    way that intent is not. Adding a fixed stern weak point turns one skill into
+    three: **timing** (the rotating gap), **positioning** (get behind it) and
+    **accuracy** (hit something small).
+  - **TWO THINGS THAT MUST BE DECIDED WITH IT, or the type quietly changes role.**
+    1. **The anti-orbit property was the tracking.** P4.2 gives this type the job
+       of punishing the peel-and-kill rhythm, and a plain rotating screen does not
+       — you can sit in ONE slot and fire every time the gap comes round, which is
+       exactly the orbit the type exists to refuse. The user's own phrase *"in some
+       patterns that can confuse the attacker"* is the answer: a non-uniform or
+       multi-ring rotation cannot be timed from a single slot. That has to be built
+       deliberately rather than hoped for.
+    2. **A permanently exposed stern is a camping spot**, and it would make the
+       rotating screen decoration. Either the weak point is small enough that
+       range and aim are a real cost, or the hull yaws slowly so the stern is not a
+       fixed address, or the screen's pattern covers it part of the time.
+  - **DEFERRED TO A FRESH SESSION on the user's offer.** It is a new mechanic, new
+    geometry, a check rewrite and another re-measure, arriving at the end of a very
+    long session — and the type's whole counter-web row moves with it.
