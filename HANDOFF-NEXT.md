@@ -15,7 +15,20 @@ what happens next.
 
 Seven things landed. Read **v2.28–v2.34** at the tail of GAMEPLAY-DESIGN.md.
 
-0. **THE PHALANX IS BUILT (A7, v2.34)** — the roster's eighth type and its first
+0. **THE PHALANX IS BUILT AND THEN REWORKED (A7, v2.34 + v2.35)**. Flown once;
+   the user asked for a **flying fortress** and got a gunboat, so hull 140 ->
+   700, mounts 3x30 -> 6x100, and the body is now 6 x 2 x 8 m. **The arc wraps
+   past the beam** (250 deg, opening astern) and the slew dropped to 28 deg/s
+   to keep that opening reachable — a pairing that was MEASURED, because arc
+   290 at slew 45 never opens at all. **A real bug was fixed**: the screen only
+   turned toward whatever had SHOT it, so it never looked at a pilot who had
+   not yet fired. **NOT FLOWN in this form.**
+   - **Two pre-existing model divergences surfaced with it**, neither about
+     this type: the planted rig never modelled the blaster's heat vent (no
+     target had ever outlasted the sink), and `Lethality.incoming` priced a
+     six-gun body as a single turret (20 hits / 23.8 s to kill a Kestrel; now
+     4.0 s). Both fixed. **`lethality_check` now takes ~8 min.**
+1. ~~**THE PHALANX IS BUILT (A7, v2.34)**~~ — the roster's eighth type and its first
    heavy DEFENDER, closing the escalation hole where `HEAVY_TYPES` held a bomber
    that is never in defence and a jammer with no weapon. **Its shield is an ARC
    that chases whoever hurts it**, so parking in one orbit slot stops your damage

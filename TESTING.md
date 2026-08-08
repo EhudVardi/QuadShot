@@ -464,6 +464,24 @@ landing exactly on it: `Vector3.angle_to` computes in 32-bit floats and returns
 3.14159274 where `deg_to_rad(360) * 0.5` gives 3.14159265, so "covered from
 every side" had a hairline gap directly astern.
 
+Its newest stages (2026-08-07) came from the first flight. One is a regression
+test for a bug the user found — the screen only ever turned toward whatever had
+*shot* it, so a Phalanx nobody had fired at kept its spawn facing forever; the
+stage stands a threat off its blind side and **fires nothing**, and the screen
+has to come round on sight alone.
+
+The other flies a real **30 m orbit at 25 m/s** and asserts the shield's opening
+exists, opens inside 6 s, lasts long enough to shoot through, and still stays
+shut most of the time. That replaced a weak "still open after 0.5 s" proxy, and
+the reason is worth keeping: **whether this type is beatable is a property of
+the arc and the slew TOGETHER.** Measured, arc 250 with slew 28 opens at 1.8 s;
+the same arc at slew 45 takes 12.7 s; arc 290 at slew 45 **never opens at all**.
+Neither field is wrong on its own, so no assertion on either one could have
+caught the pair that produces an enemy nobody can hurt.
+
+**`lethality_check` now runs about 8 minutes** (up from 4) — the fortress's
+cells simulate far longer, and the board is now dominated by that one check.
+
 **To fly it**, the dev room has a specimen at **(-70, 16, 60)** — northwest,
 in open sky over open ground, which is the terrain A7 says the type is best on
 and therefore the honest place to judge it. It holds that station and never

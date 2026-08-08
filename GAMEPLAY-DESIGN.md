@@ -11992,3 +11992,82 @@ being rediscovered as a red board when A.q1 lands.
     H6. `balance/delivery_factors.json` is stale again by design: a new type joins
     `ENEMIES_FOR_STAMP`, which is the batching the user approved when they said
     to build this before the next re-measure.
+
+- **2026-08-07 — v2.35. THE PHALANX BECOMES A FORTRESS, and the screen that was
+  supposed to track you never looked at you.** First hands-on verdict on A7, and
+  it produced one straight bug, one scale problem, and one design upgrade.
+  - **THE BUG, and the user was exactly right.** *"i think it has a bug, as i am
+    the only threat at the scene but its not aimed at me."* `_threat_bearing` was
+    only ever written inside `take_hit`, so the arc chased *whoever last hurt it*
+    and nothing else. A Phalanx nobody had shot kept its spawn facing forever; one
+    hit once kept pointing at a bearing the pilot had long since left.
+    - **The original rule was mine and it was worse than the obvious one.** "The
+      screen chases whoever hurts it" sounds like a mechanic; "a defender points
+      its shield at the threat it can see" is what anyone would expect, and there
+      is no fiction in which it waits to be shot before looking.
+    - **The counterplay is untouched, because it never depended on ignorance.** It
+      is `shield_slew_deg_s`: the screen knows exactly where you are and cannot
+      turn fast enough to keep up with a committed break. Making it omniscient
+      changed nothing about how you beat it.
+  - **THE SCALE PROBLEM WAS ARITHMETIC, NOT LOGIC**, which is why nothing was
+    failing. *"its turrets are too small to individually take down, i find the
+    Phalanx to die before any of its turrets die individually."* Damage routes to
+    the mount covering your bearing and only then to the hull, so mounts always
+    died first — **but the whole body was 230 points against a blaster landing
+    about 275 a second.** The entire fight, guns and all, was over inside a
+    second. There was no time for a sequence to read as a sequence.
+    - `hull 140 -> 700`, `mount_hull 30 -> 100`, `mount_count 3 -> 6`. Six guns
+      of 100 in front of a 700 hull is **1300 points**, so the battery comes off
+      one mount at a time on the bearings you choose while the return fire
+      visibly falls.
+    - The scene grew to match — a 6 x 2 x 8 m hull with a tower and a keel, guns
+      out on the beam — because *"too small"* was as much about SIZE as hull.
+  - **THE ARC NOW WRAPS PAST THE BEAM**, the user's own upgrade: *"the arc can
+    also be more than a half sphere, it can encapsulate beyond that, leaving a
+    tighter hold at the opposite side... making it even more challanging."* 250
+    degrees, leaving a 110 degree window ASTERN. **The opening stops being a
+    position and becomes a manoeuvre** — you have to out-turn the slew and hold
+    the lead.
+  - **THE SLEW HAD TO COME DOWN WITH THE ARC, and that pairing was MEASURED.**
+    With the screen now tracking continuously, a wide arc and a fast slew compose
+    into an enemy nobody can hurt. Flying a 30 m orbit at 25 m/s — 47.7 deg/s of
+    bearing change:
+
+    | arc | slew | first opening | longest window | shut |
+    |---|---|---|---|---|
+    | 250 | **28** | **1.8 s** | **3.5 s** | 65% |
+    | 250 | 45 | 12.7 s | 7.3 s | 64% |
+    | 290 | 45 | **never** | 0.0 s | 100% |
+
+    **The last row is the whole reason this was measured rather than reasoned.**
+    Neither number is wrong on its own — a 290 degree arc is fine at 20 deg/s, and
+    45 deg/s is fine at 140 degrees — so **no assertion on either field could
+    catch it.** `phalanx_check` now flies that exact orbit and asserts the window
+    exists, opens inside 6 s, and lasts long enough to shoot through, *while
+    staying shut most of the time* so the anti-orbit design survives.
+  - **TWO PRE-EXISTING MODEL DIVERGENCES SURFACED, both because this is the first
+    target big enough to expose them.** Neither is about the Phalanx.
+    1. **The blaster's heat vent.** `Lethality` credits the sink's lockout in its
+       TTK; the planted rig in `lethality_check` fired on a flat cadence and never
+       modelled heat at all. Nothing noticed for as long as **every enemy died
+       inside `burst_shots` bolts** — the Phalanx needs 40, and it read instantly
+       as *predicted 6.00 s against a planted 3.90 s on an identical 40 hits*. The
+       rig now fires on the calculator's own clock.
+    2. **A battery is not a gun.** `Lethality.incoming` read `fire_rate` as the
+       BODY's cadence, so it priced a six-gun fortress as a single turret: **20
+       hits over 23.8 s** to kill a Kestrel. It now multiplies by `mount_count`
+       and says **4.0 s** (an Atlas, 19.6 s). It prices the FULL battery, which is
+       the worst case and goes stale in the player's favour as mounts are
+       stripped — the same convention the directional shield already gets, and for
+       the same reason: **a durability model that flatters the target is the one
+       that gets somebody killed.**
+  - **A COST WORTH RECORDING: `lethality_check` went from about 4 minutes to about
+    8**, because the fortress's cells simulate far longer. The board is now
+    dominated by one check, and that is the first time a config change has moved
+    the suite's runtime enough to notice.
+  - **WHAT THE USER CONFIRMED, so it stops being an open question:** the aegis
+    retune landed (*"a more worthy enemy, it takes way more damage like i think it
+    should"*), the Lance is settled (*"the lance is ok now"*), and **A.q6 is
+    parked deliberately** — *"for now lets make the lance target only me. when
+    we'll start working on the allied side we'll start looking into the subject of
+    target ranking."* The `_find_player()` seam stays exactly where it is.
