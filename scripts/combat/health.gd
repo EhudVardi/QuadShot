@@ -81,17 +81,16 @@ func _physics_process(delta: float) -> void:
 		shield = minf(shield + shield_regen * delta, shield_max)
 
 
-## `shielded` false sends the hit straight past the screen to the plating and the
-## hull. Every existing caller leaves it true and is unchanged.
-##
-## IT EXISTS FOR THE PHALANX (A7), whose screen covers an ARC rather than the
-## whole body, and it is one optional argument rather than a second shield
-## implementation on purpose. A directional shield that owned its own pool would
-## be two physics for one word — the thing `Bomb.blast` was made a shared static
-## to avoid — and it would have to re-derive the regen rules, including the one
-## corrected earlier today. The DIRECTION is the caller's business, because only
-## the caller knows its own geometry; what a shield DOES stays here.
-func take(amount: float, shielded: bool = true) -> void:
+## THE OPTIONAL `shielded` ARGUMENT IS GONE (A.q10), and its removal is worth a
+## line because the comment that stood here was about to become false. It was
+## added for the Phalanx's directional arc, to let a hit that arrived OUTSIDE the
+## arc bypass the screen instead of spending it. The Phalanx's screen is now a
+## rotating barrier that refuses rounds rather than a pool that absorbs them, so
+## that type sets `shield_max` to 0 and never reaches this branch — leaving one
+## argument nothing passed, under a paragraph explaining why it had to exist.
+## v2.33's lesson: a load-bearing comment that has stopped being true is worse
+## than no comment, because it is an authority.
+func take(amount: float) -> void:
 	if not alive:
 		return
 	struck.emit(amount)
@@ -116,7 +115,7 @@ func take(amount: float, shielded: bool = true) -> void:
 	# OVER-threshold path; it was still live on the under-threshold one.
 	if shield_max > 0.0:
 		_regen_wait = shield_regen_delay
-	if shield > 0.0 and shielded:
+	if shield > 0.0:
 		# Under the threshold: the shield shrugs it off completely. Deliberately
 		# not a partial absorb — a shield that leaks would make chip fire a slow
 		# win, which is exactly the loadout this type exists to punish.

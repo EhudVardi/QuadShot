@@ -37,28 +37,59 @@ extends TunableConfig
 ## Quiet seconds after taking a hit before the shield starts regenerating.
 @export var shield_regen_delay: float = 0.0
 
-## DIRECTIONAL SHIELD (A7, the Phalanx). Width of the protected arc in degrees,
-## centred on a facing this type steers for itself. 0 = the shield is not
-## directional, which is every other type: the aegis's screen covers it from
-## every side and is gated on WEAPON CHOICE instead.
+## THE ROTATING SCREEN (A.q10, the Phalanx). Two nested shells of slotted
+## armour, each turning at its own rate in its own direction. A round only
+## reaches the body when a slot in EVERY shell is on its bearing at the same
+## instant, so the counter is TIMING rather than out-slewing a tracker.
 ##
-## THE TWO SHIELDED TYPES ARE COUNTERED ON DIFFERENT AXES, and that is the point
-## of building a second one. The aegis asks *what are you shooting with* — a
-## threshold no chip gun can cross. The Phalanx asks *where are you shooting
-## from* — an arc, with the guns still covering every bearing, so there is no
-## safe slot, only a slot where your damage lands. Two shielded enemies that
-## wanted the same answer would be one enemy.
-@export var shield_arc_deg: float = 0.0
-## How fast that arc swings toward whatever is hurting it, degrees per second.
-## 0 with a non-zero arc means a shield welded to one bearing.
+## 0 gaps = this type has no directional screen at all, which is every other
+## type in the roster: the aegis's is an all-round POOL gated on WEAPON CHOICE.
+## The two shielded types are countered on different axes and now do not even
+## share a mechanism — one is a battery you spend, this one is a barrier you
+## time.
 ##
-## THIS IS THE TYPE'S DIFFICULTY KNOB and its whole counterplay lives here. The
-## shield tracks its attacker, so parking in one orbit slot lets it catch up and
-## your damage stops landing; moving faster than it can slew keeps you in the
-## open arc. Raise it and the type demands more speed from the pilot; at a slew
-## fast enough to always face you it becomes unkillable from any bearing, which
-## is the failure mode to keep an eye on.
-@export var shield_slew_deg_s: float = 0.0
+## WHY TWO SHELLS RATHER THAN ONE. A single rotating ring can be beaten from a
+## standing start: park in one slot and fire every time the gap comes round,
+## which is exactly the peel-and-kill orbit P4.2 gives this type the job of
+## refusing. Two shells at incommensurate rates make the alignment on a FIXED
+## bearing rare and irregular, while flying WITH one shell's rotation parks you
+## inside its slot and leaves only the other one to time. So moving is rewarded
+## and camping is punished, which is the property the old tracking arc carried.
+## The user asked for exactly this: *"rotating around the ship in some patterns
+## that can confuse the attacker"*, and *"not impossible but difficult"*.
+@export var shield_outer_gaps: int = 0
+## Angular width of ONE slot in the outer shell, degrees. `gaps x gap_deg / 360`
+## is the fraction of bearings that shell leaves open at any instant.
+@export var shield_outer_gap_deg: float = 0.0
+## Outer shell rotation, degrees per second. SIGNED — the sign is the direction,
+## and the two shells turning opposite ways is most of what makes the pattern
+## readable in motion.
+@export var shield_outer_rate_deg_s: float = 0.0
+@export var shield_inner_gaps: int = 0
+@export var shield_inner_gap_deg: float = 0.0
+@export var shield_inner_rate_deg_s: float = 0.0
+
+## THE STERN VENT (A.q10). A small weak point directly astern, open only in a
+## window: the shells BOTH cut an aperture there while it lasts, so the hole is
+## geometrically real rather than a rule that contradicts the picture, and a
+## round through it goes straight to the hull past the screen and past the guns.
+## 0 = this type has no weak point, which is every other type.
+##
+## The user's call: *"a small weak point at the back of the ship, requiring some
+## skilled accurate firing to make use of"*, and on whether a permanently
+## exposed stern would just be a camping spot: *"it should be a small caveat of
+## the entire fortress. i think it should be opened for a window of time."*
+##
+## Width of the aperture, degrees. It sets the POSITIONING cost (how close to
+## dead astern you must be); the vent plate behind it is small and physical, and
+## that is the AIM cost.
+@export var stern_vent_arc_deg: float = 0.0
+## Seconds the vent stays open each cycle.
+@export var stern_vent_open_s: float = 0.0
+## Full open-plus-shut period, seconds. Deliberately not a neat multiple of
+## either shell's period, so the vent's rhythm and the shells' do not lock into
+## one beat the pilot can learn as a single number.
+@export var stern_vent_cycle_s: float = 0.0
 
 @export_group("Mounts")
 ## Independently destructible weapon mounts (A7). 0 = this type fires from its

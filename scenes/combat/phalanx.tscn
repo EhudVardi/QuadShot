@@ -1,8 +1,10 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/phalanx.gd" id="1_phalanx"]
 [ext_resource type="Resource" path="res://resources/default_enemy_phalanx.tres" id="2_ephal"]
 [ext_resource type="Script" path="res://scripts/combat/health.gd" id="3_hp"]
+[ext_resource type="Script" path="res://scripts/combat/shield_shell.gd" id="4_shell"]
+[ext_resource type="Shader" path="res://resources/shield_rings.gdshader" id="5_rings"]
 
 [sub_resource type="StandardMaterial3D" id="mat_hull"]
 albedo_color = Color(0.16, 0.15, 0.18, 1)
@@ -27,24 +29,74 @@ emission_energy_multiplier = 0.4
 material = SubResource("mat_barrel")
 size = Vector3(0.5, 0.5, 2.2)
 
-; THE SCREEN. A one-sided curved shell rather than a sphere, because the arc IS
-; the mechanic: a bubble would say "shielded" where this says "shielded FROM
-; HERE". Rotated by phalanx.gd every frame to match `shield_facing()`.
-[sub_resource type="StandardMaterial3D" id="mat_shell"]
+; THE SCREEN (A.q10). Two nested shells of slotted armour, counter-rotating, and
+; the slots are cut out of the sphere by `shield_rings.gdshader` from the SAME
+; phase the hit test reads - so a gap you can see through is a gap your rounds
+; go through. That is the whole fix for A.q10, which was a readability failure
+; rather than a mechanics one: the smooth translucent dome this replaces worked
+; exactly as specified and carried no orientation cue at all.
+;
+; The two are tinted differently on purpose. Telling them apart in motion is
+; what lets a pilot read the pattern instead of memorising a rhythm.
+;
+; RADII HUG THE HULL (6.2 and 5.3 against a 6 x 2 x 8 body whose footprint
+; corner is 5.14 m out), so the screen reads as armour belonging to the ship
+; rather than as a detached bubble - and so there is barely any inside to fly
+; into. `Phalanx.SCREEN_INNER_RADIUS_M` must match the inner radius here.
+;
+; SQUASHED IN Y INTO A DRUM rather than left as spheres, and it is a readability
+; choice rather than a decorative one. A sphere reads as a bubble the ship is
+; sitting inside; a drum reads as armour wrapped around it, and it puts the slots
+; where a pilot fighting at the fortress's own altitude is looking. The scale
+; does NOT touch the mechanic: the shader takes its azimuth from unscaled object
+; space, and the shells still close over the top and bottom, which they have to,
+; because the hit test is flat and a belt would let a pilot climb over a screen
+; that still stopped them.
+[sub_resource type="ShaderMaterial" id="mat_ring_outer"]
 resource_local_to_scene = true
-transparency = 1
-cull_mode = 2
-shading_mode = 0
-albedo_color = Color(0.35, 0.75, 1, 0.3)
-emission_enabled = true
-emission = Color(0.3, 0.7, 1, 1)
-emission_energy_multiplier = 1.4
+shader = ExtResource("5_rings")
+shader_parameter/gaps = 3
+shader_parameter/gap_half_rad = 0.45
+shader_parameter/phase = 0.0
+shader_parameter/phase_rate = 1.0
+shader_parameter/vent_half_rad = 0.0
+shader_parameter/vent_open = 0.0
+shader_parameter/tint = Color(0.3, 0.78, 1, 1)
+shader_parameter/energy = 1.0
+shader_parameter/flash_dir = Vector3(0, 0, 1)
+shader_parameter/flash = 0.0
+shader_parameter/seam_lon = 24.0
+shader_parameter/seam_lat = 0.0
 
-[sub_resource type="SphereMesh" id="mesh_shell"]
-material = SubResource("mat_shell")
-radius = 7.5
-height = 15
-is_hemisphere = true
+[sub_resource type="SphereMesh" id="mesh_ring_outer"]
+material = SubResource("mat_ring_outer")
+radius = 6.2
+height = 12.4
+radial_segments = 96
+rings = 48
+
+[sub_resource type="ShaderMaterial" id="mat_ring_inner"]
+resource_local_to_scene = true
+shader = ExtResource("5_rings")
+shader_parameter/gaps = 2
+shader_parameter/gap_half_rad = 0.58
+shader_parameter/phase = 0.0
+shader_parameter/phase_rate = -1.0
+shader_parameter/vent_half_rad = 0.0
+shader_parameter/vent_open = 0.0
+shader_parameter/tint = Color(0.62, 0.42, 1, 1)
+shader_parameter/energy = 1.0
+shader_parameter/flash_dir = Vector3(0, 0, 1)
+shader_parameter/flash = 0.0
+shader_parameter/seam_lon = 16.0
+shader_parameter/seam_lat = 0.0
+
+[sub_resource type="SphereMesh" id="mesh_ring_inner"]
+material = SubResource("mat_ring_inner")
+radius = 5.3
+height = 10.6
+radial_segments = 96
+rings = 48
 
 [sub_resource type="BoxMesh" id="mesh_tower"]
 material = SubResource("mat_hull")
@@ -53,6 +105,24 @@ size = Vector3(2.6, 1.6, 3)
 [sub_resource type="BoxMesh" id="mesh_keel"]
 material = SubResource("mat_hull")
 size = Vector3(4.4, 0.6, 6)
+
+; THE STERN VENT PLATE. Dark and cold while shut, brightening across the whole
+; shut phase as the window approaches, white-hot while open - driven by
+; `Phalanx._update_vent_glow`. Its own hue, shared with nothing else on the
+; body, because "the thing to shoot" has to be findable at a glance.
+[sub_resource type="StandardMaterial3D" id="mat_vent"]
+resource_local_to_scene = true
+albedo_color = Color(0.3, 0.2, 0.08, 1)
+emission_enabled = true
+emission = Color(1, 0.88, 0.5, 1)
+emission_energy_multiplier = 0.15
+
+[sub_resource type="BoxMesh" id="mesh_vent"]
+material = SubResource("mat_vent")
+size = Vector3(1.6, 1.2, 0.3)
+
+[sub_resource type="BoxShape3D" id="shape_vent"]
+size = Vector3(1.6, 1.2, 0.4)
 
 [sub_resource type="BoxShape3D" id="shape_hull"]
 size = Vector3(6.2, 2.2, 8.2)
@@ -80,10 +150,21 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
 mesh = SubResource("mesh_barrel")
 
-[node name="Shell" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-mesh = SubResource("mesh_shell")
-surface_material_override/0 = SubResource("mat_shell")
+; CHILD ORDER IS THE SHELL INDEX: 0 is the outer shell, 1 the inner, matching
+; `EnemyConfig.shield_outer_*` and `shield_inner_*`. Both sit at the body's own
+; origin with an identity basis, because the shader does all of its azimuth
+; maths in object space and the stern aperture is anchored to the body's +Z.
+[node name="Shells" type="Node3D" parent="Visual"]
+
+[node name="Outer" type="MeshInstance3D" parent="Visual/Shells"]
+transform = Transform3D(1, 0, 0, 0, 0.52, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("mesh_ring_outer")
+surface_material_override/0 = SubResource("mat_ring_outer")
+
+[node name="Inner" type="MeshInstance3D" parent="Visual/Shells"]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("mesh_ring_inner")
+surface_material_override/0 = SubResource("mat_ring_inner")
 
 [node name="Tower" type="MeshInstance3D" parent="Visual"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 1)
@@ -92,6 +173,23 @@ mesh = SubResource("mesh_tower")
 [node name="Keel" type="MeshInstance3D" parent="Visual"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.1, 0)
 mesh = SubResource("mesh_keel")
+
+; A PHYSICAL PLATE, not a bearing test, and that is what makes the weak point an
+; AIM skill rather than a second positioning one: you have to put rounds on 1.6
+; by 1.2 metres at range. It reuses ShieldShell, whose whole job is already
+; "a body that forwards take_hit to its owner". Low on the stern face, clear of
+; the aft mount, which sits at y 1.2 and z 3.4.
+[node name="SternVent" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.55, 4.2)
+sync_to_physics = false
+script = ExtResource("4_shell")
+
+[node name="Mesh" type="MeshInstance3D" parent="SternVent"]
+mesh = SubResource("mesh_vent")
+surface_material_override/0 = SubResource("mat_vent")
+
+[node name="Collision" type="CollisionShape3D" parent="SternVent"]
+shape = SubResource("shape_vent")
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 shape = SubResource("shape_hull")

@@ -148,13 +148,25 @@ const _ENEMY_FLOAT_ROWS: Array[Array] = [
 	["shield_break_threshold", 0.0, 100.0, 1.0],
 	["shield_regen", 0.0, 60.0, 1.0],
 	["shield_regen_delay", 0.0, 10.0, 0.25],
-	# THE PHALANX'S TWO (A7), and the slew is the one to fly. Together they are
-	# the whole of its counterplay: how much of the body is covered, and how fast
-	# that cover chases you. A slew high enough to always face the pilot makes
-	# the type unkillable from any bearing, so this slider is also the guard
-	# rail — it is much easier to feel that edge than to reason about it.
-	["shield_arc_deg", 0.0, 360.0, 5.0],
-	["shield_slew_deg_s", 0.0, 180.0, 5.0],
+	# THE PHALANX'S ROTATING SCREEN (A.q10). Six numbers, and they are the whole
+	# of its counterplay: how much of each shell is open, and how fast and which
+	# way each one turns. They interact, which is exactly why they are sliders —
+	# the pattern two shells make together is far easier to FLY than to reason
+	# about, and the failure modes live at both ends (rates close enough to beat
+	# slowly, or gaps so wide the pattern stops gating anything).
+	["shield_outer_gaps", 0.0, 8.0, 1.0],
+	["shield_outer_gap_deg", 0.0, 180.0, 2.0],
+	["shield_outer_rate_deg_s", -120.0, 120.0, 1.0],
+	["shield_inner_gaps", 0.0, 8.0, 1.0],
+	["shield_inner_gap_deg", 0.0, 180.0, 2.0],
+	["shield_inner_rate_deg_s", -120.0, 120.0, 1.0],
+	# THE STERN VENT (A.q10). All three are feel calls the human has to fly: how
+	# precisely you must sit astern, how long the window lasts, and how often it
+	# comes round. The open/cycle pair is the one to watch — it is the difference
+	# between a weak point and a metronome you camp on.
+	["stern_vent_arc_deg", 0.0, 90.0, 1.0],
+	["stern_vent_open_s", 0.0, 10.0, 0.1],
+	["stern_vent_cycle_s", 0.0, 30.0, 0.5],
 	["mount_count", 0.0, 8.0, 1.0],
 	["mount_hull", 0.0, 200.0, 5.0],
 	["speed", 0.0, 40.0, 0.5],

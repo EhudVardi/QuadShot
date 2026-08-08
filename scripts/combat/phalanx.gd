@@ -18,34 +18,63 @@ extends CharacterBody3D
 ## carrying a shield/force field, and has multiple vectors of attack."*
 ##
 ## ---------------------------------------------------------------------------
-## THE SHIELD IS AN ARC THAT CHASES ITS ATTACKER, AND THAT IS THE WHOLE TYPE
+## THE SCREEN IS TWO COUNTER-ROTATING SHELLS, AND TIMING IS THE WHOLE TYPE
 ## ---------------------------------------------------------------------------
 ##
+## This replaces a tracking arc (v2.34/v2.35) that WORKED and could not be READ.
+## A.q10 is the record: the user reported it as a bug twice, the second report
+## was measured and the mechanic was correct, and *"a mechanic that reads as
+## broken while it is working is a failed mechanic"*. Their call was to replace
+## it: *"move away from a dynamically directional shield and do another option
+## you've suggested - a rotating shield that needs good timing to penetrate...
+## rotating around the ship in some patterns that can confuse the attacker."*
+##
 ## The aegis's screen asks **what are you shooting with** — a damage threshold no
-## chip gun can cross. This one asks **where are you shooting from**. The arc
-## tracks the threat it can SEE, turning at `shield_slew_deg_s` and no faster:
+## chip gun can cross. This one asks **when are you shooting**. Two nested shells
+## of slotted armour turn at their own rates in opposite directions, and a round
+## reaches the body only when a slot in EACH is on its bearing at the same
+## instant.
 ##
-##   park in one orbit slot  -> the arc catches up -> your damage stops landing
-##   keep moving around it   -> the arc lags       -> your damage lands
+## IT IS A BARRIER, NOT A BATTERY, and that is a deliberate break from the aegis.
+## A blocked round is REFUSED — nothing is spent and the screen never falls, so
+## `shield_max` is 0 on this type. The arc it replaces was a 300-point pool that
+## a blaster emptied in about a second, after which the mechanic simply stopped
+## happening; a rotating screen that evaporated the same way would have been
+## just as unreadable, for the same reason.
 ##
-## THE ARC IS WIDER THAN A HALF SPHERE (250 degrees), on the user's steering:
-## *"the arc can also be more than a half sphere, it can encapsulate beyond that,
-## leaving a tighter hold at the opposite side."* So the opening is a narrow
-## window ASTERN of the facing, and reaching it is a manoeuvre rather than a
-## position — you have to out-turn the slew and hold the lead.
-##
-## MEASURED, at a 30 m orbit flown at 25 m/s (47.7 deg/s of bearing change):
-## the window first opens at **1.8 s**, stays open **3.5 s**, and the pilot is in
-## it **35%** of the time. The same arc against a 45 deg/s slew takes 12.7 s to
-## open, and a 290 degree arc at 45 deg/s **never opens at all** — which is the
-## failure mode this type has to be kept away from, and `phalanx_check` flies
-## exactly that orbit to prove the shipped pair is not it.
+## WHY TWO SHELLS. A single rotating ring does NOT punish a stationary orbit: you
+## park in one slot and fire every time the gap comes round, which is exactly the
+## peel-and-kill rhythm P4.2 gives this type the job of refusing. Two shells at
+## incommensurate rates make the alignment on a FIXED bearing rare and irregular,
+## while flying WITH one shell's rotation parks you inside its slot and leaves
+## only the other one to time. So the counter is *fly with the pattern*, camping
+## is punished, and the anti-orbit property the tracking carried is preserved by
+## a mechanism the player can SEE.
 ##
 ## Meanwhile every surviving mount fires at you from wherever you are, so moving
-## does not make you SAFE — it decides whether your shots count. That tension is
-## the design: there is no slot that is both safe and useful, which is what P4.2
-## means by the anti-orbit type. It punishes the peel-and-kill rhythm the raider
-## deliberately allows.
+## does not make you SAFE — it decides whether your shots count. There is still
+## no slot that is both safe and useful.
+##
+## ---------------------------------------------------------------------------
+## THE STERN VENT — the third skill, and the one that is aim
+## ---------------------------------------------------------------------------
+##
+## *"a small weak point at the back of the ship, requiring some skilled accurate
+## firing to make use of."* A round that hits the vent plate while the vent is
+## OPEN goes straight to the hull, past the screen and past the guns.
+##
+## IT OPENS ON A WINDOW, which was the user's answer to the objection that a
+## permanently exposed stern is a camping spot that would make the rotation
+## decoration: *"it should be a small caveat of the entire fortress. i think it
+## should be opened for a window of time."*
+##
+## THE APERTURE IS CUT THROUGH BOTH SHELLS while it lasts, so the hole is
+## geometrically real and the picture never contradicts the rule. And the plate
+## is a SMALL PHYSICAL BODY rather than a bearing test, which is what makes this
+## the accuracy skill rather than a second positioning one: you must be astern
+## (position), during the window (timing), and actually put rounds on a 1.6 m
+## plate at range (aim). A splash weapon cannot exploit it; a direct-fire gun in
+## steady hands can.
 ##
 ## Two shielded enemies that wanted the same answer would be one enemy. These two
 ## are countered on different axes on purpose, and neither counter helps with the
@@ -67,11 +96,24 @@ extends CharacterBody3D
 ## identically for a bolt, a missile and a splash, which a velocity-derived
 ## bearing would not.
 ##
-## Counter-web (P4.3): stand-off `++` (hit it from outside its guns' comfort),
-## burst `+` (a mount is cheap to strip in one pass), chip gun `-` (it out-heals
-## a trickle through the arc), terrain `++` (cover is how you cross its open
-## ground). Frame pressure (P4.4): light `++` (out-slew the arc), heavy `--` (it
-## cannot leave the shielded side fast enough to matter).
+## Counter-web (P4.3), REWRITTEN WITH THE MECHANIC (A.q10) — the counters used to
+## be *out-slew the arc* and they are now *time the pattern* and *hit the vent*:
+## chip gun `+` (was `-`: a sustained, precisely-aimed gun is the only thing that
+## can spend a two-second slot or a stern window, and it never runs dry doing it),
+## burst `0` (a slot is a duration, not a moment, so a single heavy round wastes
+## most of an opening it paid to reach), missile `+` (it arrives on its own line,
+## but a lock spent while the shell is shut is a lock wasted), flak `-` (was `+`:
+## splash cannot exploit a 1.6 m vent plate and a wide burst is mostly stopped by
+## the panels around the slot), terrain `+` (cover still crosses its open ground,
+## but it no longer helps you reach a blind side, because there is not one).
+##
+## Frame pressure (P4.4): light `+`, heavy `0`. THIS IS THE LINE THE REWORK
+## MOVED. Beating a tracking arc was a slew race and the Atlas could not win one,
+## so the heavy column was `--`. Timing a rotating shell is not a race — a heavy
+## frame holds a gun line BETTER, which is worth more against a two-second slot
+## and worth much more against a small plate at range. The light frame keeps the
+## edge because matching a shell's rotation is a speed problem, so the gap
+## narrows rather than inverting.
 
 signal destroyed(points: float)
 ## One mount went. Points for the mount, and a HUD or a check can watch the
@@ -103,9 +145,20 @@ const MIN_ALTITUDE: float = 3.0
 const MOUNT_RING_M: float = 3.4
 const MOUNT_ENERGY_REST: float = 0.4
 const MOUNT_ENERGY_READY: float = 5.0
-## Shield shell opacity when the screen is full, and when it is spent.
-const SHELL_ALPHA_FULL: float = 0.30
-const SHELL_ALPHA_SPENT: float = 0.02
+## Shells in the screen. A COUNT rather than a config field because it is shape:
+## the numbers that make a pattern are per-shell and they are all tunable, but
+## "how many shells" changes the scene, so it cannot be a slider.
+const RING_COUNT: int = 2
+## Radius of the innermost shell, metres. It must match the scene, and it is
+## duplicated here for one reason: an attacker INSIDE it is past the screen, and
+## without that the picture would lie to anyone who flew in through a slot.
+const SCREEN_INNER_RADIUS_M: float = 5.3
+## How long a splash stays lit on the panel that stopped a round.
+const SPLASH_DECAY_S: float = 6.0
+## Emissive energy of the stern vent plate: cold and shut, about to open, open.
+const VENT_ENERGY_SHUT: float = 0.15
+const VENT_ENERGY_READY: float = 1.6
+const VENT_ENERGY_OPEN: float = 7.0
 
 @export var enemy_config: EnemyConfig
 ## Per-instance seed, set before the node enters the tree (P4.8 determinism).
@@ -116,17 +169,26 @@ var team: StringName = &"enemy"
 
 @onready var _health: Health = $Health
 @onready var _mounts_root: Node3D = $Visual/Mounts
-@onready var _shell: MeshInstance3D = $Visual/Shell
+@onready var _shells_root: Node3D = $Visual/Shells
+@onready var _vent: ShieldShell = $SternVent
+@onready var _vent_mesh: MeshInstance3D = $SternVent/Mesh
 
 var _rng := RandomNumberGenerator.new()
 var _player: Node3D
 var _pool: ProjectilePool
 var _home: Vector3
-## Where the screen is pointing, flat and unit length. Chases `_threat_bearing`.
-var _shield_dir: Vector3 = Vector3.FORWARD
-## The bearing the last hit came from, which is what the screen steers for.
-var _threat_bearing: Vector3 = Vector3.FORWARD
-var _shell_material: StandardMaterial3D
+
+## Rotation of each shell, radians. THE WHOLE STATE OF THE SCREEN — the hit test
+## and the shader are both derived from exactly these two numbers, so the
+## picture cannot disagree with the mechanic.
+var _ring_phase: Array[float] = []
+var _ring_material: Array[ShaderMaterial] = []
+## Seconds through the vent's open/shut cycle.
+var _vent_clock: float = 0.0
+var _vent_material: StandardMaterial3D
+## Splash: where the last refused round hit, and how bright it still is.
+var _splash_dir: Vector3 = Vector3.BACK
+var _splash: float = 0.0
 
 ## One entry per mount. Parallel arrays rather than a Mount class: the whole of a
 ## mount's state is three numbers and a node, and a class would be a file to open
@@ -152,16 +214,21 @@ func _ready() -> void:
 	_health.configure_defenses(enemy_config)
 	_health.revive()
 	_health.died.connect(_on_died)
-	_shell_material = _shell.get_surface_override_material(0) as StandardMaterial3D
 	_build_mounts()
-	# It faces its own patch until something teaches it otherwise, so a Phalanx
-	# nobody has shot at yet is not silently shielded against the way in.
-	_shield_dir = -global_basis.z
-	_shield_dir.y = 0.0
-	if _shield_dir.length() < 0.01:
-		_shield_dir = Vector3.FORWARD
-	_shield_dir = _shield_dir.normalized()
-	_threat_bearing = _shield_dir
+	_build_screen()
+	_vent.hit.connect(_on_vent_hit)
+	_vent_material = _vent_mesh.get_surface_override_material(0) as StandardMaterial3D
+	# THE VENT PLATE IS A SEPARATE PHYSICS BODY BOLTED TO THIS ONE, and without
+	# this line `move_and_slide` fights its own child: the plate sits off-centre
+	# at the stern and overlaps the hull's shape, so depenetration pushed the
+	# fortress along its own keel. MEASURED, because it looked like an AI bug —
+	# station drift 0.0 m with the plate's collider disabled against **49.6 m in
+	# 5 seconds** with it on, sliding away from the player at the type's full
+	# 5 m/s. The aegis gets away with the same arrangement only because its shield
+	# sphere is centred on the body, so its depenetration cancels; that is luck
+	# rather than design, and it is worth knowing before the next body grows a
+	# second collider.
+	add_collision_exception_with(_vent)
 
 
 ## THE MOUNTS, laid evenly around the body so there is no bearing without a gun
@@ -209,34 +276,134 @@ func mounts_alive() -> int:
 	return alive
 
 
-## Where the screen is pointing, flat and unit length. Public for the same reason
-## `Lance.warning_level()` is: it is a design decision rather than an internal,
-## and a headless check cannot see a shield but can assert the vector.
-func shield_facing() -> Vector3:
-	return _shield_dir
+## THE SCREEN, BUILT. One sphere per shell, each carrying its own instance of
+## `shield_rings.gdshader` — the slots are cut in the fragment shader from the
+## same phase the hit test reads, so the hole you can see through IS the hole
+## your rounds go through.
+func _build_screen() -> void:
+	for i: int in RING_COUNT:
+		_ring_phase.append(0.0)
+		_ring_material.append(null)
+		var shell: MeshInstance3D = _shells_root.get_child(i) as MeshInstance3D \
+				if _shells_root.get_child_count() > i else null
+		if shell == null:
+			continue
+		# Per-instance: two shells sharing one material would share a phase, and
+		# the whole pattern is the two of them disagreeing.
+		var material: ShaderMaterial = (shell.get_surface_override_material(0)
+				as ShaderMaterial).duplicate() as ShaderMaterial
+		shell.set_surface_override_material(0, material)
+		_ring_material[i] = material
+		# A RANDOM START PHASE PER BODY, so two Phalanxes in one garrison do not
+		# present the same pattern at the same instant and a pilot cannot learn
+		# one rhythm and apply it to the field. Seeded, so a check still gets the
+		# same fight twice (P4.8 determinism).
+		_ring_phase[i] = _rng.randf() * TAU
 
 
-## Is a hit arriving from `bearing` (a flat unit vector FROM the body TOWARD the
-## attacker) covered by the screen?
-func shield_covers(bearing: Vector3) -> bool:
-	if enemy_config.shield_arc_deg <= 0.0 or not _health.shielded():
+## Slots in shell `index`. Zero means this type has no such shell — which is
+## every other type in the roster, and is how the whole mechanic switches off
+## from a config.
+func _ring_gaps(index: int) -> int:
+	return enemy_config.shield_outer_gaps if index == 0 \
+			else enemy_config.shield_inner_gaps
+
+
+func _ring_gap_deg(index: int) -> float:
+	return enemy_config.shield_outer_gap_deg if index == 0 \
+			else enemy_config.shield_inner_gap_deg
+
+
+func _ring_rate_deg_s(index: int) -> float:
+	return enemy_config.shield_outer_rate_deg_s if index == 0 \
+			else enemy_config.shield_inner_rate_deg_s
+
+
+## Where shell `index` currently sits, radians. Public because it IS the screen's
+## state and a headless check cannot see a shader — the same reason
+## `Lance.warning_level()` is public.
+func ring_phase(index: int) -> float:
+	return _ring_phase[index] if index < _ring_phase.size() else 0.0
+
+
+## Is the vent open RIGHT NOW? Public: it is the weak point's whole contract.
+func vent_open() -> bool:
+	if enemy_config.stern_vent_arc_deg <= 0.0 \
+			or enemy_config.stern_vent_open_s <= 0.0 \
+			or enemy_config.stern_vent_cycle_s <= 0.0:
 		return false
-	# A 360-degree arc means ALL ROUND, and it needs saying rather than falling
-	# out of the comparison. `Vector3.angle_to` computes in 32-bit floats, so two
-	# opposed vectors give 3.14159274 while `deg_to_rad(360) * 0.5` gives the
-	# 64-bit 3.14159265 — and the larger one loses, leaving a configuration that
-	# reads "covered from every side" with a hairline gap directly astern. Found
-	# by a mutation landing exactly on it.
-	if enemy_config.shield_arc_deg >= 360.0:
+	return _vent_clock < enemy_config.stern_vent_open_s
+
+
+## 0 just after it shut, 1 the instant before it opens. THE TELEGRAPH — the plate
+## brightens across the whole shut phase, so the window is something you can see
+## coming rather than something you have to count. P4.4's readability rule.
+func vent_charge() -> float:
+	if vent_open():
+		return 1.0
+	var shut_s: float = enemy_config.stern_vent_cycle_s \
+			- enemy_config.stern_vent_open_s
+	if shut_s <= 0.0:
+		return 1.0
+	return clampf((_vent_clock - enemy_config.stern_vent_open_s) / shut_s, 0.0, 1.0)
+
+
+## Does the screen stop a round arriving from `bearing` (a vector FROM the body
+## TOWARD the attacker)? THE ONE QUESTION THE TYPE ASKS.
+##
+## A round is stopped if ANY shell has armour on that bearing. The stern aperture
+## is cut through every shell at once, so while the vent is open the bearing
+## behind the ship is clear all the way in — which is exactly what the shader
+## draws, and the reason the aperture is not modelled as a per-shell slot.
+func screen_blocks(bearing: Vector3) -> bool:
+	var local: Vector3 = global_basis.inverse() * bearing
+	local.y = 0.0
+	if local.length() < 0.0001:
+		return false
+	# INSIDE THE SHELLS THERE IS NO SCREEN. A pilot who flies in through a slot
+	# is past it, and this line is what keeps the picture honest for them —
+	# without it the shells would stop rounds fired from a position visibly
+	# inside them. It is a knife fight with six guns at point-blank, so it is an
+	# extreme rather than an exploit, but it must not be a lie.
+	if _player != null and is_instance_valid(_player) \
+			and global_position.distance_to(_player.global_position) \
+			< SCREEN_INNER_RADIUS_M:
+		return false
+	local = local.normalized()
+	var azimuth: float = atan2(local.x, local.z)
+	if vent_open() and absf(azimuth) < deg_to_rad(enemy_config.stern_vent_arc_deg) * 0.5:
+		return false
+	for i: int in RING_COUNT:
+		if _ring_blocks(i, azimuth):
+			return true
+	return false
+
+
+## One shell's own answer. `azimuth` is measured in the body's frame, 0 astern.
+func _ring_blocks(index: int, azimuth: float) -> bool:
+	var gaps: int = _ring_gaps(index)
+	if gaps <= 0:
+		return false
+	var sector: float = TAU / float(gaps)
+	var half: float = deg_to_rad(_ring_gap_deg(index)) * 0.5
+	# SLOTS THAT MEET LEAVE NO ARMOUR, and it needs saying rather than falling
+	# out of the comparison below — the same class of guard the old arc needed at
+	# 360 degrees, where a float comparison left a hairline gap astern. Here the
+	# residual would be one bearing that blocks in a shell configured wide open.
+	if half * 2.0 >= sector:
+		return false
+	if half <= 0.0:
 		return true
-	return _shield_dir.angle_to(bearing) <= deg_to_rad(enemy_config.shield_arc_deg) * 0.5
+	var offset: float = fposmod(azimuth - _ring_phase[index] + sector * 0.5,
+			sector) - sector * 0.5
+	return absf(offset) >= half
 
 
 func _physics_process(delta: float) -> void:
 	_player = _find_player()
-	_face_the_threat()
-	_slew_shield(delta)
-	_update_shell()
+	_spin_screen(delta)
+	_cycle_vent(delta)
+	_update_screen(delta)
 	_hold_station(delta)
 	if _player == null:
 		_cool_mounts(delta)
@@ -267,69 +434,69 @@ func _hold_station(delta: float) -> void:
 	move_and_slide()
 
 
-## IT POINTS THE SCREEN AT WHAT IT CAN SEE, every tick, not only at whatever last
-## shot it. That distinction was a real bug and the user found it on the first
-## flight: *"i think it has a bug, as i am the only threat at the scene but its
-## not aimed at me."*
+## THE SHELLS TURN, and this is the entire state of the defence: two angles.
 ##
-## The original rule was "the arc chases whoever HURTS it", so `_threat_bearing`
-## only moved inside `take_hit`. A Phalanx nobody had shot yet kept its spawn
-## facing forever, and one that had been hit once kept pointing at a bearing the
-## pilot had long since left. From the cockpit that reads as broken, and it is —
-## a defender with a sensor should face the threat it can see, and there is no
-## fiction in which it waits to be shot before looking.
+## They ignore the player completely — deliberately, and it is the point of the
+## rework. The screen this replaces steered for the threat it could see, which
+## worked and read as broken, because the player had to infer a bearing from a
+## featureless dome. A shell that turns at a constant rate whatever you do is
+## MECHANICAL: predictable, learnable and self-evidencing, since motion and
+## pattern are visible in a way that intent is not.
+func _spin_screen(delta: float) -> void:
+	for i: int in RING_COUNT:
+		if _ring_gaps(i) <= 0:
+			continue
+		_ring_phase[i] = fposmod(
+				_ring_phase[i] + deg_to_rad(_ring_rate_deg_s(i)) * delta, TAU)
+
+
+## The vent's clock, wrapped. Nothing about it depends on the player: the window
+## is the fortress's own rhythm, so it can be learned rather than provoked.
+func _cycle_vent(delta: float) -> void:
+	if enemy_config.stern_vent_cycle_s <= 0.0:
+		return
+	_vent_clock = fposmod(_vent_clock + delta, enemy_config.stern_vent_cycle_s)
+
+
+## THE SCREEN, SEEN — and on this type the picture is half the mechanic (A.q10).
 ##
-## The counterplay is untouched, because the counterplay was never "it does not
-## know where you are". It is `shield_slew_deg_s`: the screen knows exactly where
-## you are and cannot turn fast enough to keep up with a committed break.
-##
-## `take_hit` still sets the bearing too, which now only matters for an attacker
-## it cannot see — a shot from beyond `sight_range` still teaches it something.
-func _face_the_threat() -> void:
-	if _player == null or not is_instance_valid(_player):
-		return
-	if global_position.distance_to(_player.global_position) > enemy_config.sight_range:
-		return
-	var toward: Vector3 = _player.global_position - global_position
-	toward.y = 0.0
-	if toward.length() < 0.01:
-		return
-	_threat_bearing = toward.normalized()
+## Every uniform below is READ OUT of the same state the hit test uses. There is
+## no separate animation state and no smoothing, because a cue that disagrees
+## with the mechanic by even a little teaches the player the wrong edge, and here
+## the wrong edge is the expensive one: believing a slot is open.
+func _update_screen(delta: float) -> void:
+	_splash = maxf(_splash - delta / SPLASH_DECAY_S, 0.0)
+	var vent_half_rad: float = deg_to_rad(enemy_config.stern_vent_arc_deg) * 0.5
+	for i: int in RING_COUNT:
+		var material: ShaderMaterial = _ring_material[i]
+		if material == null:
+			continue
+		var gaps: int = _ring_gaps(i)
+		material.set_shader_parameter(&"gaps", gaps)
+		material.set_shader_parameter(&"gap_half_rad",
+				deg_to_rad(_ring_gap_deg(i)) * 0.5)
+		material.set_shader_parameter(&"phase", _ring_phase[i])
+		material.set_shader_parameter(&"phase_rate", _ring_rate_deg_s(i))
+		material.set_shader_parameter(&"vent_half_rad", vent_half_rad)
+		material.set_shader_parameter(&"vent_open", 1.0 if vent_open() else 0.0)
+		material.set_shader_parameter(&"flash_dir", _splash_dir)
+		material.set_shader_parameter(&"flash", _splash)
+	_update_vent_glow()
 
 
-## The screen chases the threat, at its own rate and no faster. A
-## `shield_slew_deg_s` high enough to always face the attacker would make the
-## type unkillable from any bearing; that is the failure mode, and it is a config
-## value rather than a hidden constant so it can be found and moved.
-func _slew_shield(delta: float) -> void:
-	if enemy_config.shield_arc_deg <= 0.0:
+## The plate brightens across the whole shut phase and goes white-hot when the
+## window opens. A weak point nobody can find is not a weak point.
+func _update_vent_glow() -> void:
+	if _vent_material == null:
 		return
-	var error: float = _shield_dir.angle_to(_threat_bearing)
-	if error <= 0.0001:
+	var lit: bool = enemy_config.stern_vent_arc_deg > 0.0 \
+			and enemy_config.stern_vent_cycle_s > 0.0
+	_vent_mesh.visible = lit
+	if not lit:
 		return
-	var axis: Vector3 = _shield_dir.cross(_threat_bearing)
-	if axis.length_squared() < 1.0e-12:
-		axis = Vector3.UP
-	var step: float = minf(error, deg_to_rad(enemy_config.shield_slew_deg_s) * delta)
-	_shield_dir = _shield_dir.rotated(axis.normalized(), step).normalized()
-
-
-## THE SCREEN, SEEN. The shell is oriented to the arc and fades with the pool, so
-## what the player reads is where their shots will stop and how much is left —
-## the screamer's rule that a cue must be the mechanic rather than a proxy.
-func _update_shell() -> void:
-	if _shell_material == null:
-		return
-	if enemy_config.shield_arc_deg <= 0.0 or enemy_config.shield_max <= 0.0:
-		_shell.visible = false
-		return
-	var fraction: float = _health.shield / maxf(enemy_config.shield_max, 0.01)
-	_shell.visible = fraction > 0.01
-	_shell.global_rotation.y = atan2(_shield_dir.x, _shield_dir.z)
-	var colour: Color = _shell_material.albedo_color
-	colour.a = lerpf(SHELL_ALPHA_SPENT, SHELL_ALPHA_FULL, fraction)
-	_shell_material.albedo_color = colour
-	_shell_material.emission_energy_multiplier = 0.2 + fraction * 1.6
+	var energy: float = VENT_ENERGY_OPEN if vent_open() \
+			else lerpf(VENT_ENERGY_SHUT, VENT_ENERGY_READY, vent_charge())
+	_vent_material.emission_energy_multiplier = energy
 
 
 ## One mount: track, spin up, fire. Every living mount engages independently, so
@@ -445,36 +612,51 @@ func _set_mount_glow(index: int, amount: float) -> void:
 ##
 ## The bearing comes from the ATTACKER'S POSITION rather than from the round.
 ## `take_hit(damage)` carries a number and nothing else — that is the contract
-## every weapon in the game speaks — so deriving the arc here costs no new
+## every weapon in the game speaks — so deriving the bearing here costs no new
 ## plumbing and behaves identically for a bolt, a missile and a splash. A
 ## velocity-derived bearing would disagree with all three.
+##
+## A ROUND THE SCREEN STOPS IS REFUSED, not absorbed. Nothing is spent and the
+## screen never falls, because it is a barrier rather than a battery — see the
+## header. It splashes on the panel that stopped it, where the player can see
+## which one it was.
 func take_hit(damage: float) -> void:
 	var bearing: Vector3 = _attack_bearing()
-	# Anything that lands teaches it where you are, INCLUDING a round the screen
-	# stopped — otherwise a shielded hit would be free information denied.
-	_threat_bearing = bearing
-	if shield_covers(bearing):
-		_health.take(damage)
+	if screen_blocks(bearing):
+		_splash_dir = global_basis.inverse() * bearing
+		_splash = 1.0
 		return
 	var index: int = _mount_facing(bearing)
 	if index >= 0 and _mount_hull[index] > 0.0:
 		_damage_mount(index, damage)
 		return
-	# Past the screen and past the guns: the hull, with the screen bypassed
-	# rather than spent, because it is not in the way.
-	_health.take(damage, false)
+	_health.take(damage)
 
 
-## Flat unit vector from the body toward whoever is shooting. Falls back to the
-## screen's own facing when there is no player, so a hit with nobody on the field
-## (a check, a stray splash) resolves rather than dividing by zero.
+## THE WEAK POINT, and the plate is a real body so this is an AIM test rather
+## than a second positioning one (A.q10). Through an OPEN vent the round skips
+## the screen and the whole battery and lands on the hull; a shut vent is just
+## plating, so the round resolves exactly like any other arriving from astern —
+## which means the screen still gets its say and the shot is not wasted, only
+## ordinary.
+func _on_vent_hit(damage: float) -> void:
+	if not vent_open():
+		take_hit(damage)
+		return
+	_health.take(damage)
+	Effects.impact(get_tree().root, _vent.global_position)
+
+
+## Flat unit vector from the body toward whoever is shooting. Falls back to
+## astern when there is no player, so a hit with nobody on the field (a check, a
+## stray splash) resolves rather than dividing by zero.
 func _attack_bearing() -> Vector3:
 	if _player == null or not is_instance_valid(_player):
-		return _shield_dir
+		return global_basis.z
 	var offset: Vector3 = _player.global_position - global_position
 	offset.y = 0.0
 	if offset.length() < 0.01:
-		return _shield_dir
+		return global_basis.z
 	return offset.normalized()
 
 

@@ -25,25 +25,54 @@
 ; hull with a tower and a keel, guns out on the beam at 3.4 m - because "too small
 ; to individually take down" was as much about SIZE as about hull.
 ;
-; THE ARC WRAPS PAST THE BEAM, also the user's steering: "the arc can also be more
-; than a half sphere, it can encapsulate beyond that, leaving a tighter hold at
-; the opposite side where the shield is aimed at, making it even more
-; challenging." So 250 degrees, leaving a 110 degree window ASTERN of the facing.
+; THE SCREEN IS NOW TWO ROTATING SHELLS, NOT A TRACKING ARC (A.q10). The arc
+; worked and could not be READ - the user reported it as a bug twice and the
+; second report was measured and correct - so they replaced the mechanic: "move
+; away from a dynamically directional shield and do another option you've
+; suggested - a rotating shield that needs good timing to penetrate... rotating
+; around the ship in some patterns that can confuse the attacker."
 ;
-;   shield_arc_deg 140 -> 250, shield_slew_deg_s 45 -> 28.
+;   shield_arc_deg 250, shield_slew_deg_s 28   DELETED
+;   shield_outer_gaps 3, gap 48 deg, rate +26 deg/s
+;   shield_inner_gaps 2, gap 76 deg, rate -16 deg/s
+;   shield_max 300 -> 0
 ;
-; THE SLEW HAD TO COME DOWN WITH THE ARC, and that pairing was measured rather
-; than guessed. The screen now tracks the threat it can SEE (the bug the user
-; found on the same flight), so the only way to land damage is to out-turn it and
-; hold the lead. Flying a 30 m orbit at 25 m/s - 47.7 deg/s of bearing change:
+; THE POOL WENT TO ZERO ON PURPOSE, and it is the least obvious change here. The
+; arc SPENT shield points on every covered hit, so a blaster emptied 300 in about
+; a second and the mechanic simply stopped happening for the rest of the fight -
+; half of why it never read. The rotating screen REFUSES a covered round instead:
+; nothing is spent, it never falls, and the counter is timing rather than
+; attrition. That makes this a barrier where the aegis is a battery, which is
+; also the cleanest statement yet of "two shielded types, different axes".
 ;
-;   arc 250, slew 28  ->  opens at 1.8 s, 3.5 s windows, shut 65% of the time
-;   arc 250, slew 45  ->  opens at 12.7 s. Too long to be a fight.
-;   arc 290, slew 45  ->  NEVER opens. An enemy no pilot can hurt.
+; THE PAIR WAS MEASURED, not guessed - the same discipline the arc/slew pair got,
+; and it refuted the first design on the first run. A pilot at 30 m, 90 s per row,
+; averaged over 8 start phases:
 ;
-; That last row is why `phalanx_check` flies this exact orbit and asserts the
-; window exists: the failure is a property of the PAIR, and no assertion on either
-; number alone could catch it.
+;   pilot                          open%   median window   worst dry spell
+;   camped on one bearing           17%        1.58 s          9.2 s
+;   fast thoughtless orbit 47 deg/s 17%        0.87 s          5.0 s
+;   flying WITH the outer shell     42%        1.81 s          2.5 s
+;   flying WITH the inner shell     40%        1.15 s          1.7 s
+;   ONE shell only (the control)    38%        1.50 s          2.5 s
+;
+; Read the first and third rows together: reading the pattern and flying with it
+; is worth 2.5x the damage of sitting in one slot, and that is P4.2's anti-orbit
+; job carried by a mechanism the player can SEE rather than by a shield that
+; chased them. Read the last row on its own: a SINGLE rotating shell hands a
+; camper 38% - it is barely a shield at all - which is why "some patterns that
+; can confuse the attacker" had to be built deliberately rather than hoped for.
+;
+; The rates are the window-length knob and the gap widths are the fraction knob,
+; and they are close to independent: camp% is the product of the two duty cycles,
+; while window length is a gap width divided by the RELATIVE rate. Tune the one
+; that matches the complaint.
+;
+; THE STERN VENT is the third skill and the only one that is aim: arc 26 deg,
+; open 2.0 s in an 11.0 s cycle (18%). The plate is a real 1.6 x 1.2 m body, so
+; splash cannot exploit it and a steady gun can. The cycle is deliberately not a
+; neat ratio of either shell's period (13.8 s and 22.5 s per revolution), so the
+; three rhythms never collapse into one number to memorise.
 ;
 ; damage 5 x fire_rate 0.8 x 6 mounts = 24 damage a second at full strength,
 ; falling as you strip it. It is deliberately close to the first draft's output
@@ -62,11 +91,14 @@
 ; measures the result and the human's hands decide the feel.
 ;
 ; ONE THING LAYER 1 CANNOT SEE, stated so nobody quotes it wrong: `Lethality`
-; models the shield as a plain pool that always applies, because that is what
-; `Health` does. That is exactly right for a pilot inside the arc and pessimistic
-; for one outside it, so Layer 1 prices the WORST case. The gap between that and
-; the harness is the directional shield, and it is the instrument's output rather
-; than an error.
+; knows this body's hull and its battery of mounts, and knows NOTHING about the
+; rotating screen - there is no pool left for it to price, and a barrier's cost
+; is a duty cycle rather than a number of points. So Layer 1 now reports the time
+; to chew through 1300 points of metal with every round landing, which is the
+; BEST case for the player and the floor of the real fight. Multiply it by the
+; open fraction above for the honest range: about 2.4x for a pilot who reads the
+; pattern, about 6x for one who camps. That gap IS the mechanic, and it is the
+; instrument's output rather than an error.
 
 [gd_resource type="Resource" script_class="EnemyConfig" load_steps=2 format=3]
 
@@ -77,12 +109,19 @@ script = ExtResource("1_ecfg")
 type_id = &"phalanx"
 hull = 700.0
 armor = 0.0
-shield_max = 300.0
+shield_max = 0.0
 shield_break_threshold = 0.0
-shield_regen = 12.0
-shield_regen_delay = 4.0
-shield_arc_deg = 250.0
-shield_slew_deg_s = 28.0
+shield_regen = 0.0
+shield_regen_delay = 0.0
+shield_outer_gaps = 3
+shield_outer_gap_deg = 48.0
+shield_outer_rate_deg_s = 26.0
+shield_inner_gaps = 2
+shield_inner_gap_deg = 76.0
+shield_inner_rate_deg_s = -16.0
+stern_vent_arc_deg = 26.0
+stern_vent_open_s = 2.0
+stern_vent_cycle_s = 11.0
 mount_count = 6
 mount_hull = 100.0
 speed = 5.0

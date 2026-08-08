@@ -1023,17 +1023,22 @@ func _build_target(type: String) -> Node:
 			#
 			# ITS SHIELD IS FORCED OFF FOR THIS MEASUREMENT, and that is the whole
 			# reason this case needs a comment. An evasion cell asks ONE question —
-			# how hard is this body to hit — and a directional screen answers a
-			# different one, since a round the arc stops still ARRIVED. Leaving the
-			# screen up would fold "where was the shield pointing" into a number the
-			# model reads as marksmanship, which is the aim/delivery confusion the
-			# whole layer split exists to prevent. The arc is priced in the duel
-			# column instead, where a fight can actually fly around it.
+			# how hard is this body to hit — and a rotating screen answers a
+			# different one, since a round the panels stop still ARRIVED. Leaving the
+			# screen up would fold "was a slot open" into a number the model reads as
+			# marksmanship, which is the aim/delivery confusion the whole layer split
+			# exists to prevent. The pattern is priced in the duel column instead,
+			# where a fight can actually fly around it.
 			_enemy_config = (load("res://resources/default_enemy_phalanx.tres")
 					as EnemyConfig).duplicate() as EnemyConfig
 			_enemy_config.hull = IMMORTAL_HULL
 			_enemy_config.shield_max = 0.0
-			_enemy_config.shield_arc_deg = 0.0
+			_enemy_config.shield_outer_gaps = 0
+			_enemy_config.shield_inner_gaps = 0
+			# And the stern vent goes with them: it is a hole in that same screen,
+			# so leaving it cycling would make a fraction of the cell's rounds
+			# resolve down a different path for reasons that are not marksmanship.
+			_enemy_config.stern_vent_arc_deg = 0.0
 			# And its mounts do not soak the rounds either, for the same reason: a
 			# mount absorbing a hit is armour, not evasion.
 			_enemy_config.mount_count = 0
