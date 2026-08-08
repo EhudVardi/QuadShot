@@ -139,23 +139,34 @@ Eight things landed. Read **v2.28–v2.35** at the tail of GAMEPLAY-DESIGN.md.
    booked as missed shots. Blaster evasion 0.23 → **0.85**. It closes the
    `Blaster x Lance` anomaly this file had listed as unexplained.
 
-### WAITING ON THE HUMAN'S HANDS — the standing reminder
+### WAITING ON THE HUMAN'S HANDS — EMPTY, for the first time in four sessions
 
-The user asked to be reminded of this (2026-08-07): *"remind me about these
-results later, i could not test them yet."* **Everything below is built, checked
-and committed, and none of it has been judged by a human.** Signed-off items are
-listed too, so the difference is unambiguous.
+**2026-08-08: the queue cleared.** Everything that was built-but-unjudged has now
+been flown and signed off. Nothing in the bestiary is waiting on a verdict, which
+is why the next job is a WORLD job rather than a unit job — see below.
 
 | what | verdict |
 |---|---|
-| **The Phalanx's ROTATING SCREEN + stern vent** (v2.38) | **UNFLOWN — the big one** |
+| **The Phalanx's ROTATING SCREEN + stern vent** (v2.38) | **SIGNED OFF: *"now that's a truly worthy enemy. i love it"*** |
 | The Phalanx as a FORTRESS (v2.35) | SIGNED OFF: *"its an air fortress with many turrets that takes a lot of damage to take down"* |
-| The aegis shield LOOP: missile, then stay on it, then it rearms (v2.29) | partly — they confirmed it "takes way more damage", not the rearm rhythm |
-| Units no longer overlapping in a sortie (v2.32) | **UNFLOWN** — needs a composed sortie, not the dev room |
+| The aegis shield LOOP: missile, then stay on it, then it rearms (v2.29) | SIGNED OFF: *"seems reasonable"* |
+| Units no longer overlapping in a sortie (v2.32) | SIGNED OFF: *"i think this one is also solved"* |
 | Lance continuous warning (v2.28) | SIGNED OFF: *"i think its good now"* |
 | Lance steering at 6 deg/s (v2.30) | SIGNED OFF: *"the lance is ok now"* |
 | Aegis 3x hull, +1 speed (v2.31) | SIGNED OFF: *"a more worthy enemy"* |
 | Phalanx v1 (v2.34) | flown, and the feedback became v2.35 |
+
+**THE PHALANX IS CLOSED.** Two rounds of steering and a full mechanic replacement,
+and the verdict on the rotating screen is unqualified. **Do not re-open the shield,
+the vent, the hull, the mounts, the size or the battery** without a new complaint
+— every one of those numbers now has a human verdict behind it.
+
+**WHAT THAT MEANS FOR THE PLAN, and it is the most useful thing on this page:**
+eight enemy types are built, balanced and signed off, and they all fight over flat
+empty ground. **The units are now well ahead of the world they fight in.** The
+`terrain` column of P4.3's counter-web is the only answer archetype with no
+implementation at all, and allied assets do not exist, which is why three separate
+mechanics are stubbed rather than built.
 
 **THE LANCE IS CLOSED.** They tuned it live, that tuning was never saved (the
 overlay only persists on SAVE, and there is no `user://enemy_lance.tres`), and

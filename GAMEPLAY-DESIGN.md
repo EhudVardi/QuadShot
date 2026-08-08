@@ -12469,3 +12469,43 @@ being rediscovered as a red board when A.q1 lands.
     is the one no bench can produce: whether a 2.4x-to-6x longer fight feels like
     a siege or like a chore. That is the human's, and it is the first thing to ask
     after the flight.
+
+- **2026-08-08 — v2.40. A.q10 IS CLOSED, and with it the whole
+  waiting-on-hands queue.** The user flew the rotating screen and the stern vent:
+  ***"now that's a truly worthy enemy. i love it."*** They also cleared the two
+  items that had been outstanding behind it — the aegis shield loop (*"seems
+  reasonable"*) and units no longer spawning inside one another (*"i think this
+  one is also solved"*).
+  - **THE VERDICT IS UNQUALIFIED, which is worth recording precisely because the
+    two before it were not.** v2.34 produced *"i imagined the Phalanx way more
+    massive"*, v2.35 produced *"the shield direction is still not working
+    correctly... the current shield mainly looks funny"*. Three flights, two
+    complaints, and the third came back with no note attached. **Do not re-open
+    the shield, the vent, the hull, the mounts, the size or the battery without a
+    new complaint** — every one of those numbers now has a human verdict behind
+    it.
+  - **A.q10'S CENTRAL CLAIM SURVIVED CONTACT, and it was the risky one.** The
+    argument for replacing a mechanic that MEASURED as working was that *"a
+    mechanic that reads as broken while it is working is a failed mechanic"* — a
+    claim about legibility that no bench can test, made against a system whose
+    code was correct. It could have been wrong: the replacement could have read
+    just as badly and cost a working feature. It did not, and the specific thing
+    that changed is that the new screen expresses its state as SHAPE AND MOTION
+    rather than as intent. **Motion and pattern are visible in a way that a
+    facing is not**, and that is the generalisable half.
+  - **THE VISUAL BUDGET WAS THE RIGHT CALL, and it is the practical lesson.** Four
+    passes on the shader, every one looked at on the real scene, against roughly
+    the same amount of time spent on the mechanic itself. On a feature whose whole
+    defect was readability, treating the picture as half the work rather than as a
+    polish pass is what made the difference — and three of the four passes were
+    rejections that a reasoned-about-from-the-code approach would have shipped.
+  - **WHERE THIS LEAVES THE PROJECT, and it is a genuine inflection.** Eight enemy
+    types are built, measured and signed off; every one of them fights over flat
+    empty ground. **The units are now well ahead of the world they fight in.**
+    P4.3 prices `terrain` as one of six answer archetypes and it is the only
+    column with no implementation at all; allied assets do not exist, which is why
+    A.q6's target ranking, W.q8's hold phase and the aegis's outward bomb run are
+    all stubbed against things that are not there. The next job is a WORLD job
+    rather than a unit job, and P1.9's terrain is the one that unblocks the most:
+    detection-on-sight, the approach's corridors and cover, A.q7's real answer,
+    and anything that would ever move on the ground.
