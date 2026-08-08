@@ -11,7 +11,7 @@ what happens next.
 ## WHERE IT STANDS, 2026-08-07 — read this block first
 
 **Board 22/22 green. `PILOT_VERSION` 7 (untouched). EIGHT roster types.
-`balance/delivery_factors.json` IS STALE — the new type changed the stamp.**
+`balance/delivery_factors.json` re-measured with the new type in it, PASS, committed.**
 
 Eight things landed. Read **v2.28–v2.35** at the tail of GAMEPLAY-DESIGN.md.
 
@@ -34,11 +34,27 @@ Eight things landed. Read **v2.28–v2.35** at the tail of GAMEPLAY-DESIGN.md.
      parking in one orbit slot stops your damage landing while every surviving
      mount shoots you anyway — no slot is both safe and useful. Mounts strip one
      at a time. Every design fork was the user's call.
-   - **Next action on it: `tools/balance_report` (~55 min).** A new type joins
-     `ENEMIES_FOR_STAMP`, so no Layer 2 number is quotable until it runs.
-     Deliberately NOT run yet — the numbers are unflown authored guesses, and
-     measuring before the human's hands have moved them buys a number with a
-     short life. **Fly it first.**
+   - ~~**Next action: the re-measure**~~ **DONE** (v2.37). All three layers PASS,
+     pilot v7, artifact committed. The diff is four lines: the stamp and three new
+     phalanx cells. **Nothing else moved** — every pre-existing cell came back
+     bit-identical, the second time in one day Track 5 has paid out as a readable
+     diff rather than as a claim.
+   - **WHAT IT SAYS ABOUT THE TYPE, and both halves are it working:** evasion
+     **0.99 / 0.96 / 1.00** — a station-keeping fortress does not dodge, so its
+     defence is entirely the arc — and **all four duel rows read `win 0%`**,
+     because 1300 points behind a shield shut 65% of the time does not fall inside
+     the harness's 10 s cap. **No false finding is raised**: `model_kills` already
+     requires the predicted ttk to fit the cap, so model and fight agree. Four
+     cells ARE flagged for un-modeled factors and **none is a Phalanx row**
+     (Blaster x Raider, Blaster x Falx, Missile x Screamer, Flak x Screamer — all
+     pre-existing).
+   - **THE READING THAT MATTERS FOR THE NEXT FLIGHT (H6 — recorded, not acted
+     on):** in a real duel the Phalanx spent only **3.3 / 4.2 / 27.5 damage on the
+     pilot over 10 s**, against Layer 1's prediction of a **4.0 s kill**. That gap
+     is the 0.9 s spin-up plus six guns losing their line on a moving target. The
+     worry that "4 s to kill a Kestrel is too sharp" is **probably unfounded** —
+     against a pilot who keeps moving it is far gentler than paper. Fly it before
+     touching `damage` or `fire_rate`.
 
 1. **A.q8 CLOSED — the Lance's warning is continuous and proximity-driven**
    (v2.28). A looping alarm whose volume and beep-rate track `warning_level()`, a

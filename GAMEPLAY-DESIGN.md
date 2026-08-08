@@ -12125,3 +12125,40 @@ being rediscovered as a red board when A.q1 lands.
       stops still arrived; leaving either up would fold *where was the shield
       pointing* into a number the model reads as marksmanship. That is precisely
       the aim/delivery confusion the layer split exists to prevent.
+
+- **2026-08-07 — v2.37. THE RE-MEASURE, with the Phalanx in every list this time,
+  and the type's two numbers are both "working as designed".** All three layers
+  PASS, pilot v7. The artifact diff is four lines: the config stamp and three new
+  cells. **Every pre-existing cell came back bit-identical** — the second time in
+  one day that Track 5's reproducibility has paid out as a *readable diff* rather
+  than as a claim about the instrument.
+  - **EVASION 0.99 / 0.96 / 1.00, and that is not a boring row.** A
+    station-keeping fortress does not dodge; a perfect solution lands almost every
+    round. The type is saying where its defence is NOT. **A body this easy to hit
+    that still cannot be killed is a body defended entirely by its arc**, and the
+    arc is priced one column over, in the duels, where a fight can fly around it.
+  - **ALL FOUR DUEL ROWS READ `win 0%`, and the harness raises no false finding
+    for them.** 1300 points behind a screen that is shut 65% of the time does not
+    fall inside a 10 s cap. The guard that makes this honest already existed:
+    `model_kills` requires the predicted ttk to fit the cap, so the model and the
+    fight *agree* on "no kill in 10 s" and nothing is flagged. **Four cells are
+    flagged for un-modeled factors and none of them is a Phalanx row** — Blaster x
+    Raider (the hand-calibrated H5 cell), Blaster x Falx, Missile x Screamer, Flak
+    x Screamer, all pre-existing.
+    - **What cannot be concluded**: that its paper bands are refuted. A counter-web
+      band is a claim about a fight, and ten seconds is not a long enough fight to
+      test one on a body this size. The clean fix if that ever needs settling is a
+      PER-ROW cap, not raising `MAX_SECONDS`, which would move every published band
+      on the board.
+  - **AND THE READING THAT ACTUALLY CHANGES SOMETHING (H6 — recorded, not acted
+    on).** In a real duel the Phalanx spent **3.3, 4.2 and 27.5 damage** on the
+    pilot over 10 s across the three weapon cells. Layer 1 predicts a **4.0 s
+    kill** on a Kestrel. That is an enormous gap, and it is exactly the gap the
+    layer split exists to expose: **Layer 1 prices six guns all connecting, and in
+    a fight they do not** — the 0.9 s spin-up plus six mounts losing their line on
+    a moving target is delivery doing most of the work.
+    - The practical consequence is worth writing down before the next flight: the
+      concern that *"4 s to kill a Kestrel may be too sharp"* is **probably
+      unfounded**. Against a pilot who keeps moving the type is far gentler than
+      paper. `damage` and `fire_rate` should not be touched until hands have
+      confirmed which of the two numbers the fight actually feels like.
