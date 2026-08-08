@@ -34,10 +34,22 @@ not touched.
 - **Layer 1 was 600 points short of every Phalanx fight** — it priced the hull
   and ignored the battery, which every round from every bearing meets first.
   Fixed in the model and the planted rig at once.
-- **`balance/delivery_factors.json` is NOT stale** — none of the shield fields is
-  in `DELIVERY_FIELDS_ENEMY` and the phalanx evasion cell forces the screen off
-  anyway. The full `tools/balance_report` was re-run regardless, because the
-  counter-web bands moved.
+- **THE RE-MEASURE IS DONE and the delivery artifact did not move by a byte**
+  (v2.39). All three layers PASS, pilot v7, `balance/delivery_factors.json`
+  bit-identical *including the config stamp* — predicted before running, because
+  no shield field has ever been in `DELIVERY_FIELDS_ENEMY` and the phalanx
+  evasion cell forces the screen off. **The four un-modeled-factor flags are the
+  same four as v2.37 and none is a Phalanx row.**
+  - **The Atlas row validates the P4.4 reband**: `Atlas x Phalanx` paper `0` ->
+    validated `0`, vs Kestrel **+0.08** — the heavy frame now does slightly
+    better than the light one against this type, the opposite of the `--` the
+    tracking arc earned.
+  - **And the type got measurably more dangerous**, which nobody chose: damage
+    spent on the pilot over a 10 s duel went **3.3 -> 16.7** (blaster) and
+    **4.2 -> 9.2** (missile), because a screen that refuses more of your fire
+    means you strip the battery slower and more guns stay alive. Still far
+    gentler than Layer 1's 4.0 s paper kill. Cross-run comparison, so read the
+    decimals softly.
 
 **NOT FLOWN.** This is the top of the list, and the routes (three skills, in
 order) are in TESTING.md's `phalanx_check` section.

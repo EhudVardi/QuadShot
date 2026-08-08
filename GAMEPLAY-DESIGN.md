@@ -12407,3 +12407,65 @@ being rediscovered as a red board when A.q1 lands.
     moment the arc stopped chasing. All of these are PREDICTIONS the harness
     cannot currently settle — all four Phalanx duel rows read `win 0%` inside a
     10 s cap and will keep doing so.
+
+- **2026-08-08 — v2.39. THE RE-MEASURE AFTER A.q10, and the delivery artifact did
+  not move by a single byte.** All three layers PASS, pilot v7.
+  `balance/delivery_factors.json` is **bit-identical to the committed file,
+  config stamp included** — `git status` reports it unmodified after a full
+  55-cell re-measurement.
+  - **THAT WAS PREDICTED BEFORE RUNNING IT, and the reason is structural rather
+    than lucky.** None of the shield fields has ever been in
+    `DELIVERY_FIELDS_ENEMY` — old or new — and the phalanx evasion cell FORCES the
+    screen and the vent off, for the reason it always forced the arc off: an
+    evasion cell asks how hard a body is to HIT, and a round the panels stop still
+    arrived. So a total replacement of the type's defence is, correctly, invisible
+    to Layer 2. The last two Phalanx entries both said *"the artifact is stale
+    again by design"*; this one is the case where it genuinely is not, and the
+    stamp is what makes that checkable instead of assumed.
+  - Its three evasion cells came back unchanged at **0.99 blaster / 1.00 missile /
+    0.96 flak** — a station-keeping fortress is still trivially easy to hit, and
+    still defended entirely by its screen.
+  - **THE FOUR UN-MODELED-FACTOR FLAGS ARE THE SAME FOUR AS v2.37** — Blaster x
+    Raider, Blaster x Falx, Missile x Screamer, Flak x Screamer — and **no Phalanx
+    row is among them**, exactly as before. The rework introduced no new anomaly
+    anywhere on the board.
+  - **The three Phalanx weapon rows DO raise `PAPER vs PREDICTED`, and that is
+    ordinary company rather than a finding.** Sixteen cells on this board carry
+    that flag, including Blaster x Raider, Blaster x Turret and Flak x Raider. It
+    fires here because the predicted band is an ABSOLUTE modeled ttk on a
+    1300-point body — **52.5 s blaster, 63.0 s missile, 56.4 s flak** — while the
+    rebanded paper is a relative claim about a real fight, and the harness's 10 s
+    cap cannot host one. All four duel rows read `win 0%` and will keep doing so;
+    the clean fix if that ever has to be settled is a per-row cap, not a higher
+    `MAX_SECONDS`, which would move every published band on the board.
+  - **THE ATLAS ROW IS THE ONE THAT MOVED, AND IT VALIDATES THE P4.4 REBAND.**
+    `Atlas x Phalanx` reads paper `0` -> validated `0`, **vs Kestrel +0.08** — the
+    heavy frame now does slightly BETTER than the light one against this type,
+    which is what the reband predicted (*the gap narrows rather than inverts*)
+    and the opposite of the `--` the tracking arc earned. **Stated with its
+    limit**: no prior run archived that delta, so paper and validated AGREEING is
+    the claim, not the size of the move.
+  - **AND A SECOND-ORDER CONSEQUENCE NOBODY CHOSE: the Phalanx got measurably
+    more dangerous.** Damage it spent on the pilot over a 10 s duel, against
+    v2.37's figures for the same three cells:
+
+    | cell | v2.37 (tracking arc) | v2.39 (rotating shells) |
+    |---|---|---|
+    | Blaster x Phalanx | 3.3 | **16.7** |
+    | Missile x Phalanx | 4.2 | **9.2** |
+    | Flak x Phalanx | 27.5 | 26.7 |
+
+    The mechanism is not mysterious and it follows from the design: the screen
+    refuses far more of your fire, so **you strip the battery more slowly, so more
+    guns are alive for longer**. Layer 3a's paper figure (a full battery kills a
+    Kestrel in 4.0 s) is still a long way from 16.7 damage against a 100-point
+    hull, so the type remains much gentler in a fight than on paper — but the gap
+    closed roughly fivefold on the blaster cell.
+    - **Read the decimals softly.** This is a CROSS-RUN comparison and standing
+      rule 1 says the ordering is the finding. It is quoted because the direction
+      is large and has a mechanism, not because 3.3 and 16.7 are commensurable.
+  - **Nothing here is a reason to tune anything** (H6). It is the instrument
+    reporting what the rework did, and the number that actually decides the type
+    is the one no bench can produce: whether a 2.4x-to-6x longer fight feels like
+    a siege or like a chore. That is the human's, and it is the first thing to ask
+    after the flight.
