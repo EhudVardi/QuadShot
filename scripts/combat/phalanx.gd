@@ -23,10 +23,23 @@ extends CharacterBody3D
 ##
 ## The aegis's screen asks **what are you shooting with** — a damage threshold no
 ## chip gun can cross. This one asks **where are you shooting from**. The arc
-## slews toward whatever last hurt it (`shield_slew_deg_s`), so:
+## tracks the threat it can SEE, turning at `shield_slew_deg_s` and no faster:
 ##
 ##   park in one orbit slot  -> the arc catches up -> your damage stops landing
 ##   keep moving around it   -> the arc lags       -> your damage lands
+##
+## THE ARC IS WIDER THAN A HALF SPHERE (250 degrees), on the user's steering:
+## *"the arc can also be more than a half sphere, it can encapsulate beyond that,
+## leaving a tighter hold at the opposite side."* So the opening is a narrow
+## window ASTERN of the facing, and reaching it is a manoeuvre rather than a
+## position — you have to out-turn the slew and hold the lead.
+##
+## MEASURED, at a 30 m orbit flown at 25 m/s (47.7 deg/s of bearing change):
+## the window first opens at **1.8 s**, stays open **3.5 s**, and the pilot is in
+## it **35%** of the time. The same arc against a 45 deg/s slew takes 12.7 s to
+## open, and a 290 degree arc at 45 deg/s **never opens at all** — which is the
+## failure mode this type has to be kept away from, and `phalanx_check` flies
+## exactly that orbit to prove the shipped pair is not it.
 ##
 ## Meanwhile every surviving mount fires at you from wherever you are, so moving
 ## does not make you SAFE — it decides whether your shots count. That tension is
@@ -84,6 +97,10 @@ const STATION_HEIGHT: float = 4.0
 const MIN_ALTITUDE: float = 3.0
 ## Emissive energy of a mount at rest and fully spun up. Bloom threshold is 1.0,
 ## so the rest value is a dull ember and the ready value is a lamp.
+## How far out from the centreline the guns sit. A fortress wears its battery on
+## the beam; the user flew the first version and found the mounts *"too small to
+## individually take down"*, which was scale as much as hull.
+const MOUNT_RING_M: float = 3.4
 const MOUNT_ENERGY_REST: float = 0.4
 const MOUNT_ENERGY_READY: float = 5.0
 ## Shield shell opacity when the screen is full, and when it is spent.
@@ -159,7 +176,9 @@ func _build_mounts() -> void:
 		var mount: Node3D = template.duplicate() as Node3D
 		var angle: float = TAU * float(i) / float(count)
 		var bearing := Vector3(sin(angle), 0.0, -cos(angle))
-		mount.position = bearing * 1.15
+		# Out on the beam, clear of the superstructure, so each gun is a target you
+		# can pick out and shoot at rather than a detail on the hull.
+		mount.position = bearing * MOUNT_RING_M
 		mount.rotation.y = angle
 		mount.visible = true
 		_mounts_root.add_child(mount)
@@ -215,6 +234,7 @@ func shield_covers(bearing: Vector3) -> bool:
 
 func _physics_process(delta: float) -> void:
 	_player = _find_player()
+	_face_the_threat()
 	_slew_shield(delta)
 	_update_shell()
 	_hold_station(delta)
@@ -247,7 +267,37 @@ func _hold_station(delta: float) -> void:
 	move_and_slide()
 
 
-## The screen chases whatever last hurt it, at its own rate and no faster. A
+## IT POINTS THE SCREEN AT WHAT IT CAN SEE, every tick, not only at whatever last
+## shot it. That distinction was a real bug and the user found it on the first
+## flight: *"i think it has a bug, as i am the only threat at the scene but its
+## not aimed at me."*
+##
+## The original rule was "the arc chases whoever HURTS it", so `_threat_bearing`
+## only moved inside `take_hit`. A Phalanx nobody had shot yet kept its spawn
+## facing forever, and one that had been hit once kept pointing at a bearing the
+## pilot had long since left. From the cockpit that reads as broken, and it is —
+## a defender with a sensor should face the threat it can see, and there is no
+## fiction in which it waits to be shot before looking.
+##
+## The counterplay is untouched, because the counterplay was never "it does not
+## know where you are". It is `shield_slew_deg_s`: the screen knows exactly where
+## you are and cannot turn fast enough to keep up with a committed break.
+##
+## `take_hit` still sets the bearing too, which now only matters for an attacker
+## it cannot see — a shot from beyond `sight_range` still teaches it something.
+func _face_the_threat() -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	if global_position.distance_to(_player.global_position) > enemy_config.sight_range:
+		return
+	var toward: Vector3 = _player.global_position - global_position
+	toward.y = 0.0
+	if toward.length() < 0.01:
+		return
+	_threat_bearing = toward.normalized()
+
+
+## The screen chases the threat, at its own rate and no faster. A
 ## `shield_slew_deg_s` high enough to always face the attacker would make the
 ## type unkillable from any bearing; that is the failure mode, and it is a config
 ## value rather than a hidden constant so it can be found and moved.
@@ -454,7 +504,7 @@ func _damage_mount(index: int, damage: float) -> void:
 	if _mount_hull[index] > 0.0:
 		return
 	var mount: Node3D = _mount_nodes[index]
-	Effects.explosion(get_tree().root, mount.global_position, 0.8)
+	Effects.explosion(get_tree().root, mount.global_position, 1.6)
 	mount.visible = false
 	_set_mount_glow(index, 0.0)
 	# A fraction of the body's worth, so stripping the guns is progress that
@@ -470,6 +520,6 @@ func _find_player() -> Node3D:
 
 
 func _on_died() -> void:
-	Effects.explosion(get_tree().root, global_position, 2.2)
+	Effects.explosion(get_tree().root, global_position, 4.0)
 	destroyed.emit(enemy_config.points)
 	queue_free()

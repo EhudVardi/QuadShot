@@ -99,6 +99,10 @@ var _damage: float = 0.0
 var _hits_planted: int = 0
 var _death_tick: int = -1
 var _ticks_cap: int = 0
+## The blaster's duty cycle, mirrored from the calculator (see `_add_cells`).
+var _burst_shots: int = 0
+var _burst_pause_ticks: int = 0
+var _next_hit_tick: int = 0
 
 
 func _initialize() -> void:
@@ -162,6 +166,17 @@ func _add_cells(config: EnemyConfig, state: String, named: EnemyConfig) -> void:
 			"weapon": weapon, "label": label, "direction": "out",
 			"hull": config.hull, "armor": config.armor, "defenses": config,
 			"damage": damage, "interval": interval,
+			# THE BLASTER'S HEAT SINK IS PART OF ITS CADENCE, and the planted rig
+			# has to fire on the same clock the calculator predicts or the two
+			# disagree about TIME while agreeing about hits.
+			#
+			# It went unnoticed for as long as it did because no target ever
+			# outlasted the sink: every enemy died inside `burst_shots` bolts, so
+			# the vent never fell inside a measured window. The Phalanx is the
+			# first body needing 40 (A7), and it surfaced at once — predicted
+			# 6.00 s against a planted 3.90 s, on an identical 40 hits.
+			"burst_shots": Lethality.burst_shots(_combat) if weapon == "blaster" else 0,
+			"burst_pause": Lethality.vent_seconds(_combat) if weapon == "blaster" else 0.0,
 			"predicted": Lethality.versus(weapon, _combat, config),
 		})
 	# `pps` is read by _start_cell; touching it here keeps the two in sync if
@@ -189,7 +204,13 @@ func _add_incoming_cells() -> void:
 				"weapon": String(enemy.type_id), "direction": "in",
 				"label": "%s <- %s" % [frame_id, enemy.type_id],
 				"hull": frame.hull, "armor": frame.armor, "defenses": null,
-				"damage": enemy.damage, "interval": 1.0 / enemy.fire_rate,
+				# A BATTERY FIRES FROM EVERY MOUNT, so the planted cadence has to be
+				# the whole body's rather than one gun's — the same correction
+				# `Lethality.incoming` carries, applied on the rig side so the two
+				# still describe one clock. Without it the model predicted a kill in
+				# 4.0 s and the rig could not land one at all inside the cap.
+				"damage": enemy.damage,
+				"interval": 1.0 / (enemy.fire_rate * float(maxi(enemy.mount_count, 1))),
 				"predicted": predicted,
 			})
 
@@ -416,6 +437,9 @@ func _start_cell() -> void:
 	_ticks = 0
 	_hits_planted = 0
 	_death_tick = -1
+	_burst_shots = int(cell.get("burst_shots", 0))
+	_burst_pause_ticks = int(roundf(pps * float(cell.get("burst_pause", 0.0))))
+	_next_hit_tick = 0
 	# Per cell, from the cell's own prediction: a predicted kill gets its TTK plus
 	# a margin, a predicted never gets the fixed endurance window.
 	var predicted: Dictionary = cell["predicted"]
@@ -426,9 +450,14 @@ func _start_cell() -> void:
 
 
 func _on_physics_frame() -> void:
-	if _health.alive and _ticks % _hit_interval_ticks == 0:
+	if _health.alive and _ticks >= _next_hit_tick:
 		_health.take(_damage)
 		_hits_planted += 1
+		_next_hit_tick = _ticks + _hit_interval_ticks
+		# A full sink means the gun is dead until it has vented, exactly as
+		# `Lethality` credits it — same rule, same place in the sequence.
+		if _burst_shots > 0 and _hits_planted % _burst_shots == 0:
+			_next_hit_tick += _burst_pause_ticks
 	_ticks += 1
 	if _death_tick < 0 and _ticks < _ticks_cap:
 		return

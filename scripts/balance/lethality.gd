@@ -287,11 +287,26 @@ static func incoming(enemy: EnemyConfig, frame: FrameConfig) -> Dictionary:
 					% [bodies, budget, frame.hull]),
 		}
 
-	var interval: float = 1.0 / enemy.fire_rate
+	# A TYPE WITH A BATTERY FIRES FROM ALL OF IT (A7's Phalanx). `fire_rate` is
+	# ONE mount's cadence, so reading it as the body's prices a six-gun fortress
+	# as a single turret — measured before this line existed, Layer 3a claimed
+	# **20 hits over 23.8 s** to kill a Kestrel while the real body puts six
+	# barrels on the same target.
+	#
+	# `mount_count` is 0 for every other type in the roster, so the max() leaves
+	# them all untouched.
+	#
+	# It prices the FULL battery, which is the worst case for the player and goes
+	# stale in their favour as mounts are stripped. That is the same convention
+	# the directional shield gets — Layer 1 assumes you are in the arc — and for
+	# the same reason: a durability model that flatters the target is the one that
+	# gets somebody killed.
+	var guns: float = float(maxi(enemy.mount_count, 1))
+	var interval: float = 1.0 / (enemy.fire_rate * guns)
 	var result: Dictionary = _exchange(enemy.damage, interval, target, false)
 	result["mode"] = &"ranged"
 	result["per_hit"] = per_hit
-	result["dps"] = per_hit * enemy.fire_rate
+	result["dps"] = per_hit * enemy.fire_rate * guns
 	# Fraction of hull spent per second under sustained fire — the term a frame
 	# cell actually bands, in the unit it bands it in.
 	result["hull_fraction"] = minf(

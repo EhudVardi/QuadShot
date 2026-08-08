@@ -119,6 +119,13 @@ func _check_the_config() -> void:
 	_expect(config.shield_arc_deg > 0.0 and config.shield_arc_deg < 360.0,
 			"the screen covers an ARC rather than the whole body (%.0f deg, %.0f open)"
 			% [config.shield_arc_deg, 360.0 - config.shield_arc_deg])
+	# WIDER THAN A HALF SPHERE, on the user's steering (2026-08-07): "the arc can
+	# also be more than a half sphere... leaving a tighter hold at the opposite
+	# side, making it even more challenging". Asserted so the type keeps its
+	# character if somebody trims the number for an easier fight.
+	_expect(config.shield_arc_deg > 180.0,
+			"and it wraps PAST the beam, so the opening is astern rather than a whole flank (%.0f deg)"
+			% config.shield_arc_deg)
 	_expect(config.shield_slew_deg_s > 0.0,
 			"and it chases its attacker rather than being welded on (%.0f deg/s)"
 			% config.shield_slew_deg_s)
@@ -227,9 +234,97 @@ func _check_the_shield_chases() -> void:
 	_expect(moved <= allowed + 1.0,
 			"and no faster than its own rate allows (%.1f deg against a %.0f deg/s budget)"
 			% [moved, config.shield_slew_deg_s])
-	# And it must still be MID-swing, which is what leaves an open side to use.
-	_expect(not _phalanx.shield_covers(attack_from),
-			"so half a second in, the attacker's bearing is still open")
+	_teardown()
+	_check_it_aims_without_being_shot()
+	_check_the_opening_is_reachable()
+
+
+## ---------- the bug the user found on the first flight ----------
+
+## *"i think it has a bug, as i am the only threat at the scene but its not aimed
+## at me."* They were right, and this is the regression test.
+##
+## `_threat_bearing` was only ever written inside `take_hit`, so a Phalanx nobody
+## had shot yet kept its spawn facing forever and one that had been hit once kept
+## pointing at a bearing the pilot had long since left. The fix is that it aims at
+## the threat it can SEE — which is also the only version with any fiction behind
+## it, since a defender that waits to be shot before looking is not defending.
+##
+## NOTHING IS FIRED IN THIS STAGE, which is the whole point: the screen has to
+## come round on sight alone.
+func _check_it_aims_without_being_shot() -> void:
+	var config: EnemyConfig = load("res://resources/default_enemy_phalanx.tres")
+	_build(config)
+	# Stand somewhere the screen is NOT pointing, and never pull the trigger.
+	var stand_at: Vector3 = -_phalanx.shield_facing()
+	_player.global_position = _phalanx.global_position + stand_at * 30.0
+	var before: float = rad_to_deg(_phalanx.shield_facing().angle_to(stand_at))
+	_advance(4.0)
+	var after: float = rad_to_deg(_phalanx.shield_facing().angle_to(stand_at))
+	_expect(after < before - 10.0,
+			"it aims at a threat it has NOT been shot by — %.0f deg off target, closing to %.0f after 4 s"
+			% [before, after])
+	_teardown()
+
+
+## ---------- the opening has to be REACHABLE ----------
+
+## THE ASSERTION THAT KEEPS THE TYPE BEATABLE, and it flies the real geometry
+## rather than reasoning about it.
+##
+## With the screen tracking continuously and an arc wider than a half sphere, the
+## only way to land damage is to out-turn the slew and hold the lead. Whether
+## that is possible is a question about two numbers together, and neither alone
+## can answer it: measured across pairs, a 250 deg arc opens at 1.8 s against a
+## 28 deg/s slew and at 12.7 s against 45, while a 290 deg arc against 45 deg/s
+## NEVER opens — an enemy no pilot can hurt from any bearing.
+##
+## So the check orbits a stand-in at the speed and radius a real pilot fights at
+## and asserts the window exists, opens promptly, and stays open long enough to
+## shoot through. A single-number assertion on the arc or the slew could not have
+## caught the pair that fails.
+const ORBIT_RADIUS_M: float = 30.0
+const ORBIT_SPEED: float = 25.0
+const ORBIT_SECONDS: float = 20.0
+
+
+func _check_the_opening_is_reachable() -> void:
+	var config: EnemyConfig = load("res://resources/default_enemy_phalanx.tres")
+	_build(config)
+	var dt: float = 1.0 / TICK_HZ
+	var angle: float = 0.0
+	var open_ticks: int = 0
+	var first_open: float = -1.0
+	var longest: float = 0.0
+	var current: float = 0.0
+	var steps: int = int(ORBIT_SECONDS * TICK_HZ)
+	for i: int in steps:
+		angle += (ORBIT_SPEED / ORBIT_RADIUS_M) * dt
+		_player.global_position = _phalanx.global_position 				+ Vector3(cos(angle), 0.0, sin(angle)) * ORBIT_RADIUS_M
+		_advance(dt)
+		var bearing: Vector3 = _player.global_position - _phalanx.global_position
+		bearing.y = 0.0
+		if _phalanx.shield_covers(bearing.normalized()):
+			current = 0.0
+		else:
+			open_ticks += 1
+			current += dt
+			longest = maxf(longest, current)
+			if first_open < 0.0:
+				first_open = float(i) / TICK_HZ
+	var open_fraction: float = float(open_ticks) / float(steps)
+	_expect(first_open >= 0.0 and first_open < 6.0,
+			"orbiting at %.0f m/s opens the screen's blind side within %.1f s"
+			% [ORBIT_SPEED, first_open if first_open >= 0.0 else ORBIT_SECONDS])
+	# Long enough to actually shoot through, not a flicker between two frames.
+	_expect(longest > 1.5,
+			"and it stays open %.1f s at a stretch, which is a firing window rather than a flicker"
+			% longest)
+	# AND IT MUST STILL BE HARD. An opening that is always there is a flat
+	# shield with extra steps, and the anti-orbit design is gone.
+	_expect(open_fraction < 0.6,
+			"while staying shut %.0f%% of the time, so one orbit slot is still not an answer"
+			% (100.0 * (1.0 - open_fraction)))
 	_teardown()
 
 
