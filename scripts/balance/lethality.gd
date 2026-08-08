@@ -159,9 +159,19 @@ static func combo(strip: String, finish: String, combat: CombatConfig,
 
 ## A target is these six numbers and nothing else. Making that explicit is what
 ## lets one verified exchange loop serve both directions of the model.
+##
+## MOUNTS COUNT AS HULL, and the reason is that they are not optional armour: a
+## Phalanx routes every round to the nearest LIVING mount before the hull, and
+## `_mount_facing` picks the nearest living one regardless of angle, so a pilot
+## firing from any one bearing must strip the whole battery first. Six mounts of
+## 100 in front of a 700 hull is one 1300-point sequence, and the model used to
+## price 700 of it — the same family of blindness as v2.35's "a battery is not a
+## gun", found from the other end. `mount_count` is 0 for every other type in the
+## roster, so this term vanishes for all of them.
 static func target_from_enemy(enemy: EnemyConfig) -> Dictionary:
 	return {
-		"hull": enemy.hull, "armor": enemy.armor,
+		"hull": enemy.hull + float(maxi(enemy.mount_count, 0)) * enemy.mount_hull,
+		"armor": enemy.armor,
 		"shield_max": enemy.shield_max,
 		"shield_break_threshold": enemy.shield_break_threshold,
 		"shield_regen": enemy.shield_regen,

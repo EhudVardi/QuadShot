@@ -164,7 +164,14 @@ func _add_cells(config: EnemyConfig, state: String, named: EnemyConfig) -> void:
 				interval = 1.0 / _combat.flak_fire_rate
 		_cells.append({
 			"weapon": weapon, "label": label, "direction": "out",
-			"hull": config.hull, "armor": config.armor, "defenses": config,
+			# MOUNTS ARE HULL FOR THIS PURPOSE, and the rig has to say so on its own
+			# side or it stops describing what the calculator describes. A Phalanx
+			# routes every round to the nearest LIVING mount before its hull, from
+			# any bearing, so the battery is 600 points that must be chewed through
+			# first. Taken from `Lethality.target_from_enemy` rather than recomputed,
+			# because the whole value of this bench is that the two agree.
+			"hull": float(Lethality.target_from_enemy(config)["hull"]),
+			"armor": config.armor, "defenses": config,
 			"damage": damage, "interval": interval,
 			# THE BLASTER'S HEAT SINK IS PART OF ITS CADENCE, and the planted rig
 			# has to fire on the same clock the calculator predicts or the two
