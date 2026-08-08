@@ -13,7 +13,7 @@ what happens next.
 **Board 22/22 green. `PILOT_VERSION` 7 (untouched). EIGHT roster types.
 `balance/delivery_factors.json` IS STALE — the new type changed the stamp.**
 
-Seven things landed. Read **v2.28–v2.34** at the tail of GAMEPLAY-DESIGN.md.
+Eight things landed. Read **v2.28–v2.35** at the tail of GAMEPLAY-DESIGN.md.
 
 0. **THE PHALANX IS BUILT AND THEN REWORKED (A7, v2.34 + v2.35)**. Flown once;
    the user asked for a **flying fortress** and got a gunboat, so hull 140 ->
@@ -28,18 +28,17 @@ Seven things landed. Read **v2.28–v2.34** at the tail of GAMEPLAY-DESIGN.md.
      target had ever outlasted the sink), and `Lethality.incoming` priced a
      six-gun body as a single turret (20 hits / 23.8 s to kill a Kestrel; now
      4.0 s). Both fixed. **`lethality_check` now takes ~8 min.**
-1. ~~**THE PHALANX IS BUILT (A7, v2.34)**~~ — the roster's eighth type and its first
-   heavy DEFENDER, closing the escalation hole where `HEAVY_TYPES` held a bomber
-   that is never in defence and a jammer with no weapon. **Its shield is an ARC
-   that chases whoever hurts it**, so parking in one orbit slot stops your damage
-   landing while every surviving mount shoots you anyway — there is no slot that
-   is both safe and useful. Mounts are individually destructible. Both design
-   forks were the user's call. **NOT FLOWN, nothing balanced.**
-   - **Next action on it: `toolsalance_report` (~55 min).** A new type joins
-     `ENEMIES_FOR_STAMP`, so no Layer 2 number is quotable until it runs. It was
-     deliberately NOT run yet — the type's numbers are unflown authored guesses,
-     and measuring before the human's hands have moved them buys a number with a
-     short life. Fly it first.
+   - **What it IS**: the roster's first heavy DEFENDER, closing the escalation
+     hole where `HEAVY_TYPES` held a bomber that is never in defence and a jammer
+     with no weapon. Its screen covers an ARC and tracks the threat it can SEE, so
+     parking in one orbit slot stops your damage landing while every surviving
+     mount shoots you anyway — no slot is both safe and useful. Mounts strip one
+     at a time. Every design fork was the user's call.
+   - **Next action on it: `tools/balance_report` (~55 min).** A new type joins
+     `ENEMIES_FOR_STAMP`, so no Layer 2 number is quotable until it runs.
+     Deliberately NOT run yet — the numbers are unflown authored guesses, and
+     measuring before the human's hands have moved them buys a number with a
+     short life. **Fly it first.**
 
 1. **A.q8 CLOSED — the Lance's warning is continuous and proximity-driven**
    (v2.28). A looping alarm whose volume and beep-rate track `warning_level()`, a
