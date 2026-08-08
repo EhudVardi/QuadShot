@@ -38,7 +38,22 @@ say so in a banner. Looking can never damage the ruler.
 ```
 
 A real drone, a real weapon, a real enemy, flown by the scripted reference
-pilot. 6 reps per cell, 10 s cap. In watch mode you also get **the real game
+pilot. 6 reps per cell, 10 s cap.
+
+**THE CAP BOUNDS WHAT SOME ROWS CAN SAY, and two types are past it.** The
+Phalanx carries 1300 points of mounts and hull behind a shield that is shut
+most of the time, so no weapon finishes it inside 10 s and all three of its
+rows read `--`. The Aegis rows are bounded for a different reason (v2.22: the
+intercept clock cannot resolve a bomber that needs three passes).
+
+**This does NOT produce a false finding, and the harness is why.** The
+un-modeled-factor flag only fires when the model and the fight DISAGREE, and
+`model_kills` already requires the predicted ttk to fit inside the cap — so
+for these bodies both columns say *no kill in 10 s* and agree. What you cannot
+do is read their **paper** bands as refuted: a counter-web band is a claim
+about a fight, and a 10 s duel is not a long enough fight to test it on a body
+this size. If that needs settling, the honest fix is a per-row cap rather than
+raising `MAX_SECONDS`, which would move every published band on the board. In watch mode you also get **the real game
 HUD**, fed by the same reticle solver the game uses — so what you see over the
 bot's shoulder is what you would see over your own.
 
@@ -51,6 +66,7 @@ Useful filters:
 | `atlas` | the heavy frame, including the two outnumbered cells it loses badly |
 | `gnats` | swarm behaviour and why the missile bankrupts against it |
 | `aegis` | the shield gate: chip fire splashing off forever |
+| `phalanx` | the tracking arc, and a body the 10 s cap cannot finish |
 
 ### The sortie bench — composed sorties, and where difficulty is MEASURED
 
