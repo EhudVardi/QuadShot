@@ -353,6 +353,14 @@ hand attention rather than a multiplier. Board green, everything flyable.
 
 Deliverable: the whole game at the new scale, playing as it did before.
 
+**A known limit that Phase 4 will have to face:** a terrain ring rebuilds on the
+main thread and costs **26–47 ms** depending on `ring_cells`. That is a visible
+hitch, and its frequency scales with how fast the pilot crosses cells. It is
+survivable at aircraft scale with coarse cells (measured at 3% of the frame
+budget) and it will NOT survive a fast aircraft over fine terrain. The fix is to
+build rings on a worker thread, or to spread one rebuild across several frames.
+Neither is hard; both are out of scope until something needs them.
+
 ### Phase 4 — Terrain into the game
 
 Wire `TerrainMesh` into the real scenes. This is the phase the terrain work was
@@ -421,6 +429,15 @@ relaxing it until it passes.**
 3. **Silent misclassification in the conversion.** A speed scaled by S instead of
    √S is a number that looks plausible and is wrong. Mitigation: the script is
    reviewed field by field, and it prints every conversion it makes.
+   - **THIS HAS ALREADY HAPPENED ONCE, and the instance is instructive.** The FPV
+     camera's offset was scaled correctly by ×S — and that was the bug. At 0.28 m
+     a camera slightly forward of the body centre is *inside the hull* and the
+     near plane harmlessly clips it away; at 3 m the same relative position puts
+     the lens inside a solid airframe with the nose marker filling the screen.
+     **Scaling a camera OFFSET is not the same as scaling a camera POSITION** —
+     one of them has to clear geometry, and no scaling law knows that. Expect
+     more of these wherever a number's *correctness* depends on something other
+     than proportion.
 4. **Scope.** Six phases. Phases 1–3 are the overhaul; 4–6 are new features that
    happen to need it. **They can stop after Phase 3** and have a complete,
    consistent, full-scale game.
@@ -465,9 +482,14 @@ Numbered so they can be answered by reference, in the project's own convention.
   is why it is a branch, and it is the user's own instruction after the voxel
   attempt had to be squashed out of `master`'s history instead.
 - **On `master`: board 23/23 green, tree clean, `PILOT_VERSION` 7.**
-- **On `full-scale`: only the Kestrel is scaled.** The rest of the game is at the
-  old scale, so most of the board is expected to fail there and that is not a
-  regression — it is Phase 3's inventory writing itself.
+- **On `full-scale` (`68f9193`): only the Kestrel and the desert test map are
+  scaled.** The rest of the game is at the old scale, so most of the board is
+  expected to fail there and that is not a regression — it is Phase 3's inventory
+  writing itself. `hover_check` and `terrain_check` DO pass and are the two worth
+  keeping green through Phase 2.
+- **The Phase 2 flight venue is `scenes/desert_map.tscn`**: 3 km of dunes, no
+  combat, `free_flight` on so arming does not start a run. The aircraft is put
+  down on the terrain by `TerrainEnvironment`.
 - **The terrain is built and is NOT wired into the game.** `scenes/terrain_map.tscn`
   and `scenes/desert_map.tscn` fly it; `main.tscn` and `sortie.tscn` do not
   reference it. See `TerrainField`, `TerrainMesh`, `terrain_check`.
