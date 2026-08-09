@@ -21,8 +21,8 @@ shader_parameter/color_low = Color(0.44, 0.34, 0.22, 1)
 shader_parameter/color_mid = Color(0.64, 0.51, 0.33, 1)
 shader_parameter/color_high = Color(0.74, 0.62, 0.43, 1)
 shader_parameter/color_slope = Color(0.36, 0.28, 0.19, 1)
-shader_parameter/height_low = -40.0
-shader_parameter/height_high = 130.0
+shader_parameter/height_low = -120.0
+shader_parameter/height_high = 260.0
 shader_parameter/slope_start = 0.88
 shader_parameter/slope_end = 0.58
 shader_parameter/grain_scale = 0.0032
@@ -92,6 +92,7 @@ transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.
 light_color = Color(1, 0.94, 0.83, 1)
 light_energy = 1.8
 shadow_enabled = true
+directional_shadow_max_distance = 320.0
 
 [node name="LookController" type="Node" parent="."]
 script = ExtResource("3_look")
@@ -106,8 +107,8 @@ script = ExtResource("5_terrain")
 terrain_config = ExtResource("6_tcfg")
 terrain_seed = 4242
 material = SubResource("mat_terrain")
-ring_count = 6
-ring_cells = 96
+ring_count = 4
+ring_cells = 48
 collision_rings = 2
 
 ; The pad rides on top of whatever the terrain does under it - placed by

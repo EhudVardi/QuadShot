@@ -25,23 +25,23 @@ extends Node3D
 
 ## (x, z, base half-width, step height count) for each pyramid.
 const PYRAMIDS: Array[Array] = [
-	[420.0, -680.0, 62.0, 15],
-	[-1150.0, 900.0, 38.0, 10],
+	[900.0, -1400.0, 180.0, 18],
+	[-2300.0, 1800.0, 110.0, 12],
 ]
 ## (x, z, seed) for each ruin field. The seed decides the arrangement, so a ruin
 ## is reproducible without being authored brick by brick.
 const RUINS: Array[Array] = [
-	[-380.0, -240.0, 11],
-	[880.0, 640.0, 29],
-	[-90.0, 1180.0, 47],
-	[1320.0, -1260.0, 63],
+	[-800.0, -500.0, 11],
+	[1800.0, 1300.0, 29],
+	[-200.0, 2400.0, 47],
+	[2600.0, -2500.0, 63],
 ]
 
 @export var terrain: TerrainMesh
 @export var stone: Material
 ## Height of one course of masonry. Matched to the terrain's own step by default
 ## so the two share a grammar.
-@export var course_m: float = 6.0
+@export var course_m: float = 22.0
 
 var _rng := RandomNumberGenerator.new()
 
@@ -94,7 +94,7 @@ func _build_ruin(x: float, z: float, ruin_seed: int) -> void:
 	_rng.seed = ruin_seed
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
-	var half: float = _rng.randf_range(26.0, 44.0)
+	var half: float = _rng.randf_range(90.0, 160.0)
 	var segments: int = _rng.randi_range(10, 18)
 	for i: int in segments:
 		# Walk the perimeter, leaving gaps: a complete rectangle reads as a
@@ -105,7 +105,7 @@ func _build_ruin(x: float, z: float, ruin_seed: int) -> void:
 		var wall_x: float = x + cos(t) * half
 		var wall_z: float = z + sin(t) * half
 		var courses: int = _rng.randi_range(1, 4)
-		var w: float = _rng.randf_range(3.0, 7.0)
+		var w: float = _rng.randf_range(11.0, 26.0)
 		var ground: float = terrain.height_at(wall_x, wall_z)
 		for c: int in courses:
 			_add_box(vertices, normals,
@@ -117,7 +117,7 @@ func _build_ruin(x: float, z: float, ruin_seed: int) -> void:
 		var cz: float = z + _rng.randf_range(-half, half)
 		_add_box(vertices, normals,
 				Vector3(cx, terrain.height_at(cx, cz) + course_m * 0.3, cz),
-				_rng.randf_range(4.0, 9.0), course_m * 0.6)
+				_rng.randf_range(15.0, 33.0), course_m * 0.6)
 	_emit(vertices, normals, "Ruin")
 
 

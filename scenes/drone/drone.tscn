@@ -51,9 +51,15 @@ script = ExtResource("2_mm")
 [node name="InputHandler" type="Node" parent="."]
 script = ExtResource("4_ih")
 
+; THE COCKPIT SITS AHEAD OF AND ABOVE THE AIRFRAME, which it did not have to at
+; 0.28 m: a camera buried in a palm-sized body was clipped away by the near
+; plane and nobody noticed. At 3 m the same offset puts the lens inside a solid
+; hull and the nose marker fills the screen. Scaling a camera OFFSET is not the
+; same as scaling a camera POSITION - this one has to clear geometry.
 [node name="FpvCamera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 0.3214, -0.8571)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -1.85)
 current = true
+near = 0.2
 
 [node name="Weapon" type="Node3D" parent="FpvCamera"]
 script = ExtResource("5_wpn")

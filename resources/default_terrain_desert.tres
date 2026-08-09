@@ -26,12 +26,12 @@
 
 [resource]
 script = ExtResource("1_tcfg")
-extent_m = 2000.0
-cell_m = 4.0
-amplitude_m = 115.0
-noise_frequency = 0.0013
+extent_m = 3000.0
+cell_m = 16.0
+amplitude_m = 300.0
+noise_frequency = 0.0006
 noise_octaves = 2
 ridge = 0.12
-floor_m = -40.0
+floor_m = -120.0
 clearing_radius_m = 0.0
 clearing_falloff_m = 70.0
