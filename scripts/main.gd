@@ -23,6 +23,14 @@ extends Node3D
 @export var signal_warn_m: float = 220.0
 ## 0 disables the leash entirely (free exploration, no menu yank).
 @export var signal_lost_m: float = 300.0
+## This map is for FLYING, not for running waves: arming does not start a run.
+##
+## The same state the menu tower's FLY FREE leaf produces via `MenuLaunch`, made
+## settable from a scene — because the exploration maps want it permanently and
+## a cross-scene static can only say what the LAST launch chose. The terrain map
+## (P1.9) is the first: a landscape you are picking the look of should not be
+## spawning raiders at you while you look at it.
+@export var free_flight: bool = false
 const RANGE_WARN_PERIOD_S: float = 1.5
 const MENU_SCENE: String = "res://scenes/menu_tower.tscn"
 
@@ -108,7 +116,7 @@ func _process(delta: float) -> void:
 	# then. Under the menu's FLY FREE leaf the run never starts: no waves, no
 	# score, just the map (MenuLaunch.free_fly, B5/B.q2).
 	if not _wave_director.running and _drone.armed and _drone_health.alive:
-		if MenuLaunch.free_fly:
+		if MenuLaunch.free_fly or free_flight:
 			if not _free_fly_started:
 				_free_fly_started = true
 				_hud.hide_title()

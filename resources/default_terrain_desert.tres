@@ -1,0 +1,37 @@
+; DESERT (GAMEPLAY-DESIGN P1.9). The first biome profile, and the one the user
+; asked to see: "show me a large desert map with some dunes, maybe a pyramid,
+; ruins, etc. i want to stretch the capability of this engine to trust it to
+; carry the identity of the game i feel it should be."
+;
+; A desert is the HARD case for a vast map and that is why it is first. It has no
+; cover to hide the draw distance behind and no buildings to break the horizon,
+; so if kilometres of open ground read as interesting here they will read as
+; interesting anywhere. It is also P2.5's "open biome" - the one that strips
+; cover and makes the approach a plan-your-vector problem.
+;
+; DUNES ARE LONG AND ROLLING, and they are much BIGGER than the arena's hills
+; because the map is much bigger: amplitude 115 m over a wavelength of roughly
+; 770 m. That was measured by looking - at 34 m over 450 m the desert read as a
+; flat plain from the air, because relief has to be judged against the distance
+; you can SEE it from, and this map can see 6 km. ridge 0.12 keeps the swells
+; soft; dunes are not ridgelines. Two octaves, because a third puts sand-ripple
+; detail on a landform whose whole character is smoothness.
+;
+; floor_m -8 gives the flat sand between the dunes somewhere to settle, so the
+; desert has floors you can fly along rather than being uniformly wavy.
+
+[gd_resource type="Resource" script_class="TerrainConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/terrain_config.gd" id="1_tcfg"]
+
+[resource]
+script = ExtResource("1_tcfg")
+extent_m = 2000.0
+cell_m = 4.0
+amplitude_m = 115.0
+noise_frequency = 0.0013
+noise_octaves = 2
+ridge = 0.12
+floor_m = -40.0
+clearing_radius_m = 0.0
+clearing_falloff_m = 70.0

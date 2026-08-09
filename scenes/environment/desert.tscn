@@ -1,0 +1,130 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="3_look"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="4_lookcfg"]
+[ext_resource type="Script" path="res://scripts/environment/terrain_mesh.gd" id="5_terrain"]
+[ext_resource type="Resource" path="res://resources/default_terrain_desert.tres" id="6_tcfg"]
+[ext_resource type="Shader" path="res://resources/terrain_ground.gdshader" id="7_vshader"]
+[ext_resource type="Script" path="res://scripts/environment/terrain_environment.gd" id="8_env"]
+[ext_resource type="Script" path="res://scripts/environment/desert_landmarks.gd" id="9_marks"]
+
+; THE GROUND IS THE TERRAIN NOW - there is no flat plane underneath it and no
+; WorldBoundaryShape3D fallback, deliberately. A hidden infinite floor at y = 0
+; would catch a pilot who flew into a valley below zero and stop them dead in
+; mid-air on nothing, which is precisely the kind of invisible disagreement
+; between what you see and what the game thinks that this project keeps finding
+; the expensive way. If the terrain has a hole in it, that must be visible.
+[sub_resource type="ShaderMaterial" id="mat_terrain"]
+resource_local_to_scene = true
+shader = ExtResource("7_vshader")
+shader_parameter/color_low = Color(0.44, 0.34, 0.22, 1)
+shader_parameter/color_mid = Color(0.64, 0.51, 0.33, 1)
+shader_parameter/color_high = Color(0.74, 0.62, 0.43, 1)
+shader_parameter/color_slope = Color(0.36, 0.28, 0.19, 1)
+shader_parameter/height_low = -40.0
+shader_parameter/height_high = 130.0
+shader_parameter/slope_start = 0.88
+shader_parameter/slope_end = 0.58
+shader_parameter/grain_scale = 0.0032
+shader_parameter/grain_strength = 0.07
+shader_parameter/cell_size = 4.0
+
+; Sun-bleached masonry. Flat and matte on purpose - the landmarks are the only
+; solid objects for kilometres and they read by SILHOUETTE against the haze, so
+; surface detail on them would be detail nobody is close enough to see.
+[sub_resource type="StandardMaterial3D" id="mat_stone"]
+albedo_color = Color(0.62, 0.53, 0.39, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.2, 0.7, 0.35, 1)
+emission_enabled = true
+emission = Color(0.15, 0.85, 0.4, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="BoxMesh" id="mesh_pad"]
+material = SubResource("mat_pad")
+size = Vector3(6, 0.12, 6)
+
+[sub_resource type="BoxShape3D" id="shape_pad"]
+size = Vector3(6, 0.12, 6)
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.28, 0.42, 0.66, 1)
+sky_horizon_color = Color(0.86, 0.76, 0.58, 1)
+sky_curve = 0.12
+ground_horizon_color = Color(0.72, 0.6, 0.44, 1)
+ground_bottom_color = Color(0.42, 0.34, 0.24, 1)
+sun_angle_max = 20.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.5
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.85, 0.75, 0.6, 1)
+fog_sun_scatter = 0.2
+fog_density = 0.0009
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.4
+
+[node name="DesertEnvironment" type="Node3D"]
+script = ExtResource("8_env")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+light_color = Color(1, 0.94, 0.83, 1)
+light_energy = 1.8
+shadow_enabled = true
+
+[node name="LookController" type="Node" parent="."]
+script = ExtResource("3_look")
+look_config = ExtResource("4_lookcfg")
+
+; NO AUTHORED Mesh/Collision CHILDREN: the ground is a stack of concentric detail
+; rings created at runtime, one mesh each, and only the inner ones carry a
+; collider. See `TerrainMesh` for why that makes a vast world cheaper than a
+; dense small one.
+[node name="Terrain" type="StaticBody3D" parent="."]
+script = ExtResource("5_terrain")
+terrain_config = ExtResource("6_tcfg")
+terrain_seed = 4242
+material = SubResource("mat_terrain")
+ring_count = 6
+ring_cells = 96
+collision_rings = 2
+
+; The pad rides on top of whatever the terrain does under it - placed by
+; `TerrainMap._ready` rather than by a fixed transform here, because the ground
+; height at the origin is a config away from changing.
+[node name="Landmarks" type="Node3D" parent="." node_paths=PackedStringArray("terrain")]
+script = ExtResource("9_marks")
+terrain = NodePath("../Terrain")
+stone = SubResource("mat_stone")
+course_m = 6.0
+
+[node name="SpawnPad" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="SpawnPad"]
+mesh = SubResource("mesh_pad")
+
+[node name="Collision" type="CollisionShape3D" parent="SpawnPad"]
+shape = SubResource("shape_pad")
+
+[node name="SpawnPoint" type="Marker3D" parent="."]

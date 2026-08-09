@@ -1,0 +1,77 @@
+[gd_scene load_steps=16 format=3]
+
+; THE MAP THE VOXEL SCALE GETS PICKED IN (GAMEPLAY-DESIGN P1.9, phase 1).
+;
+; Deliberately bare - terrain, a drone, and the overlay. Nothing shoots at you:
+; the question this scene exists to answer is "what should the ground look like",
+; and anything attacking the pilot while they decide that is noise. The user
+; asked for exactly this: "show me options in the dev room first". `Main` runs in
+; free_flight, so arming flies without starting a run.
+;
+; Fly it, open the overlay (Start / Tab), and drag TERRAIN's cell size and step
+; height. The landscape rebuilds under you.
+
+[ext_resource type="PackedScene" path="res://scenes/environment/terrain.tscn" id="1_terrain"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="4_main"]
+[ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="9_hud"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="11_sfx"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="14_acfg"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="17_lookcfg"]
+[ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="18_bind"]
+[ext_resource type="Resource" path="res://resources/default_terrain_config.tres" id="19_tcfg"]
+[ext_resource type="Script" path="res://scripts/combat/wave_director.gd" id="20_waves"]
+[ext_resource type="PackedScene" path="res://scenes/combat/exit_gate.tscn" id="21_gate"]
+[ext_resource type="PackedScene" path="res://scenes/ui/draft_screen.tscn" id="22_draft"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("4_main")
+combat_config = ExtResource("7_ccfg")
+input_bindings = ExtResource("18_bind")
+signal_lost_m = 0.0
+free_flight = true
+
+[node name="TerrainEnvironment" parent="." instance=ExtResource("1_terrain")]
+
+[node name="Drone" parent="." instance=ExtResource("2_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("8_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("11_sfx")
+audio_config = ExtResource("14_acfg")
+
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
+script = ExtResource("5_chase")
+target = NodePath("../Drone")
+
+[node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone", "terrain")]
+drone = NodePath("../Drone")
+terrain = NodePath("../TerrainEnvironment/Terrain")
+combat_config = ExtResource("7_ccfg")
+audio_config = ExtResource("14_acfg")
+look_config = ExtResource("17_lookcfg")
+input_bindings = ExtResource("18_bind")
+terrain_config = ExtResource("19_tcfg")
+
+; INERT, and present only because `main.gd` reaches for them by path. `Main` is
+; in free_flight, so arming never starts a run and the wave director never
+; spawns anything - but a scene that omits the nodes crashes on the first frame,
+; which is a worse trade than three quiet children.
+[node name="WaveDirector" type="Node" parent="."]
+script = ExtResource("20_waves")
+combat_config = ExtResource("7_ccfg")
+
+[node name="ExitGate" parent="." instance=ExtResource("21_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -400, 0)
+
+[node name="DraftScreen" parent="." instance=ExtResource("22_draft")]
+
+[node name="Hud" parent="." instance=ExtResource("9_hud")]

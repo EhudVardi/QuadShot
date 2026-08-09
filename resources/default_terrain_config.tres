@@ -1,0 +1,40 @@
+; The default landscape (GAMEPLAY-DESIGN P1.9): rolling green hills, the profile
+; the non-desert maps use.
+;
+; SMOOTH GROUND OVER A VAST REACH. The world's size is not set here - it comes
+; from `TerrainMesh.ring_count`, since concentric detail rings make reach grow
+; exponentially while cost grows linearly. What this file sets is the LANDSCAPE:
+; how tall the hills are, how far apart, and how sharp.
+;
+; amplitude_m 90 with noise_frequency 0.004 gives hills roughly 250 m apart and
+; 90 m tall. Both were measured rather than guessed - `amplitude_m` means the
+; metres it says, because the field is normalised against fractal noise's real
+; span rather than its nominal one.
+;
+; noise_octaves 2 rather than 4, and that was a LOOK decision taken by rendering
+; all three: at four octaves the fine detail dominated and the ground became busy
+; noise with nowhere flat to land. Two octaves gives hills, valleys and ground.
+;
+; ridge 0.35 is the character dial. At 0 the terrain rolls like dunes; at 1 it
+; grows ridge lines and canyon walls. It is the number to move first if the
+; landscape reads as bland, before touching amplitude.
+;
+; clearing_radius_m 0 by default. A sortie's objective and its garrison rings
+; need level ground, and nothing yet flattens a footprint on demand - so the
+; arena floor is available as a blunt instrument and simply is not switched on.
+
+[gd_resource type="Resource" script_class="TerrainConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/terrain_config.gd" id="1_tcfg"]
+
+[resource]
+script = ExtResource("1_tcfg")
+extent_m = 320.0
+cell_m = 4.0
+amplitude_m = 90.0
+noise_frequency = 0.004
+noise_octaves = 2
+ridge = 0.35
+floor_m = -30.0
+clearing_radius_m = 0.0
+clearing_falloff_m = 70.0

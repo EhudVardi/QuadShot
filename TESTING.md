@@ -377,7 +377,7 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
-## 4. The check suite — 22 headless checks
+## 4. The check suite — 23 headless checks
 
 Run all of them before believing anything:
 
@@ -387,7 +387,61 @@ Run all of them before believing anything:
 
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
-`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`, `lance`, `phalanx`.
+`heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`, `lance`, `phalanx`,
+`terrain`.
+
+`terrain_check` (2026-08-08) is the newest and it guards the ground (P1.9). **The
+ground is SMOOTH** — a terraced/voxel version was built, flown and rejected the
+same day (*"voxels does not belong here, nor designing the ground as voxels"*),
+and the check's blockiness stages were inverted into smoothness stages rather
+than deleted, so nobody quietly puts the quantisation back. **The assertion that
+matters is "the mesh agrees with the query"**, and it is worth
+knowing why before the others: phase 2 teaches the whole game to stop assuming
+the ground is flat at y = 0 — enemies hold station above `TerrainField.height_at`,
+bombs detonate at it, sortie units are placed on it, the ingress puts a pilot
+down on it. Every one of those trusts that the number is the surface a pilot can
+SEE. The day they drift is the day bombs go off underground and turrets float,
+and nothing else in the suite would notice. So it is compared against the real
+built `ArrayMesh`, triangle by triangle, rather than against the generator that
+produced it.
+
+The other stages are the properties a landscape has to have to be one:
+deterministic from (config, seed); `amplitude_m` meaning the metres it says;
+`ridge` changing the LANDFORM and not the elevation; the terraces being exact
+multiples of the step while still making a varied landscape; and every face
+wound OUTWARD so the map is sealed.
+
+**And one stage guards the architecture rather than the geometry.** The ground is
+built as concentric detail rings, each doubling its cell size while covering four
+times the area, so reach grows *exponentially* while cost grows *linearly*.
+Measured: four extra rings buy **16x the world for 3.4x the triangles**, and six
+rings reach **6.1 km**. That is the claim the design's "truly vast environments"
+pillar rests on, and nothing else in the suite would notice it decaying.
+
+**To fly the vast desert:** `<godot> --path . scenes/desert_map.tscn` - 6 km of
+smooth rolling dunes with a stepped pyramid and four ruin fields, at about 93k
+triangles (the smooth build is *cheaper* than the terraced one was, because there
+are no wall quads).
+
+**Two subtleties worth knowing before touching that check.** The height query is
+PLANAR ON THE CORRECT TRIANGLE rather than bilinear - a quad split into two
+triangles is not a bilinear patch, and the two disagree by up to a quarter of the
+surface's curvature across a cell. And the LOD **seam skirts** are excluded from
+the geometry stages by their footprint rather than their normal, because a skirt
+deliberately wears the ground's normal so it shades invisibly.
+
+**Three of those exist because the first version got them wrong**, which is the
+argument for writing the check the same day: `amplitude_m` under-delivered by
+26%, `ridge` raised the whole world 33 m under a comment claiming it was
+handled, and the budget left the far quarter of the map missing. Six mutations
+are on record and each fails a different sentence.
+
+**And one failure was the CHECK's, not the feature's** — worth recording because
+it looked exactly like a real bug. The mesh-agreement stage first compared
+*vertices*, and a top quad's four corners sit ON cell boundaries which belong to
+the next cell along; it reported 6285 disagreements against terrain that was
+correct. It compares triangle CENTROIDS now, the only point guaranteed to be
+strictly inside its own cell.
 
 `falx`, `screamer`, `aegis`, `lance` and `phalanx` are **behaviour checks**, and every new enemy type
 gets one the day it lands. The reason is scar tissue: the harness can only ever say *"this

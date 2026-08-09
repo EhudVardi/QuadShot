@@ -21,6 +21,10 @@ extends CanvasLayer
 @export var input_bindings: InputBindings
 ## TODO stub (GAMEPLAY-DESIGN P1.6): weather tunables, not yet simulated.
 @export var weather_config: WeatherConfig
+## The ground (P1.9). Both are needed: the config carries the tunables and the
+## preset bar, the node is what has to be told to rebuild.
+@export var terrain: TerrainMesh
+@export var terrain_config: TerrainConfig
 ## The bestiary's per-type stat blocks (P4.8). Order is the BESTIARY section's
 ## order; each gets its own sub-header and preset bar.
 @export var enemy_configs: Array[EnemyConfig] = []
@@ -326,6 +330,7 @@ func _ready() -> void:
 		_add_preset_bar("look", look_config)
 		_add_config_rows(look_config, _LOOK_FLOAT_ROWS, [])
 	_build_city_section()
+	_build_terrain_section()
 	if weather_config != null:
 		_configs.append(weather_config)
 		if weather_config.load_from_user():
@@ -712,6 +717,62 @@ func _build_city_section() -> void:
 		city.layout_seed = randi_range(1, 9999)
 		city.rebuild()
 		_refresh_all())
+	buttons.add_child(regen)
+	buttons.add_child(reroll)
+	_section.add_child(buttons)
+
+
+## TERRAIN (P1.9, phase 1). The two scale dials at the top are the ones the human
+## asked to pick by flying rather than by arithmetic — *"show me options in the
+## dev room first"* — so this section exists before the terrain is wired into
+## anything, and the map it lives in has nothing in it but ground.
+##
+## DIAL-THEN-REGENERATE, following the CITY section's precedent rather than
+## rebuilding live. A landscape is tens of thousands of cells and rebuilding one
+## per slider tick would stall the frame the human is trying to judge; the CITY
+## section learned that first and the pattern is already familiar.
+const _TERRAIN_FLOAT_ROWS: Array[Array] = [
+	# Sample spacing in the finest ring - how finely the ground is described where
+	# the pilot is. Every ring outward doubles it.
+	["cell_m", 1.0, 16.0, 0.5],
+	["amplitude_m", 0.0, 120.0, 2.0],
+	# Ridge is the character dial and the one to move before amplitude if the
+	# landscape reads as bland: 0 rolls like dunes, 1 grows canyon walls.
+	["ridge", 0.0, 1.0, 0.05],
+	["noise_frequency", 0.0005, 0.02, 0.0001],
+	["noise_octaves", 1.0, 8.0, 1.0],
+	["floor_m", -40.0, 20.0, 1.0],
+	# The arena floor. 0 is off; a sortie would want about 90 m, just past the
+	# egress line, so its objective and garrison rings have level ground.
+	["clearing_radius_m", 0.0, 200.0, 5.0],
+	["clearing_falloff_m", 5.0, 200.0, 5.0],
+	["extent_m", 80.0, 500.0, 10.0],
+]
+
+
+func _build_terrain_section() -> void:
+	if terrain == null or terrain_config == null:
+		return
+	_configs.append(terrain_config)
+	if terrain_config.load_from_user():
+		print("[config] loaded %s" % terrain_config.save_path())
+	_add_section_header("TERRAIN")
+	_add_preset_bar("terrain", terrain_config)
+	var hint := Label.new()
+	hint.text = "dial, then Regenerate ↓"
+	_section.add_child(hint)
+	_add_config_rows(terrain_config, _TERRAIN_FLOAT_ROWS, [])
+	var buttons := HBoxContainer.new()
+	var regen := Button.new()
+	regen.text = "Regenerate"
+	regen.focus_mode = Control.FOCUS_NONE
+	regen.pressed.connect(terrain.rebuild)
+	var reroll := Button.new()
+	reroll.text = "Re-roll seed"
+	reroll.focus_mode = Control.FOCUS_NONE
+	reroll.pressed.connect(func() -> void:
+		terrain.terrain_seed = randi_range(1, 99999)
+		terrain.rebuild())
 	buttons.add_child(regen)
 	buttons.add_child(reroll)
 	_section.add_child(buttons)
