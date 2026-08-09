@@ -1,7 +1,8 @@
 # PLAN-FULL-SCALE.md — the aircraft-scale overhaul
 
-**Status: PROPOSED, not started. Written 2026-08-09 for review, then for a fresh
-session to execute.**
+**Status: STEERED. Phase 1 is answered, Phase 2 is BUILT and awaiting a flight
+verdict. Lives on branch `full-scale`; discarding the branch discards the whole
+experiment.** Written 2026-08-09.
 
 Read [CLAUDE.md](CLAUDE.md), [TESTING.md](TESTING.md) and
 [HANDOFF-NEXT.md](HANDOFF-NEXT.md) first. This document covers one thing: the
@@ -27,8 +28,7 @@ drags with it.
 > fight each other, but a more serious, 'real world' feel, full size aircrafts
 > style."*
 
-**Five decisions were taken in conversation and only two of them have any code
-behind them.** They are listed in §1. Everything else in this document is how to
+**Six decisions were taken in conversation; two have code behind them.** They are listed in §1. Everything else in this document is how to
 carry them out.
 
 **The stated worry, and it is the right one:**
@@ -36,7 +36,8 @@ carry them out.
 > *"most important is the scaling of everything, which im worry about, and how it
 > affects the physics."*
 
-§3 is the honest answer to that, and it contains a fork only the user can settle.
+§3 is the honest answer to that. The fork it once contained is now **answered**
+(§3.3) and the answer is better than either option the agent offered.
 
 ---
 
@@ -46,7 +47,7 @@ carry them out.
 |---|---|---|
 | D1 | **The pilot is IN the aircraft.** The FPV radio-link premise goes. Video-feed breakup stays, reframed as a manned vehicle's optics. | decided, nothing built |
 | D2 | **The Kestrel becomes 2–4 m** rather than 0.28 m, with everything else in proportion. | decided, nothing built |
-| D3 | **Two gameplay modes.** The arcade/roguelike run keeps its arena. The campaign sortie becomes a large navigated map: insert, cross, accomplish, escape. | decided, nothing built |
+| D3 | **Two gameplay modes.** The campaign sortie becomes a large navigated map: insert, cross, accomplish, escape. The arcade run stays an arena — **but a SCALED one** (see below). | decided, nothing built |
 | D4 | **The signal leash goes**, replaced by map edges with about a 100 m margin. | decided, nothing built |
 | D5 | **Vast terrain**, smooth, kilometres across. | **BUILT** — `TerrainField` / `TerrainMesh`, 6.1 km in ~93k triangles, not yet wired into the game |
 
@@ -58,8 +59,19 @@ campaign's most interesting resource stops being a bookkeeping oddity.
 
 **D3 is what protects the existing game.** The wave director, the draft, the combo
 score, the exit gate — that whole loop is an arena game and it is good at being
-one. Stretching it over kilometres would ruin it. Nothing in this plan touches it
-except the scale pass.
+one. Stretching it over kilometres would ruin it.
+
+**BUT IT IS NOT EXEMPT FROM THE SCALE PASS, and this was a correction the user had
+to make to an earlier draft of this document.** In their words:
+
+> *"whatever happens to all the existing things we have, EVERYTHING is scaled the
+> same way. so for ex. the arena as the game mode environment is absolutely kept,
+> but it will scale with everything else. it would just stay a relatively confined
+> arena, as opposed to the vastness of the war room and the nodes maps."*
+
+So the arena grows by S along with everything in it and stays **relatively**
+confined. It is not stretched — the aircraft grew too, so the fight keeps its
+proportions. **There is exactly one world scale and everything obeys it.**
 
 ---
 
@@ -76,7 +88,8 @@ are:
   `RateController`, the 240 Hz tick, the pilot axis convention. Numbers move.
 - **The balance instrument's structure.** Three layers plus validation. Every
   number it has ever produced becomes void (see §6), but the machine is fine.
-- **The arcade run.** Per D3.
+- **The arcade run's STRUCTURE.** Waves, drafts, score, the exit gate. Its
+  geometry scales with everything else — see D3.
 
 ---
 
@@ -105,35 +118,76 @@ is **S ≈ 10.7**.
 | Torque available | ×S³ | thrust × arm = S² × S |
 | **Angular acceleration** | **×S⁻²** | torque ÷ inertia |
 
-**The fifth and seventh rows are the whole problem.** Angular acceleration falls
-as the square of scale. At S = 10.7 a physically honest aircraft is **≈ 115×
-slower to change attitude** than the current quad. That is not a tuning
-difference; it is the difference between an FPV freestyle quad and a helicopter.
+**Read the last three rows together and then read §3.3, because this table is
+only half the story.** It assumes thrust stays *realistic* — scaling as S² the
+way a propeller's disc area does. On that assumption angular acceleration falls
+as S⁻², roughly **115×** at S = 10.7, which is the difference between a freestyle
+quad and a helicopter.
 
-**This is real physics and it is why a 747 does not roll like a quad.** It is not
-a bug to be tuned away.
+**That assumption is exactly what the chosen answer refuses.** Thrust is where
+the fiction is spent, and §3.3 shows the penalty collapses to LINEAR the moment
+it is. The table stays because it is the honest baseline any departure is
+measured against.
 
-### 3.3 THE FORK — and it is the user's, not the agent's
+### 3.3 THE FORK — ANSWERED: honest physics, fictional propulsion
 
-**Option A — simulation-honest.** Let the rates fall. A 3 m aircraft rolls at
-100–200 deg/s instead of 600–900. Flying becomes deliberate, momentum-led,
-"heavy". Gains a genuinely different and more serious feel; loses the FPV
-freestyle agility that is currently the product.
+**The user rejected both of the agent's alternatives and proposed a better third
+thing.** Their reasoning, because it is the design principle and not just a
+preference:
 
-**Option B — arcade (the Firehawk reading).** Keep something close to today's
-agility on a 3 m body. Physically absurd, entirely legitimate for a game, and it
-is what the user's own reference points to. The aircraft *looks* full-size and
-*flies* like a quad.
+> *"if we are still talking about partially fiction world, what prevents us from
+> fictioning new technology that produces engines that have thrust/weight ratio
+> that are currently not achievable... the same way that an F1 car is an extreme
+> example of how a toy car would have behaved in a real world, but pushing physics
+> to the extreme putting a huge engine and a light frame so that it would SEEM like
+> its almost an rc car, not a real one."*
 
-**Option C — split by airframe.** The Kestrel keeps quad-like agility (a small,
-fast, twitchy machine at the light end); the Atlas gets the honest heavy handling.
-Scale becomes a design axis rather than a global constant, and P3.4's frame
-classes stop being a stat block and start being a flight model.
+> *"keep real physics calculations, stretch technology to fiction, and see what
+> comes on the other side."*
 
-**The agent's recommendation is C, then B if C proves too much work.** C is the
-only option that turns the cost into content. But **this must be answered before
-any number is touched**, because A, B and C produce three different retunes and
-doing one then another is doing it twice.
+On G forces: *"since we are still half way into fiction we can say that humanity
+also developed a device that allows the human body to withstand the extreme G
+forces."*
+
+They rejected **arcade** (*"sounds like faking which im not fond of... firehawk
+is fun enough, it really is ridiculous while still hold a real-world design,
+which for me breaks the immersion"*) and **split-by-airframe** (*"feels like the
+worst - being indecisive"*).
+
+**AND THE ARITHMETIC SAYS THEY ARE RIGHT, which is the important part.** The
+agent's original framing — that scaling costs S⁻² of angular agility, roughly
+115× — assumed thrust stays realistic. Derived properly:
+
+```
+angular acceleration  =  torque / inertia
+                      =  (c · Thrust · arm) / (k · mass · arm²)
+                      =  (c/k) · g · TWR / arm
+```
+
+**α ∝ TWR / arm_length. MASS CANCELS ENTIRELY.**
+
+Three consequences, and all three matter:
+
+1. **A light frame does not buy agility.** Only thrust-to-weight and size do.
+   The F1 analogy is exact — it is the engine, not the weight saving.
+2. **The penalty is LINEAR in scale, not quadratic**, once thrust is free to be
+   fictional. At S = 10.7 you lose 10.7× — not 115×.
+3. **It is bought back by one number that already exists.**
+   `thrust_to_weight_ratio` is a config field with a slider on it.
+
+Measured on the real body at S = 10.7:
+
+| | small quad | 3 m aircraft, TWR 12 | 3 m aircraft, TWR 48.2 |
+|---|---|---|---|
+| angular acceleration | 21,455 deg/s² | 5,341 deg/s² | 21,455 deg/s² |
+| agility vs. today | 100% | **25%** | **100%** |
+| hover throttle | 22% | 8.3% | **2.1%** |
+
+**THE REAL TRADE IS NOT AGILITY VERSUS REALISM. IT IS AGILITY VERSUS THROTTLE
+RESOLUTION.** A TWR high enough to restore FPV agility puts hover at 2% stick,
+which is unflyable without a throttle curve. `FlightConfig.throttle_curve`
+already exists and is the obvious lever; this has not been explored yet and is
+the first thing to try if TWR 12 feels too heavy.
 
 ### 3.4 Froude scaling — the tool for keeping motion *looking* right
 
@@ -151,8 +205,8 @@ At S = 10.7 that makes everything happen **≈ 3.3× slower** and cruise speeds
 
 **This is a lens, not an instruction.** It tells you what "physically honest for
 this size" means so that any departure from it is a choice somebody made rather
-than an accident. Option B above is a deliberate departure from Froude; it should
-be recorded as one.
+than an accident. The chosen answer — real rigid-body physics driven by fictional
+engines — departs from Froude deliberately and by a stated amount: the TWR.
 
 ### 3.5 What is safe, and what to avoid
 
@@ -266,21 +320,31 @@ rather than convert.
 Ordered so that each one ends somewhere flyable, and so the expensive
 irreversible steps come after the cheap reversible ones.
 
-### Phase 1 — Decide, do not build
+### Phase 1 — Decide, do not build — **DONE**
 
-Answer §3.3's fork and pick S. Write both into GAMEPLAY-DESIGN as a numbered
-Iteration with steering questions, the way A.q1–A.q10 worked for the Phalanx.
-**No code.** Cost: one conversation. **This is the whole gate.**
+§3.3 is answered (honest physics, fictional propulsion) and S is chosen: **3.0 m,
+S = 10.714**. The GAMEPLAY-DESIGN Iteration is still unwritten.
 
-### Phase 2 — The aircraft alone
+### Phase 2 — The aircraft alone — **BUILT, AWAITING A FLIGHT VERDICT**
 
-Scale one frame and its flight model. Nothing else. Fly it in the dev room at
-current world scale — the aircraft will be comically large against the existing
-props and that is *fine and informative*. Retune the rate loop. Get a verdict on
-feel before anything depends on it.
+The Kestrel alone is scaled. Nothing else in the game is. Flown against the
+existing world it will be comically large, and that is *fine and informative*.
 
-Deliverable: the human says "yes, this is what a full-size aircraft should fly
-like."
+| | before | after | law |
+|---|---|---|---|
+| body | 0.28 m | 3.0 m | ×S |
+| mass | 0.65 kg | 500 kg | light frame, deliberately under density |
+| arm | 0.12 m | 1.286 m | ×S |
+| TWR | 4.5 | 12.0 | the fiction dial |
+| max rate | 580 deg/s | 160 deg/s | what TWR 12 can actually reach |
+| drag coefficient | 0.03 | 3.44 | ×S² (it multiplies \|v\|·v, so it carries area) |
+| angular damping | 0.013 | 1148 | ×inertia, to hold the damping ratio |
+
+Measured, not assumed: **hover_check passes with 0.000 m drift**, and the rate
+loop reaches half its commanded step in **150–233 ms** against roughly 20–50 ms
+for the small quad. That slowness IS Option A rendered honestly.
+
+Deliverable: the human says whether that is a game they want to fly.
 
 ### Phase 3 — The conversion pass
 
@@ -360,7 +424,16 @@ relaxing it until it passes.**
 4. **Scope.** Six phases. Phases 1–3 are the overhaul; 4–6 are new features that
    happen to need it. **They can stop after Phase 3** and have a complete,
    consistent, full-scale game.
-5. **The city was authored for a 0.28 m body.** Street widths and window
+5. **`user://` CONFIG SILENTLY OVERRIDES SCALED DEFAULTS, and it cost real time
+   already.** `TunableConfig.load_from_user` loads a saved partial config over
+   the shipped one, so a stale `user://flight_kestrel.tres` kept the OLD rate
+   gains on the scaled airframe and made it look structurally unflyable. An
+   experiment that raised the gains 10× produced a **bit-identical** result,
+   which is the tell — a knob that changes nothing is a knob that is not
+   connected. **Before judging any scale change, check what `user://` is
+   overriding.** The file has been moved aside to
+   `flight_kestrel.PRESCALE-BACKUP.tres`.
+6. **The city was authored for a 0.28 m body.** Street widths and window
    apertures may need redesign rather than rescaling, because a 3 m aircraft
    threading a city is a different game from a palm-sized one doing it.
 
@@ -370,17 +443,16 @@ relaxing it until it passes.**
 
 Numbered so they can be answered by reference, in the project's own convention.
 
-- **S.q1** — Which fork in §3.3: simulation-honest, arcade, or split by airframe?
-  **Nothing may be built before this is answered.**
-- **S.q2** — What is S exactly? The user said *"2-3m size bodies as the size of
-  the kestrel, maybe 4m."* Pick one number.
+- ~~**S.q1**~~ **ANSWERED**: honest physics, fictional propulsion. See §3.3.
+- ~~**S.q2**~~ **ANSWERED**: 3.0 m, S = 10.714.
+- ~~**S.q5**~~ **ANSWERED**: everything scales uniformly, arcade arena included.
+- **S.q8** *(new)* — Is TWR 12 the right feel, or should the throttle curve be
+  used to afford a much higher one? This is the whole point of the Phase 2
+  flight and it cannot be answered from a bench.
 - **S.q3** — Do game-pacing times scale (Froude) or stay put? Shield regen, vent
   cycles, wave intermissions, combo window.
 - **S.q4** — Are `hull`/`armor`/`damage` physical or abstract currency? If
   abstract they do not scale, and the whole damage model is untouched.
-- **S.q5** — Does the arcade run get rescaled too, or does it keep its current
-  proportions as a deliberately different register? D3 says two modes; this asks
-  whether "two modes" extends to two scales.
 - **S.q6** — The menu tower: rescale it, or redesign it for the new aircraft?
 - **S.q7** — Does the city get rescaled or redesigned? (§7.5)
 
@@ -388,7 +460,14 @@ Numbered so they can be answered by reference, in the project's own convention.
 
 ## 9. WHAT EXISTS TODAY, FOR THE FRESH SESSION
 
-- **HEAD is `d2c94ef`.** Board 23/23 green. Tree clean. `PILOT_VERSION` 7.
+- **The scale work lives on branch `full-scale`.** `master` is untouched and
+  green. **Discarding this whole direction is `git branch -D full-scale`** — that
+  is why it is a branch, and it is the user's own instruction after the voxel
+  attempt had to be squashed out of `master`'s history instead.
+- **On `master`: board 23/23 green, tree clean, `PILOT_VERSION` 7.**
+- **On `full-scale`: only the Kestrel is scaled.** The rest of the game is at the
+  old scale, so most of the board is expected to fail there and that is not a
+  regression — it is Phase 3's inventory writing itself.
 - **The terrain is built and is NOT wired into the game.** `scenes/terrain_map.tscn`
   and `scenes/desert_map.tscn` fly it; `main.tscn` and `sortie.tscn` do not
   reference it. See `TerrainField`, `TerrainMesh`, `terrain_check`.

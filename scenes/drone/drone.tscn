@@ -16,7 +16,7 @@
 [ext_resource type="Script" path="res://scripts/combat/flak_pod.gd" id="14_flak"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
-size = Vector3(0.28, 0.08, 0.28)
+size = Vector3(3, 0.857, 3)
 
 [sub_resource type="StandardMaterial3D" id="mat_frame"]
 albedo_color = Color(0.15, 0.15, 0.17, 1)
@@ -29,13 +29,13 @@ emission_energy_multiplier = 2.0
 
 [sub_resource type="BoxMesh" id="mesh_frame"]
 material = SubResource("mat_frame")
-size = Vector3(0.28, 0.08, 0.28)
+size = Vector3(3, 0.857, 3)
 
 [sub_resource type="BoxMesh" id="mesh_motor"]
-size = Vector3(0.05, 0.025, 0.05)
+size = Vector3(0.536, 0.268, 0.536)
 
 [node name="Drone" type="RigidBody3D" groups=["player"]]
-mass = 0.65
+mass = 500.0
 can_sleep = false
 contact_monitor = true
 max_contacts_reported = 4
@@ -52,7 +52,7 @@ script = ExtResource("2_mm")
 script = ExtResource("4_ih")
 
 [node name="FpvCamera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.08)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 0.3214, -0.8571)
 current = true
 
 [node name="Weapon" type="Node3D" parent="FpvCamera"]
@@ -88,26 +88,26 @@ shape = SubResource("shape_frame")
 mesh = SubResource("mesh_frame")
 
 [node name="NoseMarker" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -0.11)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 0.5357, -1.1786)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_front")
 
 [node name="MotorFL" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.0525, -0.12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2857, 0.5625, -1.2857)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_front")
 
 [node name="MotorFR" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.0525, -0.12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2857, 0.5625, -1.2857)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_front")
 
 [node name="MotorBL" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.0525, 0.12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2857, 0.5625, 1.2857)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_frame")
 
 [node name="MotorBR" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.0525, 0.12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2857, 0.5625, 1.2857)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_frame")
