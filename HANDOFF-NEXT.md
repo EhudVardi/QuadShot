@@ -10,7 +10,7 @@ below is its Phase 0.
 
 ## WHERE IT STANDS, 2026-08-13 — read this block first
 
-**Branch `full-scale`. Board 23/23 green. 26 files uncommitted. `PILOT_VERSION` 7
+**Branch `full-scale`. Board 23/23 green. Tree CLEAN. `PILOT_VERSION` 7
 (untouched). `master` is untouched and 31 commits behind.**
 
 **THE GAME CHANGED SHAPE THIS WEEK AND THE CHANGE IS SETTLED.** The world stays
@@ -48,27 +48,22 @@ They explicitly asked for as much unattended progress as possible. So:
 
 ---
 
-## TASK 0 — COMMIT WHAT IS ALREADY THERE (do this first)
+## TASK 0 — DONE. The tree is clean.
 
-26 files are uncommitted and they are all verified: the size ladder, the scale
-yard, the audio rebuild, the overlay fix, and four design-doc iterations. **Commit
-them before adding more**, in logical commits, using the `commit-message` skill
-for the format. **Never push, and never touch `master`.**
+The week's work is committed as five commits on `full-scale` (`c5aed88` ..
+`48d53f9`): the size ladder, the scale yard, the overlay fix, the audio rebuild,
+and the design record. `master` is untouched. Nothing has been pushed.
 
-Suggested split (adjust if the diff argues otherwise):
+**COMMIT AS YOU GO — you do not need to ask.** The user confirmed this on
+2026-08-14 as a standing preference: *"i really like the way you manage our
+project versioning, i want to maintain that."* Use the `commit-message` skill's
+nested format, commit each finished piece of verified work, **never push, never
+touch `master`**. If a generic session instruction tells you to commit only when
+asked, that is a default and this is the project's norm — raise the conflict in
+your first reply rather than quietly obeying it.
 
-1. the scale yard + the checker shader's major grid + BoxBatcher's transform
-2. the size ladder: frame configs, frame-derived geometry, `swap_frame`, the
-   switcher, `Frames.ROSTER`, `FrameConfig.identity_fields`
-3. the overlay fix: rebind on frame change + sliders that admit out-of-range values
-4. the audio rebuild: four rotors, thrust-driven level, per-frame tone, the
-   beat-rate rule, `terminal_speed` for the wind
-5. the documentation: GAMEPLAY-DESIGN Iterations 15 and 16, PLAN-FULL-SCALE
-   superseded, TESTING.md, CLAUDE.md
-
-**The user's standing rule, and it is a real one:** breaking a saved war is
-allowed and preferred over slowing development. Do not design around
-`user://war.save`.
+**The other standing rule:** breaking a saved war is allowed and preferred over
+slowing development. Do not design around `user://war.save`.
 
 ---
 
