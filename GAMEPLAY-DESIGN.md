@@ -14318,3 +14318,187 @@ corrects a claim the agent made. Recorded by subject.
   - Recorded because the agent's own report produced the wrong impression:
     "engine limit wearing balance's clothes" was written to mean *a limit in the
     plumbing rather than in the design*, and it read as *a limit in the engine*.
+
+### E steering — ANSWERED (2026-08-15)
+
+All eight came back. Two are answered outright, two came back with a question for
+the agent, one **dissolves** the way V.q11 did, and one exposed that the agent's
+question was unclear rather than hard. Recorded by ID, with the agent's response
+where one was asked for.
+
+- **E.q1 — MORE ROTORS: yes as an experiment, LOW PRIORITY, HIGH CURIOSITY.**
+  *"that would be a very interesting experiment... its a low priority for now, but
+  a very interesting direction to have fun with, and which also pushes us to the
+  simulation direction, so that instead of reducing the physics into a homogenous
+  and narrow structure, we can allow the imagination to work even more."* They
+  asked what it would cost: *"i wonder how much work is needed to extend our
+  physics/flight controller simulation to at least try this."*
+  - **THE ANSWER IS BETTER THAN EXPECTED: the simulation does not need extending
+    at all.** `MotorModel.apply_thrust` already works positionally — it applies
+    each rotor's thrust as a force AT that rotor's mounting point
+    (`apply_force(force, position_offset)`), so roll and pitch torque fall out of
+    geometry rather than out of a formula that assumes four. Yaw is the summed
+    signed reaction torque, which is equally count-agnostic. **A hexacopter is not
+    a different physics model; it is the same model with six entries.**
+  - **What IS hard-coded is the LAYOUT, in three tables and about six files.**
+    `MOTOR_COUNT` is a const; `X_SIGNS` / `Z_SIGNS` / `SPIN_DIRECTIONS` are the
+    quad-X arrangement written out as ±1. For N rotors on a ring those become
+    `cos`/`sin` of each arm's bearing and an alternating spin — computed, not
+    authored. The mixer in `FlightController._run_rate_control` reads those three
+    tables and is otherwise already a loop.
+  - **One thing is already N-agnostic and worth noticing**, because it is the part
+    that would have been hardest: `apply_hit_to_motors` picks the damaged rotor by
+    taking the dot product of the hit direction against each rotor's position and
+    keeping the best. That is correct for any count and any layout, unchanged.
+  - **Estimate, honestly:** a day of careful work across `MotorModel`,
+    the mixer, `_apply_frame_geometry`, `MotorAudio` and the four display
+    consumers, plus a new `rotor_count` (and probably `rotor_layout`) on the
+    frame. Low risk, because `hover_check` flies every roster frame and
+    `motor_damage_check` and `repair_check` already guard the damage path — a
+    broken mixer fails the board immediately rather than quietly flying wrong.
+  - **Two real complications, stated so they are not discovered:** `yaw_authority`
+    is a per-frame tuned constant and a 3+3 or 4+4 spin split changes what it
+    means, so it needs re-tuning by hand; and the motor audio's four emitters
+    carry a detune and phase scheme tuned by ear in v2.43/v2.45, which six
+    emitters would change. Both want hands, which is consistent with this being
+    low priority.
+- **E.q2 — DERIVED from geometry**, on the same reasoning the agent gave: it makes
+  E4.3's separation free and satisfies E7's repeatability, neither of which a
+  probability table can express.
+- **E.q3 — REPAIRABLE BETWEEN SORTIES, and repair becomes a RESOURCE.** *"i see
+  repairing as a resource, do you? so it means that a damaged equipment can be
+  repaired between sorties, and we can maybe in the future toll the repair as a
+  resource. lets put a pin on it."* So a component loss is permanent for the
+  sortie you are flying and paid for afterwards. **PINNED**: the price of that
+  repair is a later economy question and connects to P5.6's repair bill, which has
+  existed since Iteration 4 and has never repaired anything in particular.
+- **E.q4 — ENEMIES GET COMPONENTS ONLY WHERE A TYPE NEEDS THEM**, and the user
+  asked for a recommendation: *"for realism i would say yes, but for performance i
+  say that only when nessecary, like the case of the phalanx... the phalanx has
+  proved itself to be so cool, so i dont feel we should lose it."*
+  - **THE PHALANX IS NOT AT RISK, BECAUSE IT IS NOT AN EXAMPLE OF THIS.** Its
+    rotating screen and stern vent are a **defence** mechanic — a barrier you time
+    — and nothing on it FAILS. No part of the Phalanx is damaged, degraded or lost;
+    the shell blocks or it does not. So the enemy-component decision does not
+    touch that type at all, and there is nothing to lose. Worth saying plainly,
+    because the fear was the main reason the question was hard.
+  - **The agent's recommendation: components are an OPT-IN TRAIT, not a tier.**
+    Most enemies stay a single `Health` and are a solid body. A type that wants
+    parts declares them, exactly as the user proposed with *"using existing
+    classes to define what can be a composition and what is a solid single body
+    thing"*. That is the cheapest architecture and the one that cannot explode.
+  - **AND THE CONSTRAINT IS NOT PERFORMANCE, WHICH CHANGES THE TRADE.** Component
+    resolution costs a query PER HIT, not per tick, and hits are rare against
+    ticks — the projectile pool caps the whole game at 128 rounds in flight, so
+    the worst case is on the order of a hundred location lookups a second against
+    240 ticks of everything else. **The real cost is AUTHORING AND BALANCE**: every
+    component on an enemy is a new cell in a counter-web somebody has to fill and
+    read (L7 risk 2). So "only when necessary" is right, and the necessity test is
+    *does this type's identity require something that can be shot OFF it*, not
+    *can we afford the cycles*.
+  - **On *"another reason to look into more engines right?"* — no, not this one.**
+    That is the second constraint in two messages attributed to the engine which
+    is not the engine's (the first was the projectile pool). The limit here is how
+    many balance cells a human will read. **The engine question is real and
+    standing; it should not become the answer to every constraint, because doing
+    that hides the constraints a new engine would not fix.**
+- **E.q5 — VISIBLE, AND IT IS ALREADY BUILT, so the ROI question dissolves.** The
+  user: *"individual damage should be visible and telling, im just not sure if its
+  worth the performance it might demand. what is the best ROI option here?"*
+  - **The HUD already carries a per-component status widget.** `hud.gd` draws four
+    motor pips that empty and redden as a rotor fails, plus a VTX health input.
+    Adding a pip for power, gyro or a weapon mount is one more `draw_rect` in a
+    widget that is already drawn every frame — the cost is unmeasurable.
+  - **The expensive part was never the display, and most of it is free too.** A
+    dead rotor announces itself through the sticks and a wounded VTX through the
+    feed, which is D1's whole thesis: you FEEL it, then you read it. So the
+    recommendation is: extend the existing widget, reuse the existing channels,
+    and build no new panel.
+  - The only components that genuinely need a readout are the ones you cannot feel
+    — a dead weapon mount, a lost magazine — and those are two more pips.
+- **E.q6 — NO DETONATION, and it is pinned as a later realism push.** *"no. at
+  least not right now. this one is a VERY interesting point... if a craft has a
+  sensitive point that a sniper can hit and make the craft suffer greatly, it
+  sounds like more realism. i feel though its a nice too have thing to keep for
+  layer maybe."* A magazine hit destroys rounds and damages structure; it does not
+  kill you. **PINNED** as a candidate once the model is flying, and it pairs
+  naturally with the SAM and Sentinel types, which are the roster's first units
+  that could plausibly aim at a specific point.
+- **E.q7 — DISSOLVED, AND THE DISSOLUTION IS BETTER THAN THE QUESTION.** The agent
+  asked what number the exposure gap should be. The user did not answer it, and
+  should not have: *"i feel that each frame should be designed with its own
+  characteristics and indentity which derives its capabilities which themselves
+  balance each other... if one craft can catch more hits and thus be an easy
+  target, the engineer that designed it would have to reinforce it with armor,
+  which would then make it heavier, affecting the balance. this is how i think
+  about how frames are designed, around physics, geometrics, and the simulation
+  constraints."*
+  - **The question was malformed in the same way L.q1 and V.q11 were.** It assumed
+    the gap is a target to author. It is not — it is an OUTPUT. You design an
+    airframe from its role, its geometry gives it an exposure, its designer answers
+    that exposure with armour, the armour costs mass, and the mass costs
+    performance. **The 6.3x figure stops being a budget and becomes a
+    measurement**: the thing that tells you how much armour the fiction demands.
+  - Their worked example, which is the specification: *"say the Roc is heavy AND
+    powerful, so i would equip it with medium armor, because it may be more
+    expensive so i would protect it more."* Armour follows from VALUE and
+    EXPOSURE, not from a balance target.
+  - **The honest risk, stated because "derive it and let balance fall out" can
+    produce an unplayable roster.** It can, and the instrument's job is to CATCH
+    that rather than to prevent it. The discipline: author from physics, then
+    measure, and treat a bad measurement as information about the design rather
+    than a licence to fudge a number until the cell goes green. That is exactly
+    what BALANCE.md already says about the predicted-versus-validated gap, applied
+    one layer up.
+- **E.q8 — THE QUESTION WAS UNCLEAR, NOT HARD, and the answer given is the model
+  rather than the dial.** The user: *"whaat do you mean by severity?"* — a fair
+  challenge, and the term is `DamageConfig.severity`, an existing 0-to-1 knob from
+  Iteration 7 (D3) that scales how much a hit degrades FLIGHT: 0 is arcade, where
+  a hit only drains the pool, and 1 is full subsystem degradation. It is the
+  accessibility ramp, not a damage model.
+  - **What they described is the model, and it is what is being built anyway:**
+    *"each component can be degraded on its own, affecting how the craft is them
+    flown. bad rotors with great vtx and good weapons is not very effective, good
+    rotor with damaged vtx and good weapons is medium effective because a player
+    can blind shot more and he can be more stable."*
+  - **That example is a design statement worth keeping, because it RANKS the
+    components.** Rotors dominate — lose them and nothing else matters. The VTX is
+    survivable, because a stable aircraft can be flown and fired blind. So the
+    components are not equal and should not be priced as if they were, which is a
+    thing neither E3's table nor E8's arithmetic currently says.
+  - **The dial question therefore stands and is separate: ONE dial, for now.** Per
+    component is a real accessibility win and a real complexity cost, and nothing
+    yet demands it.
+
+### The city, corrected by the user (2026-08-15)
+
+*"thats my mispoke, im sorry. what i meant is something that is true to scale for
+the real world, but with appertures (windows, passage ways) that allow something
+like the roc to pass within, so that the menu would be feasable. maybe we should
+aim for something more for the condor to fit. the condor feels powerful enough for
+this. however, in any case, we can simply use the kestrel for the new menu idea
+i've described before, but with openings that need to at least allow the kestrel
+to pass through."*
+
+**This is a completely different requirement from the one that was built, and a
+much better one.** It is not a world-scale question at all — it is an APERTURE
+question:
+
+- The world stays true to real scale. Buildings are the sizes buildings are.
+- **What changes is the size of the holes in them.** A window, a doorway or a
+  passage is authored to admit a named frame, and the frame it admits is a design
+  choice per building or per map.
+- **That is a `BuildingGenerator` / `MenuFloorFrame` parameter**, not a
+  `world_scale`. `window_size` already exists on `WorldBuilding` (3.0 x 2.4 m) and
+  `MenuFloorFrame` owns the piers and mullions around it. A 1.2 m Condor needs
+  roughly a 2 m clear opening; a 3 m Roc needs 4 m and would be a genuinely
+  unusual building.
+- **The default target is the Kestrel**, because that is the frame the menu tower
+  is for and the one the user named as the guaranteed fit: *"openings that need to
+  at least allow the kestrel to pass through."* The Condor is the stretch goal
+  where a building wants to admit something heavier.
+
+**So L12's menu-tower redesign gains a concrete constraint** it did not have:
+every enterable opening is sized against a named frame, and which frame is a
+property of the building. **And the scaled city is discarded outright** — *"i
+think we can discard the 'scaled city' altogether"* — which is already done.

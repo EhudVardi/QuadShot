@@ -32,8 +32,21 @@ are in `GAMEPLAY-DESIGN.md` v2.46 and v2.49. The short version:
 - **The city scales linearly** — flat cost per block from 20 blocks to 400 — so
   its size is a budget decision, not a structural limit.
 
-**Iteration 17 (E) is drafted and AWAITING STEERING.** Sections E1–E10, open
-questions E.q1–E.q8. It is paper only; nothing is built.
+**Iteration 17 (E) IS FULLY STEERED** (2026-08-15). All eight questions came
+back. It is still paper only — nothing is built — but nothing is blocked either.
+Read `E steering — ANSWERED` before touching it. The four that changed the design:
+
+- **E.q7 DISSOLVED.** The exposure gap is not a target to author, it is an
+  OUTPUT. Design an airframe from its role, its geometry gives it an exposure,
+  its designer answers that with armour, the armour costs mass. **The 6.3x figure
+  is now a measurement that tells you how much armour the fiction demands**, not
+  a budget to hit.
+- **E6's mechanism is peak DECELERATION, not kinetic energy** — so a crash loads
+  every component at once instead of being a lump aimed at the hull pool.
+- **Components are an OPT-IN TRAIT**, and the Phalanx is not at risk because its
+  screen is a defence mechanic, not a damage model — nothing on it fails.
+- **Components are NOT equal.** The user's ranking: rotors dominate, a damaged VTX
+  is survivable because a stable aircraft can be flown and fired blind.
 
 ---
 
@@ -84,23 +97,37 @@ Nothing below is blocked on the agent. All of it wants eyes.
 
 ## WHAT IS WAITING, in order
 
-### 1. STEER ITERATION 17 (E) — the blocker
+### 1. PHASE 1, in E10's order — unblocked, and start at the top
 
-L13's phase 1 cannot start until E.q1–E.q8 come back. **E.q1 (does the heavy
-frame get more than four rotors) and E.q7 (is the exposure target parity or
-deliberate asymmetry) are the two that decide the shape of everything else.**
+**Crash deceleration first.** It is the least exciting piece and the guard the
+rest is unsafe without, it needs no components, and it is checkable the day it
+lands. The mechanism is settled (E6 as corrected); the calibration is the
+Kestrel's current crash behaviour, which is signed off and must not move.
 
-### 2. THEN PHASE 1, in E10's order
+Then the component registry as data with no new failure modes, then redundancy,
+then located armour, then the `Lethality` rework.
 
-Crash energy first — it is the least exciting piece and the guard the rest is
-unsafe without.
+**Two things are PINNED rather than scheduled:** repair priced as a resource
+(E.q3, connects to P5.6's repair bill, which has never repaired anything in
+particular) and magazine detonation (E.q6, pairs with the SAM and Sentinel).
+
+### 2. THE ROTOR EXPERIMENT (E.q1) — low priority, high curiosity, cheap
+
+Explicitly *"a very interesting direction to have fun with"* rather than a task.
+**The good news is in the steering entry: the simulation does not need extending.**
+`MotorModel.apply_thrust` is already positional, so a hexacopter is the same
+physics with six entries. What is hard-coded is the LAYOUT — `MOTOR_COUNT` and
+the three ±1 sign tables — across about six files. Estimate a day, low risk
+because `hover_check` flies every roster frame. Two parts want hands:
+`yaw_authority` needs re-tuning for a 3+3 spin split, and the motor audio's
+four-emitter detune scheme was tuned by ear.
 
 ### 3. THEN PHASE 2, the pilot (L6.2, L10.2)
 
 Anticipatory planning, a per-class manoeuvre planner behind one shared pilot, a
 pilot competence benchmark, and a `PILOT_VERSION` bump.
 
-### 4. THEN ONE RE-MEASURE (L6.3), scheduled and not discovered
+### 4. AND ONE RE-MEASURE (L6.3), scheduled and not discovered
 
 **It must land after Phase 1 and Phase 2, or it lands twice** — L7's risk 3.
 
@@ -140,6 +167,12 @@ pilot competence benchmark, and a `PILOT_VERSION` bump.
   `ProjectilePool.POOL_SIZE` is our own `const int = 128`, and raising it is a
   one-line edit bounded only by the ~330-unit CPU wall v2.46 measured. Pinned, not
   raised, per the user — but pinned as **ours**.
+  - **This happened twice in two messages** (the pool, then enemy components), so
+    it is a pattern rather than a slip. The engine-portability position is real
+    and standing, and precisely because it is real it **must not become the
+    answer to every constraint** — doing that hides the limits a new engine would
+    not fix. Enemy components are bounded by how many balance cells a human will
+    read, which no engine changes.
 
 ### The scars
 
@@ -181,6 +214,20 @@ either. The tunnelling result inverted the assumption that prompted the test.
 - Fog and look config.
 - The menu tower redesign (L12), including `MenuFloorFrame`'s scale constants.
 - Anything on `master`.
+
+## THE MENU TOWER GAINED A CONCRETE CONSTRAINT (L12)
+
+The user corrected what the scaled city was ever for, and it was never scale:
+*"what i meant is something that is true to scale for the real world, but with
+appertures (windows, passage ways) that allow something like the roc to pass
+within, so that the menu would be feasable."*
+
+**Every enterable opening is sized against a NAMED FRAME**, and which frame is a
+property of the building. The default target is the **Kestrel** — *"openings that
+need to at least allow the kestrel to pass through"* — with the Condor as the
+stretch where a building wants to admit something heavier. That is a
+`BuildingGenerator` / `MenuFloorFrame` parameter (`window_size` already exists at
+3.0 x 2.4 m), not a world scale. A 1.2 m Condor wants about a 2 m clear opening.
 
 ## STILL OPEN AND DELIBERATELY UNANSWERED
 
