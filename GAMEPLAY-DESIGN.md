@@ -13916,3 +13916,293 @@ architecture. Four things staying still is what makes the rest affordable.
     is doing its job. Left alone: it is a look decision and the hands are the
     test suite. Both the scale yard and the scaled city already opt out of the
     shared config for exactly this reason.
+
+## Iteration 17 — E: Equipment (the component damage model) (PROPOSED, 2026-08-14 — agent-initiated, from L13 phase 1.1)
+
+> **PAPER ONLY.** Nothing here is built and nothing should be built until it is
+> steered. It is L13's phase 1.1, written the day phase 0 finished, and it exists
+> because **L.q1 replaced a number with a system**: the user rejected "how does
+> hull scale with size" and answered *"anything on the frame is equipment which
+> can separately fail... if my left back engine gets hit, i need to respond to it
+> accordingly. the danger should be real and unpredicable/have many vectors."*
+>
+> The letter is theirs — **equipment** — and sections are **E1–E10**, open
+> questions **E.q1–E.q8**. React by ID.
+
+### E1 — What Iteration 7 already decided, and what is already built
+
+This is not a new idea; it is the unbuilt half of one that was steered a month
+ago. **D1's thesis stands unchanged and is the doctrine this iteration serves:**
+*a hit is a flight-model event, not only a health-bar event.*
+
+**Already built, and it matters that it is:**
+
+| thing | where | since |
+|---|---|---|
+| per-rotor health, asymmetric thrust, a rate loop fighting a bias | `MotorModel` + `FlightController.apply_hit_to_motors` | Iteration 7 |
+| hit LOCATION picking which rotor takes it | same — a hit degrades the motor on the side it came from | Iteration 7 |
+| the VTX as equipment with its own health | `DamageConfig.video_damage_scale`, `main.gd`'s `_video_damage` | v1.41/v1.42 |
+| the arcade↔sim severity dial | `DamageConfig.severity` | Iteration 7 (D3) |
+| a crash fraying all four rotors at once | `crash_motor_scale` | Iteration 7 |
+
+**So the component model is roughly a third finished and nobody has said so.**
+What is missing is (a) everything that is not a rotor or a camera, (b) any
+relationship between components and SIZE, and (c) the reason the user wants it —
+the skill surface (E7).
+
+### E2 — THE MEASURED BUDGET, and it is the most useful number in this iteration
+
+L3 found that a 500 kg Roc dies to the same 13 rifle hits as a 0.65 kg quad,
+which makes L2's "right tool for the right job" unimplementable. **v2.46 measured
+what that costs in a real fight** (`tests/swarm_bench.gd`, a hovering
+non-evading target against N raiders):
+
+| frame | dead in, 10 raiders | connect rate at N=5 | predicted cone fill |
+|---|---|---|---|
+| Kestrel 0.28 m | 5.6 s | 8.7% | 11.1% |
+| Condor 1.20 m | 2.2 s | 37.1% | 35.1% |
+| Roc 3.00 m | **1.2 s** | 52.0% | 70.1% |
+
+**Every cell took exactly 13 hits.** The whole spread is geometry: the big frame
+does not die easier, it simply *collects* its thirteen hits five times faster.
+
+**THE EXPOSURE RATIO IS 6.3x, NOT 115x, AND THAT SINGLE FACT RESCUES THE WHOLE
+DESIGN.** L.q1's option (b) proposed scaling hull with frontal area, S² — a 115x
+figure that the question itself called "a useful upper bound" and that would have
+produced an unkillable aircraft. It is the wrong law, and the bench says why:
+`EnemyDrone._jitter` deflects a shot by `tan(jitter) * randf()`, so the miss point
+is **uniform in RADIUS**, not uniform in area. Hit chance is therefore **linear**
+in the target's size, not quadratic. Predicted cone fill goes 11.1% → 70.1%, a
+factor of 6.3.
+
+**So the component model has a budget, and it is a number rather than a feeling:
+a heavy frame needs roughly 6x the effective survivability of a Kestrel to reach
+exposure parity.** Six times is reachable with redundancy and armour. A hundred
+and fifteen times was not reachable with anything.
+
+*(Two caveats, both stated so nobody over-reads the figure. It is measured against
+ONE weapon — the raider's 3-degree jitter at 18 m — and a tighter or wider weapon
+moves it. And it is an exposure ratio, not a fairness target: whether parity is
+even the goal is E.q7.)*
+
+### E3 — The component list
+
+Everything on the airframe that can independently fail. **Status is honest:** four
+of these already exist and the iteration is mostly about the rest and about the
+size axis.
+
+| # | component | count | losing it does | routes through | status |
+|---|---|---|---|---|---|
+| 1 | **Rotor** | 4, or more by class (E4.1) | thrust loss on one corner; asymmetric torque the rate loop must fight | `MotorModel` | **BUILT** |
+| 2 | **VTX** | 1 | feed breakup, then a permanent floor of noise | `_video_damage` | **BUILT** |
+| 3 | **Structure** | 1 pool | the coarse "how close to death" layer; zero = the airframe broke | `Health` | **BUILT** (as `hull`) |
+| 4 | **Prop** | one per rotor | vibration rather than thrust loss — noise the gyro filters must fight | the Filtering group | proposed |
+| 5 | **Power** | 1, or more by class | available thrust sags; the frame's TWR droops | `MotorModel` headroom | proposed |
+| 6 | **Gyro / FCS** | 1 | noisier rate loop; the gun director's window widens | `Weapon.director_window`, `RateController` | proposed |
+| 7 | **Weapon mount** | one per hardpoint | that weapon stops working — you keep flying, you stop shooting | `Weapon` / `MissileSystem` / `FlakPod` | proposed |
+| 8 | **Magazine** | one per launcher | rounds lost, and possibly worse (E.q6) | the `magazines` group | proposed |
+
+**Row 6 is the one that pays a debt.** D2 predicted that *"EW and battle damage
+both degrade FCS — one mechanism"*, and the Screamer already degrades exactly
+those two things through `Jamming`. A damaged gyro reusing the jam path means the
+two failures read identically to the pilot, which is the design intent stated in
+Iteration 7 and never built.
+
+**Row 7 is what makes L.q5's hardpoint budget bite.** A frame that carries three
+weapons has three things to lose; a Kestrel with one has a single point of
+failure. That is a size advantage nobody has to author.
+
+### E4 — HOW SIZE BUYS SURVIVABILITY: three currencies, and one of them is free
+
+L.q1's answer is *"size buys REDUNDANCY AND PROTECTION, not a bigger bar."* That
+is two currencies. **There is a third and it is the elegant one.**
+
+**E4.1 — REDUNDANCY: more rotors.** A Kestrel losing one of four loses 25% of its
+thrust and gains a violent asymmetry. A heavy frame with six or eight loses 12.5%
+and can rebalance around the hole. This is physics-honest — real heavy-lift
+multirotors are hexacopters and octocopters for exactly this reason — and it is
+the clearest possible expression of "the big one takes more killing" that is not a
+bigger number. **It is also a FLIGHT change and therefore the human's** (E.q1),
+and it has a known cost: the motor audio is built as four emitters at the real
+mounts, so a six-rotor frame is an audio change too.
+
+**E4.2 — PROTECTION: armour over named components.** Not a flat pool. A 500 kg
+airframe can carry plating over its power bus and its gyro; a 650 g quad carries
+nothing. Armour that protects a NAMED thing is legible in a way a hull number
+never is — "they got my power bus through the plating" is a sentence a pilot can
+learn from, which is E7.
+
+**E4.3 — SEPARATION: the one that is free, and the model's central symmetry.**
+A Kestrel's four rotors sit inside 0.28 m; a Roc's sit across 3.0 m. **The same
+geometry that makes the big frame easier to hit makes each hit less
+concentrated** — one round takes one component instead of straddling three. So
+exposure grows with size and concentration falls with size, and **they move in
+the same ratio**. That symmetry is not authored, it falls out of building the
+airframe at its true size, and it is the strongest argument that a located damage
+model is the RIGHT answer to L3 rather than merely an interesting one.
+
+### E5 — The structure pool survives (L.q12, answered)
+
+`hull` stays, as a **structural integrity pool** alongside the components rather
+than replaced by them. It takes what is not a located hit: crashes, splash, blast.
+Reaching zero is **"the airframe broke"**, which is a different death from "every
+rotor failed" and should read differently.
+
+Three reasons, and the third is the operational one:
+
+1. It gives crash damage (E6) something to damage, which a pure component model
+   would have to invent.
+2. It keeps Phase 1's blast radius small — `WarManifest.strength_cost`,
+   `Lethality`'s arithmetic and every counter-web band keep an anchor.
+3. **It is the newbie floor.** D3's severity dial ramps from "damage is only the
+   integrity pool" to "full subsystem degradation". Deleting the pool would delete
+   the arcade end of that ramp, and P1.7's newbie-feasibility constraint lives
+   there.
+
+### E6 — CRASH DAMAGE SCALES WITH IMPACT ENERGY, and this is stated as a GUARD
+
+The user's constraint, attached to L.q1 and load-bearing: *"as long as a big craft
+that hits a building in 300kmh still gets damage and can even die if faster."*
+
+**This is the anti-invulnerability clause. It is the exact failure mode a naive
+"big = tough" would produce, and it must survive the rework.**
+
+Today `FlightController._on_body_entered` emits the delta-v across the collision
+and `main.gd` thresholds it. **Delta-v is mass-blind**, so a 500 kg aircraft and a
+650 g one hitting a wall at the same speed report the same number. The proposal:
+
+- Crash damage is **kinetic energy over structural capacity**: `0.5 * mass * dv^2`
+  divided by whatever the frame's structure is worth. Energy goes as `v^2`, so
+  doubling the speed quadruples the damage and the *"can even die if faster"*
+  clause is arithmetic rather than a special case.
+- **A heavy frame is NOT safer in a crash.** Mass is in the numerator. A Roc has
+  769x the Kestrel's mass against perhaps 20x its structure, so at the same speed
+  it takes far more, and at 131 m/s against a building it should be lethal. **No
+  amount of redundancy makes a Roc a battering ram.**
+- The Kestrel's current crash behaviour is signed off and must not move. That
+  makes the Kestrel the calibration point: whatever law is chosen is anchored so
+  that a Kestrel's crashes are unchanged, and the ladder falls out from there.
+- **It gets its own check the day it lands**, in the shape `tunnel_check` already
+  uses: fly the same collision twice at two speeds and compare, because every
+  single-run assertion available (it hurt, it scaled, it killed) passes just as
+  happily on a constant.
+
+### E7 — The skill surface, which is the REASON the user wants this
+
+*"if in two different runs i get the same engine hit — thats a lession to be
+learned."* That sentence is a specification, and it has three requirements the
+model must meet or the whole thing is just a more complicated health bar:
+
+1. **LEGIBLE** — the pilot must be able to tell WHICH component failed and,
+   ideally, from where. Not necessarily via a readout (E.q5): a dead left-rear
+   rotor announces itself through the sticks, which is D1's whole thesis.
+2. **REPEATABLE** — the same mistake must produce the same wound. That is a
+   determinism requirement on hit location, and it is why E.q2 matters.
+3. **RECORDED** — a run has to leave a trace of what broke and what the pilot was
+   doing. **This one is nearly free**: `Blackbox` already writes a per-tick flight
+   CSV and a sparse `events_*.csv`, and a component failure is an event. The
+   achievement list the user wants is then a query over the event log rather than
+   a second bookkeeping system.
+
+Achievement shapes worth arguing with, all of which are queries over that log:
+*flew home on three rotors*; *cleared a sortie without losing a component*; *lost
+the VTX and killed the objective anyway*; *never crashed above 100 km/h in a
+campaign*; *lost the same component in three consecutive runs* — that last one is
+an anti-achievement and is the most on-brand of the set, because it names the
+lesson the user actually described.
+
+### E8 — What it costs the balance instrument, stated as a bill
+
+**`Lethality` Layer 1 is config arithmetic**: damage per shot against
+`hull`/`armor` gives hits-to-kill and time-to-kill, verified by `lethality_check`
+planting shots into a real `Health`. A component model breaks the assumption
+underneath it — "hits to kill" stops being one number and becomes a distribution
+over where the hits land.
+
+The proposal keeps Layer 1 answerable:
+
+- It keeps a scalar **expected** hits-to-kill, computed under the hit-location
+  distribution, so every existing band still has something to compare against.
+- It gains a second output that matters more for feel: **expected FIRST FAILURE**
+  — which component goes first, and after how many hits. That is the number a
+  pilot experiences, and nothing in the instrument reports it today.
+- `lethality_check` must be extended to plant shots at NAMED LOCATIONS rather
+  than into an undifferentiated pool, or Layer 1's new arithmetic has no witness.
+
+**And the schedule cost, which is L7's risk 3 and is avoidable exactly once.**
+Every counter-web band moves when this lands. L6 already schedules ONE re-measure
+after the pilot work; **this must land before that re-measure or it lands twice.**
+
+### E9 — What this does NOT change
+
+Stated explicitly, because the last iteration this size (L7 risk 1) named
+"three half-finished modes" as the most likely bad outcome.
+
+- **Enemy durability.** Enemies keep `hull` / `armor` / `shield`. Components are
+  the PLAYER's model. Three reasons: the counter-web already works, the
+  combinatorics would explode (L7 risk 2 — eight types times a component list is
+  a table nobody fills), and the skill surface in E7 is a thing the PLAYER learns,
+  not a thing an enemy has. The Phalanx's rotating screen and the Aegis's shield
+  pool are already component-like in effect and stay exactly as they are.
+- **The flight model's architecture.** Damage rides `MotorModel` and the Filtering
+  group, both of which already exist for this.
+- **The war layer.** `WarManifest.strength_cost` trades abstract strength; a
+  component model sits below its resolution and it should stay there.
+- **The severity dial.** D3's arcade↔sim ramp is the containment mechanism for
+  this entire iteration and is not reopened.
+
+### E10 — Ordering, and the one piece that can start today
+
+1. **Crash energy (E6).** It needs no components, it is the guard the whole
+   iteration is unsafe without, and it is checkable the day it lands. **It should
+   go first even though it is the least exciting**, because it is the piece that
+   makes "size buys survivability" safe to say at all.
+2. **The component registry** (E3) as data, with no new failure modes — every
+   component present, only the four built ones doing anything. A pure refactor
+   with an unchanged board.
+3. **Redundancy** (E4.1): rotor count per class. **Needs hands** — it is a flight
+   change and it moves the audio.
+4. **Located armour and separation** (E4.2, E4.3).
+5. **`Lethality` Layer 1 rework** (E8), then the scheduled single re-measure.
+6. **The skill surface** (E7) — the achievement queries over the blackbox log.
+
+### E open questions (react by ID)
+
+- **E.q1 — Does the heavy frame get more than four rotors?** Six or eight is the
+  cleanest expression of "size buys redundancy" and is what real heavy lift does.
+  It is a flight-feel decision and therefore the user's. It costs: the motor audio
+  is four emitters at the real mounts, the airframe geometry is built from four
+  corners, and `FlightController._apply_frame_geometry` assumes four. None of that
+  is hard; all of it is real.
+- **E.q2 — Is hit location DERIVED from geometry or ROLLED from a table?** Derived
+  (raycast the hit against the actual component layout) is honest, makes E4.3's
+  separation free and satisfies E7's repeatability. Rolled is far cheaper and lets
+  a designer state "a rotor hit is 30% likely". The agent's lean is derived,
+  because separation is the whole argument in E4.3 and a table cannot express it.
+- **E.q3 — Is a component loss permanent for the sortie?** Permanent is dramatic
+  and makes the repair pad matter. Field-repairable turns damage into a resource
+  loop instead of a lesson. The existing `repair_gate` already picks a side for
+  motors; the question is whether every component follows it.
+- **E.q4 — Do enemies ever get components?** E9 says no, on containment grounds.
+  The counter-argument is that shooting a specific thing off a specific enemy is a
+  strong mechanic and the Phalanx already gestures at it. If the answer is ever
+  yes, it should be ONE type, chosen deliberately, not the roster.
+- **E.q5 — Does the pilot SEE which component failed, or infer it?** Inferring it
+  from the sticks is the purest form of D1's thesis and the most satisfying. Some
+  readout is probably needed anyway for the components that are not felt (a dead
+  weapon mount, a lost magazine). The likely answer is a split: felt for
+  flight-affecting components, shown for the rest.
+- **E.q6 — Does a magazine hit detonate?** It is the one component whose loss
+  could be instantly fatal, which makes it the strongest risk/reward statement in
+  the model (carry more ordnance, become more killable). It also risks a death the
+  pilot cannot learn from, which is precisely what E7 forbids. A middle exists:
+  a magazine hit destroys the rounds and damages structure, and only a FULL
+  magazine detonates.
+- **E.q7 — Is the exposure target parity, or deliberate asymmetry?** E2 measures
+  the gap at 6.3x. Closing it exactly makes size neutral for survival and forces
+  the frames to differ on other axes. Deliberately under-closing it (say 4x) keeps
+  the heavy frame a bigger target on balance, which is arguably correct and is a
+  design statement rather than an arithmetic one.
+- **E.q8 — One severity dial, or one per component?** One is legible and is what
+  D3 shipped. Per-component would let a player turn motor damage to sim and video
+  breakup to arcade, which is a real accessibility win and a real complexity cost.
