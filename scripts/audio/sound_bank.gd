@@ -95,18 +95,64 @@ func _play_at(sound: StringName, position: Vector3, volume_db: float,
 	player.play()
 
 
-## Looping motor tone: saw fundamental + octave, pitch-scaled live by
-## motor_audio.gd.
-static func make_motor_loop() -> AudioStreamWAV:
-	var count: int = int(0.5 * MIX_RATE)
+## Looping motor tone for ONE rotor, built at that rotor's own fundamental.
+##
+## THE TONE IS BAKED PER FRAME RATHER THAN PITCH-SHIFTED, and the reason is the
+## size ladder (V10). A 0.28 m rotor and a 3 m rotor are nearly four octaves
+## apart; reaching that by dragging `pitch_scale` down from one baked 120 Hz loop
+## slows the whole waveform like a tape, which smears the blade chop into a
+## flutter and thins out exactly the low end a big machine is supposed to have.
+## Synthesising each frame's loop costs a few milliseconds once, at a frame swap.
+##
+## `bass` mixes in the sub-octave (weight and body, what a heavy rotor has) and
+## `bright` the octave above (the whine of a small one). Callers ramp one up as
+## the other comes down, so the timbre changes with size and not just the pitch.
+##
+## The buffer holds a whole number of cycles of BOTH the fundamental and the
+## sub-octave — hence the even cycle count and the re-derived `exact_hz` — or the
+## loop seam clicks once per pass, which is the most audible defect a looping
+## synth can have.
+## `phase_seed` gives each rotor its own waveform SHAPE at the identical spectrum:
+## the partials are the same frequencies, started at different phases. Four
+## sources sharing one buffer sum like one louder source; four with scrambled
+## phases comb against each other into something thicker and less pointy, which
+## is width you do not have to pay for in detune (see motor_audio.gd's beat-rate
+## rule). A phase offset never breaks the loop — each partial still completes a
+## whole number of cycles in the buffer.
+static func make_motor_loop(fundamental_hz: float, bass: float,
+		bright: float, phase_seed: int = 0) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x40702 + phase_seed
+	var saw_phase: float = rng.randf()
+	var octave_phase: float = rng.randf()
+	var sub_phase: float = rng.randf()
+	var hz: float = maxf(fundamental_hz, 20.0)
+	var cycles: int = maxi(16, int(round(hz * 0.25)))
+	if cycles % 2 == 1:
+		cycles += 1
+	var count: int = int(round(float(cycles) * MIX_RATE / hz))
+	var exact_hz: float = float(cycles) * MIX_RATE / float(count)
 	var samples := PackedFloat32Array()
 	samples.resize(count)
-	var phase: float = 0.0
+	var peak: float = 0.0
 	for i: int in count:
-		phase += 120.0 / MIX_RATE
-		var saw: float = fmod(phase, 1.0) * 2.0 - 1.0
-		var octave: float = fmod(phase * 2.0, 1.0) * 2.0 - 1.0
-		samples[i] = saw * 0.35 + octave * 0.15
+		var t: float = float(i) / MIX_RATE
+		var phase: float = exact_hz * t
+		# Saw for the blade chop, sine for the sub — a saw an octave down would
+		# add harmonics that land back on the fundamental and muddy it.
+		var saw: float = fmod(phase + saw_phase, 1.0) * 2.0 - 1.0
+		var octave: float = fmod(phase * 2.0 + octave_phase, 1.0) * 2.0 - 1.0
+		var sub: float = sin(TAU * (phase * 0.5 + sub_phase))
+		var value: float = saw * 0.35 + octave * 0.15 * bright + sub * 0.55 * bass
+		samples[i] = value
+		peak = maxf(peak, absf(value))
+	# Normalise so timbre choices never change the level — the level is the
+	# caller's decision, and a bassier loop being louder for free would put the
+	# size-to-loudness relationship back somewhere nobody can see it.
+	if peak > 0.0001:
+		var scale: float = 0.9 / peak
+		for i: int in count:
+			samples[i] *= scale
 	return _make_wav(samples, true)
 
 
