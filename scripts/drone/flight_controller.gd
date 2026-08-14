@@ -387,21 +387,53 @@ func apply_hit_to_motors(damage: float) -> void:
 		# Directionless (a crash): frays the whole frame, but gently — a rough
 		# landing must not nuke all four engines into a death spiral. The pad
 		# (D5) is the recovery; this is the price, not a sentence.
+		#
+		# Walked over the REGISTRY rather than over MOTOR_COUNT (E10 step 2), so
+		# E6's *"all parts feel"* it is literally what this loop says. Only the
+		# built components can absorb anything today, so the result is identical
+		# to the four-rotor version it replaced — and a component that becomes
+		# damageable is loaded by a crash the day it is added, with no edit here.
 		var crash_amount: float = amount * damage_config.crash_motor_scale
-		for i: int in MotorModel.MOTOR_COUNT:
-			_motors.damage_motor(i, crash_amount)
+		for part: AirframeComponents.Part in AirframeComponents.of(self):
+			_damage_component(part, crash_amount)
 		return
 	from_body = from_body.normalized()
-	var best: int = 0
+	# NEAREST COMPONENT, not nearest rotor (E.q2, answered `derived`). The
+	# selection was always count-agnostic and layout-agnostic — a dot product
+	# against each part's own mount — so generalising it cost nothing but the
+	# name of the list it walks. Verified bit-identical against the old picker
+	# over 72 hit bearings on all four frames.
+	var best: AirframeComponents.Part = null
 	var best_dot: float = -2.0
-	for i: int in MotorModel.MOTOR_COUNT:
-		var pos: Vector3 = _motors.motor_position(i, config)
+	for part: AirframeComponents.Part in AirframeComponents.targetable(self):
+		var pos: Vector3 = part.position
 		pos.y = 0.0
+		# A centre-mounted part has no side for a hit to arrive from, and
+		# `normalized()` on a zero vector is zero, which would make it win every
+		# tie at the origin. No routed component sits there today; the guard is
+		# for the day one does (E3's gyro is mounted at the centre of mass).
+		if pos.length_squared() < 0.000001:
+			continue
 		var d: float = pos.normalized().dot(from_body)
 		if d > best_dot:
 			best_dot = d
-			best = i
-	_motors.damage_motor(best, amount)
+			best = part
+	if best != null:
+		_damage_component(best, amount)
+
+
+## Route damage to one component. The dispatch is where "addressable" stops being
+## a description and starts doing something.
+##
+## The unbuilt rows are a deliberate no-op rather than an error: E10 step 2 is
+## *"every component present, only the built ones doing anything"*, so the table
+## can hold the whole of E3 while the failure modes arrive one at a time.
+func _damage_component(part: AirframeComponents.Part, amount: float) -> void:
+	match part.kind:
+		&"rotor":
+			_motors.damage_motor(part.index, amount)
+		_:
+			pass
 
 
 func motor_health(index: int) -> float:

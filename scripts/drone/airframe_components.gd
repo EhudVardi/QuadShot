@@ -62,6 +62,17 @@ class Part:
 	var health: float = 1.0
 	## False for the four rows that are description only.
 	var built: bool = false
+	## Can a LOCATED hit be assigned to this component? Rotors only, today.
+	##
+	## This is a narrower thing than `located`, and the two are separate on
+	## purpose. The transmitter is located — it rides the lens at the frame's
+	## `fpv_offset` — but it is not routed, because it already takes a share of
+	## EVERY hit in `main._on_player_damaged` regardless of where that hit came
+	## from. Routing hits to it as well would both double-count it and change a
+	## signed-off model (v1.41/v1.42), and E10 step 2 forbids new failure modes.
+	## When a component becomes routable it flips this flag and joins the
+	## selection; no code in `FlightController` moves.
+	var routed: bool = false
 	## What losing it costs.
 	var cost: Cost = Cost.INTEGRITY
 	## LOCATED components can be picked by where a hit came from. The structure
@@ -78,14 +89,22 @@ class Part:
 ## This is the table a designer reads. The live list comes from `of()`, which is
 ## the only place it meets an actual airframe.
 const TABLE: Array[Dictionary] = [
-	{"kind": &"rotor", "count": -1, "built": true, "cost": Cost.FLIGHT},
-	{"kind": &"vtx", "count": 1, "built": true, "cost": Cost.FEED},
-	{"kind": &"structure", "count": 1, "built": true, "cost": Cost.INTEGRITY},
-	{"kind": &"prop", "count": -1, "built": false, "cost": Cost.VIBRATION},
-	{"kind": &"power", "count": 1, "built": false, "cost": Cost.POWER},
-	{"kind": &"gyro", "count": 1, "built": false, "cost": Cost.CONTROL},
-	{"kind": &"weapon_mount", "count": 1, "built": false, "cost": Cost.GUNS},
-	{"kind": &"magazine", "count": 1, "built": false, "cost": Cost.ORDNANCE},
+	{"kind": &"rotor", "count": -1, "built": true, "routed": true,
+			"cost": Cost.FLIGHT},
+	{"kind": &"vtx", "count": 1, "built": true, "routed": false,
+			"cost": Cost.FEED},
+	{"kind": &"structure", "count": 1, "built": true, "routed": false,
+			"cost": Cost.INTEGRITY},
+	{"kind": &"prop", "count": -1, "built": false, "routed": false,
+			"cost": Cost.VIBRATION},
+	{"kind": &"power", "count": 1, "built": false, "routed": false,
+			"cost": Cost.POWER},
+	{"kind": &"gyro", "count": 1, "built": false, "routed": false,
+			"cost": Cost.CONTROL},
+	{"kind": &"weapon_mount", "count": 1, "built": false, "routed": false,
+			"cost": Cost.GUNS},
+	{"kind": &"magazine", "count": 1, "built": false, "routed": false,
+			"cost": Cost.ORDNANCE},
 ]
 
 ## Provisional mounts for the singleton rows, as fractions of `body_m`. The two
@@ -108,7 +127,12 @@ const MOUNTS: Dictionary = {
 ##
 ## `video_damage` is passed IN rather than read, because the transmitter's health
 ## lives in `main` and this file deliberately owns no state. 0 = a clean feed.
-static func of(drone: FlightController, video_damage: float = 0.0) -> Array[Part]:
+## `only_routed` skips the rest of the table before allocating anything, because
+## this runs on the HIT path: `apply_hit_to_motors` calls it once per hit that
+## lands, and building eleven objects to throw eight away is the kind of cost
+## that is invisible until a swarm is in the air.
+static func of(drone: FlightController, video_damage: float = 0.0,
+		only_routed: bool = false) -> Array[Part]:
 	var parts: Array[Part] = []
 	if drone == null or drone.config == null:
 		return parts
@@ -124,6 +148,8 @@ static func of(drone: FlightController, video_damage: float = 0.0) -> Array[Part
 		return parts
 	for row: Dictionary in TABLE:
 		var kind: StringName = row["kind"]
+		if only_routed and not bool(row["routed"]):
+			continue
 		if int(row["count"]) < 0:
 			for i: int in MotorModel.MOTOR_COUNT:
 				var part := Part.new()
@@ -134,6 +160,7 @@ static func of(drone: FlightController, video_damage: float = 0.0) -> Array[Part
 				# six-rotor frame moves this table without touching this file.
 				part.position = motors.motor_position(i, config)
 				part.built = bool(row["built"])
+				part.routed = bool(row["routed"])
 				part.cost = row["cost"]
 				part.health = drone.motor_health(i) if kind == &"rotor" else 1.0
 				parts.append(part)
@@ -142,6 +169,7 @@ static func of(drone: FlightController, video_damage: float = 0.0) -> Array[Part
 		single.kind = kind
 		single.id = kind
 		single.built = bool(row["built"])
+		single.routed = bool(row["routed"])
 		single.cost = row["cost"]
 		match kind:
 			&"vtx":
@@ -161,13 +189,17 @@ static func of(drone: FlightController, video_damage: float = 0.0) -> Array[Part
 	return parts
 
 
-## Just the components a hit can currently be routed to — the located, built
-## ones. This is what generalises `apply_hit_to_motors` beyond rotors (E.q2).
+## The components a LOCATED hit can be assigned to (E.q2, answered `derived`).
+##
+## Today this is exactly the rotors, so `apply_hit_to_motors` selects over the
+## same four things it always did and its behaviour is unchanged to the decimal.
+## What moved is that the SET is now data: a component joins the selection by
+## flipping `routed` in `TABLE`, not by anyone editing the picker.
 static func targetable(drone: FlightController,
 		video_damage: float = 0.0) -> Array[Part]:
 	var out: Array[Part] = []
-	for part: Part in of(drone, video_damage):
-		if part.built and part.located:
+	for part: Part in of(drone, video_damage, true):
+		if part.built and part.located and part.routed:
 			out.append(part)
 	return out
 

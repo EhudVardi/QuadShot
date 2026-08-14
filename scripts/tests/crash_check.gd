@@ -67,6 +67,9 @@ const QUADRATIC_TOLERANCE: float = 0.15
 const LANDING_WALL_RATIO: float = 50.0
 ## Claim 4: rotors are frayed equally by a crash, to within this much capability.
 const EVEN_FRAY_EPSILON: float = 0.001
+## Claim 4b: the rotor a front-right hit belongs to. `MotorModel`'s order is
+## FL, FR, BL, BR, and the planted bearing is +X / -Z, so it is FR.
+const BULLET_EXPECTS: int = 1
 
 enum { ARENA_BUILD, ARENA_RUN, ARENA_RECORD, MAIN_BULLET, MAIN_CRASH, MAIN_READ }
 
@@ -486,6 +489,15 @@ func _read_components() -> void:
 	if bullet_hurt != 1:
 		_failures.append("a located hit damaged %d rotors, not 1 — a bullet is supposed to be the LOCATED case, and if it frays the whole airframe then the crash stage below proves nothing"
 				% bullet_hurt)
+	# WHICH corner, not merely how many (E.q2's repeatability requirement, and the
+	# regression guard for generalising the picker from "nearest rotor" to
+	# "nearest component" over the registry). The hit is planted on the airframe's
+	# front-right bearing, +X and -Z, and `MotorModel`'s order is FL, FR, BL, BR —
+	# so it belongs to rotor 1 and to nothing else. Counting alone would pass just
+	# as happily on a picker that always chose rotor 0.
+	elif _bullet_healths[BULLET_EXPECTS] >= 0.999:
+		_failures.append("a hit arriving from the front-right damaged some rotor other than %d (%s) — the count is right and the CHOICE is wrong, which is what E7's 'the same mistake produces the same wound' forbids"
+				% [BULLET_EXPECTS, str(_bullet_healths)])
 	if crash_hurt != MotorModel.MOTOR_COUNT:
 		_failures.append("a %.1f m/s crash damaged %d of %d rotors — a crash is a whole-airframe event and every component has to feel it, which is the one thing that distinguishes it from a bullet"
 				% [_main_impact, crash_hurt, MotorModel.MOTOR_COUNT])
