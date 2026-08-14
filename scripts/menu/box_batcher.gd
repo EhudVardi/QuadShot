@@ -18,6 +18,14 @@ var _by_material: Dictionary = {}
 
 ## Queue a box; its offset and yaw are baked into the shared, material-keyed mesh.
 func add(size: Vector3, at: Vector3, material: Material, yaw: float = 0.0) -> void:
+	add_transformed(size, Transform3D(Basis(Vector3.UP, yaw), at), material)
+
+
+## The same, for boxes that are not upright — a turbine blade, a guy wire, a
+## bridge stay. Yaw alone cannot express any of those, and the alternative was a
+## MeshInstance3D each, which is exactly the per-box draw call this class exists
+## to collapse.
+func add_transformed(size: Vector3, at: Transform3D, material: Material) -> void:
 	var st: SurfaceTool = _by_material.get(material)
 	if st == null:
 		st = SurfaceTool.new()
@@ -25,7 +33,7 @@ func add(size: Vector3, at: Vector3, material: Material, yaw: float = 0.0) -> vo
 		_by_material[material] = st
 	var box: BoxMesh = BoxMesh.new()
 	box.size = size
-	st.append_from(box, 0, Transform3D(Basis(Vector3.UP, yaw), at))
+	st.append_from(box, 0, at)
 
 
 ## Commit one merged MeshInstance3D per material under `parent`, then reset.

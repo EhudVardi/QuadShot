@@ -16,6 +16,18 @@ uniform float grid_width = 1.5;
 // Grid emission fades to nothing by this camera distance (kills far moire).
 uniform float fade_distance = 130.0;
 
+// A SECOND, COARSER GRID every `major_every` cells — off at 0, which is every
+// scene that existed before the scale yard needed it. One grid is a texture;
+// two are a RULER, because the eye can count ten small cells into one big one
+// and read a distance off the ground without a HUD. It carries its own fade
+// because the whole point is that it survives to a range where the fine grid
+// has long since dissolved into moire.
+uniform float major_every = 0.0;
+uniform vec3 major_color: source_color = vec3(0.55, 0.90, 1.0);
+uniform float major_energy = 3.5;
+uniform float major_width = 2.5;
+uniform float major_fade_distance = 2400.0;
+
 varying vec3 world_pos;
 
 void vertex() {
@@ -33,6 +45,16 @@ void fragment() {
 	vec2 to_edge = abs(fract(coord - 0.5) - 0.5) / aa;
 	float line = 1.0 - min(min(to_edge.x, to_edge.y) / grid_width, 1.0);
 
-	float fade = 1.0 - smoothstep(0.0, fade_distance, distance(world_pos, CAMERA_POSITION_WORLD));
+	float camera_m = distance(world_pos, CAMERA_POSITION_WORLD);
+	float fade = 1.0 - smoothstep(0.0, fade_distance, camera_m);
 	EMISSION = grid_color * grid_energy * line * fade;
+
+	if (major_every > 0.5) {
+		vec2 mcoord = world_pos.xz / (cell_size * major_every);
+		vec2 maa = max(fwidth(mcoord), vec2(0.0001));
+		vec2 mto_edge = abs(fract(mcoord - 0.5) - 0.5) / maa;
+		float mline = 1.0 - min(min(mto_edge.x, mto_edge.y) / major_width, 1.0);
+		float mfade = 1.0 - smoothstep(0.0, major_fade_distance, camera_m);
+		EMISSION += major_color * major_energy * mline * mfade;
+	}
 }

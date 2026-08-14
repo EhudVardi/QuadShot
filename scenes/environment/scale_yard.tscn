@@ -1,0 +1,144 @@
+[gd_scene load_steps=13 format=3]
+
+; THE SCALE YARD (PLAN-FULL-SCALE phase 2). See `scripts/environment/scale_yard.gd`
+; for what is in it and why every dimension is a real measurement.
+;
+; NO LookController, DELIBERATELY, and this is the one thing to know before
+; editing the file. LookController re-applies the SHARED default_look_config.tres
+; over this Environment every frame, and that config carries `fog_density = 0.006`
+; - a haze that swallows everything past about 700 m. This map's whole job is
+; comparing near objects against far ones, so it authors its own atmosphere and
+; keeps it. It also means `user://look_config.tres` cannot silently override the
+; visibility here, which is plan risk 5 applied rather than re-learned: the
+; overlay's LOOK section is skipped in this scene and that is the trade.
+
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
+[ext_resource type="Shader" path="res://resources/neon_structure.gdshader" id="2_struct"]
+[ext_resource type="Script" path="res://scripts/environment/scale_yard.gd" id="3_yard"]
+
+; 10 m minor cells, 100 m majors. The ground is the map's first ruler: ten small
+; squares make one big one, your aircraft is a third of a small one, and the
+; majors survive out to 2.4 km so distance stays readable at cruise.
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("1_checker")
+shader_parameter/cell_size = 10.0
+shader_parameter/grid_energy = 1.8
+shader_parameter/fade_distance = 500.0
+shader_parameter/major_every = 10.0
+shader_parameter/major_energy = 3.0
+shader_parameter/major_fade_distance = 2400.0
+
+; 6 km square, which is two triangles either way - a 3 km plane showed its own
+; hem as soon as the pilot climbed, because "past the fog" is a claim about a
+; sight line and climbing changes the sight line. The collision underneath is an
+; infinite plane regardless, so leaving the mesh is only ever a visual event.
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(6000, 6000)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="ShaderMaterial" id="mat_structure"]
+shader = ExtResource("2_struct")
+
+; Vehicles, people and airliners: lit, not emissive. They have to read as REAL
+; objects sitting in the world, because their whole job is to be things you
+; already know the size of - a glowing neon car is a prop, a grey one is a car.
+[sub_resource type="StandardMaterial3D" id="mat_prop"]
+albedo_color = Color(0.66, 0.68, 0.72, 1)
+roughness = 0.75
+
+; Ground paint and the height comb. Emission energy stays under the 1.0 bloom
+; threshold so markings read as painted lines rather than as neon accents - the
+; palette's emissive slots mean things (cyan navigation, red threat, amber
+; course) and a runway stripe is not laying claim to one.
+[sub_resource type="StandardMaterial3D" id="mat_paint"]
+albedo_color = Color(0.82, 0.84, 0.88, 1)
+roughness = 0.7
+emission_enabled = true
+emission = Color(0.85, 0.88, 0.95, 1)
+emission_energy_multiplier = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_tarmac"]
+albedo_color = Color(0.08, 0.085, 0.1, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.2, 0.7, 0.35, 1)
+emission_enabled = true
+emission = Color(0.15, 0.85, 0.4, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="StandardMaterial3D" id="mat_gate"]
+albedo_color = Color(0.1, 0.55, 0.7, 1)
+emission_enabled = true
+emission = Color(0.1, 0.7, 0.95, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.1, 0.13, 0.22, 1)
+sky_horizon_color = Color(0.5, 0.42, 0.42, 1)
+sky_curve = 0.12
+ground_horizon_color = Color(0.4, 0.34, 0.32, 1)
+ground_bottom_color = Color(0.08, 0.07, 0.09, 1)
+sun_angle_max = 20.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+; The greybox mood, with the fog opened up from 0.006 to 0.0009: at the old
+; density the wind farm 1.1 km out was a rumour. This one still reads as haze
+; (about 40% of the light survives 1 km) while leaving the far half of the map
+; visible, which is the depth cue the whole map runs on.
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.0
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.62, 0.56, 0.66, 1)
+fog_sun_scatter = 0.2
+fog_density = 0.0009
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.35
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.12
+
+[node name="ScaleYardEnvironment" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.4
+shadow_enabled = true
+directional_shadow_max_distance = 400.0
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+[node name="ScaleYard" type="Node3D" parent="."]
+script = ExtResource("3_yard")
+structure = SubResource("mat_structure")
+prop = SubResource("mat_prop")
+paint = SubResource("mat_paint")
+tarmac = SubResource("mat_tarmac")
+pad_material = SubResource("mat_pad")
+gate_material = SubResource("mat_gate")

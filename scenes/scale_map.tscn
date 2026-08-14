@@ -1,0 +1,90 @@
+[gd_scene load_steps=16 format=3]
+
+; THE SCALE MAP (PLAN-FULL-SCALE phase 2, second attempt).
+;
+; The venue for the S.q8 flight verdict: is TWR 12 the right feel for a 3 m
+; manned aircraft, or should throttle_curve afford a much higher one?
+;
+; The first venue was `scenes/desert_map.tscn` and it could not answer the
+; question - *"the desert is not good to feel the change"*. Dunes have no known
+; size, so a 3 m aircraft and a 30 m one fly them identically. This map replaces
+; the landscape with objects whose real sizes the pilot already carries in their
+; head: people, cars, containers, houses, a football pitch, two airliners, a
+; runway, pylons, wind turbines and an altitude ruler.
+;
+; Deliberately bare of combat, exactly as the desert was: `Main` runs in
+; free_flight so arming flies without starting a run, and the signal leash is off
+; so the whole 3 km is reachable.
+
+[ext_resource type="PackedScene" path="res://scenes/environment/scale_yard.tscn" id="1_yard"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="2_drone"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="4_main"]
+[ext_resource type="Script" path="res://scripts/chase_camera.gd" id="5_chase"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="6_overlay"]
+[ext_resource type="Resource" path="res://resources/default_combat_config.tres" id="7_ccfg"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="8_pool"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="9_hud"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="11_sfx"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="14_acfg"]
+[ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="18_bind"]
+[ext_resource type="Script" path="res://scripts/combat/wave_director.gd" id="20_waves"]
+[ext_resource type="PackedScene" path="res://scenes/combat/exit_gate.tscn" id="21_gate"]
+[ext_resource type="PackedScene" path="res://scenes/ui/draft_screen.tscn" id="22_draft"]
+[ext_resource type="Script" path="res://scripts/environment/frame_switcher.gd" id="23_swap"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("4_main")
+combat_config = ExtResource("7_ccfg")
+input_bindings = ExtResource("18_bind")
+signal_lost_m = 0.0
+free_flight = true
+
+[node name="ScaleYardEnvironment" parent="." instance=ExtResource("1_yard")]
+
+; ScaleYard's own _ready calls `place_at` to put the pilot on the pad, so this
+; transform is only where the drone waits for one frame.
+[node name="Drone" parent="." instance=ExtResource("2_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("8_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("11_sfx")
+audio_config = ExtResource("14_acfg")
+
+; Chase distance/height come from the FlightConfig at runtime (42.9 / 12.9 on the
+; scaled Kestrel); this transform is only the first frame's placement.
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13, 43)
+script = ExtResource("5_chase")
+target = NodePath("../Drone")
+
+; No `look_config`: this scene has no LookController, so the LOOK section is
+; skipped rather than editing an atmosphere nothing would apply.
+[node name="DebugOverlay" parent="." instance=ExtResource("6_overlay") node_paths=PackedStringArray("drone")]
+drone = NodePath("../Drone")
+combat_config = ExtResource("7_ccfg")
+audio_config = ExtResource("14_acfg")
+input_bindings = ExtResource("18_bind")
+
+; INERT, and present only because `main.gd` reaches for them by path - the same
+; three quiet children the desert map carries, for the same reason.
+[node name="WaveDirector" type="Node" parent="."]
+script = ExtResource("20_waves")
+combat_config = ExtResource("7_ccfg")
+
+[node name="ExitGate" parent="." instance=ExtResource("21_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -400, 0)
+
+[node name="DraftScreen" parent="." instance=ExtResource("22_draft")]
+
+[node name="Hud" parent="." instance=ExtResource("9_hud")]
+
+; THE SIZE LADDER, on keys 1 / 2 / 3 (V10). Declared after Hud so the NodePath
+; below resolves to a node that already exists in the file.
+[node name="FrameSwitcher" type="Node" parent="." node_paths=PackedStringArray("drone", "hud")]
+script = ExtResource("23_swap")
+drone = NodePath("../Drone")
+hud = NodePath("../Hud")
+frame_ids = PackedStringArray("kestrel", "condor", "roc")
