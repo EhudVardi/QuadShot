@@ -81,6 +81,17 @@ func jinks() -> bool:
 	return evasion_style == STYLE_JINK
 
 
+## FrameConfig is the third many-instance config and was the only one that never
+## declared its identity, which was survivable while `kestrel` and `atlas` were
+## the whole roster and nothing swapped frames at runtime. The size ladder (V10)
+## makes it reachable: save a FRAME preset on the Roc, load it onto the Kestrel,
+## and `copy_from` renames the Kestrel to `roc` — which then saves its tuning over
+## `user://frame_roc.tres`. Exactly the failure the FlightConfig and EnemyConfig
+## versions of this function already prevent.
+func identity_fields() -> PackedStringArray:
+	return PackedStringArray(["frame_id", "display_name"])
+
+
 func save_path() -> String:
 	return "user://frame_%s.tres" % frame_id
 

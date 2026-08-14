@@ -8,8 +8,40 @@ extends RigidBody3D
 
 enum FlightMode { ACRO, ANGLE }
 
+## THE AIRFRAME'S PROPORTIONS, as fractions of `FlightConfig.body_m`. Taken from
+## the hand-authored 0.28 m Kestrel that every one of these numbers reproduces
+## exactly, so the roster's size ladder (kestrel 0.28 m, condor 1.2 m, roc 3.0 m)
+## is one scene rather than three.
+##
+## `arm_length` is deliberately NOT in this list even though the Kestrel's arm is
+## 0.4286 x its body: the arm is a physics quantity that the motor mixer reads
+## every tick, so it stays an authored config field and the MOTOR MESHES are
+## placed from it. A frame is free to be a wide-armed 3 m machine or a compact
+## one, and the picture follows the physics rather than the other way round.
+const BODY_HEIGHT_RATIO: float = 0.2857
+const MOTOR_SIZE_RATIO: float = 0.1786
+const MOTOR_HEIGHT_RATIO: float = 0.0893
+const MOTOR_LIFT_RATIO: float = 0.1875
+const NOSE_LIFT_RATIO: float = 0.1786
+const NOSE_REACH_RATIO: float = 0.3929
+## Near plane as a fraction of body size, floored at Godot's usual 0.05. The
+## floor is load-bearing at the small end: the 0.28 m Kestrel's lens sits inside
+## its own hull, and a near plane that scaled all the way down would suddenly
+## render the inside of the airframe in front of the pilot.
+const NEAR_PLANE_RATIO: float = 0.0667
+const NEAR_PLANE_MIN: float = 0.05
+
 ## Hard contact; main converts delta-v to crash damage (roadmap M2).
 signal crashed(impact_speed: float)
+## The airframe changed under everything holding a reference to it (V10).
+##
+## `config` is a DIFFERENT FlightConfig instance after a swap, so anything that
+## cached the old one is now editing a frame nobody is flying. The debug overlay
+## did exactly that and it cost a flight: the FPV angle slider kept working on the
+## Kestrel and did nothing on the Roc, because it was still writing to the
+## Kestrel's resource. Everything else in the tree re-reads `drone.config` per
+## call and needs no signal — the overlay builds controls once, so it needs this.
+signal frame_changed
 
 ## The airframe being flown (GAMEPLAY-DESIGN P3.3/P3.9). Swapping frames is
 ## swapping this one resource: it carries the flight model AND the hull.
@@ -110,27 +142,7 @@ func _ready() -> void:
 			picked = _frame_from_cmdline()
 		if picked != null:
 			frame = picked
-	config = frame.flight_config
-	print("[frame] flying %s (mass %.2f kg, hull %.0f, armor %.0f)"
-			% [frame.display_name, config.mass, frame.hull, frame.armor])
-	if not frame.flight_config_matches():
-		push_error("[frame] %s carries a flight config for '%s'"
-				% [frame.frame_id, config.frame_id])
-	if load_user_overrides:
-		if frame.load_from_user():
-			print("[config] loaded %s" % frame.loaded_from)
-		if config.load_from_user():
-			print("[config] loaded %s" % config.loaded_from)
-	mass = config.mass
-	# The frame owns the hull, and applies it HERE rather than in main.gd. That
-	# move closes a hole in the instrument: the benches instantiate this scene
-	# directly and never ran main's wiring, so they measured whatever default sat
-	# on the Health node while the game measured CombatConfig.player_max_health.
-	# The two agreed at 100 by luck; tuning one would have silently desynced the
-	# harness's damage-taken column from the game's.
-	($Health as Health).max_health = frame.hull
-	($Health as Health).armor = frame.armor
-	($Health as Health).revive()
+	_adopt_frame()
 	if damage_config != null:
 		# Every other config auto-loads its user:// override on boot; this one
 		# did not, so saved damage tuning was silently ignored until the
@@ -170,6 +182,102 @@ func _process(_delta: float) -> void:
 func _apply_camera_config() -> void:
 	_fpv_camera.fov = config.fpv_fov_deg
 	_fpv_camera.rotation_degrees.x = config.fpv_uptilt_deg
+
+
+## Everything that depends on WHICH frame this is. Called from `_ready` and again
+## from `swap_frame`, so the two can never drift — which they would, because the
+## list is seven things long and six of them are easy to forget.
+func _adopt_frame() -> void:
+	config = frame.flight_config
+	print("[frame] flying %s (%.2f m, mass %.2f kg, TWR %.1f, hull %.0f, armor %.0f)"
+			% [frame.display_name, config.body_m, config.mass,
+			config.thrust_to_weight_ratio, frame.hull, frame.armor])
+	if not frame.flight_config_matches():
+		push_error("[frame] %s carries a flight config for '%s'"
+				% [frame.frame_id, config.frame_id])
+	if load_user_overrides:
+		if frame.load_from_user():
+			print("[config] loaded %s" % frame.loaded_from)
+		if config.load_from_user():
+			print("[config] loaded %s" % config.loaded_from)
+	mass = config.mass
+	# The frame owns the hull, and applies it HERE rather than in main.gd. That
+	# move closes a hole in the instrument: the benches instantiate this scene
+	# directly and never ran main's wiring, so they measured whatever default sat
+	# on the Health node while the game measured CombatConfig.player_max_health.
+	# The two agreed at 100 by luck; tuning one would have silently desynced the
+	# harness's damage-taken column from the game's.
+	($Health as Health).max_health = frame.hull
+	($Health as Health).armor = frame.armor
+	($Health as Health).revive()
+	_apply_frame_geometry()
+
+
+## Build the airframe's body, motors and lens at this frame's size.
+##
+## FRESH Mesh AND Shape RESOURCES EVERY TIME, never edits of the ones the .tscn
+## carries. Sub-resources in a PackedScene are shared across every instance of
+## it, so resizing them in place would mean a bench spawning three drones had one
+## airframe whose size was decided by whichever instance readied last.
+func _apply_frame_geometry() -> void:
+	var body: float = config.body_m
+	var hull := Vector3(body, body * BODY_HEIGHT_RATIO, body)
+	var collision := BoxShape3D.new()
+	collision.size = hull
+	($Collision as CollisionShape3D).shape = collision
+	($Body as MeshInstance3D).mesh = _sized_box(($Body as MeshInstance3D).mesh, hull)
+
+	var motor := Vector3(body * MOTOR_SIZE_RATIO, body * MOTOR_HEIGHT_RATIO,
+			body * MOTOR_SIZE_RATIO)
+	var lift: float = body * MOTOR_LIFT_RATIO
+	var arm: float = config.arm_length
+	for corner: Array in [["MotorFL", -1.0, -1.0], ["MotorFR", 1.0, -1.0],
+			["MotorBL", -1.0, 1.0], ["MotorBR", 1.0, 1.0]]:
+		var node: MeshInstance3D = get_node(NodePath(corner[0])) as MeshInstance3D
+		node.mesh = _sized_box(node.mesh, motor)
+		node.position = Vector3(float(corner[1]) * arm, lift, float(corner[2]) * arm)
+	var nose: MeshInstance3D = $NoseMarker
+	nose.mesh = _sized_box(nose.mesh, motor)
+	nose.position = Vector3(0.0, body * NOSE_LIFT_RATIO, -body * NOSE_REACH_RATIO)
+
+	# The lens is placed, not scaled — see FlightConfig.fpv_offset.
+	_fpv_camera.position = config.fpv_offset
+	_fpv_camera.near = maxf(body * NEAR_PLANE_RATIO, NEAR_PLANE_MIN)
+
+
+## A new BoxMesh at `size`, keeping whatever material the old one carried — the
+## body's material lives ON the mesh resource, so replacing the mesh without
+## carrying it over would repaint the airframe white.
+func _sized_box(previous: Mesh, size: Vector3) -> BoxMesh:
+	var box := BoxMesh.new()
+	box.size = size
+	if previous is BoxMesh:
+		box.material = (previous as BoxMesh).material
+	return box
+
+
+## Change airframe in place, on the pad, without reloading the scene (V10).
+##
+## THE POINT IS BACK-TO-BACK COMPARISON, which is the only way the size ladder
+## says anything: *"being able to fly them both IN THE SAME EXACT ENV' will
+## absolutely give me the sense of scale."* Reloading the scene per frame would
+## work and would put a load screen between the two halves of the comparison.
+##
+## It always disarms and always zeroes velocity: swapping airframe mid-manoeuvre
+## would hand the new frame the old one's momentum, and 500 kg at 140 m/s
+## arriving inside a 0.65 kg body is not a comparison, it is a physics incident.
+func swap_frame(next: FrameConfig) -> void:
+	if next == null or next == frame:
+		return
+	disarm()
+	frame = next
+	_adopt_frame()
+	_apply_camera_config()
+	_motors.repair()
+	_rate_controller.reset()
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	frame_changed.emit()
 
 
 func _physics_process(delta: float) -> void:

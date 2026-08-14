@@ -1,3 +1,14 @@
+; THE KESTREL — 0.28 m, 0.65 kg, TWR 4.5. A 5-inch RC quad, and the roster's
+; DATUM in every sense: P3.4 defines its whole balance column as zeros, and since
+; 2026-08-10 it is also the low end of the SIZE ladder (kestrel / condor / roc).
+;
+; It was briefly overwritten with the 3 m aircraft's numbers while phase 2 was
+; being built. Those numbers now live in `default_flight_roc.tres` and this file
+; is back to exactly what it was on `master` — bit for bit, plus the two fields
+; the size ladder added. **That restoration is load-bearing:** the whole point of
+; flying the Kestrel in the scale yard is to feel the world be ten times larger
+; around the machine you already know, and a Kestrel with the Roc's TWR would not
+; be that machine.
 [gd_resource type="Resource" script_class="FlightConfig" load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://resources/flight_config.gd" id="1_cfg"]
@@ -5,22 +16,23 @@
 [resource]
 script = ExtResource("1_cfg")
 frame_id = &"kestrel"
-mass = 500.0
-arm_length = 1.286
-thrust_to_weight_ratio = 12.0
+mass = 0.65
+arm_length = 0.12
+body_m = 0.28
+thrust_to_weight_ratio = 4.5
 motor_lag_tau = 0.05
 motor_idle = 0.05
-yaw_authority = 132453.5
+yaw_authority = 1.5
 reverse_thrust_scale = 0.8
-max_rate_deg = Vector3(160, 160, 150)
+max_rate_deg = Vector3(580, 580, 550)
 expo = Vector3(0.3, 0.3, 0.3)
 gyro_lpf_hz = 90.0
 dterm_lpf_hz = 70.0
 rc_smoothing_hz = 0.0
-rate_p = Vector3(0.02807, 0.02807, 0.02807)
-rate_i = Vector3(0.00802, 0.00802, 0.00802)
-rate_d = Vector3(0.0001203, 0.0001203, 0.0001203)
-rate_ff = Vector3(0.003208, 0.003208, 0.003208)
+rate_p = Vector3(0.007, 0.007, 0.007)
+rate_i = Vector3(0.002, 0.002, 0.002)
+rate_d = Vector3(3e-05, 3e-05, 3e-05)
+rate_ff = Vector3(0.0008, 0.0008, 0.0008)
 ff_lpf_hz = 20.0
 integral_limit = 0.2
 crash_iterm_decay = 1.0
@@ -32,12 +44,13 @@ stick_deadzone = 0.08
 throttle_curve = 2
 max_angle_deg = 56.0
 angle_p = 6.0
-drag_coefficient = 3.444
-angular_damping = 1147.9
-fpv_uptilt_deg = 12.0
+drag_coefficient = 0.03
+angular_damping = 0.013
+fpv_offset = Vector3(0, 0.03, -0.08)
+fpv_uptilt_deg = 48.0
 fpv_fov_deg = 94.0
-chase_distance = 42.9
-chase_height = 12.9
+chase_distance = 3.5
+chase_height = 1.2
 chase_smoothing = 8.0
 pause_time_scale = 0.03
 autopilot_tilt_deg_per_ms = 4.0

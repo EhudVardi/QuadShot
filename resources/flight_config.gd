@@ -19,6 +19,15 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 @export var frame_id: StringName = &"kestrel"
 @export var mass: float = 0.65
 @export var arm_length: float = 0.12
+## Body size across the frame (m), motor mounts excluded. The airframe's VISUAL
+## and COLLISION size are built from this at runtime by
+## `FlightController._apply_frame_geometry`, so one roster can hold a 0.28 m quad
+## and a 3 m manned aircraft without a scene each.
+##
+## It lives here beside `mass` and `arm_length` rather than on FrameConfig for
+## that class's own stated reason: a physics dimension with two homes has no rule
+## for which one wins.
+@export var body_m: float = 0.28
 
 @export_group("Motors")
 @export var thrust_to_weight_ratio: float = 4.5
@@ -117,7 +126,33 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 @export var angular_damping: float = 0.02
 
 @export_group("Camera")
-@export var fpv_uptilt_deg: float = 25.0
+## Where the lens sits on the airframe, in body-local metres.
+##
+## AUTHORED PER FRAME, NEVER DERIVED, and that is the whole point of the field.
+## Every other dimension here scales with the body; this one does not, because
+## its correctness depends on CLEARING GEOMETRY rather than on proportion. At
+## 0.28 m the lens sits *inside* the hull and the near plane harmlessly clips the
+## hull away; scale that same offset to 3 m by the same factor and the camera is
+## buried in a solid airframe with the nose marker filling the screen. That bug
+## was shipped once (PLAN-FULL-SCALE risk 3) and this field is what stops it
+## coming back: **scaling a camera OFFSET is not the same as scaling a camera
+## POSITION.**
+@export var fpv_offset: Vector3 = Vector3(0.0, 0.03, -0.08)
+## Camera tilt above the airframe's forward axis.
+##
+## THE SAME ON EVERY FRAME, AND THE REASON IS PHYSICS RATHER THAN TASTE — this
+## corrects a wrong guess made on 2026-08-10, when the ladder's frames were given
+## 44 / 22 / 12 degrees on the theory that a big aircraft flies flatter than a
+## racing quad. It does not. **A multirotor flies forward by pointing its thrust
+## backward**, so the faster it goes the further the nose drops, and the camera
+## has to tilt UP by that much just to keep the horizon in frame. More thrust
+## means MORE uptilt, not less. The user's correction, from flying all three:
+## *"drones are meant to be flown forward, and the faster they go the more angle
+## they need to compensate for the crazy thrust they push... so basically they
+## all should have the same start angle."*
+##
+## 48 degrees is their number for all three, with the Roc sometimes wanting more.
+@export var fpv_uptilt_deg: float = 48.0
 @export var fpv_fov_deg: float = 115.0
 @export var chase_distance: float = 3.5
 @export var chase_height: float = 1.2
@@ -147,6 +182,24 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 ## The single-frame save path from before frames existed. Read once as a
 ## fallback, never written — see load_from_user().
 const LEGACY_SAVE_PATH: String = "user://flight_config.tres"
+
+
+## Roughly how fast this airframe can go: the speed at which aerodynamic drag
+## eats the whole thrust budget. Drag is `drag_coefficient * |v| * v`, so setting
+## it equal to `mass * g * TWR` and solving gives this.
+##
+## IT EXISTS BECAUSE "FAST" IS A PER-FRAME QUANTITY NOW and constants that assumed
+## otherwise are quietly wrong across a size ladder. The wind rush saturated at a
+## hard-coded 35 m/s, which is about right for the Kestrel (31) and means the Roc
+## (131) flies four fifths of its envelope with the speed cue already pinned at
+## maximum — the sound stops telling you anything exactly where it matters most.
+##
+## Approximate on purpose: it ignores the tilt needed to point thrust forward, so
+## it reads high. It is a SCALE, not a speed limit, and nothing enforces it.
+func terminal_speed() -> float:
+	if drag_coefficient <= 0.0001:
+		return 100.0
+	return sqrt(mass * 9.8 * thrust_to_weight_ratio / drag_coefficient)
 
 
 func identity_fields() -> PackedStringArray:

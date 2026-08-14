@@ -16,7 +16,7 @@
 [ext_resource type="Script" path="res://scripts/combat/flak_pod.gd" id="14_flak"]
 
 [sub_resource type="BoxShape3D" id="shape_frame"]
-size = Vector3(3, 0.857, 3)
+size = Vector3(0.28, 0.08, 0.28)
 
 [sub_resource type="StandardMaterial3D" id="mat_frame"]
 albedo_color = Color(0.15, 0.15, 0.17, 1)
@@ -29,13 +29,13 @@ emission_energy_multiplier = 2.0
 
 [sub_resource type="BoxMesh" id="mesh_frame"]
 material = SubResource("mat_frame")
-size = Vector3(3, 0.857, 3)
+size = Vector3(0.28, 0.08, 0.28)
 
 [sub_resource type="BoxMesh" id="mesh_motor"]
-size = Vector3(0.536, 0.268, 0.536)
+size = Vector3(0.05, 0.025, 0.05)
 
 [node name="Drone" type="RigidBody3D" groups=["player"]]
-mass = 500.0
+mass = 0.65
 can_sleep = false
 contact_monitor = true
 max_contacts_reported = 4
@@ -51,15 +51,14 @@ script = ExtResource("2_mm")
 [node name="InputHandler" type="Node" parent="."]
 script = ExtResource("4_ih")
 
-; THE COCKPIT SITS AHEAD OF AND ABOVE THE AIRFRAME, which it did not have to at
-; 0.28 m: a camera buried in a palm-sized body was clipped away by the near
-; plane and nobody noticed. At 3 m the same offset puts the lens inside a solid
-; hull and the nose marker fills the screen. Scaling a camera OFFSET is not the
-; same as scaling a camera POSITION - this one has to clear geometry.
+; EVERY DIMENSION IN THIS SCENE IS THE KESTREL'S, AND EVERY ONE OF THEM IS
+; REBUILT AT RUNTIME from the frame's `body_m` / `arm_length` / `fpv_offset`
+; (FlightController._apply_frame_geometry). They are authored here so the scene
+; is legible in the editor and so the datum frame is visible in the file — but a
+; Roc instantiating this scene is a 3 m aircraft by the first frame.
 [node name="FpvCamera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -1.85)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.08)
 current = true
-near = 0.2
 
 [node name="Weapon" type="Node3D" parent="FpvCamera"]
 script = ExtResource("5_wpn")
@@ -94,26 +93,26 @@ shape = SubResource("shape_frame")
 mesh = SubResource("mesh_frame")
 
 [node name="NoseMarker" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0000, 0.5357, -1.1786)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -0.11)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_front")
 
 [node name="MotorFL" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2857, 0.5625, -1.2857)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.0525, -0.12)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_front")
 
 [node name="MotorFR" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2857, 0.5625, -1.2857)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.0525, -0.12)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_front")
 
 [node name="MotorBL" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2857, 0.5625, 1.2857)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.0525, 0.12)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_frame")
 
 [node name="MotorBR" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2857, 0.5625, 1.2857)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.0525, 0.12)
 mesh = SubResource("mesh_motor")
 material_override = SubResource("mat_frame")

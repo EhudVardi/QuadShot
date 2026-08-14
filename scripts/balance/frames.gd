@@ -23,10 +23,29 @@ extends RefCounted
 
 const KESTREL: String = "kestrel"
 const ATLAS: String = "atlas"
+## THE SIZE LADDER (GAMEPLAY-DESIGN V10), and it is a different axis from the
+## Kestrel/Atlas one. Those two differ in hull, mass and rates at ONE size; these
+## differ in SIZE at one hull — 0.28 m, 1.2 m, 3.0 m — which is what makes them
+## worth flying back to back in the scale yard.
+const CONDOR: String = "condor"
+const ROC: String = "roc"
 
-## The slice's two frames (P3.10). Dart and Shade join when falx and the intel
-## war arrive to justify them.
-const ROSTER: Array[String] = [KESTREL, ATLAS]
+## The slice's frames (P3.10). Dart and Shade join when falx and the intel war
+## arrive to justify them.
+##
+## THE TWO NEW FRAMES ARE IN THE ROSTER ON PURPOSE, and it costs something worth
+## naming: `all_configs()` feeds the delivery stamp, so adding them changes it and
+## the committed delivery factors stop being considered current. That is the
+## correct outcome — the roster genuinely moved — and it is this file's own stated
+## rule (*"a new frame joins the stamp the day it lands"*). It also puts them in
+## front of `hover_check`, which flies every roster entry, so a size ladder that
+## cannot hold a hover fails the board rather than surprising a pilot.
+##
+## They are deliberately NOT in `Hangar.FRAMES` or the menu tower's leaf list:
+## those are the CAMPAIGN's frames, and an experimental airframe on a branch has
+## no business in the game's front door — which at 3 m it could not fly through
+## anyway (V.q6).
+const ROSTER: Array[String] = [KESTREL, ATLAS, CONDOR, ROC]
 
 
 static func config(frame_id: String) -> FrameConfig:

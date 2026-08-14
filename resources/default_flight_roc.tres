@@ -1,0 +1,73 @@
+; THE ROC — 3.0 m, 500 kg, TWR 12. Named by the user after the giant bird of
+; myth, and the name is doing honest work: the Kestrel and the Condor are real
+; birds at real sizes, and this one is not. It is the FICTIONAL end of the ladder
+; (GAMEPLAY-DESIGN V6: honest physics, fictional propulsion).
+;
+; These are the phase 2 numbers exactly as flown and approved on 2026-08-10
+; ("an absolute trip... a flying MONSTER"). Every one is derived from the Kestrel
+; by a stated law at S = 10.714, EXCEPT the three that are choices:
+;
+;   mass 500 kg   - cubic scaling would give 799 kg. A deliberately light frame,
+;                   0.63x that density. Note this buys NO agility (V6: mass
+;                   cancels out of angular acceleration) - it buys top speed and
+;                   braking, because drag deceleration goes as area/mass.
+;   TWR 12        - the fiction dial. 4.5 would be honest for a real machine and
+;                   would fly like a helicopter.
+;   fpv_offset    - authored, never scaled. See FlightConfig.fpv_offset.
+;
+; Derived, and the laws are worth keeping because the Condor was built with them:
+;   arm_length      = body x 0.4286      (the Kestrel's own ratio)
+;   drag_coefficient x S^2               (it multiplies |v|.v, so it carries area)
+;   angular_damping x mass.arm^2         (inertia, to hold the damping ratio)
+;   yaw_authority   x mass.arm^2         (same)
+;   max_rate_deg    x agility ratio      (what TWR 12 at this arm can reach)
+;   rate PID gains  / agility ratio      (a less responsive airframe needs
+;                                         proportionally more command)
+; where agility ratio = (TWR/arm) / (TWR/arm)_kestrel = 0.249 here.
+[gd_resource type="Resource" script_class="FlightConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/flight_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+frame_id = &"roc"
+mass = 500.0
+arm_length = 1.286
+body_m = 3.0
+thrust_to_weight_ratio = 12.0
+motor_lag_tau = 0.05
+motor_idle = 0.05
+yaw_authority = 132453.5
+reverse_thrust_scale = 0.8
+max_rate_deg = Vector3(160, 160, 150)
+expo = Vector3(0.3, 0.3, 0.3)
+gyro_lpf_hz = 90.0
+dterm_lpf_hz = 70.0
+rc_smoothing_hz = 0.0
+rate_p = Vector3(0.02807, 0.02807, 0.02807)
+rate_i = Vector3(0.00802, 0.00802, 0.00802)
+rate_d = Vector3(0.0001203, 0.0001203, 0.0001203)
+rate_ff = Vector3(0.003208, 0.003208, 0.003208)
+ff_lpf_hz = 20.0
+integral_limit = 0.2
+crash_iterm_decay = 1.0
+iterm_error_gate_deg = 300.0
+iterm_relax_hz = 15.0
+iterm_relax_threshold_deg = 40.0
+input_profile = 0
+stick_deadzone = 0.08
+throttle_curve = 2
+max_angle_deg = 56.0
+angle_p = 6.0
+drag_coefficient = 3.444
+angular_damping = 1147.9
+fpv_offset = Vector3(0, 0.85, -1.85)
+fpv_uptilt_deg = 48.0
+fpv_fov_deg = 94.0
+chase_distance = 42.9
+chase_height = 12.9
+chase_smoothing = 8.0
+pause_time_scale = 0.03
+autopilot_tilt_deg_per_ms = 4.0
+autopilot_climb_gain = 0.08
+arm_throttle_threshold = 0.05

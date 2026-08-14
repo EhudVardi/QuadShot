@@ -1,0 +1,19 @@
+; THE CONDOR — the size ladder's middle rung (GAMEPLAY-DESIGN V10). 1.2 m, 32 kg,
+; and the frame that exists to answer "where is the sweet spot between a 5-inch
+; quad and a manned machine".
+;
+; `hull` 100 and `evasion_style` jink for the same reasons as the Roc: V.q4 is
+; open, so size stays the only variable, and no reference pilot has flown this
+; airframe so its evasion identity is a default rather than a measurement.
+[gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
+[ext_resource type="Resource" path="res://resources/default_flight_condor.tres" id="2_flight"]
+
+[resource]
+script = ExtResource("1_frame")
+frame_id = &"condor"
+display_name = "Condor"
+flight_config = ExtResource("2_flight")
+hull = 100.0
+evasion_style = &"jink"

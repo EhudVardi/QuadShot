@@ -1,0 +1,25 @@
+; THE ROC — the size ladder's high end (GAMEPLAY-DESIGN V2, flown and approved
+; 2026-08-10). A 3 m manned aircraft: *"once i lifted off, i feel the x10 momentum
+; that this quad has."*
+;
+; `hull` is 100, the same as every other frame, because V.q4 is still open: are
+; hull/armor physical quantities or abstract game currency? Until that is
+; answered, holding them equal across the ladder keeps SIZE the only variable —
+; which is the whole point of being able to fly all three in one map.
+;
+; `evasion_style` is stated because a roster's evasion identity should be readable
+; in the roster's files — but it is NOT measured for this frame. The jink was
+; measured best for the Kestrel and worst for the Atlas (v1.81); nobody has flown
+; the reference pilot in a 500 kg airframe. Treat it as a default, not a finding.
+[gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
+[ext_resource type="Resource" path="res://resources/default_flight_roc.tres" id="2_flight"]
+
+[resource]
+script = ExtResource("1_frame")
+frame_id = &"roc"
+display_name = "Roc"
+flight_config = ExtResource("2_flight")
+hull = 100.0
+evasion_style = &"jink"

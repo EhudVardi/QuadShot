@@ -1,0 +1,71 @@
+; THE CONDOR — 1.2 m, 32 kg, TWR 12. The user's ask, 2026-08-10: *"a new quad
+; with about the size of ~1m to 1.5m... I want to see how the momentum will carry
+; with its reduced weight, while keeping the same thrust/weight ratio."*
+;
+; Named for the largest bird that actually flies, which is exactly its place on
+; the ladder: kestrel (real, small) -> condor (real, large) -> roc (myth). One
+; string changes the name if you want a different one.
+;
+; NOTHING HERE IS TUNED. Every number is DERIVED from the Kestrel by the laws
+; recorded in `default_flight_roc.tres`, at this body size, and 32 kg is the same
+; airframe density the Roc was given (18.5 kg/m^3, a deliberately light frame).
+; It is a starting point for hands, not a verdict from a bench.
+;
+; ONE PREDICTION WORTH TESTING AGAINST, because it is the interesting half of the
+; user's question and the arithmetic is counter-intuitive: at a fixed TWR,
+; **reducing mass does not reduce momentum in any way you can feel**. Linear
+; acceleration is g x TWR whatever the mass, and angular acceleration is
+; (TWR / arm) with mass cancelled out entirely. What the smaller frame actually
+; buys is:
+;   - agility: 62% of the Kestrel's, against the Roc's 25% - 2.5x the Roc
+;   - braking: drag deceleration goes as area/mass, so 1/S. This frame sheds
+;     speed 2.5x faster than the Roc and the Kestrel sheds it 6.7x faster.
+; So if the Condor feels less "heavy" than the Roc, it is the turn rate and the
+; air resistance doing it, not the tonnage.
+[gd_resource type="Resource" script_class="FlightConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/flight_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+frame_id = &"condor"
+mass = 32.0
+arm_length = 0.5143
+body_m = 1.2
+thrust_to_weight_ratio = 12.0
+motor_lag_tau = 0.05
+motor_idle = 0.05
+yaw_authority = 1356.4
+reverse_thrust_scale = 0.8
+max_rate_deg = Vector3(360, 360, 340)
+expo = Vector3(0.3, 0.3, 0.3)
+gyro_lpf_hz = 90.0
+dterm_lpf_hz = 70.0
+rc_smoothing_hz = 0.0
+rate_p = Vector3(0.01125, 0.01125, 0.01125)
+rate_i = Vector3(0.003214, 0.003214, 0.003214)
+rate_d = Vector3(4.822e-05, 4.822e-05, 4.822e-05)
+rate_ff = Vector3(0.001286, 0.001286, 0.001286)
+ff_lpf_hz = 20.0
+integral_limit = 0.2
+crash_iterm_decay = 1.0
+iterm_error_gate_deg = 300.0
+iterm_relax_hz = 15.0
+iterm_relax_threshold_deg = 40.0
+input_profile = 0
+stick_deadzone = 0.08
+throttle_curve = 2
+max_angle_deg = 56.0
+angle_p = 6.0
+drag_coefficient = 0.551
+angular_damping = 11.755
+fpv_offset = Vector3(0, 0.34, -0.74)
+fpv_uptilt_deg = 48.0
+fpv_fov_deg = 94.0
+chase_distance = 15.0
+chase_height = 5.14
+chase_smoothing = 8.0
+pause_time_scale = 0.03
+autopilot_tilt_deg_per_ms = 4.0
+autopilot_climb_gain = 0.08
+arm_throttle_threshold = 0.05
