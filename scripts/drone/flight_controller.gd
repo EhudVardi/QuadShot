@@ -148,7 +148,22 @@ func _ready() -> void:
 		# did not, so saved damage tuning was silently ignored until the
 		# overlay's Load button was pressed — the one config whose edits
 		# vanished between sessions.
-		if damage_config.load_from_user():
+		#
+		# GATED ON `load_user_overrides` LIKE EVERY OTHER CONFIG, and it was not
+		# until 2026-08-14. `Frames.build` turns that flag off precisely so a
+		# bench measures the REPO's numbers and not one machine's tuning — but
+		# this line sat outside the guard, so every bench in the suite quietly
+		# adopted whatever the human had saved into user://damage_config.tres.
+		# `motor_min_thrust` reaches the flight model on the very next tick, so
+		# this was a live channel from a human's overlay into the instrument.
+		#
+		# It was HARMLESS THE DAY IT WAS FOUND — the saved file happened to carry
+		# no property overrides at all, so it loaded the script's own defaults,
+		# which match the repo's — and that is exactly why it is worth a comment.
+		# A leak that currently agrees with the truth is a leak nobody will
+		# notice on the day it stops agreeing (scar 1: *check what user:// is
+		# overriding before believing any config experiment*).
+		if load_user_overrides and damage_config.load_from_user():
 			print("[config] loaded %s" % damage_config.save_path())
 		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_spawn_transform = global_transform
