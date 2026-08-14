@@ -33,8 +33,8 @@ harmless.
 
 | # | task | status | finding |
 |---|---|---|---|
-| 1 | Crash damage as peak deceleration (E6, E10 step 1) | WIP | |
-| 2 | `crash_check.gd` — the guard for task 1 | TODO | |
+| 1 | Crash damage as peak deceleration (E6, E10 step 1) | DONE | `v^2/(2*s*g)` with ONE frame-independent crush distance; Kestrel's free band and 28.667 m/s lethal speed both exact; the tick cannot supply a deceleration, so `s` had to be authored |
+| 2 | `crash_check.gd` — the guard for task 1 | WIP | |
 | 3 | HUD scale audit: range ticks, reticle, radar (scar 3) | TODO | |
 | 4 | Component registry as data, no new failure modes (E10 step 2) | TODO | |
 | 5 | Derived hit location generalised beyond rotors (E.q2) | TODO | |
