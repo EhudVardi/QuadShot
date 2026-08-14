@@ -520,7 +520,7 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
-## 4. The check suite — 23 headless checks
+## 4. The check suite — 24 headless checks
 
 Run all of them before believing anything:
 
@@ -531,7 +531,55 @@ Run all of them before believing anything:
 `hover`, `combat`, `wave`, `missile`, `run`, `repair`, `motor_damage`, `menu`,
 `manifest`, `sortie_compose`, `lethality`, `falx`, `screamer`, `composition`,
 `heat`, `ammo`, `sortie`, `war_loop`, `war_room`, `aegis`, `lance`, `phalanx`,
-`terrain`.
+`terrain`, `crash`.
+
+`crash_check` (2026-08-15) is the newest and it landed the same day as the
+mechanic it guards — GAMEPLAY-DESIGN Iteration 17 / E6, where crash damage
+became **peak deceleration**, `v^2 / (2 * s * g)`, instead of a raw delta-v.
+Four claims, each two runs differing in one thing:
+
+1. **Mass is not a shield.** The Kestrel and the Atlas share a 0.28 m body and
+   differ only in mass (0.65 vs 1.24 kg), which makes them the roster's one
+   controlled comparison — everything else changes size and mass together. The
+   whole ladder is walked beside them **at a held approach speed**, because
+   without that the 500 kg frame arrives measurably faster than the 0.65 kg one
+   (drag scales with area over mass) and a mass comparison quietly becomes a drag
+   comparison. Measured before the hold existed: a 6% spread, all of it run-up.
+2. **A landing is free and a wall is not** — 3.7 g against 816 g, 219x apart,
+   with the 73.5 g free threshold between them.
+3. **Faster is worse, QUADRATICALLY**, and this is the stage that tells the new
+   law from the old one. The old delta-v law was *linear* in speed and still
+   more-than-doubled its damage on a doubled speed, because a free threshold
+   makes any linear law convex — so "superlinear damage" passes on both. Only
+   the **g ratio** separates them, and it must read 4.00.
+4. **A crash loads every component; a bullet loads one.** It boots `main.tscn`
+   rather than re-wiring the crash -> hull -> rotors chain locally, because that
+   chain lives in main and a check that rebuilt it would be marking its own
+   homework.
+
+**Six mutations are on record and each fails a different sentence** — restore
+the linear law, scale the crush distance with `body_m`, fray one rotor on a
+crash, ignore the hit direction, return zero damage, and delete main's
+`last_hit_direction` clear.
+
+**The last one PASSED the first version of this file, and that is the lesson.**
+The crash was flown on a clean airframe, where the bearing field is empty
+anyway, so deleting the guard changed nothing. A crash only frays all four
+rotors because `apply_hit_to_motors` finds *no* direction — and a hit the
+plating eats entirely never emits a damage event, so nothing clears the bearing
+it set (the Atlas ships with 3 armor, so this is reachable in the game). The
+crash is now flown with that stale bearing deliberately planted, and the
+mutation fails immediately.
+
+**It also found a live `user://` leak**, which is scar 1 again: `main.gd:_ready`
+calls `load_from_user()` on the *shared* `default_combat_config.tres`, so every
+check that boots `main.tscn` — `repair_check` and `run_check` too — measures
+whatever the human last saved. Seven configs come in that way. It is harmless
+today only because the saved files override unrelated fields and everything else
+falls back to the script's defaults, which currently match the `.tres`.
+`crash_check` defends itself (a `CACHE_MODE_IGNORE` private copy for its ruler,
+and `reset_to_defaults()` on main's own config and damage config); **the leak
+itself is still open and is not this check's to close.**
 
 `terrain_check` (2026-08-08) is the newest and it guards the ground (P1.9). **The
 ground is SMOOTH** — a terraced/voxel version was built, flown and rejected the
