@@ -277,6 +277,39 @@ const _LOOK_FLOAT_ROWS: Array[Array] = [
 
 
 func _ready() -> void:
+	# The panel is rebuilt whenever the airframe changes: every control below is
+	# bound to the CONFIG INSTANCE it was built against, and a frame swap replaces
+	# that instance (V10). Without this the FLIGHT sliders keep tuning the frame
+	# you are no longer flying — silently, because they still show plausible
+	# numbers and still move.
+	drone.frame_changed.connect(_rebuild)
+	# The three buttons live OUTSIDE the generated panel, so they survive a
+	# rebuild — and must therefore be wired once here rather than in `_build`,
+	# which would re-connect them on every frame swap.
+	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
+	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
+	$Panel/VBox/Buttons/DefaultsButton.pressed.connect(_on_defaults)
+	_build()
+
+
+## Tear the generated panel down and build it again against whatever the drone
+## is flying now. Cheap (a few hundred controls) and it happens on a keypress
+## while parked, never mid-flight.
+func _rebuild() -> void:
+	for container: VBoxContainer in [_tuning, _motors_box]:
+		for child: Node in container.get_children():
+			# remove_child before queue_free: the free is DEFERRED, so a rebuild
+			# in the same frame would otherwise append its rows underneath the
+			# corpses of the old ones.
+			container.remove_child(child)
+			child.queue_free()
+	_refreshers.clear()
+	_motor_bars.clear()
+	_capture_action = &""
+	_build()
+
+
+func _build() -> void:
 	_configs = [drone.frame, drone.config, combat_config, audio_config]
 	if damage_config != null:
 		_configs.append(damage_config)
@@ -338,9 +371,6 @@ func _ready() -> void:
 		_add_section_header("WEATHER (todo)")
 		_add_preset_bar("weather", weather_config)
 		_add_config_rows(weather_config, _WEATHER_FLOAT_ROWS, [])
-	$Panel/VBox/Buttons/SaveButton.pressed.connect(_on_save)
-	$Panel/VBox/Buttons/LoadButton.pressed.connect(_on_load)
-	$Panel/VBox/Buttons/DefaultsButton.pressed.connect(_on_defaults)
 
 
 func _process(_delta: float) -> void:
@@ -802,6 +832,22 @@ func _add_slider(parent: Container, label_text: String, min_value: float,
 	value_label.custom_minimum_size.x = 64.0
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var slider := HSlider.new()
+	# A ROSTER CAN SPAN SIZES AND A SPEC TABLE CANNOT KNOW THAT. The flight rows
+	# were authored around a 0.65 kg quad — mass 0.2..2, TWR 1.5..8, arm 0.05..0.3
+	# — and the Roc is 500 kg at TWR 12 on a 1.286 m arm. Every one of those sits
+	# outside its slider.
+	#
+	# THE FAILURE MODE IS THE DANGEROUS KIND: an out-of-range value displays
+	# correctly (the readout asks the config, not the slider) and the slider is
+	# silently parked at its own limit, so the first drag DOES NOT nudge the
+	# number — it snaps a 500 kg airframe to 2 kg. Widening to admit the value
+	# that is actually there costs nothing on frames that were always in range,
+	# which is every frame the tables were written for.
+	var initial: float = getter.call()
+	if initial > max_value:
+		max_value = initial * 1.5
+	if initial < min_value:
+		min_value = minf(0.0, initial * 1.5)
 	slider.min_value = min_value
 	slider.max_value = max_value
 	slider.step = step
