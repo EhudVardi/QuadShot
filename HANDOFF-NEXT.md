@@ -65,19 +65,26 @@ it set, and the Atlas ships with 3 armor**: that state is reachable in the game,
 and it is now planted on the drone before the drop. Same family as the Phalanx's
 tracking mutation: *fixing what a test fires on does not fix what it reads.*
 
-**4. A LIVE `user://` LEAK INTO EVERY CHECK THAT BOOTS `main.tscn`, AND IT IS
-STILL OPEN.** `main.gd:_ready` calls `load_from_user()` on the **shared**
+**4. A LIVE `user://` LEAK INTO EVERY CHECK THAT BOOTS A SCENE — FOUND AND
+CLOSED.** `main.gd:_ready` calls `load_from_user()` on the **shared**
 `default_combat_config.tres`, and seven configs come in that way —
 `frame_kestrel`, `damage_config`, `audio_config`, `enemy_raider`,
-`input_bindings`, `weather_config`, `combat_config`. So `repair_check`,
-`run_check` and `crash_check` all measure whatever the human last saved. It is
-harmless *today* only because the saved files override unrelated fields and
-everything else falls back to script defaults that currently match the `.tres` —
-which is precisely the shape of the `damage_config` leak closed on 2026-08-14.
-`crash_check` defends itself (a `CACHE_MODE_IGNORE` private ruler, and
-`reset_to_defaults()` on main's combat and damage configs). **Closing it properly
-is unclaimed work**: `Frames.build` solves this for the drone with
-`load_user_overrides = false`, and `main.tscn` has no equivalent flag.
+`input_bindings`, `weather_config`, `combat_config`. **Ten checks boot a whole
+scene, not the three first suspected**: ammo, combat, composition, crash, heat,
+missile, repair, run, sortie, wave. Every one of them was measuring whatever the
+human last saved. It was harmless *today* only because the saved files override
+unrelated fields and everything else falls back to script defaults that currently
+match the `.tres` — which is precisely the shape of the `damage_config` leak
+closed on 2026-08-14, and which also means **baking a new default into a `.tres`
+without changing the script default would have silently desynced the board**.
+
+Closed at the one place that covers all seven: `TunableConfig.user_overrides_enabled`,
+a static checked inside `load_from_user` *before* `force`, so not even the
+overlay's LOAD button can pull a human's file into an instrument. It is opt-OUT,
+because the game is the common case and must keep loading the human's tuning.
+**The inverse was verified too, and it is the half that could have failed
+silently:** the game still loads all six on boot, so a fix that disabled user
+overrides everywhere — which would have passed every check — did not happen.
 
 **5. MEASURE, DO NOT REASON — it paid three times in one run.** A probe that
 built drones and hit them inside `_initialize` read "all four rotors destroyed"
@@ -146,6 +153,12 @@ mount and magazine as fractions of `body_m`; they are `built: false` and
 **it must land before L6.3's single re-measure or that re-measure happens
 twice.**
 
+**One thing a new check author still has to remember:** a check that boots a
+scene must set `TunableConfig.user_overrides_enabled = false` in its
+`_initialize`. There is no way to detect "this process is an instrument" from
+inside the engine, so it is asserted rather than inferred. If a new check reads
+suspiciously like the human's tuning, that line is the first thing to look for.
+
 ### 2. THE DELIVERY STAMP IS STALE, DELIBERATELY
 
 `hexa` joined `Frames.ROSTER`, so `Frames.all_configs()` moved and the committed
@@ -188,8 +201,9 @@ says so at the point someone would reach for it).
 - **GAMEPLAY-DESIGN.md is APPEND-ONLY** and is CRLF.
 - **Treat warnings as errors**, including the engine's leaked-ObjectDB warning at
   exit.
-- **Never write to `user://` from a bench or check** — and see finding 4 above
-  for the read side, which is still open.
+- **Never write to `user://` from a bench or check**, and never READ it either:
+  set `TunableConfig.user_overrides_enabled = false` in any check that boots a
+  scene (finding 4).
 - **Keep Bash calls simple.** The project now has a `.claude/settings.json`
   allowlisting the Godot headless invocations; **the exe path in those patterns
   is unquoted**, so invoke it without quotes. `git add`/`git commit` are
@@ -213,7 +227,9 @@ see the scale-audit block at the head of `reticle_solver.gd`, which also records
 the condition under which each verdict expires.
 
 **Check what `user://` is overriding before believing any config experiment.**
-See finding 4 — still open on the `main.tscn` side.
+Twice now: `damage_config` on 2026-08-14, and the whole scene-boot path on
+2026-08-15. Both were harmless the day they were found, which is exactly why
+both were worth closing. See finding 4.
 
 **Ask of every check "would this still pass if the feature were deleted?"** Seven
 mutations are on record in `crash_check` alone, and the one that mattered is the
