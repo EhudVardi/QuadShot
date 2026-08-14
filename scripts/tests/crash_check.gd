@@ -96,12 +96,14 @@ var _main_wait: int = 0
 
 
 func _initialize() -> void:
-	# CACHE_MODE_IGNORE, so this check's ruler is a PRIVATE copy of the repo file
-	# that nothing else in the process can reach. A plain `load` returns the same
-	# cached instance `main.tscn` exports — and main calls `load_from_user` on it
-	# during `_ready`, so the moment claim 4 boots main, the arithmetic claims 1
-	# to 3 were measured with would be silently overwritten by whatever the human
-	# last saved into `user://combat_config.tres`. Scar 1, found live in this file.
+	# An instrument measures the REPO's numbers, never one machine's tuning. This
+	# file is where that leak was found: `main.gd:_ready` calls `load_from_user`
+	# on the SHARED default_combat_config.tres, so booting main.tscn for claim 4
+	# would have overwritten the very arithmetic claims 1 to 3 were measured with.
+	TunableConfig.user_overrides_enabled = false
+	# CACHE_MODE_IGNORE keeps this check's ruler a PRIVATE copy even so. Belt and
+	# braces on purpose: the switch above is one line in a file anyone can edit,
+	# and a ruler that can be mutated by the thing it is measuring is not a ruler.
 	_combat = ResourceLoader.load("res://resources/default_combat_config.tres",
 			"", ResourceLoader.CACHE_MODE_IGNORE) as CombatConfig
 	for frame_id: String in Frames.ROSTER:
@@ -381,21 +383,14 @@ func _run_bullet() -> void:
 		# `load_user_overrides = false`; main has no such flag, so a check that
 		# boots it has to say so itself.
 		#
-		# main.tscn pulls SEVEN of them in — frame_kestrel, damage_config,
-		# audio_config, enemy_raider, input_bindings, weather_config and
-		# combat_config — which is correct for the GAME and wrong for an
-		# instrument. The two this stage's result actually rides on are put back:
-		# combat_config prices the crash, damage_config decides how much of that
-		# price reaches the rotors, and both are re-read live so a reset after
-		# boot is enough.
-		var live: CombatConfig = _main.get("combat_config") as CombatConfig
-		if live != null:
-			live.reset_to_defaults()
-		if _main_drone.damage_config != null:
-			_main_drone.damage_config.reset_to_defaults()
-			if _main_drone.damage_config.severity <= 0.0:
-				_fail("the repo ships DamageConfig.severity at 0, so a hit degrades nothing and this stage cannot distinguish a crash from a bullet")
-				return
+		# The per-config `reset_to_defaults` calls that used to sit here are gone:
+		# `TunableConfig.user_overrides_enabled` is set false in `_initialize`,
+		# which closes the leak for all seven configs main.tscn pulls in rather
+		# than for the two this stage happens to ride on.
+		if _main_drone.damage_config != null \
+				and _main_drone.damage_config.severity <= 0.0:
+			_fail("the repo ships DamageConfig.severity at 0, so a hit degrades nothing and this stage cannot distinguish a crash from a bullet")
+			return
 		# Never armed: an armed drone starts a run, and a run brings waves that
 		# would shoot the rotors this stage is counting (repair_check's rule).
 		_main_drone.last_hit_direction = (_main_drone.global_basis

@@ -23,6 +23,8 @@ var _max_lock_progress: float = 0.0
 
 
 func _initialize() -> void:
+	# An instrument measures the REPO's numbers, never one machine's tuning.
+	TunableConfig.user_overrides_enabled = false
 	var scene: PackedScene = load("res://scenes/main.tscn")
 	_main = scene.instantiate() as Node3D
 	root.add_child(_main)

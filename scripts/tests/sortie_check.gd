@@ -44,6 +44,8 @@ var _probed: bool = false
 
 
 func _initialize() -> void:
+	# An instrument measures the REPO's numbers, never one machine's tuning.
+	TunableConfig.user_overrides_enabled = false
 	_check_spec_shape()
 	_check_every_trigger_has_a_firing_site()
 	_check_ingress()

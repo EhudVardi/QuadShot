@@ -41,6 +41,8 @@ var _locked_ticks: int = 0
 
 
 func _initialize() -> void:
+	# An instrument measures the REPO's numbers, never one machine's tuning.
+	TunableConfig.user_overrides_enabled = false
 	_main = (load("res://scenes/main.tscn") as PackedScene).instantiate() as Node3D
 	root.add_child(_main)
 	_ticks_max = int(MAX_SECONDS * float(Engine.physics_ticks_per_second))

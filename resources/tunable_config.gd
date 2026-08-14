@@ -19,6 +19,28 @@ var loaded_from: String = ""
 ## overlay's LOAD button passes force to genuinely re-read.
 static var _session_loaded: Dictionary = {}
 
+## THE INSTRUMENT SWITCH. False means "this process is a bench or a check, so
+## every config reads the REPO's numbers and `user://` does not exist".
+##
+## `FlightController.load_user_overrides` closed exactly this hole for the DRONE
+## and `Frames.build` turns it off for every bench — but a check that boots a
+## whole scene gets no such lever, and `main.tscn` alone pulls in seven configs:
+## frame_kestrel, damage_config, audio_config, enemy_raider, input_bindings,
+## weather_config and combat_config. So `repair_check`, `run_check` and
+## `crash_check` were all quietly measuring whatever the human last saved.
+##
+## IT WAS HARMLESS ON THE DAY IT WAS FOUND, which is the whole reason it is worth
+## closing: the saved files happened to override unrelated fields, so everything
+## else fell back to the script's defaults, which currently match the `.tres`
+## files. A leak that agrees with the truth is one nobody notices on the day it
+## stops agreeing — the same sentence the `damage_config` leak earned on
+## 2026-08-14, now applied one layer up.
+##
+## Set it in a check's `_initialize`, BEFORE any scene is instantiated. It is
+## deliberately opt-OUT rather than opt-in: the game is the common case and must
+## keep loading the human's tuning, so the default has to be true.
+static var user_overrides_enabled: bool = true
+
 
 func save_path() -> String:
 	return ""
@@ -63,6 +85,10 @@ func _mark_session_loaded() -> void:
 
 
 func load_from_user(force: bool = false) -> bool:
+	# Checked before `force`, so even the overlay's LOAD button cannot pull a
+	# human's file into an instrument.
+	if not user_overrides_enabled:
+		return false
 	if not force and session_loaded():
 		return false
 	if not FileAccess.file_exists(save_path()):

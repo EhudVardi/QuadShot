@@ -53,6 +53,8 @@ var _started: bool = false
 
 
 func _initialize() -> void:
+	# An instrument measures the REPO's numbers, never one machine's tuning.
+	TunableConfig.user_overrides_enabled = false
 	_check_table()
 	if not _failures.is_empty():
 		_report()
