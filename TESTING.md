@@ -209,7 +209,86 @@ comparisons came back "bit-for-bit identical" on literal text.
 <godot> --path . scenes/sortie.tscn       a COMPOSED SORTIE from the war (see below)
 <godot> --path . scenes/war_room.tscn     the WAR ROOM - the campaign as a map
 <godot> --path . scenes/aim_drill.tscn    the human aim drill (see §5)
+<godot> --path . scenes/scale_map.tscn   the SCALE YARD - how big am I? (see below)
+<godot> --path . scenes/desert_map.tscn  6 km of dunes - the terrain venue (see §4)
 ```
+
+### The scale yard (PLAN-FULL-SCALE phase 2, branch `full-scale`)
+
+```
+<godot> --path . scenes/scale_map.tscn
+```
+
+**Three flyable airframes at three sizes, in one unchanged world** (V10). Arm and
+fly; there is no combat, no run, no signal leash.
+
+```
+1   KESTREL   0.28 m,   0.65 kg,  TWR 4.5   — the original 5-inch quad, untouched
+2   CONDOR    1.20 m,  32 kg,     TWR 12    — the middle rung
+3   ROC       3.00 m, 500 kg,     TWR 12    — the manned aircraft
+```
+
+**Press 1, 2 or 3 at any time.** The airframe changes on the spot and you are put
+back on the pad, disarmed. All three are parked side by side on the apron at true
+size with a person standing beside them, so the ladder is visible before it is
+flown. **Fly the same route twice on two frames** — that is the whole instrument,
+and it is why the swap is instant rather than a scene reload.
+
+**The overlay follows the swap** (fixed 2026-08-12). Every FLIGHT and FRAME
+control rebinds to the frame you are now flying, so `fpv_uptilt_deg` and the rest
+tune the airframe in your hands. Before the fix they kept writing to whichever
+frame was loaded at boot, so the camera angle moved on the Kestrel and did
+nothing on the other two. **The sliders also widen to admit values the spec table
+never anticipated** — the flight rows were authored around a 0.65 kg quad, so on
+the Roc the mass slider was pinned at its 2 kg maximum and the first drag would
+have snapped a 500 kg airframe down to it.
+
+**To boot straight into one airframe** instead of starting on the Kestrel — worth
+it when you want a clean session on one frame with no chance of a stray keypress:
+
+```
+<godot> --path . scenes/scale_map.tscn -- --frame roc
+<godot> --path . scenes/scale_map.tscn -- --frame condor
+```
+
+Keys 1/2/3 still work afterwards; `--frame` only picks what you start in.
+
+V.q8 (is TWR 12 right?) was answered YES by hands on 2026-08-10 and is being left
+open on purpose: *"nothing to solidify at the moment, more playing around."*
+
+**It exists because the desert could not answer it.** *"The desert is not good to
+feel the change"* — and that is correct, because **a dune has no known size**. So
+this map is the opposite: every object in it is built at a **real measured
+size**, and the whole map is a set of things you have stood next to.
+
+What to look at, roughly in order:
+
+- **On the pad**, press **X** for the chase camera, then **1 / 2 / 3** to walk
+  the size ladder. The three parked frames are just west of the pad with a
+  1.75 m person at the end of the row.
+- **The arc in front of you at 45 m**: person (1.75 m), cars in 2.5 x 5 m bays,
+  a 12 m bus, a 16.5 m truck, a stack of 12.19 m containers, an 8.5 m house.
+  They are on an **arc, not a line**, so they are all at the same range and
+  their apparent sizes are directly comparable.
+- **The airfield, ~500 m north**: a 37.6 m airliner and a 70.6 m widebody parked
+  beside a 45 m-wide runway. **This is the comparison the whole overhaul is
+  about** — park next to the widebody.
+- **The hangar's mouth is 60 x 18 m.** Fly into it.
+- **The gate course** running north: 40 m, 32 m, 26 m, 20 m, 14 m apertures,
+  labelled. Solid bars, so clipping one costs you. Find your own limit.
+- **The height comb behind the pad**: poles at 10 / 25 / 50 / 100 / 200 / 400 m.
+  Fly level with a labelled tip and you know your altitude without an
+  instrument.
+- **The ground grid is a ruler**: 10 m minor cells, 100 m majors, so ten small
+  squares make one big one out to 2.4 km.
+- Also out there: a 105 x 68 m football pitch, a 45 m pylon line at 220 m
+  spacing (count towers to read distance), 135 m wind turbines, a 150 m mast,
+  and a bridge with **32 m of clearance** to fly under.
+
+**Every label turns to face you**, states the object's real size, and switches
+off outside its own reading distance, so each group announces itself as you
+approach. Nothing in this map is ever scaled by S — a ruler that gets scaled
+stops being a ruler.
 
 ### The war room (Iteration 13, phase 1 of five)
 

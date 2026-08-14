@@ -1,8 +1,26 @@
 # PLAN-FULL-SCALE.md — the aircraft-scale overhaul
 
-**Status: STEERED. Phase 1 is answered, Phase 2 is BUILT and awaiting a flight
-verdict. Lives on branch `full-scale`; discarding the branch discards the whole
-experiment.** Written 2026-08-09.
+> ## THIS PLAN IS SUPERSEDED, 2026-08-12.
+>
+> **V.q10 was answered: the SIZE LADDER, not the conversion pass.** The world
+> stays at real human scale permanently and the ROSTER spans sizes (Kestrel
+> 0.28 m / Condor 1.2 m / Roc 3.0 m). The user: *"the answer is 100% - Option 1,
+> the ladder... maybe in the future we'll have to do some rescaling of the entire
+> thing"* — so Phase 3 is shelved, not deleted.
+>
+> **Phases 1, 2 and 2.5 happened and are described below; Phases 3–6 are now
+> history rather than a plan.** Phase 4 (terrain) and Phase 5 (the large sortie)
+> survive as work items inside the successor.
+>
+> **The live document is GAMEPLAY-DESIGN.md's Iteration 16 — L: The Ladder
+> Becomes The Game.** Read that first; this file is kept for the physics
+> derivations in §3, the conversion laws in §4, and the record of how the fork
+> was reached.
+
+**Status: SUPERSEDED (see above). Phases 1, 2 and 2.5 are DONE and the branch is
+23/23 GREEN.** Lives on branch `full-scale`. Written 2026-08-09. The design
+record is GAMEPLAY-DESIGN.md's **Iteration 15 — V: Full Scale** plus **V10**,
+continued in **Iteration 16 — L**; see §8 for why the IDs differ there.
 
 Read [CLAUDE.md](CLAUDE.md), [TESTING.md](TESTING.md) and
 [HANDOFF-NEXT.md](HANDOFF-NEXT.md) first. This document covers one thing: the
@@ -330,6 +348,29 @@ S = 10.714**. The GAMEPLAY-DESIGN Iteration is still unwritten.
 The Kestrel alone is scaled. Nothing else in the game is. Flown against the
 existing world it will be comically large, and that is *fine and informative*.
 
+**THE VENUE CHANGED, and why is the most useful thing Phase 2 has produced.**
+The first venue was `scenes/desert_map.tscn` and it could not answer the
+question: *"the desert is not good to feel the change."* **A dune has no known
+size** — neither does a noise function, a ridge or a horizon — so a 3 m aircraft
+and a 30 m aircraft fly that desert identically. Scale is not a property a world
+has; it is a **comparison** a world offers, and the more natural and procedural
+the landscape, the less it can say about size.
+
+So the venue is now **`scenes/scale_map.tscn`**, built to the user's own
+instruction (*"a simple world like we already had at the start, the neon minimal
+style, with some basic shapes to simulate real world size things"*): neon
+greybox, no combat, and every object in it built at a **real measured size** —
+a 1.75 m person, a 4.4 m car in a 2.5 x 5 m bay, a 12.19 m shipping container,
+a 105 x 68 m football pitch, a 37.6 m airliner beside a 70.6 m widebody, a 45 m
+runway, 45 m pylons at 220 m spacing, 135 m turbines, a 32 m bridge clearance,
+buildings labelled in FLOORS, and an altitude comb at 10/25/50/100/200/400 m.
+The human-scale objects stand on an **arc at a common 45 m range**, because down
+a straight line the far end looks smaller for the wrong reason.
+
+**Nothing in that map is ever scaled by S** — a ruler that gets scaled stops
+being a ruler. It is the fixed point everything else is measured against, and it
+does not change in Phase 3.
+
 | | before | after | law |
 |---|---|---|---|
 | body | 0.28 m | 3.0 m | ×S |
@@ -345,6 +386,42 @@ loop reaches half its commanded step in **150–233 ms** against roughly 20–50
 for the small quad. That slowness IS Option A rendered honestly.
 
 Deliverable: the human says whether that is a game they want to fly.
+
+### Phase 2.5 — THE SIZE LADDER, and the fork it opens — **BUILT 2026-08-10**
+
+**Phase 2 was flown and approved** (*"an absolute trip... I REALLY LIKE IT"*), and
+the user immediately asked for something the plan did not anticipate: **more than
+one aircraft, flyable back to back in the same world.** That is now built —
+Kestrel 0.28 m / Condor 1.2 m / Roc 3.0 m, keys 1/2/3 in the scale yard, swapped
+in place on the pad.
+
+**AND IT MAY MAKE PHASE 3 UNNECESSARY, which is a large enough claim to state
+plainly rather than bury.** Phase 3 converts every config by S: one world scale,
+every number moved, every balance figure void, the menu tower rebuilt, the city
+redesigned. The ladder reaches the same experience from the other direction —
+**the world holds still and the ROSTER spans sizes** — and it cost two config
+files.
+
+Three consequences, and the third is the evidence:
+
+1. It satisfies §1's D3 rule (*"there is exactly one world scale and everything
+   obeys it"*) **trivially rather than expensively**: the world's one scale is
+   real metres and airframes differ within it.
+2. **V.q6 and V.q7 mostly dissolve.** The menu tower and the city break for a 3 m
+   aircraft — but a 3 m aircraft becomes a CHOICE the pilot makes rather than the
+   only option, so "can the Roc fly the tower" turns from a blocker into a
+   property of that frame.
+3. **THE BOARD IS THE PROOF.** Phase 2 overwrote the Kestrel with the 3 m numbers,
+   which redefined the roster's datum, and §9 recorded that most of the 23 checks
+   were expected to fail as a result. Restoring the Kestrel bit-for-bit and
+   ADDING the Roc beside it puts the branch at **23/23 green with a larger
+   roster**. An additive change passes a board; a change that moves the datum does
+   not.
+
+**This is a fork for the human, not a decision taken.** It is V.q10. The cost of
+the ladder is that the campaign must eventually decide what a frame's SIZE means
+to it — enemy ranges, garrison spacing, the arena's dimensions — and that is a
+real design question rather than a small one.
 
 ### Phase 3 — The conversion pass
 
@@ -460,12 +537,20 @@ relaxing it until it passes.**
 
 Numbered so they can be answered by reference, in the project's own convention.
 
+**THE IDs BELOW ARE ALIASES.** This document's `D1–D5` and `S.qN` both collide
+inside GAMEPLAY-DESIGN.md — `D1–D9` already belong to Iteration 7's damage model
+and `S.q1–S.q10` to Iteration 9 — and that doc's whole convention is *react by
+ID*. So the design record (**Iteration 15 — V: Full Scale**, 2026-08-09) carries
+them as **V1–V5** and **V.q1–V.q8**, one to one, and adds **V.q9**. These names
+stay here because they are the ones in conversation; **new work cites the V
+numbers.**
+
 - ~~**S.q1**~~ **ANSWERED**: honest physics, fictional propulsion. See §3.3.
 - ~~**S.q2**~~ **ANSWERED**: 3.0 m, S = 10.714.
 - ~~**S.q5**~~ **ANSWERED**: everything scales uniformly, arcade arena included.
-- **S.q8** *(new)* — Is TWR 12 the right feel, or should the throttle curve be
-  used to afford a much higher one? This is the whole point of the Phase 2
-  flight and it cannot be answered from a bench.
+- **S.q8** (= **V.q8**) — Is TWR 12 the right feel, or should the throttle curve
+  be used to afford a much higher one? This is the whole point of the Phase 2
+  flight and it cannot be answered from a bench. **Fly `scenes/scale_map.tscn`.**
 - **S.q3** — Do game-pacing times scale (Froude) or stay put? Shield regen, vent
   cycles, wave intermissions, combo window.
 - **S.q4** — Are `hull`/`armor`/`damage` physical or abstract currency? If
@@ -482,14 +567,24 @@ Numbered so they can be answered by reference, in the project's own convention.
   is why it is a branch, and it is the user's own instruction after the voxel
   attempt had to be squashed out of `master`'s history instead.
 - **On `master`: board 23/23 green, tree clean, `PILOT_VERSION` 7.**
-- **On `full-scale` (`68f9193`): only the Kestrel and the desert test map are
-  scaled.** The rest of the game is at the old scale, so most of the board is
-  expected to fail there and that is not a regression — it is Phase 3's inventory
-  writing itself. `hover_check` and `terrain_check` DO pass and are the two worth
-  keeping green through Phase 2.
-- **The Phase 2 flight venue is `scenes/desert_map.tscn`**: 3 km of dunes, no
-  combat, `free_flight` on so arming does not start a run. The aircraft is put
-  down on the terrain by `TerrainEnvironment`.
+- **On `full-scale`: the board is 23/23 GREEN** as of 2026-08-10, and the earlier
+  note here (that most of it was expected to fail) is now history worth keeping —
+  see Phase 2.5 for why the failure list evaporated. **The Kestrel is back to its
+  exact `master` numbers**; the 3 m aircraft is the **Roc**, a new frame beside
+  it, and the **Condor** (1.2 m) is the middle rung. Nothing in the old game
+  moved.
+- **The Phase 2 flight venue is `scenes/scale_map.tscn`** — the scale yard (see
+  Phase 2 above). No combat, `free_flight` on so arming does not start a run, no
+  signal leash, flat ground so size comparisons are exact.
+  - It has **no `LookController`, deliberately**: that controller re-applies the
+    shared `default_look_config.tres` every frame, whose `fog_density = 0.006`
+    swallows everything past ~700 m — fatal for a map about comparing near
+    objects with far ones. The scene authors its own atmosphere at 0.0009, which
+    also means `user://look_config.tres` cannot silently override it. **That is
+    risk 5 applied rather than re-learned.** The cost: the overlay's LOOK
+    section is skipped in this scene.
+- **`scenes/desert_map.tscn` remains the TERRAIN venue** — 6 km of dunes, for
+  judging ground, not for judging scale.
 - **The terrain is built and is NOT wired into the game.** `scenes/terrain_map.tscn`
   and `scenes/desert_map.tscn` fly it; `main.tscn` and `sortie.tscn` do not
   reference it. See `TerrainField`, `TerrainMesh`, `terrain_check`.

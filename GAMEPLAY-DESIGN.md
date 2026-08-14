@@ -12509,3 +12509,1166 @@ being rediscovered as a red board when A.q1 lands.
     rather than a unit job, and P1.9's terrain is the one that unblocks the most:
     detection-on-sight, the approach's corridors and cover, A.q7's real answer,
     and anything that would ever move on the ground.
+
+## Iteration 15 — V: Full Scale (the manned aircraft, and the world that shows it) (PROPOSED, 2026-08-09 — user-initiated)
+
+> **The game stops being about small remote-controlled machines.** The user's
+> own framing: *"i'm considering removing the actual original assumption that we
+> are flying a radio drone, and instead we are IN the drone"*, and
+> *"one of the stones on my original dream is truly vast environments."* Six
+> decisions were taken in conversation, two of them are built, and the whole
+> experiment lives on branch `full-scale` so that discarding it is one command.
+> Sections **V1–V9**, open questions **V.q1–V.q8**; react by ID.
+>
+> **The working document is [PLAN-FULL-SCALE.md](PLAN-FULL-SCALE.md)**, which is
+> operational — phases, an inventory, a conversion procedure, ranked risks. This
+> entry is the DESIGN record: what was decided, what the physics actually says,
+> and what has to be answered by a human. Where they disagree the plan is newer.
+
+### V0 — The IDs were renumbered, and this is the only place that says so
+
+PLAN-FULL-SCALE.md numbers its decisions **D1–D5** and its questions
+**S.q1–S.q8**. Both collide inside this document: **D1–D9 already belong to
+Iteration 7's damage model** (D1 is *"damage is a flight-model event"*, D5 is the
+repair gate — both cited from live code comments), and **S.q1–S.q10 to Iteration
+9**, where S.q8 is *"what does a jam DO, mechanically"*. This doc's entire
+referencing convention is *react by ID*, which fails the moment an ID means two
+things.
+
+So the scale work takes **V**, which was free, and the mapping is one-to-one:
+
+| plan | here |
+|---|---|
+| D1–D5 | **V1–V5** |
+| S.q1, S.q2, S.q5 (answered) | **V.q1, V.q2, V.q5** |
+| S.q3, S.q4, S.q6, S.q7 | **V.q3, V.q4, V.q6, V.q7** |
+| **S.q8** — the TWR flight verdict | **V.q8** |
+
+The plan keeps its own names on its own pages, because the user has been using
+them in conversation and renaming a live question mid-flight is worse than
+carrying a translation table. **New work cites the V numbers.**
+
+### V1 — The pilot is IN the aircraft (decided; nothing built)
+
+The FPV radio-link premise goes. The video-feed breakup stays and is reframed:
+not a transmitter losing signal, but **a manned vehicle's optics failing** — the
+user's own carve-out, *"the vtx effects can still stay as mechanical limitations
+of a manned vehicle vision equipement."*
+
+**The strongest argument for it is not the fiction — it is that V1 fixes a
+contradiction that already shipped.** P5.4 costs a PILOT from the war room's
+roster when the aircraft dies, and it has done since Iteration 13. That has never
+made sense for an operator sitting in a bunker with a radio; it makes complete
+sense for someone aboard. **The campaign's most interesting resource stops being
+a bookkeeping oddity the moment V1 is adopted**, which is the kind of argument
+worth more than a mood.
+
+### V2 — The Kestrel becomes 3 m (BUILT)
+
+0.28 m to 3.0 m, so **S = 10.714**, and everything else in proportion. Built and
+committed on the branch:
+
+| | before | after | law |
+|---|---|---|---|
+| body | 0.28 m | 3.0 m | xS |
+| mass | 0.65 kg | 500 kg | deliberately UNDER cubic density — a light frame |
+| arm | 0.12 m | 1.286 m | xS |
+| TWR | 4.5 | 12.0 | the fiction dial (V6) |
+| max rate | 580 deg/s | 160 deg/s | what TWR 12 can actually reach |
+| drag coefficient | 0.03 | 3.444 | xS^2 (it multiplies \|v\|·v, so it carries area) |
+| angular damping | 0.013 | 1147.9 | x inertia, to hold the damping ratio |
+
+Measured, not assumed: `hover_check` passes at **0.000 m drift**, and the rate
+loop reaches half its commanded step in **150–233 ms** against roughly 20–50 ms
+for the small quad. **That slowness is not a bug and it is not tuning — it is the
+honest consequence of V6 rendered in milliseconds**, and whether it is a game
+worth flying is V.q8.
+
+### V3 — Two modes, one scale (decided; nothing built)
+
+The campaign sortie becomes a large navigated map — insert, cross, accomplish,
+escape. The arcade run stays an arena, because the wave director, the draft, the
+combo score and the exit gate are an arena game and are good at being one;
+stretching that loop over kilometres would ruin it.
+
+**But the arena is NOT exempt from the scale pass, and this was a correction the
+user had to make to an earlier draft:**
+
+> *"whatever happens to all the existing things we have, EVERYTHING is scaled the
+> same way. so for ex. the arena as the game mode environment is absolutely kept,
+> but it will scale with everything else. it would just stay a relatively confined
+> arena, as opposed to the vastness of the war room and the nodes maps."*
+
+**There is exactly one world scale and everything obeys it.** The arena grows by
+S along with everything in it and stays *relatively* confined. It is not
+stretched — the aircraft grew too, so the fight keeps its proportions.
+
+### V4 — The signal leash goes (decided; nothing built)
+
+Replaced by map edges with roughly a 100 m margin. The leash was always a
+radio-link mechanic (v1.40) and V1 deletes the radio. Note that the exploration
+scenes already set `signal_lost_m = 0`, so the code path for "no leash" is
+built and flown; what V4 changes is which scenes use it and what catches the
+pilot at the edge instead.
+
+### V5 — Vast terrain (BUILT, not wired in)
+
+`TerrainField` / `TerrainMesh`: smooth rolling ground, **6.1 km of reach in about
+93k triangles** across six concentric LOD rings, guarded by `terrain_check`.
+**Smooth, and permanently so** — a terraced/voxel version was built, flown and
+rejected the same day (*"voxels does not belong here, nor designing the ground as
+voxels"*), and the check's blockiness stages were inverted into smoothness stages
+rather than deleted, so nobody quietly puts the quantisation back.
+
+It is NOT referenced by `main.tscn` or `sortie.tscn`. Wiring it in is mostly
+**teaching the whole game to stop assuming the ground is flat at y = 0**, and
+that is a phase of its own.
+
+### V6 — THE PHYSICS, and the arithmetic that changed the argument
+
+This is the section the user asked for: *"most important is the scaling of
+everything, which im worry about, and how it affects the physics."*
+
+**One thing does not scale: gravity is 9.8 m/s² whatever you do.** Every
+consequence below follows from that single asymmetry.
+
+The naive table says mass goes as S³, moment of inertia as **S⁵**, torque as S³,
+and therefore angular acceleration as **S⁻²** — a 115x loss at S = 10.7, which is
+the difference between a freestyle quad and a helicopter. **That table assumes
+thrust stays realistic**, scaling as S² the way a propeller's disc area does.
+
+**The user rejected that assumption, and rejected both alternatives the agent
+offered.** Not arcade (*"sounds like faking which im not fond of"*), not
+split-by-airframe (*"feels like the worst - being indecisive"*). Instead:
+
+> *"if we are still talking about partially fiction world, what prevents us from
+> fictioning new technology that produces engines that have thrust/weight ratio
+> that are currently not achievable... the same way that an F1 car is an extreme
+> example of how a toy car would have behaved in a real world."*
+
+> *"keep real physics calculations, stretch technology to fiction, and see what
+> comes on the other side."*
+
+**AND THE ARITHMETIC SAYS THEY ARE RIGHT, which is the part that matters.**
+Derived properly:
+
+```
+angular acceleration  =  torque / inertia
+                      =  (c · Thrust · arm) / (k · mass · arm²)
+                      =  (c/k) · g · TWR / arm
+```
+
+**α ∝ TWR / arm_length. MASS CANCELS ENTIRELY.** Three consequences:
+
+1. **A light frame does not buy agility.** Only thrust-to-weight and size do. The
+   F1 analogy is exact — it is the engine, not the weight saving. (This also
+   quietly retires a whole family of future "make it lighter so it turns better"
+   proposals: they are arithmetically empty.)
+2. **The penalty is LINEAR in scale, not quadratic**, once thrust is free to be
+   fictional. At S = 10.7 you lose 10.7x, not 115x.
+3. **It is bought back by one number that already exists** with a slider on it.
+
+Measured on the real body:
+
+| | small quad | 3 m, TWR 12 | 3 m, TWR 48.2 |
+|---|---|---|---|
+| angular acceleration | 21,455 deg/s² | 5,341 deg/s² | 21,455 deg/s² |
+| agility vs. today | 100% | **25%** | **100%** |
+| hover throttle | 22% | 8.3% | **2.1%** |
+
+**THE REAL TRADE IS NOT AGILITY VERSUS REALISM. IT IS AGILITY VERSUS THROTTLE
+RESOLUTION.** A TWR high enough to restore FPV agility puts hover at 2% stick,
+which is unflyable without a throttle curve. `FlightConfig.throttle_curve` exists
+and is the obvious lever. **That is V.q8 and it cannot be answered from a bench.**
+
+For completeness, the lens this deliberately departs from: **Froude scaling**
+(length xS, time and speed x√S) is the classical answer for making a big thing
+*read* as big, and at S = 10.7 it makes everything happen ~3.3x slower with
+cruise speeds ~3.3x faster. The chosen answer departs from it by a stated amount
+— the TWR — which is the point of naming it at all.
+
+### V7 — SCALE IS A COMPARISON, NOT A PROPERTY (the finding this iteration is worth keeping for)
+
+Phase 2's first flight venue was 6 km of smooth desert, and the verdict came back
+in one sentence: ***"the desert is not good to feel the change."***
+
+**They are right, and the reason generalises well past this project.** A dune has
+no known size. Neither does a noise function, a ridge, or a horizon. **A 3 m
+aircraft and a 30 m aircraft fly that desert identically**, because there is
+nothing in frame whose size the pilot already carries in their head. The vast
+terrain succeeded completely at being vast and could not answer a question about
+scale, and those are not the same axis.
+
+**Scale is not a property a world has. It is a comparison a world offers.** The
+corollary is uncomfortable and worth stating plainly: **the more procedural and
+the more natural a landscape is, the less it can say about size.** Dunes, hills
+and rock are exactly the shapes with no canonical dimension. Everything that
+reads as a ruler is manufactured — a car, a door, a shipping container, a
+runway, a person.
+
+The user's own instruction was the fix: *"build a simple world like we already
+had at the start, the neon minimal style, with some basic shapes to simulate real
+world size things to get the sense of scale."*
+
+**So the scale yard exists** (`scenes/scale_map.tscn`,
+`scripts/environment/scale_yard.gd`): neon greybox, no combat, and every object
+in it built at a real measured size — a 1.75 m person, a 4.4 m car in a 2.5 x 5 m
+bay, a 12 m bus, a 16.5 m truck, a **12.19 m** shipping container because that is
+what a 40-foot container is, an 8.5 m house, a 105 x 68 m football pitch, a
+37.6 m airliner and a 70.6 m widebody, a 45 m runway, 45 m pylons at 220 m
+spacing, 135 m wind turbines, a 150 m mast, a 32 m bridge clearance, buildings
+labelled in FLOORS, and an altitude comb at 10/25/50/100/200/400 m.
+
+**Two design rules fell out of building it, and both are reusable:**
+
+1. **The reference row is an ARC, not a line.** Everything on it stands at the
+   same 45 m range from the pad, so apparent size is a fair comparison. Down a
+   straight line the far end looks smaller because it *is* further away, which is
+   precisely the confusion the map exists to remove.
+2. **A reference object is never scaled.** No multiplier was applied to any
+   dimension in that file and none ever should be. **The moment a ruler is
+   scaled it stops being a ruler** — which means this one map is immune to any
+   future change of world scale, and is the fixed point the rest is measured
+   against.
+
+Measured: 144 fps (vsync-pegged, no hitching), 222 draw calls, ~98k primitives.
+
+### V8 — What this costs, and it must be planned as ONE event
+
+**Every balance number in the project becomes void at the conversion pass.**
+Layer 1's arithmetic, Layer 2's delivery factors, Layer 3's survivability, every
+published counter-web band — all measured on a 0.28 m aircraft. This is not
+avoidable and it is not a disaster, but it must be scheduled as one event rather
+than discovered forty times: `PILOT_VERSION` bumps **once**, `tools/balance_report`
+runs **once** afterwards (~70 minutes), and **every number quoted in this document
+above this entry is historical.** The config stamp will refuse the old factors,
+which is exactly the situation it was built for. **Let it.**
+
+**The board is the safety net.** 23 checks, encoding behaviour rather than
+numbers, so most survive a scale change; the ones that break are the ones
+asserting distances, and **each break is informative — fix them by re-deriving
+the threshold from the new scale, never by relaxing it until it passes.**
+
+### V9 — Two traps already sprung, recorded because both looked correct
+
+1. **`user://` silently overrides scaled defaults.** A stale
+   `user://flight_kestrel.tres` kept the OLD rate gains on the scaled airframe
+   and made it look structurally unflyable. The tell was that an experiment
+   raising the gains 10x produced a **bit-identical** result: **a knob that
+   changes nothing is a knob that is not connected.** Check what `user://` is
+   overriding before believing any config experiment.
+2. **Scaling laws do not know about geometry.** The FPV camera's offset was
+   scaled correctly by xS and *that was the bug*. At 0.28 m a lens slightly
+   forward of the body centre is inside the hull and the near plane harmlessly
+   clips it away; at 3 m the same relative position puts the camera inside a
+   solid airframe with the nose marker filling the screen. **Scaling a camera
+   OFFSET is not the same as scaling a camera POSITION** — one of them has to
+   clear geometry, and no scaling law knows that. Expect more wherever a number's
+   *correctness* depends on something other than proportion. (The scale yard hit
+   the same family immediately: airliner engines placed at a fixed fraction of
+   fuselage diameter buried the widebody's nacelles in the apron.)
+
+### V open questions (react by ID)
+
+- ~~**V.q1**~~ **ANSWERED** — honest physics, fictional propulsion (V6).
+- ~~**V.q2**~~ **ANSWERED** — 3.0 m, S = 10.714.
+- ~~**V.q5**~~ **ANSWERED** — everything scales uniformly, arcade arena included (V3).
+- **V.q8 — IS TWR 12 THE RIGHT FEEL, or should `throttle_curve` afford a much
+  higher one?** The gate on everything downstream, and the only question here a
+  bench structurally cannot answer. Fly `scenes/scale_map.tscn`. Three outcomes
+  are all legitimate: *"this is the game"* (proceed to the conversion pass),
+  *"too heavy — give me the throttle curve and TWR 30+"* (a config experiment,
+  not a rebuild), or *"this isn't the game I want"* — in which case
+  `git branch -D full-scale` is the correct response and **not a failure state**,
+  which the user has said explicitly.
+- **V.q3 — Do game-pacing times scale (Froude) or stay put?** Shield regen, vent
+  cycles, wave intermissions, combo window. Froude says they scale by √S; the
+  game says they are design rhythms rather than physics. **Record the choice
+  either way** — an unrecorded answer here is how half the config drifts.
+- **V.q4 — Are `hull`/`armor`/`damage` physical or abstract currency?** If
+  abstract they do not scale and the entire damage model is untouched, which is
+  by far the cheaper answer and probably the right one.
+- **V.q6 — The menu tower: rescale it, or redesign it?** You fly *through
+  windows* to select a leaf, and the apertures are sized against a 0.28 m body.
+  At 3 m the game's front door is unflyable. `menu_check` guards the tree, not
+  the geometry, so nothing in the suite will tell you.
+- **V.q7 — Does the city get rescaled or redesigned?** A 3 m aircraft threading a
+  city is a different game from a palm-sized one doing it; street widths and
+  window apertures may need design rather than multiplication.
+- **V.q9** *(new)* — **Does the scale yard survive Phase 3, or is it a
+  disposable instrument?** It is the one map deliberately immune to the world
+  scale (V7.2), which makes it a permanent calibration reference — but it is also
+  a signposted greybox that no fiction can absorb. Keep it as a dev tool beside
+  the dev room, or delete it once the verdict is in?
+
+### V10 — THE SIZE LADDER (added 2026-08-10, a continuation of Iteration 15 after the V.q8 flight)
+
+**V.q8 came back a yes, and it came back with a bigger idea attached.** The
+user's verdict on the 3 m aircraft, in full because the detail is the finding:
+
+> *"Controlling the new manned size quad is an absolute trip! immediately i felt
+> how heavy it is, and at the same time, how powerful it is! ... I accelerated
+> fast, only to realize that I got to ~500Kmh haha, so i turned 180 to brake, as
+> if im still in a small drone, and immediately i felt how much momentum the quad
+> carried, The quad drifted back a lot until the momentum reversed forward."*
+
+> *"Then I tried to swing between buildings, something easy with the org kestrel,
+> but here I was fighting with the momentum, I crashed many times between swings
+> ... this is A GOOD THING, at least for me. ... its way less forgiving, forcing
+> me to use the machine's power more carefully."*
+
+**Nothing about that behaviour was designed.** No momentum system was written, no
+"heaviness" was authored, no drift was tuned. It is rigid-body physics being
+handed masses and inertias five orders of magnitude outside anything it was ever
+aimed at, and producing the right feel unprompted. The user's reading is the
+correct one and worth keeping as a claim about the codebase: *"this single
+'simple' scaling experiement proved that the physics is well designed, because we
+stretched it to something we havent planned for at all... and the physics model
+still held its own."* **That is the strongest evidence the flight model has ever
+produced that it is a MODEL and not a feel-alike.**
+
+TWR 12 stays. Not as a decision — explicitly as a not-yet-decision: *"nothing to
+solidify at the moment, more playing around, more experiments."*
+
+**One correction to the record, because a premise in the verdict is wrong.** The
+user wrote *"If this is the TWR the org kestrel maintains, then i want to maintain
+it"* — it is not. The original Kestrel is **TWR 4.5**; 12 is the Roc's fiction
+dial, 2.7x the datum. So keeping 12 is a choice rather than a continuation, and
+per V6 it is the single number that decides agility.
+
+#### V10.1 — What the ladder IS, and why it is a better shape than the conversion
+
+Three flyable frames at three sizes in ONE unchanged world:
+
+| frame | body | mass | TWR | agility vs Kestrel | braking vs Roc |
+|---|---|---|---|---|---|
+| **Kestrel** | 0.28 m | 0.65 kg | 4.5 | 100% (the datum) | 6.7x |
+| **Condor** | 1.20 m | 32 kg | 12 | 62% | 2.5x |
+| **Roc** | 3.00 m | 500 kg | 12 | 25% | 1.0x |
+
+The user's reasoning for wanting them together, which is exactly V7's argument
+turned on the aircraft instead of the world:
+
+> *"being able to fly them both IN THE SAME EXACT ENV' will absolutely give me the
+> sense of scale, especially when i'll fly our original small kestrel and the
+> world should feel x10 larger, like i morphing from a hawk into a honeybird."*
+
+**AND THIS QUIETLY REPLACES THE CONVERSION PASS AS THE CHEAPEST WAY TO GET WHAT
+PHASE 2 WAS AFTER.** PLAN-FULL-SCALE's phase 3 is "convert every config by S":
+one world scale, every number moved, every balance figure void, the menu tower
+rebuilt. The ladder gets the same experience by moving in the opposite direction
+— **the world holds still and the ROSTER spans sizes** — and it costs two config
+files. It also satisfies V3's rule (*"there is exactly one world scale and
+everything obeys it"*) trivially rather than expensively: the world's one scale
+is real metres, and airframes differ within it.
+
+**The evidence that this is the better shape is the board.** Phase 2 broke the
+Kestrel by overwriting it with the 3 m numbers, and most of the 23 checks were
+expected to fail as a result — that was written down as "Phase 3's inventory
+writing itself". Restoring the Kestrel and adding the Roc beside it instead
+returned the board to **23/23 green on the branch**, with a strictly larger
+roster. A change that adds a frame is additive; a change that redefines the datum
+is not, and the check suite said so.
+
+#### V10.2 — The counter-intuitive half, stated before it is flown
+
+The user wants the Condor to answer *"how the momentum will carry with its
+reduced weight, while keeping the same thrust/weight ratio."* **The arithmetic
+says weight is not what will answer it**, and the prediction is worth recording
+now so the flight can contradict it:
+
+- **Linear acceleration is `g x TWR`, mass-free.** The Condor and the Roc
+  accelerate identically.
+- **Angular acceleration is `(c/k) x g x TWR / arm`, also mass-free** (V6). The
+  Condor turns 2.5x faster than the Roc because it is SMALLER, not lighter.
+- **Drag deceleration goes as area/mass, i.e. 1/S.** The Condor sheds speed 2.5x
+  faster than the Roc; the Kestrel 6.7x faster.
+
+So if the Condor feels less ponderous, the credit belongs to its turn rate and to
+air resistance. **Mass at fixed TWR is very nearly a free parameter for feel** —
+which is a strange and useful thing to know about this flight model, and the
+opposite of the intuition every pilot brings to it.
+
+#### V10.3 — Three implementation decisions worth the argument
+
+1. **The airframe's geometry is now BUILT from the frame** (`body_m`,
+   `arm_length`), not authored per scene. One drone scene is 0.28 m or 3 m by its
+   first frame. The proportions are the hand-authored Kestrel's, reproduced
+   exactly.
+2. **The lens position is authored per frame and never derived**
+   (`FlightConfig.fpv_offset`). This is V9.2's trap given a permanent home: every
+   other dimension scales, and this one cannot, because its correctness is about
+   clearing geometry rather than proportion.
+3. **The swap happens in place, on the pad** (`FlightController.swap_frame`,
+   keys 1/2/3 in the scale yard). Reloading the scene per frame would have worked
+   and would have put a load screen in the middle of a comparison whose whole
+   value is immediacy. It always disarms and zeroes velocity: handing a 0.65 kg
+   airframe the momentum of a 500 kg one at 140 m/s is not a comparison.
+
+#### V10 open questions
+
+- **V.q10 — Is the ladder the answer INSTEAD of the conversion pass, or as well
+  as it?** If the world stays at human scale and the roster spans 0.28 m to 3 m,
+  phase 3 mostly evaporates and V.q6 (the menu tower) and V.q7 (the city) go with
+  it — they only break for a 3 m aircraft, and a 3 m aircraft is now a CHOICE the
+  pilot makes rather than the only option. The cost is that the campaign has to
+  decide what a frame's size means to it, which is a real design question and not
+  a small one.
+- **V.q11 — Where is the sweet spot, and is it one frame or a spectrum?** The
+  user's actual ask: *"I want to find a sweet spot between them."* The Condor at
+  1.2 m is a first probe, not a proposal. If the answer is "somewhere around
+  1.5 m", that is a config edit; if it is "the ladder itself is the feature",
+  that is a roster design.
+- **V.q12 — Does TWR stay 12 across the ladder, or become a frame identity?**
+  Today the Kestrel is 4.5 and both new frames are 12, which means the ladder
+  varies TWO things at once (size and thrust) and cannot separate their
+  contributions. A Kestrel at TWR 12 would be a *third* data point and is one
+  slider away.
+
+- **2026-08-10 — v2.41. V.q8 ANSWERED BY HANDS, and the branch came back GREEN
+  instead of broken.** The user flew the 3 m aircraft in the scale yard:
+  ***"Controlling the new manned size quad is an absolute trip!... its way less
+  forgiving, forcing me to use the machine's power more carefully. I REALLY LIKE
+  IT!"*** TWR 12 stays, explicitly as a not-yet-decision. Full verdict and the
+  build that followed are **V10**.
+  - **THE FINDING IS ABOUT THE PHYSICS MODEL, NOT ABOUT THE AIRCRAFT.** Nobody
+    wrote a momentum system. The drift-on-reversal, the fight between swings, the
+    500 km/h that will not stop — all of it is rigid-body integration handed
+    masses five orders of magnitude outside its design envelope. **A feel-alike
+    would have produced nothing there.** This is the strongest evidence the flight
+    model has ever produced that it is a model, and it came from an experiment
+    that was not testing it.
+  - **THE SIZE LADDER REPLACED THE SCALE MUTATION, and the board is how we know
+    it was right.** Phase 2 overwrote the Kestrel with the 3 m numbers, which
+    redefined the roster's datum and was expected to fail most of the 23 checks.
+    Restoring the Kestrel bit-for-bit and adding the **Roc** (3.0 m, 500 kg) and
+    the **Condor** (1.2 m, 32 kg) beside it as new frames leaves the branch at
+    **23/23 green with a larger roster**. Additive changes pass boards; changes
+    that move the datum do not, and that is a shape rule rather than luck.
+  - **Both new frames are in `Frames.ROSTER`**, so `hover_check` flies them — all
+    four hold 10 m to within 0.163 m. They are deliberately NOT in the hangar or
+    the menu tower: those are the campaign's frames, and a 3 m aircraft cannot fly
+    the tower's windows anyway (V.q6).
+  - **The delivery stamp changes as a result** and the committed factors stop
+    reading as current. That is correct — `Frames.all_configs` exists to make a
+    new frame join the stamp the day it lands — and it costs nothing today,
+    because the re-measure was already scheduled as one event (V8).
+  - **One latent bug closed on the way past**, found because the ladder made it
+    reachable: `FrameConfig` never declared `identity_fields()`, alone among the
+    many-instance configs. Load a FRAME preset saved on the Roc onto the Kestrel
+    and `copy_from` renamed the Kestrel to `roc`, which then saved its tuning over
+    `user://frame_roc.tres`. One line, and exactly the failure the FlightConfig
+    and EnemyConfig versions have always prevented.
+  - **The scale yard grew the ladder it is now for**: the three frames parked
+    side by side on the apron at true size with a 1.75 m person at the end of the
+    row, and keys 1/2/3 swapping airframe in place. Labels are now distance-gated
+    — near limit from the sign's WIDTH, far limit from its glyph height — because
+    forty billboarded signs all drawing at once stacked the far half of the map
+    into an unreadable strip of horizon.
+  - **A premise in the verdict needed correcting and it matters**: the user kept
+    TWR 12 on the belief it was what the original Kestrel had. It is 4.5. Keeping
+    12 is a choice, and V6 says it is *the* number that sets agility — so V.q12
+    now asks whether TWR is a constant across the ladder or part of what a frame
+    IS. As it stands the ladder varies size and thrust together and cannot
+    separate them.
+
+- **2026-08-12 — v2.42. THE OVERLAY WAS TUNING A FRAME NOBODY WAS FLYING**, found
+  by the user the moment the size ladder met the one control that matters to
+  them: ***"i cannot change the fpv angle. when in the kestrel i can change the
+  angle but on the condor/roc, changing the angle does nothing."***
+  - **The cause is the oldest one in this document's collection: something cached
+    a reference and something else replaced the object behind it.** The overlay
+    builds every control in `_ready`, bound by closure to the `FlightConfig`
+    INSTANCE that existed then. `swap_frame` (V10) hands the drone a different
+    instance, so the sliders went on faithfully editing the Kestrel's resource
+    while the Roc flew on its own. Fixed by giving `FlightController` a
+    `frame_changed` signal and having the overlay tear its panel down and rebuild
+    it — every other consumer in the tree re-reads `drone.config` per call and
+    needed nothing.
+  - **THE SECOND HALF WAS WORSE AND NOBODY HAD HIT IT YET.** The FLIGHT slider
+    ranges are a hand-authored table written around a 0.65 kg quad: mass 0.2–2,
+    TWR 1.5–8, arm 0.05–0.3, drag 0–0.2. The Roc is 500 kg at TWR 12 on a 1.286 m
+    arm — **outside every one of them.** The readout looked right (it asks the
+    config, not the slider) while the slider sat pinned at its own maximum, so the
+    first drag would not have nudged mass, it would have **snapped a 500 kg
+    airframe to 2 kg.** Sliders now widen to admit the value actually present,
+    which changes nothing for any frame the tables were written for.
+  - **The bug only existed because the fix for it was the right design.** Rebinding
+    the overlay is the price of swapping airframes in place, and swapping in place
+    is what makes the ladder an instrument instead of two separate sessions. Worth
+    recording as the shape: *a live-tuning UI over swappable resources needs an
+    invalidation signal, and the absence of one fails silently and plausibly.*
+  - Verified end to end rather than by inspection: a probe drove the real
+    `fpv_uptilt_deg` slider after a swap and asserted the ROC's config moved, the
+    Kestrel's did not, the camera followed a frame later, and the panel rebuilt to
+    the same row count instead of doubling. Board re-run: green.
+
+## Iteration 16 — L: The Ladder Becomes The Game (PROPOSED, 2026-08-12 — user-initiated)
+
+> **V.q10 is answered and it is the biggest fork this project has taken.** The
+> user: *"the answer is 100% - Option 1, the ladder. this single experiment
+> proved that the game is confined and wants the vastness and the real world
+> scaling with multiple sized frames... a single small arena with small toys
+> fighting each other is a good way to reduce a good idea into nothing."*
+>
+> This iteration is about what that costs and what it buys. Their method, adopted
+> wholesale: *"take each 'thing' that the game already had before the experiment,
+> and think about how should we transform it into the updated identity."*
+> Sections **L1–L9**, open questions **L.q1–L.q8**; react by ID.
+
+### L1 — What is now closed
+
+- **V.q10 — ANSWERED: the ladder.** The world stays at real human scale
+  permanently; the ROSTER spans sizes. The conversion pass is not rejected
+  forever — *"maybe in the future we'll have to do some rescaling of the entire
+  thing"* — but it is off the table as a plan.
+- **V.q11 — DISSOLVED, and the dissolution is better than an answer.** There is
+  no sweet spot: *"once we've concluded that the scale remains, we now have each
+  frame fly with its own style... this becomes a situation of 'the right tool for
+  the right job'."* The question was malformed because it assumed one frame had
+  to win.
+- **V.q12 — DEFERRED, deliberately.** TWR 12 holds across the ladder. The Roc
+  *"speeds up to 450kmh in three seconds... we might need to de-buff it later"*,
+  which is a note, not a task.
+- **The FPV uptilt was wrong on all three frames and is now 48 degrees on each.**
+  The agent set 44 / 22 / 12 reasoning that a big aircraft flies flatter. That is
+  backwards: **a multirotor flies forward by pointing its thrust backward**, so
+  more thrust means the nose sits LOWER and the camera needs MORE uptilt, not
+  less. *"they all should have the same start angle."* Recorded because the wrong
+  reason produced three wrong numbers that each looked individually plausible.
+
+### L2 — THE ROLES, in the user's own words
+
+This is the design content of the fork and it is theirs, not the agent's. It is
+quoted rather than summarised because the specifics are the value:
+
+| frame | size | the user's role for it |
+|---|---|---|
+| **Kestrel** | 0.28 m | *"small agile and small factor drone that can carry adequate weapons and is good for small missions, interceptions, a unit within a swarm, an assasin (we can have missions where we need to take out a specific person, so instead of flying in guns blazing, we can sneak in and explode on the target)"* |
+| **Condor** | 1.2 m | *"an all-round fighter unit, can fly in formation with other units, can protect bombers by taking out intercepters, is still agile enough to fly fast an low and sneak below radar"* |
+| **Roc** | 3.0 m | *"a big boy, a heavy fighter, a bomber, the only unit that can carry certain large scale weapons like big bombs/guns/missles... it flys very fast but turns slow and its pilot needs to be very skilled and fly with full intention, calculating for future turns before hand"* |
+
+**Three things in there are mechanics, not flavour, and they are the spine of
+everything below:**
+
+1. **Ordnance is gated by size.** *"the only unit that can carry certain large
+   scale weapons"* — this is the offensive reason to take a big frame, and P3.8's
+   hardpoint loop, stubbed since Iteration 3, is finally the system that expresses
+   it.
+2. **The Kestrel's role is INFILTRATION, not attrition.** Sneak in, kill one
+   thing, be expended. That is a mission type this game has never had, and it is
+   the small frame's whole argument for existing.
+3. **The Roc's difficulty is a FEATURE and it is already implemented** — by
+   physics, for free. *"forces me to define the fly path more forward, unlike an
+   agile drone that can stop immediately."* Nothing needs building to make the big
+   frame demanding; it already is.
+
+### L3 — THE MEASUREMENT THAT MUST COME FIRST, and it contradicts an assumption
+
+The user expected the existing roster to be harmless to the new frames: *"our
+roster now contains only small form frames that match the kestrel but pose no
+danger to our new units."*
+
+**Measured, this run, by `lethality_check` across the whole ladder:**
+
+| attacker | Kestrel (0.65 kg) | Condor (32 kg) | Roc (500 kg) | Atlas (1.24 kg) |
+|---|---|---|---|---|
+| raider | 13 hits, dead 8.0 s | **13 hits, 8.0 s** | **13 hits, 8.0 s** | 38 hits, 24.7 s |
+| turret | 10 hits, dead 4.5 s | **10 hits, 4.5 s** | **10 hits, 4.5 s** | 28 hits, 13.5 s |
+| falx | 12 hits, dead 2.8 s | **12 hits, 2.8 s** | **12 hits, 2.8 s** | 32 hits, 7.8 s |
+| phalanx | 20 hits, dead 4.0 s | **20 hits, 4.0 s** | **20 hits, 4.0 s** | 95 hits, 19.6 s |
+
+**The three ladder frames are byte-identical, and the 1.24 kg Atlas is roughly
+three times tougher than the 500 kg Roc.** The roster is not harmless to the new
+frames — it is *exactly as lethal to a half-tonne aircraft as it is to a
+palm-sized quad*, because `hull` is a flat 100 on every frame and only the Atlas
+carries armor.
+
+**This is not a balance problem. It makes L2 unimplementable.** "The right tool
+for the right job" requires that the wrong tool be punished and the right one
+rewarded. Today every tool has identical survivability, so the only axis that
+separates frames is agility — and on that axis the Kestrel wins outright. **There
+is currently no job for which the Roc is the right tool.** Whatever else this
+iteration does, it does this first.
+
+**So V.q4 is promoted from "deferred, probably abstract" to blocking**, and its
+answer is now clearly the other one: hull and armor have to become physical, or
+size means nothing. See L.q1.
+
+### L4 — What "a feature, not an experiment" means
+
+The user's requirement: *"first base our experiment into a well defined feature,
+making it a part of the game and not just an experiment, a true characteristic of
+the game's identity."*
+
+Concretely, three things stop being incidental:
+
+1. **SIZE CLASS becomes a first-class property of a frame**, named in the roster,
+   readable in the hangar, and consumed by durability, ordnance and mission fit.
+   Not a number to look up — the thing the frame IS.
+2. **Frame choice becomes a MISSION decision.** The hangar pick has existed since
+   Iteration 13 and has never meant anything. Under L2 it becomes the first
+   strategic choice of every sortie, and getting it wrong should cost.
+3. **The scale yard stops being a dev map and becomes the game's own reference.**
+   V.q9 asked whether to keep or delete it. Keep: it is the only environment
+   deliberately immune to any future scale change, and it is where every new frame
+   gets its first honest look.
+
+### L5 — THE TRANSFORMATION INVENTORY
+
+Each existing system, what it is, what it becomes, and what it costs. **Two of
+them get CHEAPER under the ladder, which is worth noticing** — that is evidence
+the fork was the right one, not just the exciting one.
+
+| # | system | today | under the ladder | cost |
+|---|---|---|---|---|
+| 1 | **Durability** (`hull`/`armor`) | flat 100, size-blind (L3) | size is the primary durability axis; armor becomes the heavy's identity | **data + one re-band.** Blocking. |
+| 2 | **The bestiary** (8 types) | all authored against a 0.28 m quad | threats gain a size class; the P4.3 counter-web gains a size axis | **high** — new/variant types, each with a behaviour check the day it lands |
+| 3 | **The reference pilot** | v7, tuned to Kestrel agility, flies break-settle-fire-break | must fly 25% agility and 6x stopping distance — needs anticipation, and per-class styles | **high, and it is the INSTRUMENT** — see L6 |
+| 4 | **Weapons / hardpoints** | one loadout for everyone; P3.8 stubbed | ordnance gated by size class (L2.1); P3.8 finally has a reason | **medium** — the offensive half of "right tool" |
+| 5 | **The arcade run** (M4) | waves in a small arena | honestly becomes the KESTREL'S mode — it is a small-frame game and good at it | **low**, if we accept the label |
+| 6 | **The campaign** (M6) | frame pick exists, means nothing | nodes want frame classes; the composer says what a job wants | **medium**, mostly data |
+| 7 | **Sortie geometry** | EGRESS 105 m, ingress 140–195 m, garrison rings — Kestrel-scale | must scale with the frame or the map | **medium** — this is the old plan's phase 5 |
+| 8 | **Environments** | arena / city / dev room all Kestrel-scale; terrain built and UNWIRED | maps get a size class; the terrain finally lands as the big-frame venue | **medium** — the old plan's phase 4 |
+| 9 | **The menu tower** | fly through windows sized for 0.28 m | **stays exactly as it is** — it is the Kestrel's front door, and a small-frame space is a legitimate thing for it to be | **~zero.** V.q6 dissolves. |
+| 10 | **The city** | streets and apertures for a 0.28 m body | **stays exactly as it is** — it is a Kestrel/Condor environment by nature | **~zero.** V.q7 dissolves. |
+| 11 | **The balance instrument** | frame axis = kestrel/atlas | the frame axis IS the size axis; Layer 3 becomes load-bearing rather than decorative | **one big re-measure, once, after L6.2** |
+| 12 | **The HUD** | range ticks, radar scale, gun funnel at Kestrel ranges | frame-scaled | **low** |
+
+**Rows 9 and 10 are the ladder paying for itself.** Under the conversion pass
+they were two hand-redesigns and the plan's risk 2 and risk 6. Under the ladder
+they are not work at all — a 3 m aircraft simply does not go there, and that is a
+property of the frame rather than a defect in the building.
+
+### L6 — Ordering, and the one dependency that decides it
+
+**The reference pilot is an instrument before it is a character, and nothing
+about big-frame combat can be MEASURED until it can fly a big frame.** Every cell
+of the balance harness would otherwise read "the Roc lost", which is equally
+consistent with a weak frame, a strong enemy, and a pilot that flew into the
+ground. That is standing rule 2, and it decides the order:
+
+1. **Durability first** (L3 / L.q1). It is Layer-1 arithmetic, verified by
+   `lethality_check` without any pilot at all, so it can be set and proved
+   correct while the pilot is still broken.
+2. **Then the pilot.** Anticipation, per-class styles, `PILOT_VERSION` bump.
+3. **Then one re-measure**, establishing the new baseline across the size axis.
+4. **Then the content**: ordnance classes and enemy size classes, which are the
+   two halves of "the wrong tool is punished".
+5. **Then mission fit** — the campaign asking for a class.
+6. **Then environments** — terrain wired in, maps classed.
+
+**Steps 1–3 are instrument work and produce no new gameplay.** That is worth
+saying out loud before starting, because it is two or three sessions of
+groundwork before anything is fun, and the temptation to reorder will be strong.
+
+### L7 — THE RISK, ranked and stated plainly
+
+1. **THE GAME COULD END UP WITH THREE HALF-FINISHED MODES.** Today there is one
+   complete loop (the arcade run) and one half-complete loop (the campaign). The
+   ladder gives both a rework and adds a third shape (infiltration, L2.2). **The
+   most likely bad outcome of this iteration is not a wrong decision — it is
+   three unfinished ones.** Mitigation: L5 row 5 (the arcade run stays as-is,
+   relabelled) is a deliberate refusal to touch a working thing.
+2. **The counter-web can explode combinatorially.** 8 types x 3 size classes x
+   3 weapons is a table nobody will ever fill or read. Mitigation: not every type
+   needs every size — see L.q2.
+3. **The re-measure lands twice** if the pilot changes after the durability pass.
+   Mitigation: L6's ordering exists precisely to make it land once.
+4. **The Kestrel's uptilt moved from 44 to 48 degrees** on the human's call. The
+   gun is a child of the camera, so this moves the Kestrel's gun line and every
+   delivery factor measured against it. Small, real, and folded into the L6.3
+   re-measure rather than chased separately.
+
+### L8 — On the Firehawk comparison, honestly
+
+The user's read: *"the dream originally was the firehawk game, which showcases a
+scale where the player flys a drone that is way way larger than people and land
+vehicles. however, the drones in that game behaved nothing like they should, now
+that our game shows way way better how human size quads fly and feel."*
+
+**The half of this the project can stand behind is the strong half.** V10's
+finding was that a rigid-body model handed masses five orders of magnitude
+outside its design envelope produced convincing momentum with nothing authored —
+that is a claim about this codebase, it is evidenced, and it is genuinely
+unusual. A game whose selling point is *what a two-tonne quadrotor actually feels
+like* has something no amount of art can substitute for.
+
+**The half to hold loosely is the audience claim.** Whether that pulls players is
+unknowable from here, and the project should not make design decisions on a
+market prediction it cannot test. The safe version, which is enough: **the flight
+model is the differentiator, it is real, and the content should be built to show
+it off rather than to hide it behind an arena.**
+
+### L9 — What this does NOT change
+
+Worth stating, because after a fork this size the instinct is to reopen
+everything:
+
+- **The eight enemy types' BEHAVIOUR.** All signed off, all with checks. They gain
+  a size axis; their logic does not move. The Phalanx especially stays closed.
+- **The war layer.** `WarSim`, `WarManifest`, the save. Abstract; scale was never
+  a concept there and still is not.
+- **The flight model's architecture.** It just passed the hardest test it will
+  ever get.
+- **The scale yard's dimensions.** Nothing in that map is ever scaled.
+
+### L open questions (react by ID)
+
+- **L.q1 — How does hull scale with size?** The blocking one (L3). Three
+  candidates: **(a)** with MASS (Roc = 769x the Kestrel — absurd, a Roc would be
+  unkillable); **(b)** with FRONTAL AREA, i.e. S^2 (Roc = 115x); **(c)** authored
+  per role, ignoring any law, so hull is a design statement rather than a physics
+  one. **The agent's lean is (c) with (b) as a sanity check** — durability is
+  where this game's fiction lives, the S^2 figure is a useful upper bound to stay
+  under, and a law that produces "unkillable" is not a law worth obeying. But
+  this is the single most consequential number in the fork and it is the user's.
+- **L.q2 — Do enemies get size classes, or do small enemies threaten big frames
+  by NUMBERS and by weapon class?** Cheapest honest version: keep the eight types
+  small, give a few of them anti-armour weapons, and let mass raids threaten a
+  Roc. Most expressive version: a real big-enemy tier. The first is a config pass;
+  the second is months.
+- **L.q3 — Is the arcade run the Kestrel's mode forever?** L5 row 5 proposes
+  leaving it untouched and relabelling. The alternative is retiring it, which
+  frees attention but discards the only finished loop in the game.
+- **L.q4 — Does a sortie REQUIRE a frame class, or merely reward one?** Required
+  is legible and rigid; rewarded is flexible and easy to ignore. A middle exists:
+  the mission states what it wants, and the wrong choice is flyable but expensive.
+- **L.q5 — Is ordnance a hardpoint BUDGET or a hard GATE?** *"the only unit that
+  can carry certain large scale weapons"* reads as a gate. A budget (P3.8's mass
+  allowance) gets there too and degrades more gracefully.
+- **L.q6 — Three classes, or a continuum?** Three named frames is legible and
+  ships. A continuum (any body size) is what the code now actually supports, and
+  is a different kind of game.
+- **L.q7 — One pilot brain with per-class parameters, or a brain per class?** The
+  Atlas already showed one brain cannot express two airframes' evasion (v1.81).
+  The Roc is a much bigger gap than the Atlas was.
+- **L.q8 — What happens to the Atlas?** It is a 0.28 m HEAVY, and under the ladder
+  "heavy" is the Roc's job. It is currently the toughest frame in the game by 3x
+  while being the second smallest. Does it become the Kestrel-class heavy, get
+  re-sized into the ladder, or retire?
+
+- **2026-08-13 — v2.43. THE ENGINE GOT QUIETER AS THE AIRCRAFT GOT BIGGER, and
+  the cause was two constants that failed to scale rather than the reversed size
+  factor it sounded like.** The user, from flying the ladder: *"on the Roc it
+  sounds less loud than the Condor and the condor sounds less loud than the
+  kestrel... i think this is why i disliked the engine sound in the first
+  place."* Their guess was *"a bug with multiplication instead of dividing"* —
+  directionally right, mechanically not: **there was no size factor at all.**
+  - **Cause 1, in FPV: volume was driven by MOTOR OUTPUT, which is a fraction of
+    maximum thrust.** Hover sits at `1 / TWR`, so the TWR-12 frames hovered at 8%
+    stick against the Kestrel's 22% and were rendered **3.6 dB quieter while
+    moving five hundred kilograms of aircraft.** Stick position is not a measure
+    of how much air is being moved. The driver is now thrust in g — 1.0 at hover
+    on every frame — so the same FLIGHT CONDITION sounds the same on every
+    airframe, which is the only frame-independent thing a level can mean.
+  - **Cause 2, in chase: `unit_size` was a fixed 10 m while chase distance scales
+    with the frame.** Kestrel +3.0 dB (clamped), Condor -3.5, Roc **-12.6** — a
+    15.6 dB spread that dwarfed cause 1 and explains why the ordering was audible
+    across all three rather than just Kestrel-vs-rest. `unit_size` is now
+    `body_m x 4`, so "one aircraft away" means the same thing at every scale.
+    Measured after: -9.9 / -9.9 / -11.1 dB.
+  - **A FALSE DIAGNOSIS WAS CAUGHT BY CHECKING, and it is the reusable part.** The
+    first hypothesis was that the FPV camera sits `fpv_offset` from the emitter —
+    0.085 m on the Kestrel against 2.04 m on the Roc — which produces exactly the
+    reported ordering and is arithmetically enormous (+41 dB against +14 dB).
+    **It is also wrong: `max_db` defaults to 3.0 and clamps all three equally.**
+    That fix would have been plausible, well-argued, and would have changed
+    nothing. Querying the engine's actual defaults took one minute.
+  - **The upgrade the user asked for, built on top:** *"i wish the sound would be
+    of all its engines (in this case 4) which is a composition of each individual
+    sound source."* Four emitters now, one per rotor, at the real mounts, each
+    driven by its OWN motor output — so an asymmetric hover, a damaged rotor and
+    the yaw of a hard turn are audible, and the stereo width IS the airframe's
+    span (0.34 m Kestrel, 3.64 m Roc). Detuned a few parts per thousand apart so
+    they beat rather than phase-lock into one thick tone.
+  - **Tone is baked per frame, not pitch-shifted**, at 420 / 163 / 90 Hz for
+    kestrel / condor / roc. Blade-pass frequency really goes as 1/radius, which
+    over this roster would put the Roc at 11 Hz — no longer a pitch at all — so
+    the honest law is compressed by an exponent of 0.65 into a range a speaker can
+    render. A sub-octave sine fades in with size and the octave-up fades out, so
+    the TIMBRE changes and not merely the pitch: whine to bass, which is the
+    user's *"smaller - high tone... larger - lower tone and the feeling of
+    presence."*
+  - **Response time scales with size** (41 / 78 / 150 ms), which is their *"the
+    slow reaction will give the slower and heavier feel"*. Deliberately NOT
+    `motor_lag_tau`: that is flight, and flight is the human's to tune.
+  - **And the wind had the same disease.** It saturated at a hard-coded 35 m/s —
+    about right for the Kestrel's 31 m/s envelope, and meaning the Roc flew four
+    fifths of its 131 m/s range with the speed cue already pinned. It now scales
+    to `FlightConfig.terminal_speed()`, a new derived quantity (thrust equals
+    drag) whose Roc figure of 131 m/s independently reproduces the user's observed
+    *"~500Kmh"*. **A constant that was correct for one airframe is a bug on a size
+    ladder**, and this is the second one in two days — the first was the debug
+    overlay's slider ranges.
+
+- **2026-08-13 — v2.44. THE SAME MISTAKE, A THIRD TIME, INSIDE THE FUNCTION THAT
+  FIXED IT.** The user, an hour after v2.43: *"the tone does not have large range
+  with the condor and roc, kestrel have a long tone band and the tone climbs
+  until the middle and then empehesized. it does not feel the same for the condor
+  and roc."*
+  - **v2.43 normalised the LEVEL to be frame-independent and then drove the PITCH
+    off the un-normalised quantity in the next line.** Pitch swept `load * 0.5`
+    clamped at 1 — saturating at 2 g of thrust, which is 44% of the Kestrel's
+    stick and **17% of the Roc's**. The big frames climbed for a sixth of their
+    travel and then sat flat for the rest, which is exactly the missing range the
+    user heard. The lesson written up one entry earlier — *a constant that was
+    correct for one airframe is a bug on a size ladder* — was being violated
+    three lines below where it was written.
+  - **The fix is a separation that should have been there from the start: pitch
+    follows RPM, level follows THRUST.** A rotor's tone is its blade-pass
+    frequency, which is how fast it SPINS; its loudness is how much air it MOVES.
+    `motor_output` is the spin command as a fraction of maximum, so it sweeps
+    0..1 on every airframe whatever the thrust-to-weight. Conflating the two is
+    what made the band collapse.
+  - **Measured after, and this is the shape to hold onto** — every frame sweeps
+    the same 2.53x ratio over the same stretch of stick, at its own fundamental:
+
+    | stick | 0% | 8% | 22% | 40% | 60% | 100% |
+    |---|---|---|---|---|---|---|
+    | kestrel | 336 | 406 | 522 | 672 | **840** | 840 Hz |
+    | condor | 130 | 157 | 203 | 261 | **326** | 326 Hz |
+    | roc | 72 | 87 | 112 | 144 | **180** | 180 Hz |
+
+  - **The plateau past 60% is deliberate and is the user's own description of
+    what they like**: *"the tone climbs until the middle and then empehesized."*
+    Level keeps rising after the tone stops (+3.3 dB from 60% to full, identically
+    on all three), so the last of the throttle reads as EFFORT rather than as more
+    noise. Worth naming, because a naive reading of "more range" would have swept
+    the pitch all the way to full stick and destroyed the effect the complaint was
+    actually praising.
+  - **Three instances in three days is a pattern, not bad luck**: the overlay's
+    Kestrel-ranged sliders, the wind's 35 m/s saturation, and now this. **Any
+    constant compared against a per-frame quantity is suspect until it is
+    expressed as a fraction of that frame's own envelope.** Volume, pitch, wind,
+    slider ranges and `unit_size` are now all normalised; the next audit should
+    be the HUD's range ticks and the reticle, which are the remaining places a
+    Kestrel-shaped number meets a Roc.
+
+### L steering — ANSWERED (2026-08-13)
+
+Every L question came back, and three of them came back **better than they were
+asked**. Recorded by ID, with the agent's response where there is one.
+
+- **L.q1 — hull scaling: REJECTED AND REPLACED, and this is the most important
+  answer in the set.** The user does not want a bigger number, they want a
+  **component damage model**: *"anything on the frame is equipment which can
+  separately fail... if my left back engine gets hit, i need to respond to it
+  accordingly. the danger should be real and unpredicable/have many vectors."*
+  With a purpose attached: *"if in two different runs i get the same engine hit -
+  thats a lession to be learned"* — damage as a **skill surface**, not a
+  resource bar, feeding an achievement list.
+  - **The agent's question was malformed and the answer explains why.** "How does
+    hull scale" assumes durability is one number. It never was — Iteration 7
+    already built per-motor health and VTX damage — and asking how to scale the
+    *pool* would have grown the one part of the model that has the least to say.
+  - **AND IT ANSWERS L3 BETTER THAN A HULL LAW WOULD.** L3's finding was that a
+    500 kg Roc dies to the same 13 rifle hits as a 0.65 kg quad, so no job exists
+    that the Roc is right for. Under components, **size buys REDUNDANCY AND
+    PROTECTION rather than a bigger bar**: more rotors to lose, armour over
+    specific systems, a structure that takes more to break. That is a reason to
+    fly a big frame that a pilot can *feel* rather than read.
+  - **One hard constraint the user attached, and it must survive the rework:**
+    *"as long as a big craft that hits a building in 300kmh still gets damage and
+    can even die if faster."* Crash damage scales with impact energy; no amount of
+    redundancy makes a Roc a battering ram. This is the anti-invulnerability
+    clause and it is exactly the failure mode a naive "big = tough" would produce.
+- **L.q2 — enemies DO get size classes**, and by character rather than uniformly:
+  *"the scaling on them should be determined by their characteristics and role."*
+  **But the answer arrives with a question the project must answer first:** *"the
+  question is - is this duable? can we meter the capabilities we have with our
+  env' and engine... so yes, technically, if possible, ~10 kestrels level frames
+  can hurt a roc level frame."* That is a MEASUREMENT, it is cheap, and nothing
+  downstream should be designed before it exists — see the roadmap's phase 0.
+- **L.q3 — the arcade run is the small-frame mode, and the fiction is the user's
+  own and is better than "we left it alone":** *"it should be how humans fly
+  apache helicopters and fight a war, but then go home and fly small choppers rc
+  planes and drones for the sport... every war can be reduced to a game of skill.
+  the kestrel level or below can be the hobby ones, but also can be dangerous if
+  equiped and configured for that."* The arcade mode stops being legacy content
+  and becomes **the sport inside the war** — the same world, the same physics, a
+  different stake. Eventually it gets a scaled revision; not first.
+- **L.q4 — a sortie DERIVES its frame requirement rather than declaring one:**
+  *"the mission states its requirement, dynamically as a result of the
+  capabilities needed to defeat the targets the sortie pose to the player."* So
+  `SortieComposer` computes what the garrison demands and the briefing reports it.
+  Stronger than either option offered — it cannot drift from the actual fight,
+  because it is derived from it.
+- **L.q5 — hardpoint BUDGET**, *"more flexible, and i feel this is just another
+  table to balance right?"* Yes, and it is P3.8 finally having a reason to exist.
+- **L.q6 — three classes or a continuum: BOUNCED BACK.** *"how will the game
+  differ with a continuum?"* Answered in L10.1.
+- **L.q7 — brains per class: BOUNCED BACK with a lean.** *"different caps require
+  different brains to solve them. its not a human brain, and doesnt need to be
+  profecient in ANYTHING. is this also sound in the context of performance and
+  game design?"* Answered in L10.2 — the behaviour argument is right, the
+  packaging needs one correction.
+- **L.q8 — the Atlas moves to Condor class**, and the general rule behind it is
+  the useful part: *"the existing enemies [are] some kind of a toy version of
+  something 'real sized'. where 'real sized' doesnt have to be that there's a
+  kestrel toy and a way larger kestrel, it needs to be serious, not nessecarily
+  bigger heavier stronger harder."* **A real-scale unit is a DIFFERENT UNIT, not
+  the same unit enlarged.**
+
+### L10 — The two answers the user asked back for
+
+#### L10.1 — Continuum versus classes: use both, at different layers
+
+**The code is already a continuum.** `body_m` is a float, and the geometry, the
+collider, the audio's fundamental, its beat rate, its response time, `unit_size`
+and the chase camera all derive from it. A 1.8 m frame is a `.tres` file today
+with no system change.
+
+**What a continuum would cost is not code, it is BALANCE and IDENTITY:**
+
+- **You cannot band a continuum.** The counter-web is a table of cells; a
+  continuum needs *functions* of size instead, which are far harder to author,
+  to read, and to argue with. Every "is this fair" conversation becomes calculus.
+- **Missions cannot ask for it.** L.q4 has a sortie derive "you need a medium
+  frame" — which requires the word *medium* to mean something. A continuum forces
+  thresholds anyway, and thresholds are classes wearing a disguise.
+- **Identity dissolves.** *"I fly a Condor"* is a role; *"I fly a 1.34 m frame"*
+  is a spec sheet. The user's own L2 role descriptions are class descriptions.
+- **It invites the wrong progression.** A continuum makes "buy a slightly bigger
+  frame" the natural upgrade, which is an RPG grind, not a game about the right
+  tool for the job.
+
+**So: discrete CLASSES as the design language, continuum as the implementation.**
+Name three (small / medium / heavy), keep the float. The freedom to add a fourth
+frame at any size costs nothing and is never exposed as a dial.
+
+#### L10.2 — Brains per class: agreed on behaviour, one correction on packaging
+
+**The behavioural half of the user's answer is right and the reason is measured
+history.** v1.81 showed one brain could not express two airframes' evasion at
+0.28 m — the tactical jink is best for the Kestrel and actively harmful for the
+Atlas. The Roc is a far bigger gap than the Atlas was: 25% of the agility and
+6.7x the stopping distance, which is not a parameter change but a different
+*plan*. A Kestrel pilot reacts; a Roc pilot must commit early, which is the human's
+own report: *"forces me to define the fly path more forward."*
+
+**Performance is a non-issue.** Brain selection happens once per unit; the
+per-tick cost is identical. The real cost is authoring and maintenance.
+
+**The correction is about the INSTRUMENT, and it is the reason not to build
+literally separate brains.** `PILOT_VERSION` pins the ruler that every balance
+number in this project is measured against. Separate brains mean **separate
+rulers**, and then "the Roc scored worse than the Kestrel" is unfalsifiably
+mixed with "the Roc's pilot is worse than the Kestrel's" — the exact confound
+standing rule 2 exists to prevent, promoted from a bug to an architecture.
+
+**So: ONE pilot, with a swappable manoeuvre planner.** Shared perception, shared
+control loop, shared version stamp; the plan for "how do I get my gun onto that
+target" is per class. Plus one thing that does not exist yet and must:
+
+- **A pilot competence benchmark.** A fixed task — the aim drill's ruler is
+  half of it already — that every class's planner must pass before its numbers
+  are allowed into the counter-web. Without it, a weak planner reads as a weak
+  airframe forever, and no bench in the suite can tell the difference.
+
+### L11 — The roster, as the user specced it
+
+Per-type steering, recorded verbatim in intent. **Class is by CHARACTER, not by
+uniform multiplication.**
+
+| type | class | the user's note |
+|---|---|---|
+| **Gnat** | small, variable | *"a slight scale window for swarm single unit size scale, and the swarm unit count"* — the swarm's size AND its count both become knobs |
+| **Raider** | medium | *"fighters like raiders may get a bit bigger, maybe medium"* |
+| **Falx** | small/medium | *"its like a small hornet, the real unit can be something small/medium maybe faster than a condor"* |
+| **Aegis** | heavy | *"a big slow bomber"* |
+| **Screamer** | small/medium | as stated |
+| **Turret** | many scales | *"usually by large count they cluster with large count and small units, or a turret can be some powerful gun on a bomber"* — turrets become a MOUNT as well as a unit |
+| **Atlas** (player) | medium | moves from 0.28 m heavy to Condor class (L.q8) |
+
+**Four new types are named**, and three arrive with enough to build from:
+
+| type | the user's note | status |
+|---|---|---|
+| **SAM** | *"a small/medium ground unit, can be illusive, hard to see but can be detected"* | first ground threat; pairs with detection (Phase 6 of the old plan) |
+| **Convoy** | *"can be a train, a truck convoy, or maybe an air shipment"* | first MOVING GROUND target; the first thing in the game that is a target rather than a fighter |
+| **Sentinel** | *"a general guarding unit. uniformed. like a guard in a kingdom watch"* | static or patrolling area denial |
+| **Commander** | *(left blank)* | **L.q9** |
+
+**The Convoy is the most interesting of the four and deserves a note**: it is the
+first unit whose job is to *go somewhere* rather than to fight, which gives the
+war-sim something it has never had — a target whose destruction is about
+interdiction rather than attrition. `interdiction` is already one of the seven
+sortie archetypes and has nothing concrete behind it.
+
+### L12 — The world, as the user specced it
+
+- **The menu tower gets redesigned after all**, and the design is theirs: *"each
+  option in the node can be represented by a single building in the map, i.e. all
+  of the nodes exist at the same time... a node can be flown into forward meaning
+  enter a menu in one step, and can be flown back, then go back in the menu. so
+  the root menu building becomes the exit, flying through it backwards, exiting
+  the game."* A window is open when that node is a child of the active one.
+  - **This is a better menu than the one that exists**, because it makes the
+    menu's STRUCTURE navigable in space rather than replacing the tower's contents
+    on each selection. Back-out-to-exit is diegetic and needs no button.
+  - **It also carries an explicit aesthetic instruction that contradicts what the
+    scale yard does**: *"each text rendered should be a static existing object in
+    the world, it does not have to face towards me or dissapear when close."* The
+    scale yard's labels billboard and distance-gate. **L.q10** asks whether that
+    is a menu-only rule or a house rule.
+- **The city gets built big, and soon**: *"i want an easy/cheap win we can do
+  right now"*, and later a scaled version — *"i want to see how a scaled city
+  feels, how it is to fly in. it would also confirm/deny the physics engines
+  fidality and true to source."* The second half is the interesting half: a
+  scaled city is a **physics test disguised as content**.
+- **Biomes**, *"in the very basic but generic and extendable way"*, after the
+  content design rather than before it.
+
+### L13 — THE MACRO VIEW: every task, and the order to take them
+
+Six tracks. **The ordering rule that decides everything: cheap measurements
+before expensive designs, and the instrument before the thing it measures.**
+
+**Phase 0 — Find the walls (days, not weeks). Nothing downstream is safe without
+these, and both are cheap.**
+
+| # | task | why it is first |
+|---|---|---|
+| 0.1 | **Swarm-vs-heavy feasibility bench**: how many small units can the engine host and still tick at 240 Hz, and can 10 of them hurt one Roc? | The user asked it directly. **The whole size-class roster is designed on the assumption that the answer is yes.** |
+| 0.2 | **Big city generation** — a large `CityLayout`, flown | Cheap win they want now, and it is the same load question as 0.1 wearing different clothes |
+| 0.3 | **Scaled-city experiment** — the city at Roc proportions | *"confirm/deny the physics engine's fidelity"*. A measurement, not content |
+
+**Phase 1 — The damage model (the blocker).** Its own design iteration first,
+because L.q1 replaced a number with a system.
+
+| # | task |
+|---|---|
+| 1.1 | Design: components, failure modes, what size buys (redundancy/armour, not a bar) |
+| 1.2 | Crash damage that scales with impact energy — the anti-invulnerability clause |
+| 1.3 | Build: extend `MotorModel`/`Health` into a component model |
+| 1.4 | `Lethality` Layer 1 rework: the calculator must understand components |
+| 1.5 | The achievement/skill surface — the *reason* the user wants this |
+
+**Phase 2 — The pilot (the instrument).**
+
+| # | task |
+|---|---|
+| 2.1 | Anticipatory planning: commit the turn early, for frames that cannot stop |
+| 2.2 | Per-class planner behind one shared pilot (L10.2) |
+| 2.3 | **Pilot competence benchmark** — so a weak planner never reads as a weak airframe |
+| 2.4 | `PILOT_VERSION` bump |
+
+**Phase 3 — Re-measure once.** The whole board plus `tools/balance_report`,
+establishing the size axis as the frame axis. **One event, scheduled, not
+discovered.**
+
+**Phase 4 — Content design ("the dream").** Paper, before building. The user
+asked for this explicitly and it is where the roster, the weapons and the
+missions get specced together rather than one at a time.
+
+| # | task |
+|---|---|
+| 4.1 | Weapons by size/weight/damage; the hardpoint budget (L.q5) |
+| 4.2 | Roster classes per L11, including the four new types |
+| 4.3 | Mission requirement DERIVED from the garrison (L.q4) |
+| 4.4 | Biomes: basic, generic, extendable |
+
+**Phase 5 — Content build.** Roster rescale, new types (each with its behaviour
+check the day it lands), weapons, hardpoints.
+
+**Phase 6 — World and modes.**
+
+| # | task |
+|---|---|
+| 6.1 | Menu tower redesign per L12 |
+| 6.2 | Terrain wired into the real scenes (the old plan's phase 4) |
+| 6.3 | Sortie geometry that scales (the old plan's phase 5) |
+| 6.4 | Arcade run reframed as the sport; scaled revision later |
+| 6.5 | Detection and cover (the old plan's phase 6) — SAM and Sentinel need it |
+
+**What is deliberately NOT on this list:** the conversion pass (V.q10 closed it),
+the Phalanx (signed off), the war layer (scale-free), and the flight model's
+architecture. Four things staying still is what makes the rest affordable.
+
+### L open questions, round 2 (react by ID)
+
+- **L.q9 — What is the Commander?** Left blank in the roster steering. It is the
+  only named type with no character yet, and it is also the one the war-sim would
+  most obviously use — a unit whose death changes the enemy's *behaviour* rather
+  than its strength. Proposal to argue with: **a rear-area unit that coordinates,
+  visible only through what it enables** — kill it and the node's units stop
+  reinforcing and reacting, so the FIGHT changes rather than the health bar.
+- **L.q10 — Is static, non-facing world text a MENU rule or a HOUSE rule?** The
+  menu spec says text *"does not have to face towards me or dissapear when
+  close"*. The scale yard's labels do both, and they do it because forty signs
+  drawing at once stacked into an unreadable horizon. Both can be right — one is
+  a room you navigate, the other is an instrument panel — but it should be a
+  decision rather than an inconsistency.
+- **L.q11 — Does the arcade run keep its own progression?** If it is "the sport",
+  does it share the campaign's frames and unlocks, or is it a separate ladder
+  with its own hobby-grade equipment?
+- **L.q12 — What happens to `hull` during Phase 1?** A component model can keep a
+  structural pool alongside components, or replace it. Replacing it is cleaner and
+  touches the war's exchange rate, `WarManifest.strength_cost`, and every
+  counter-web band at once. **The agent's lean: keep a structure pool** — it is
+  what a crash damages, it gives Phase 1 a smaller blast radius, and "the airframe
+  broke" is a different death from "every rotor failed".
+
+- **2026-08-13 — v2.45. THE CONDOR'S "CYCLY" HUM WAS BEATING, and the fix is a
+  rule rather than a number.** The user: *"some like the condor feels a bit
+  'cycly'... there is like a noticable repeating hum that makes it a bit annoying
+  and not authentic."*
+  - **Four rotors detuned by a fixed RATIO beat at (ratio x pitch), so the beat
+    rate scaled with the fundamental and only the middle frame landed in the
+    hole.** Measured: Kestrel 3.8–15.1 Hz, **Condor 1.5–5.9 Hz**, Roc 0.8–3.2 Hz.
+    Human sensitivity to amplitude modulation peaks near 4 Hz — the Kestrel
+    escaped upward into shimmer, the Roc downward into a heavy breathing swell,
+    and the Condor sat exactly on the peak.
+  - **The rule: fast beating is TEXTURE, slow beating is a DEFECT, and the 2–8 Hz
+    band in between is never allowed.** The detune now aims for 12 Hz; when the
+    fundamental is too low to get there without the four rotors sounding like a
+    chord instead of an engine, it goes the OTHER WAY to a drift measured in
+    tenths of a hertz. Measured after: kestrel 12/24/36 Hz, condor 0.1/0.3/0.4,
+    roc 0.1/0.1/0.2.
+  - **Width now comes from phase, not detune.** Each rotor gets its own baked loop
+    with the same spectrum and scrambled partial phases, so four sources comb
+    into something thicker instead of summing like one louder source. That is what
+    let the detune drop to nearly nothing without the four rotors collapsing back
+    into a point.
+  - **The loop itself was exonerated by measurement before anything was changed**
+    — 0.008% frequency error, a whole number of cycles for the fundamental, the
+    octave and the sub. Had it not been checked, "the loop is clicking" was the
+    obvious diagnosis and a seamless loop would have been rebuilt for nothing.
+
+### L steering round 2 — ANSWERED (2026-08-13)
+
+- **L.q9 — the Commander is EITHER a person or a machine, and the user offered
+  both:** *"it may be a person, a human. another option is kind of a central
+  advanced computer hub, destroying it can destroy intel/automatons/power grids
+  etc."* The agent's proposal was accepted as sound — **a rear-area unit visible
+  only through what it enables**, whose death changes the FIGHT rather than a
+  health bar. The person-versus-hub choice is left open and is a fiction
+  decision, not a mechanical one: both express "kill this and the node stops
+  coordinating". **The hub version pairs better with the Kestrel's assassination
+  role (L2.2) and with SAM/Sentinel**, because a building can be infiltrated.
+- **L.q10 — STATIC WORLD TEXT IS A HOUSE RULE**, and it reverses what the scale
+  yard currently does: *"it always feels wrong where the text aligns to me, it
+  should take physical space and true volume, like big signs."* Signs are objects,
+  not labels — they do not turn, and they do not vanish.
+  - **The replacement principle for readability is the user's own and it is
+    better than the billboard**: *"small and big text should be in adequate
+    cases, for example, the height of a human is a small text sign hovers over
+    it, the sign of a 400m height platform may be bigger to be seen from afar. a
+    building's dimensions sign should be large."* **A sign is sized by the
+    distance it is meant to be read from**, exactly like real signage — which is
+    the honest version of what the distance gate was approximating.
+  - **The crowding this re-introduces is real and must be solved physically.**
+    Forty signs drawing at once is what the gate was for. The answer now has to be
+    placement and facing — a sign points at the approach you read it from, the way
+    a real one does — rather than a visibility rule.
+- **L.q11 — the arcade run is a SEPARATE LADDER with its own hobby-grade gear:**
+  *"it can have its own hobby gear with separate ladder, which can be simpler,
+  more like what we have now. a vtx, weapons, props/engines, hull, etc. it should
+  be basic for now."* So the sport does not share the campaign's progression, and
+  it stays close to what exists — which is the cheapest possible answer and keeps
+  the one finished loop finished.
+- **L.q12 — the structure pool SURVIVES.** Components sit alongside a structural
+  hull rather than replacing it. Keeps Phase 1's blast radius small, gives crash
+  damage something to damage, and preserves "the airframe broke" as a different
+  death from "every rotor failed".
