@@ -229,6 +229,32 @@ for; the engine then delivers as many ticks per second as the machine can
 compute, and that number *is* the capacity. The distortion-free half — did the
 cell hold a true 240 Hz — is reported beside it, and the two agree at the wall.
 
+### The city load bench and the tunnelling check — the world's own limits
+
+```
+<godot> --headless -s scripts/tests/city_load_bench.gd --path .
+<godot> --headless -s scripts/tests/tunnel_check.gd    --path .
+```
+
+`city_load_bench` sweeps `CityLayout` from the old 4x5 up to 20x20 and reports
+triangles, meshes, colliders and generation time, plus the shipped scaled city.
+**The cost is flat per block** — about 4800 triangles and 30 meshes each across a
+20x range — so the size ceiling is a budget decision rather than a structural
+one. Two things it measures that a naive reading would get wrong: interiors add
+**no geometry** in the sweep (they are distance-LOD'd and there is no pilot in a
+bench, so the probe puts a stand-in in the `player` group to get the real
+figure), and the **scaled** city costs 7.8x per block because `MenuFloorFrame`'s
+mullion and scaffold spacing are in metres and do not scale.
+
+`tunnel_check` fires each frame's real collider at real walls at real speeds and
+reports where it ends up. **Nothing tunnels at any speed the roster can reach**,
+and the margin is Kestrel 2.0x, Condor 8.0x, Roc 8.0x its own terminal speed
+(a dive buys only `sqrt(1 + 1/TWR)`, so 1.11x at most). **The big frame is the
+SAFE one**, which is the opposite of the intuition that prompted the test: a
+Roc's step is four times a Kestrel's but its body is eleven times bigger.
+`continuous_cd` is reported both ways and fixes every failing case; it is off by
+default and the game does not need it today.
+
 ---
 
 ## 3. Running the actual game

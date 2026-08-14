@@ -13833,3 +13833,86 @@ architecture. Four things staying still is what makes the rest affordable.
     dot as a separator, which is not in `GlowText3D.FONT` — so those signs had
     been rendering a hollow "unknown glyph" box in the middle of their text since
     the map was built. They are line breaks now.
+
+- **2026-08-14 — v2.49. THE BIG CITY AND THE SCALED CITY (L13 phase 0.2 and
+  0.3), and the physics answer is the opposite of the question that prompted
+  it.** The user asked for *"an easy/cheap win"* and, separately, for a scaled
+  city that would *"confirm/deny the physics engines fidality"*. Both are built;
+  the second is the more valuable.
+  - **The city is 12x15 = 180 blocks, up from 4x5 = 20** — nine times the
+    content, about 550 x 750 m, and the first environment in this game you can
+    get lost in. **The size is a budget decision taken from a measurement**, not
+    from taste: `city_load_bench` sweeps the generator from 20 blocks to 400 and
+    the cost is **FLAT PER BLOCK** across the whole range — 4600 to 5100
+    triangles and about 30 meshes each, with no term growing faster than the
+    block count. 180 blocks is 832k triangles, 5373 meshes and 0.9 s to build;
+    400 blocks is 2.0M triangles and 2.2 s. **Nothing structural stops a bigger
+    one.**
+  - **Interiors cost NOTHING until a pilot arrives, and that is the architectural
+    answer to "can it keep growing".** The sweep reports identical triangle
+    counts with interiors on and off, which reads like a dead flag and is not:
+    `WorldBuilding` furnishes only within `interior_lod_radius`. Measured with a
+    stand-in in the `player` group at the downtown core of a 16x20 city: **24
+    buildings inside the radius, 41892 extra triangles across 701 extra
+    meshes.** That figure is a CONSTANT, not a function of city size. The
+    build-time cost is not free though — the specs are generated for every open
+    floor at build, which is a flat +18%.
+  - **THE TUNNELLING RESULT INVERTS THE ASSUMPTION THE TEST WAS WRITTEN ON.** The
+    worry was that a Roc doing 131 m/s moves 0.55 m per physics tick against
+    building walls. Measured by firing every frame's real collider at real walls
+    through the real solver (`tests/tunnel_check.gd`, 120 cases):
+
+    | frame | terminal | step/tick | first tunnels at |
+    |---|---|---|---|
+    | Kestrel 0.28 m | 31 m/s | 0.13 m | **2.0x** envelope |
+    | Condor 1.20 m | 83 m/s | 0.34 m | **8.0x** |
+    | Roc 3.00 m | 131 m/s | 0.55 m | **8.0x** |
+
+  - **Nothing tunnels at any speed the roster can actually reach**, including
+    against the thinnest geometry the city generator produces (the 0.12 m curb
+    trim). And **the big frame is the SAFE one**: a Roc's step is four times a
+    Kestrel's, but its body is eleven times bigger, so it is HARDER to miss. The
+    small frame is the one with only a 2x margin. A dive cannot close that —
+    gravity adds to thrust, so the true ceiling is `terminal x sqrt(1 + 1/TWR)`,
+    which is 1.11x on the Kestrel and 1.04x on the TWR-12 frames.
+  - **The ratio that governs it is (step per tick) / (wall + body), and it is a
+    risk indicator rather than a threshold.** In the same sweep 0.83 survived and
+    0.64 did not, because whether a discrete step happens to LAND inside the wall
+    depends on the phase of the steps against it. Near the boundary it is a coin
+    flip — which is exactly why this was measured instead of derived.
+  - **`continuous_cd` is the lever and it fixes every failing case**, at every
+    speed and thickness tested. It defaults to false on every RigidBody3D
+    (queried, not assumed) and the drone does not set it. **Deliberately not
+    turned on**: the measurement says the shipped configuration is safe at
+    reachable speeds, and switching a solver mode on the strength of a condition
+    the game cannot produce would be paying for nothing.
+  - **`CityLayout` DID NOT ACTUALLY SCALE, and that is the fourth instance of the
+    week's pattern.** `block_size` and `road_width` were exports, so a 10x city
+    looked like one line of work — but the footprint law reads `16.0 + lean *
+    18.0` in metres, the curb is 0.15 m, a streetlight pole is 6 m and a tree is
+    3 to 4.5 m. Set `block_size` to 342 alone and you get 16-to-34-metre
+    buildings marooned in 342-metre blocks under human-sized lamp posts. There is
+    now a `world_scale` export (default 1.0, so the shipped city is
+    byte-identical — verified: 92558 triangles, 577 meshes, 3014 colliders,
+    unchanged) through which every hard-coded length passes. **A constant that
+    was correct for one scale is a bug on a size ladder**, and this is the first
+    instance outside the airframe.
+  - **THE SCALED CITY'S KNOWN LIMIT, stated rather than hidden.**
+    `scenes/scaled_city_map.tscn` is 5x6 blocks at 10.714x — 2.6 x 2.9 km, 1.13M
+    triangles, 1.2 s to build — and it flies. But it costs **37600 triangles per
+    block against the human city's 4800**, 7.8x, and looks visibly wrong up
+    close: `MenuFloorFrame`'s wall, mullion and scaffold constants are in metres
+    and do not scale, so a 350 m facade is tiled with human-scale window
+    detail. Photographed as dense moiré across every building. **That file is the
+    MENU TOWER's**, and the tower is explicitly off-limits this session, so the
+    fifth instance of the constant-scaling pattern is recorded and left. Interiors
+    are off in that scene for the same class of reason: `InteriorGenerator`'s
+    furniture is authored in metres, and human desks in 60 m rooms is a worse lie
+    than an empty floor.
+  - **One observation for the human's eye rather than a defect.** The shared
+    `default_look_config.tres` carries `fog_density = 0.006`, which was tuned
+    when the city was 260 m deep; the new one is 750 m, so from altitude the far
+    half reads as haze. Down an avenue at street level it looks right and the fog
+    is doing its job. Left alone: it is a look decision and the hands are the
+    test suite. Both the scale yard and the scaled city already opt out of the
+    shared config for exactly this reason.

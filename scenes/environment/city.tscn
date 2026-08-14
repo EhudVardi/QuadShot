@@ -8,9 +8,13 @@
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("1_checker")
 
+; Sized to cover the 12 x 15 grid below (about 550 x 750 m of city, laid from
+; front_z into -Z) with room to turn around at either end. The collision under
+; it is an infinite WorldBoundaryShape3D regardless, so this plane is only ever
+; a visual hem - but a hem you can see is a hem you fly toward.
 [sub_resource type="PlaneMesh" id="mesh_ground"]
 material = SubResource("mat_ground")
-size = Vector2(500, 500)
+size = Vector2(2400, 2400)
 
 [sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
 
@@ -97,11 +101,22 @@ shape = SubResource("shape_pad")
 [node name="SpawnPoint" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 
+; THE BIG CITY (GAMEPLAY-DESIGN Iteration 16 / L13 phase 0.2, the user's
+; "easy/cheap win"). 12 x 15 = 180 blocks, up from 4 x 5 = 20: nine times the
+; content and about 550 x 750 m of it, which is the first environment in this
+; game you can get lost in.
+;
+; THE SIZE IS CHOSEN FROM A MEASUREMENT, not from taste. `city_load_bench`
+; sweeps this generator from 20 blocks to 400 and the cost is FLAT PER BLOCK
+; across the whole range - about 4800 triangles and 30 meshes each, with no
+; term that grows faster than the block count. So the ceiling is not structural
+; and this number is a budget decision: 180 blocks is 832k triangles, 5373
+; meshes and 0.9 s to generate, which leaves room to double again.
 [node name="City" type="Node3D" parent="."]
 script = ExtResource("7_city")
 layout_seed = 42
-cols = 4
-rows = 5
+cols = 12
+rows = 15
 interiors_enabled = true
 block_size = 32.0
 road_width = 16.0

@@ -1,0 +1,152 @@
+[gd_scene load_steps=13 format=3]
+
+; THE SCALED CITY (GAMEPLAY-DESIGN Iteration 16 / L13 phase 0.3).
+;
+; The user: *"i want to see how a scaled city feels, how it is to fly in. it
+; would also confirm/deny the physics engines fidality and true to source."*
+; **The second half is the point** - this is a measurement wearing content's
+; clothes, and the measurement lives in `scripts/tests/tunnel_check.gd`.
+;
+; Every length is the human city's times 10.714, which is the Roc's 3.0 m body
+; over the Kestrel's 0.28 m. So a 3 m aircraft threads these streets exactly the
+; way a 0.28 m one threads `city.tscn`: 171 m roads, 342 m blocks, floors 43 to
+; 64 m tall, buildings 430 m to 1.9 km. Flying it with keys 1/2/3 is the whole
+; experiment - the Kestrel in here is a gnat in a canyon and the Roc is at home.
+;
+; TWO THINGS ARE DELIBERATELY NOT SCALED, and both are honest limits rather than
+; oversights:
+;   `interiors_enabled` is OFF. `InteriorGenerator`'s furniture is authored in
+;   metres and takes no scale, so a scaled city's rooms would be 60 m high with
+;   human-sized desks in them - a worse lie than an empty floor.
+;   `MenuFloorFrame`'s wall, mullion and scaffold constants are metres too, so
+;   the facades here carry human-scale detail on a 350 m building. That is the
+;   fifth instance this week of a constant that was correct at one scale, and it
+;   is left alone on purpose: that file is the MENU TOWER's, and the tower is
+;   explicitly not this session's to touch.
+;
+; NO LookController, for exactly the reason `scale_yard.tscn` has none: the
+; shared look config carries `fog_density = 0.006`, which swallows everything
+; past about 700 m. This city is 2.5 km across. The atmosphere is authored here
+; and kept.
+
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="1_checker"]
+[ext_resource type="Script" path="res://scripts/environment/city_layout.gd" id="7_city"]
+
+; 100 m minor cells and 1000 m majors - the human city's 10/100 m grid times the
+; same factor, so the ground still reads as a ruler for the aircraft in it.
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("1_checker")
+shader_parameter/cell_size = 100.0
+shader_parameter/grid_energy = 1.8
+shader_parameter/fade_distance = 4000.0
+shader_parameter/major_every = 10.0
+shader_parameter/major_energy = 3.0
+shader_parameter/major_fade_distance = 12000.0
+
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(16000, 16000)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.2, 0.7, 0.35, 1)
+emission_enabled = true
+emission = Color(0.15, 0.85, 0.4, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="BoxMesh" id="mesh_pad"]
+material = SubResource("mat_pad")
+size = Vector3(32, 1.3, 32)
+
+[sub_resource type="BoxShape3D" id="shape_pad"]
+size = Vector3(32, 1.3, 32)
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.1, 0.13, 0.22, 1)
+sky_horizon_color = Color(0.5, 0.42, 0.42, 1)
+sky_curve = 0.12
+ground_horizon_color = Color(0.4, 0.34, 0.32, 1)
+ground_bottom_color = Color(0.08, 0.07, 0.09, 1)
+sun_angle_max = 20.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+; The city mood with the fog opened from 0.006 to 0.0006 and SSAO's radius taken
+; up with the world. At the shared density a 342 m block would be invisible from
+; the far side of its own street.
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 12.0
+ssao_intensity = 2.5
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.62, 0.56, 0.66, 1)
+fog_sun_scatter = 0.2
+fog_density = 0.0006
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.4
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.12
+
+[node name="ScaledCityEnvironment" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+; The shadow range goes up with the world too. At the shipped 100 m default a
+; 1.9 km tower would cast shadow for the first twentieth of itself.
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 320, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.4
+shadow_enabled = true
+directional_shadow_max_distance = 2500.0
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+[node name="SpawnPad" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="SpawnPad"]
+mesh = SubResource("mesh_pad")
+
+[node name="Collision" type="CollisionShape3D" parent="SpawnPad"]
+shape = SubResource("shape_pad")
+
+[node name="SpawnPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+
+; 5 x 6 blocks is a SMALLER grid than the human city's 12 x 15 and a much bigger
+; place: at 342 m a block, this spans about 2.5 x 3.1 km. `min_floors` and
+; `max_floors` are counts rather than lengths, so they stay - the height comes
+; from `interior_height`, which `world_scale` takes up with everything else.
+[node name="City" type="Node3D" parent="."]
+script = ExtResource("7_city")
+layout_seed = 42
+cols = 5
+rows = 6
+interiors_enabled = false
+world_scale = 10.714
+block_size = 342.9
+road_width = 171.4
+front_z = -535.0
+min_floors = 10
+max_floors = 30

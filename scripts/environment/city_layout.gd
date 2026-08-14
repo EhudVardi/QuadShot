@@ -58,6 +58,26 @@ extends Node3D
 ## per-building distance LOD. Off by default so existing city checks/perf are
 ## unchanged until flown.
 @export var interiors_enabled: bool = false
+## MULTIPLIES EVERY LENGTH IN THIS GENERATOR that is not already an export
+## (GAMEPLAY-DESIGN Iteration 16 / L13 phase 0.3). 1.0 is the human-scale city
+## and is the default, so nothing shipped moves.
+##
+## IT EXISTS BECAUSE THE GENERATOR DID NOT ACTUALLY SCALE, and that is a finding
+## rather than a feature request. `block_size` and `road_width` were already
+## exports, so a 10x city looked like one line of work — but the footprint law
+## reads `16.0 + lean * 18.0` in metres, the curb is 0.15 m, a streetlight pole
+## is 6 m and a tree is 3 to 4.5 m, none of which are exports. Set `block_size`
+## to 342 on its own and you get 16-to-34-metre buildings marooned in
+## 342-metre blocks, lit by human-sized lamp posts. **A constant that was
+## correct for one scale is a bug on a size ladder**, which is the same lesson
+## the overlay sliders, the wind saturation and the motor audio each taught in
+## the three days before this — the fourth instance, and the first one outside
+## the airframe.
+##
+## Deliberately NOT applied to `block_size` / `road_width` / `front_z`
+## themselves: those are the caller's own numbers, and multiplying an export the
+## caller set would make the scene file lie about the city it describes.
+@export var world_scale: float = 1.0
 
 const ROADLINE_COLOR: Color = Color(1.0, 0.75, 0.2)
 const ROADLINE_ENERGY: float = 2.5
@@ -151,6 +171,14 @@ var _max_zone_dist: float = 1.0     ## core→farthest-corner distance (normalis
 
 func _ready() -> void:
 	rebuild()
+
+
+## Every hard-coded length in this file goes through here. At world_scale 1.0 it
+## is the identity, so the shipped city is byte-identical - which is the whole
+## reason the knob is safe to add to a generator six iterations of content
+## already depend on.
+func _s(metres: float) -> float:
+	return metres * world_scale
 
 
 ## (Re)build the whole city from the current exports, clearing any existing
@@ -263,7 +291,7 @@ func _lay_grid(rng: RandomNumberGenerator) -> void:
 ## A varied block dimension (column width or row depth), floored so it always
 ## holds a building.
 func _block_dim(rng: RandomNumberGenerator) -> float:
-	return maxf(MIN_BLOCK,
+	return maxf(_s(MIN_BLOCK),
 			block_size * rng.randf_range(1.0 - block_variation, 1.0 + block_variation * 0.5))
 
 
@@ -286,15 +314,22 @@ func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
 	# eats its street.
 	var lean: float = float(floors - min_floors) / maxf(float(max_floors - min_floors), 1.0)
 	var block: float = minf(_col_w[c], _row_d[r])
-	var fp: float = clampf(16.0 + lean * 18.0 + rng.randf_range(-3.0, 3.0),
-			16.0, block - BUILDING_MARGIN)
+	var fp: float = clampf(_s(16.0) + lean * _s(18.0) + rng.randf_range(-_s(3.0), _s(3.0)),
+			_s(16.0), block - _s(BUILDING_MARGIN))
 	var building := WorldBuilding.new()
 	# A distinct, stable seed per block so each building is its own thing.
 	building.building_seed = layout_seed * 131 + (r * cols + c)
 	building.footprint = fp
 	building.target_floors = floors
 	building.open_floors = maxi(2, int(round(float(floors) * 0.55)))
-	building.interior_height = rng.randf_range(4.0, 6.0)
+	building.interior_height = rng.randf_range(_s(4.0), _s(6.0))
+	building.window_size = Vector2(_s(3.0), _s(2.4))
+	building.sill = _s(0.8)
+	# A neighbourhood is a DISTANCE, so the interior LOD radius is one too: at
+	# ten times the block size the shipped 140 m reaches barely half a block, and
+	# the furniture would pop in and out inside a single street.
+	building.interior_lod_radius = _s(140.0)
+	building.interior_lod_hysteresis = _s(20.0)
 	# Setbacks cluster downtown: base chance + a core bonus scaled by the zone.
 	if rng.randf() < clampf(setback_chance + zone * setback_core_bonus, 0.0, 1.0):
 		building.setback_tiers = rng.randi_range(3, 4)
@@ -315,7 +350,7 @@ func _spawn_building(rng: RandomNumberGenerator, r: int, c: int) -> void:
 ## Core-adjacent buildings open all four (direction is ill-defined at the centre).
 func _facing_open_sides(bx: float, bz: float) -> Array:
 	var to_core: Vector2 = _core_world - Vector2(bx, bz)
-	if to_core.length() < STREETLIGHT_CORE_RADIUS:
+	if to_core.length() < _s(STREETLIGHT_CORE_RADIUS):
 		return [true, true, true, true]
 	var dir: Vector2 = to_core.normalized()
 	var normals: Array = [Vector2(0.0, 1.0), Vector2(0.0, -1.0),
@@ -357,24 +392,24 @@ func _build_roads() -> void:
 	var city_d: float = (front - back) + 2.0 * road_width
 	var mid_z: float = (front + back) * 0.5
 	# Vertical streets (run in Z): left perimeter, each interior street, right.
-	_add_line(Vector3(ROADLINE_WIDTH, 0.05, city_d),
-			Vector3(left - road_width * 0.5, 0.03, mid_z), mat)
+	_add_line(Vector3(_s(ROADLINE_WIDTH), _s(0.05), city_d),
+			Vector3(left - road_width * 0.5, _s(0.03), mid_z), mat)
 	for c: int in cols - 1:
 		var cx: float = ((_col_x[c] + _col_w[c] * 0.5)
 				+ (_col_x[c + 1] - _col_w[c + 1] * 0.5)) * 0.5
-		var lw: float = ROADLINE_WIDTH * (AVENUE_LINE_MULT if (c + 1) == _avenue_street else 1.0)
-		_add_line(Vector3(lw, 0.05, city_d), Vector3(cx, 0.03, mid_z), mat)
-	_add_line(Vector3(ROADLINE_WIDTH, 0.05, city_d),
-			Vector3(right + road_width * 0.5, 0.03, mid_z), mat)
+		var lw: float = _s(ROADLINE_WIDTH) * (AVENUE_LINE_MULT if (c + 1) == _avenue_street else 1.0)
+		_add_line(Vector3(lw, _s(0.05), city_d), Vector3(cx, _s(0.03), mid_z), mat)
+	_add_line(Vector3(_s(ROADLINE_WIDTH), _s(0.05), city_d),
+			Vector3(right + road_width * 0.5, _s(0.03), mid_z), mat)
 	# Horizontal streets (run in X): front perimeter, each interior, back.
-	_add_line(Vector3(city_w, 0.05, ROADLINE_WIDTH),
-			Vector3(0.0, 0.03, front + road_width * 0.5), mat)
+	_add_line(Vector3(city_w, _s(0.05), _s(ROADLINE_WIDTH)),
+			Vector3(0.0, _s(0.03), front + road_width * 0.5), mat)
 	for r: int in rows - 1:
 		var cz: float = ((_row_z[r] - _row_d[r] * 0.5)
 				+ (_row_z[r + 1] + _row_d[r + 1] * 0.5)) * 0.5
-		_add_line(Vector3(city_w, 0.05, ROADLINE_WIDTH), Vector3(0.0, 0.03, cz), mat)
-	_add_line(Vector3(city_w, 0.05, ROADLINE_WIDTH),
-			Vector3(0.0, 0.03, back - road_width * 0.5), mat)
+		_add_line(Vector3(city_w, _s(0.05), _s(ROADLINE_WIDTH)), Vector3(0.0, _s(0.03), cz), mat)
+	_add_line(Vector3(city_w, _s(0.05), _s(ROADLINE_WIDTH)),
+			Vector3(0.0, _s(0.03), back - road_width * 0.5), mat)
 
 
 ## Ground life per block (v1.58): OCCUPIED / PLAZA blocks get a raised sidewalk
@@ -396,31 +431,34 @@ func _build_sidewalks(lots: Array) -> void:
 			if lots[r][c] == Lot.SUNKEN:
 				_mark_lot(batch, at, w, d, mark_mat)
 			else:
-				batch.add(Vector3(w, CURB_HEIGHT, d),
-						Vector3(at.x, CURB_HEIGHT * 0.5, at.z), slab_mat)
+				batch.add(Vector3(w, _s(CURB_HEIGHT), d),
+						Vector3(at.x, _s(CURB_HEIGHT) * 0.5, at.z), slab_mat)
 				_curb_trim(batch, at, w, d, trim_mat)
 	batch.commit_into(self)
 
 
 ## Cyan neon along the four top edges of a raised block — the curb line.
 func _curb_trim(batch: BoxBatcher, at: Vector3, w: float, d: float, mat: Material) -> void:
-	var y: float = CURB_HEIGHT
-	batch.add(Vector3(w, CURB_TRIM, CURB_TRIM), Vector3(at.x, y, at.z - d * 0.5), mat)
-	batch.add(Vector3(w, CURB_TRIM, CURB_TRIM), Vector3(at.x, y, at.z + d * 0.5), mat)
-	batch.add(Vector3(CURB_TRIM, CURB_TRIM, d), Vector3(at.x - w * 0.5, y, at.z), mat)
-	batch.add(Vector3(CURB_TRIM, CURB_TRIM, d), Vector3(at.x + w * 0.5, y, at.z), mat)
+	var y: float = _s(CURB_HEIGHT)
+	var t: float = _s(CURB_TRIM)
+	batch.add(Vector3(w, t, t), Vector3(at.x, y, at.z - d * 0.5), mat)
+	batch.add(Vector3(w, t, t), Vector3(at.x, y, at.z + d * 0.5), mat)
+	batch.add(Vector3(t, t, d), Vector3(at.x - w * 0.5, y, at.z), mat)
+	batch.add(Vector3(t, t, d), Vector3(at.x + w * 0.5, y, at.z), mat)
 
 
 ## An amber painted border on a sunken lot, inset like a real plot line, so the
 ## gap reads as a deliberate empty lot rather than a hole.
 func _mark_lot(batch: BoxBatcher, at: Vector3, w: float, d: float, mat: Material) -> void:
-	var y: float = 0.045
-	var iw: float = w - 1.5
-	var id: float = d - 1.5
-	batch.add(Vector3(iw, 0.05, LOT_MARK), Vector3(at.x, y, at.z - id * 0.5), mat)
-	batch.add(Vector3(iw, 0.05, LOT_MARK), Vector3(at.x, y, at.z + id * 0.5), mat)
-	batch.add(Vector3(LOT_MARK, 0.05, id), Vector3(at.x - iw * 0.5, y, at.z), mat)
-	batch.add(Vector3(LOT_MARK, 0.05, id), Vector3(at.x + iw * 0.5, y, at.z), mat)
+	var y: float = _s(0.045)
+	var thick: float = _s(0.05)
+	var mark: float = _s(LOT_MARK)
+	var iw: float = w - _s(1.5)
+	var id: float = d - _s(1.5)
+	batch.add(Vector3(iw, thick, mark), Vector3(at.x, y, at.z - id * 0.5), mat)
+	batch.add(Vector3(iw, thick, mark), Vector3(at.x, y, at.z + id * 0.5), mat)
+	batch.add(Vector3(mark, thick, id), Vector3(at.x - iw * 0.5, y, at.z), mat)
+	batch.add(Vector3(mark, thick, id), Vector3(at.x + iw * 0.5, y, at.z), mat)
 
 
 func _emissive_mat(color: Color, energy: float) -> StandardMaterial3D:
@@ -446,12 +484,12 @@ func _build_streetlights() -> void:
 	var batch := BoxBatcher.new()
 	for r: int in rows:
 		for c: int in cols:
-			var ix: float = _col_w[c] * 0.5 - STREETLIGHT_INSET
-			var iz: float = _row_d[r] * 0.5 - STREETLIGHT_INSET
+			var ix: float = _col_w[c] * 0.5 - _s(STREETLIGHT_INSET)
+			var iz: float = _row_d[r] * 0.5 - _s(STREETLIGHT_INSET)
 			var x: float = _col_x[c]
 			var z: float = _row_z[r]
 			var to_core: Vector2 = _core_world - Vector2(x, z)
-			var central: bool = to_core.length() < STREETLIGHT_CORE_RADIUS
+			var central: bool = to_core.length() < _s(STREETLIGHT_CORE_RADIUS)
 			var dir: Vector2 = to_core.normalized()
 			for sx: float in [-1.0, 1.0]:
 				for sz: float in [-1.0, 1.0]:
@@ -462,10 +500,11 @@ func _build_streetlights() -> void:
 
 func _add_streetlight(batch: BoxBatcher, x: float, z: float,
 		pole_mat: Material, lamp_mat: Material) -> void:
-	batch.add(Vector3(STREETLIGHT_POLE_W, STREETLIGHT_POLE_H, STREETLIGHT_POLE_W),
-			Vector3(x, STREETLIGHT_POLE_H * 0.5, z), pole_mat)
-	batch.add(Vector3(STREETLIGHT_LAMP, STREETLIGHT_LAMP, STREETLIGHT_LAMP),
-			Vector3(x, STREETLIGHT_POLE_H, z), lamp_mat)
+	var pole_h: float = _s(STREETLIGHT_POLE_H)
+	var pole_w: float = _s(STREETLIGHT_POLE_W)
+	var lamp: float = _s(STREETLIGHT_LAMP)
+	batch.add(Vector3(pole_w, pole_h, pole_w), Vector3(x, pole_h * 0.5, z), pole_mat)
+	batch.add(Vector3(lamp, lamp, lamp), Vector3(x, pole_h, z), lamp_mat)
 
 
 ## Natural greenery (v1.63): plazas become little parks (a jittered grid of trees
@@ -532,19 +571,19 @@ func _flat_mat(color: Color, rough: float) -> StandardMaterial3D:
 ## props on the raised slab.
 func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, style: int,
 		cx: float, cz: float, w: float, d: float, mats: Dictionary) -> void:
-	var inset: float = 3.0
+	var inset: float = _s(3.0)
 	var iw: float = w - 2.0 * inset
 	var id: float = d - 2.0 * inset
-	if iw < 2.0 or id < 2.0:
+	if iw < _s(2.0) or id < _s(2.0):
 		return
-	var nx: int = clampi(int(round(iw / TREE_SPACING)), 1, 4)
-	var nz: int = clampi(int(round(id / TREE_SPACING)), 1, 4)
+	var nx: int = clampi(int(round(iw / _s(TREE_SPACING))), 1, 4)
+	var nz: int = clampi(int(round(id / _s(TREE_SPACING))), 1, 4)
 	for i: int in nx:
 		for j: int in nz:
 			var fx: float = 0.5 if nx == 1 else float(i) / float(nx - 1)
 			var fz: float = 0.5 if nz == 1 else float(j) / float(nz - 1)
-			var px: float = cx - iw * 0.5 + iw * fx + g_rng.randf_range(-0.8, 0.8)
-			var pz: float = cz - id * 0.5 + id * fz + g_rng.randf_range(-0.8, 0.8)
+			var px: float = cx - iw * 0.5 + iw * fx + g_rng.randf_range(-_s(0.8), _s(0.8))
+			var pz: float = cz - id * 0.5 + id * fz + g_rng.randf_range(-_s(0.8), _s(0.8))
 			_add_prop(batch, style, px, pz, g_rng, mats)
 
 
@@ -555,7 +594,7 @@ func _fill_plaza(batch: BoxBatcher, g_rng: RandomNumberGenerator, style: int,
 func _dress_sidewalk(batch: BoxBatcher, g_rng: RandomNumberGenerator, style: int,
 		cx: float, cz: float, w: float, d: float, mats: Dictionary) -> void:
 	var open: Array = _facing_open_sides(cx, cz)
-	var inset: float = 1.2
+	var inset: float = _s(1.2)
 	var spots: Array = [
 		Vector2(cx, cz + d * 0.5 - inset),
 		Vector2(cx, cz - d * 0.5 + inset),
@@ -593,41 +632,46 @@ func _add_prop(batch: BoxBatcher, style: int, x: float, z: float,
 ## A greybox tree: a slim trunk under a boxy canopy, standing on the sidewalk.
 func _add_tree(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerator,
 		trunk_mat: Material, leaf_mat: Material) -> void:
-	var h: float = g_rng.randf_range(3.0, 4.5)
+	var h: float = g_rng.randf_range(_s(3.0), _s(4.5))
 	var trunk_h: float = h * 0.4
 	var canopy_h: float = h - trunk_h
-	var canopy_w: float = g_rng.randf_range(1.6, 2.2)
-	batch.add(Vector3(0.3, trunk_h, 0.3), Vector3(x, CURB_HEIGHT + trunk_h * 0.5, z),
+	var canopy_w: float = g_rng.randf_range(_s(1.6), _s(2.2))
+	var curb: float = _s(CURB_HEIGHT)
+	batch.add(Vector3(_s(0.3), trunk_h, _s(0.3)), Vector3(x, curb + trunk_h * 0.5, z),
 			trunk_mat)
 	batch.add(Vector3(canopy_w, canopy_h, canopy_w),
-			Vector3(x, CURB_HEIGHT + trunk_h + canopy_h * 0.5, z), leaf_mat)
+			Vector3(x, curb + trunk_h + canopy_h * 0.5, z), leaf_mat)
 
 
 ## A low planter box with a hedge on top — natural (concrete + green) or cyber
 ## (dark base + glowing top), by the materials passed.
 func _add_hedge(batch: BoxBatcher, x: float, z: float, base_mat: Material,
 		top_mat: Material) -> void:
-	batch.add(Vector3(1.4, 0.5, 1.4), Vector3(x, CURB_HEIGHT + 0.25, z), base_mat)
-	batch.add(Vector3(1.2, 0.5, 1.2), Vector3(x, CURB_HEIGHT + 0.75, z), top_mat)
+	var curb: float = _s(CURB_HEIGHT)
+	batch.add(Vector3(_s(1.4), _s(0.5), _s(1.4)), Vector3(x, curb + _s(0.25), z), base_mat)
+	batch.add(Vector3(_s(1.2), _s(0.5), _s(1.2)), Vector3(x, curb + _s(0.75), z), top_mat)
 
 
 ## Urban hardscape: a chest-high kiosk / utility cabinet with a thin lit sign.
 func _add_kiosk(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerator,
 		body_mat: Material, sign_mat: Material) -> void:
-	var h: float = g_rng.randf_range(1.8, 2.6)
-	var bw: float = g_rng.randf_range(1.1, 1.7)
-	batch.add(Vector3(bw, h, bw * 0.7), Vector3(x, CURB_HEIGHT + h * 0.5, z), body_mat)
-	batch.add(Vector3(bw * 0.85, 0.28, 0.06),
-			Vector3(x, CURB_HEIGHT + h * 0.78, z + bw * 0.36), sign_mat)
+	var h: float = g_rng.randf_range(_s(1.8), _s(2.6))
+	var bw: float = g_rng.randf_range(_s(1.1), _s(1.7))
+	var curb: float = _s(CURB_HEIGHT)
+	batch.add(Vector3(bw, h, bw * 0.7), Vector3(x, curb + h * 0.5, z), body_mat)
+	batch.add(Vector3(bw * 0.85, _s(0.28), _s(0.06)),
+			Vector3(x, curb + h * 0.78, z + bw * 0.36), sign_mat)
 
 
 ## Urban hardscape: a low bench, randomly oriented.
 func _add_bench(batch: BoxBatcher, x: float, z: float, g_rng: RandomNumberGenerator,
 		mat: Material) -> void:
-	var length: float = g_rng.randf_range(1.6, 2.2)
-	var size: Vector3 = Vector3(0.5, 0.45, length) if g_rng.randf() < 0.5 \
-			else Vector3(length, 0.45, 0.5)
-	batch.add(size, Vector3(x, CURB_HEIGHT + 0.225, z), mat)
+	var length: float = g_rng.randf_range(_s(1.6), _s(2.2))
+	var thick: float = _s(0.5)
+	var high: float = _s(0.45)
+	var size: Vector3 = Vector3(thick, high, length) if g_rng.randf() < 0.5 \
+			else Vector3(length, high, thick)
+	batch.add(size, Vector3(x, _s(CURB_HEIGHT) + high * 0.5, z), mat)
 
 
 func _add_line(size: Vector3, at: Vector3, mat: Material) -> void:
@@ -655,5 +699,5 @@ func _build_ground() -> void:
 	plane.size = Vector2(right - left, front - back)
 	plane.material = mat
 	ground.mesh = plane
-	ground.position = Vector3((left + right) * 0.5, 0.02, (front + back) * 0.5)
+	ground.position = Vector3((left + right) * 0.5, _s(0.02), (front + back) * 0.5)
 	add_child(ground)
