@@ -815,11 +815,6 @@ func _strut(from: Vector3, to: Vector3, thickness: float, material: Material) ->
 const READ_RATIO: float = 600.0
 ## Clear space around the text on its plate, in font pixels.
 const SIGN_MARGIN_PX: float = 3.0
-## A plate whose bottom edge is at or below this gets legs to the ground. Above
-## it the plate is understood to be mounted on the structure it names — which is
-## why the tall signs were moved DOWN onto their objects rather than left
-## floating at the altitude their subject happens to reach.
-const SIGN_POST_MAX_H: float = 30.0
 const SIGN_MIN_THICKNESS: float = 0.25
 
 
@@ -840,7 +835,16 @@ const SIGN_MIN_THICKNESS: float = 0.25
 ## on one plate is what a real double-sided sign is, and it works here where the
 ## first attempt failed for a reason worth remembering: two coplanar copies are
 ## read through each other's mirror image. These two are separated by the plate's
-## own thickness, and the plate is opaque, so only one is ever visible.
+## own thickness, and the plate is opaque, so only one is ever visible. Signed off
+## by the user on sight: *"the dual side of them is great."*
+##
+## **A SIGN HAS NO LEGS**, and that is the user's call after flying it: *"the
+## signs can float in space, no need for legs."* The first version put posts under
+## any plate low enough to reach the ground, on the reasoning that an object needs
+## a mount to read as an object. It does not — the plate has volume, it holds a
+## fixed bearing and it never moves, which is the whole of L.q10's rule. The legs
+## were an argument about realism that the rule never made, and they cost the map
+## a forest of posts around the ruler row.
 func _sign(text: String, at: Vector3, read_m: float,
 		faces: Vector3 = Vector3.ZERO, color: Color = LABEL_COLOR) -> void:
 	var pixel: float = read_m / READ_RATIO
@@ -873,13 +877,3 @@ func _sign(text: String, at: Vector3, read_m: float,
 		# and one sign seen through itself.
 		glyphs.rotation.y = yaw if side > 0.0 else yaw + PI
 		add_child(glyphs)
-	var foot: float = at.y - plate.y * 0.5
-	if foot > SIGN_POST_MAX_H or foot <= 0.2:
-		return
-	var leg: float = maxf(0.2, pixel * 2.0)
-	var along := Vector3(cos(yaw), 0.0, -sin(yaw))
-	for side: float in [-1.0, 1.0]:
-		_batch.add(Vector3(leg, foot, leg),
-				at + along * side * plate.x * 0.34
-						+ Vector3(0.0, -plate.y * 0.5 - foot * 0.5, 0.0),
-				sign_material, yaw)

@@ -15,6 +15,10 @@ extends SceneTree
 ## primitive monitors read 0 without a display, so those are reported only when
 ## one is attached — drop `--headless` for them.
 ##
+## The last row of the table is not content: it exercises `CityLayout.world_scale`
+## so the generator cannot quietly stop honouring `block_size` again. See the
+## SCALE_PROBE constants for the whole story.
+##
 ## `mesh nodes` IS THE DRAW-CALL PROXY and the one to watch. `BoxBatcher` merges
 ## every box sharing a material into one ArrayMesh, so a city's ground life costs
 ## a handful of meshes however many blocks it has; the buildings do not batch,
@@ -44,14 +48,27 @@ const ROAD_WIDTH: float = 16.0
 const MIN_FLOORS: int = 10
 const MAX_FLOORS: int = 30
 
-## The scaled city (L13 phase 0.3), matching scenes/environment/scaled_city.tscn:
-## every length times the Roc's body over the Kestrel's, so a 3 m aircraft threads
-## these streets the way a 0.28 m one threads the human city.
-const SCALED_WORLD_SCALE: float = 10.714
-const SCALED_BLOCK: float = 342.9
-const SCALED_ROAD: float = 171.4
-const SCALED_COLS: int = 5
-const SCALED_ROWS: int = 6
+## ONE ROW THAT EXERCISES `CityLayout.world_scale`, and it is a REGRESSION GUARD
+## rather than content.
+##
+## There was briefly a scaled city scene here, built at 10.714x on the reasoning
+## that a 3 m aircraft should thread streets the way a 0.28 m one threads the
+## human city. **The user rejected the premise on sight** (2026-08-15): the world
+## stays at real human scale, so a scaled city is a world that is not real, which
+## is exactly what the V.q10 fork closed. The scene is gone.
+##
+## What survives is the KNOB, because building that scene is what revealed that
+## the generator never honoured `block_size` at all — the footprint law, the curb,
+## the streetlights and the trees were all raw metres. Anyone raising `block_size`
+## on its own still gets 16-to-34-metre buildings marooned in oversized blocks
+## unless `world_scale` moves with it. This row is what stops that regressing, and
+## the assert below is the only kind that can catch it: a stuck footprint law
+## produces a city that covers far less ground than its own block size says.
+const SCALE_PROBE_WORLD_SCALE: float = 10.714
+const SCALE_PROBE_BLOCK: float = 342.9
+const SCALE_PROBE_ROAD: float = 171.4
+const SCALE_PROBE_COLS: int = 5
+const SCALE_PROBE_ROWS: int = 6
 
 var _rows: Array[Dictionary] = []
 var _failures: PackedStringArray = []
@@ -80,11 +97,8 @@ func _initialize() -> void:
 		for interiors: bool in INTERIOR_MODES:
 			_cells.append([int(grid[0]), int(grid[1]), interiors,
 					1.0, BLOCK_SIZE, ROAD_WIDTH])
-	# The shipped scaled city (scenes/environment/scaled_city.tscn), measured with
-	# its own numbers rather than a bench's guess at them, so this row moves the
-	# day that scene does.
-	_cells.append([SCALED_COLS, SCALED_ROWS, false, SCALED_WORLD_SCALE,
-			SCALED_BLOCK, SCALED_ROAD])
+	_cells.append([SCALE_PROBE_COLS, SCALE_PROBE_ROWS, false,
+			SCALE_PROBE_WORLD_SCALE, SCALE_PROBE_BLOCK, SCALE_PROBE_ROAD])
 	process_frame.connect(_on_frame)
 
 
@@ -272,7 +286,7 @@ func _report() -> void:
 			"colliders", "nodes", "build ms"])
 	for row: Dictionary in _rows:
 		if not is_equal_approx(float(row["scale"]), 1.0):
-			print("[city] ---- the SCALED city, every length x %.3f ----"
+			print("[city] ---- world_scale regression guard, every length x %.3f ----"
 					% float(row["scale"]))
 		print("[city] %2dx%-2d %7d %4s %4.0fx%-4.0f %8d %10d %9d %9d %11.1f"
 				% [int(row["cols"]), int(row["rows"]), int(row["blocks"]),
@@ -354,15 +368,16 @@ func _check() -> void:
 	for row: Dictionary in _rows:
 		if not is_equal_approx(float(row["scale"]), 1.0):
 			# THE ANTI-CONSTANT ASSERT. `world_scale` only means anything if the
-			# generator's hard-coded lengths go through it: a scaled city whose
-			# buildings came out human-sized would look almost right from the air
-			# and be completely wrong to fly. So the scaled row must cover ground
-			# in proportion to its scale, which a stuck footprint law cannot fake.
-			var want: float = float(SCALED_COLS) * SCALED_BLOCK
+			# generator's hard-coded lengths go through it, and a generator that
+			# ignored it would still produce a plausible-looking city — just one
+			# whose buildings are marooned in blocks ten times too big for them.
+			# Covering ground in proportion to the scale is the one thing a stuck
+			# footprint law cannot fake.
+			var want: float = float(SCALE_PROBE_COLS) * SCALE_PROBE_BLOCK
 			if (row["span_m"] as Vector2).x < want * 0.5:
 				_failures.append("the scaled city spans only %.0f m across %d columns of %.0f m blocks — world_scale is not reaching the generator"
-						% [(row["span_m"] as Vector2).x, SCALED_COLS,
-						SCALED_BLOCK])
+						% [(row["span_m"] as Vector2).x, SCALE_PROBE_COLS,
+						SCALE_PROBE_BLOCK])
 		if int(row["triangles"]) <= 0 or int(row["meshes"]) <= 0:
 			_failures.append("%dx%d (interiors %s) built no geometry at all"
 					% [int(row["cols"]), int(row["rows"]), row["interiors"]])

@@ -14206,3 +14206,115 @@ Stated explicitly, because the last iteration this size (L7 risk 1) named
 - **E.q8 — One severity dial, or one per component?** One is legible and is what
   D3 shipped. Per-component would let a player turn motor damage to sim and video
   breakup to arcade, which is a real accessibility win and a real complexity cost.
+
+### Phase 0 steering — ANSWERED (2026-08-15)
+
+The user flew everything phase 0 produced and returned five rulings. Two of them
+close things, one reverses a build, one corrects E6 before it is built, and one
+corrects a claim the agent made. Recorded by subject.
+
+- **THE SIGNS ARE RIGHT, AND THEY HAVE NO LEGS.** *"the dual side of them is
+  great"*, *"works great!"* — and *"the signs can float in space, no need for
+  legs."* The posts are removed. Worth recording why the agent added them: the
+  reasoning was that an object needs a mount to read as an object. **It does
+  not.** The plate has volume, holds a fixed bearing and never moves, which is
+  the whole of L.q10's rule; the legs were an argument about realism that the
+  rule never made, and they cost the map a forest of posts around the ruler row.
+  `READ_RATIO` is untouched — the sizing law is signed off as flown.
+- **THE BIG CITY IS DONE AND CLOSED.** *"the city is indeed big... this is good
+  enough now. no need for more work."* One observation left on the record rather
+  than actioned: *"the furniture seems to load in when it wants"* — that is
+  `WorldBuilding`'s interior distance LOD popping at its 140 m radius, which
+  v2.49 measured as the thing that keeps a big city affordable. Explicitly not
+  worth fixing now.
+- **THE SCALED CITY IS REJECTED, AND THE PREMISE WAS WRONG RATHER THAN THE
+  EXECUTION.** *"i think its all wrong.. the city should not scale with our new
+  scaling, it should scale to the real world size we are trying to achieve."*
+  - **They are right, and the agent should have caught it from L1.** The whole
+    content of the V.q10 fork is that **the world stays at real human scale
+    permanently and the ROSTER spans sizes.** A city multiplied by 10.714 is a
+    world that is not real — precisely the conversion pass that fork closed. The
+    handoff asked for "a city variant at Roc proportions" and the agent built
+    exactly that without noticing it contradicted the pillar it was serving.
+  - **The heavy frame's relationship to a city is not threading, it is a
+    FLYBY:** *"im not sure the roc should try to acrobatically flying in the
+    city, i imagine it more like an extreme flyby at the main route, somthing
+    that will clearly demonstrate how fast and heavy it is... the roc should be
+    so powerful it would fly past the city in a second or two."* That is a
+    content idea rather than a scale idea, and it is better: the demonstration is
+    **speed against a known-size world**, not a world resized to make the
+    aircraft look normal. The existing 12x15 city already has the main avenue it
+    would be flown down.
+  - `scenes/scaled_city_map.tscn` and `scenes/environment/scaled_city.tscn` are
+    **deleted**. What survives is `CityLayout.world_scale`, kept as a regression
+    guard rather than a feature: building that scene is what revealed the
+    generator never honoured `block_size` at all, so anyone raising it alone
+    still strands 16-to-34-metre buildings in oversized blocks.
+  - **This also retires the "fifth instance" note in v2.49.** `MenuFloorFrame`'s
+    metre-denominated mullion and scaffold spacing is no longer a live problem,
+    because nothing is built at a scale that exposes it. It stays on the record
+    as a property of that file, not as a defect to schedule.
+- **TUNNELLING IS A PIN, NOT A CONSTRAINT, AND THE ENGINE IS NOT A COMMITMENT.**
+  *"the tunneling is a thing i've discovered long ago when i tried to build my own
+  engine. i think we should only keep it in mind. we dont have to commit to the
+  godot engine, we are using it now to have a base to design the game identity and
+  see how it feels. if this game will prove itself to be interesting enough, we
+  might even migrate to a different engine."*
+  - **This is a standing architectural position and it should shape what gets
+    built, not just what gets worried about.** Godot is a substrate for finding
+    the game's identity. The things worth protecting are the ones that would
+    survive a migration: the flight model's maths, the war layer's purity, the
+    balance instrument's rulers, the design record. The things not worth building
+    around are engine-shaped limits.
+  - `tunnel_check` therefore stays as a **measurement to carry forward** rather
+    than a constraint to design against. Its result — nothing tunnels at reachable
+    speeds, and the big frame is the safe one — is a fact about discrete-step
+    physics at 240 Hz and will hold in any engine that steps the same way.
+- **CRASH DAMAGE: E6's MECHANISM IS CORRECTED BEFORE IT IS BUILT, and the
+  correction is more physical than the draft.** The user: *"damage like trauma is
+  caused by the abrupt acceleration, where all parts feel a devestating force
+  that shakes the integrity of the entire frame. so modeling based on that seems
+  to me like the correct approrach, and more realistic."*
+  - **E6 proposed kinetic energy over structural capacity. That is the wrong
+    quantity and this is the right one.** Energy is what the impact *delivers*;
+    **acceleration is what the airframe actually experiences**, and it is what
+    breaks things. A long crumple at 100 m/s and a dead stop at 100 m/s carry
+    identical energy and do wildly different damage, and only the acceleration
+    model tells them apart.
+  - **The consequence for the component model is the important half.** Under
+    energy, a crash is a lump of damage aimed at the structure pool. Under
+    acceleration, *"all parts feel"* it — so **a crash is a whole-airframe event
+    that loads EVERY component at once**, which is exactly the distinction E5
+    drew between "the airframe broke" and "every rotor failed", now with a
+    mechanism behind it. It also means the existing `crash_motor_scale` (a crash
+    fraying all four rotors) was already the right shape and simply had the wrong
+    driver underneath it.
+  - **The anti-invulnerability clause survives intact and gets sharper.** Peak
+    deceleration does not care how heavy you are — a Roc and a Kestrel stopping
+    from the same speed over the same distance pull the same g. What differs is
+    what that g does to a much larger structure, and the honest reading is that a
+    big airframe is *worse* off, because bending moment grows with span. **No
+    amount of redundancy makes a Roc a battering ram**, confirmed by the user in
+    those terms.
+  - E6 is rewritten to this before anything is built. The measurable quantity is
+    peak deceleration over the impact, which the physics tick already gives us —
+    `FlightController` computes `_previous_velocity - linear_velocity` per tick
+    and currently throws away everything about it except the magnitude.
+- **A CORRECTION THE AGENT OWES: THE PROJECTILE POOL IS NOT AN ENGINE LIMIT.**
+  The user, reasonably, read the 128-round ceiling as inherited: *"i understand
+  from you that its an inherited engine limit right? if so, thats another reason
+  to push us out into the world of more serious engines."*
+  - **It is ours.** `ProjectilePool.POOL_SIZE` is a `const int = 128` in our own
+    GDScript, chosen by us, and the engine imposes nothing. Raising it is a
+    one-line edit; the only real cost is memory and the per-tick physics of more
+    live bodies, and v2.46 measured where THAT wall is (about 330 active units
+    before a 240 Hz tick stops fitting). The pool wall arrives at a quarter of the
+    CPU wall purely because 128 was picked when the game spawned single-figure
+    enemies.
+  - **So it is not an argument for migrating engines.** It is one number. It stays
+    pinned rather than raised, per the user's *"we keep the limitation in a pin"*,
+    but the pin should say what it actually is. Godot is MIT-licensed and could be
+    forked, and this would be a bad reason to.
+  - Recorded because the agent's own report produced the wrong impression:
+    "engine limit wearing balance's clothes" was written to mean *a limit in the
+    plumbing rather than in the design*, and it read as *a limit in the engine*.

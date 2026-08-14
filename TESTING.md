@@ -237,14 +237,14 @@ cell hold a true 240 Hz — is reported beside it, and the two agree at the wall
 ```
 
 `city_load_bench` sweeps `CityLayout` from the old 4x5 up to 20x20 and reports
-triangles, meshes, colliders and generation time, plus the shipped scaled city.
-**The cost is flat per block** — about 4800 triangles and 30 meshes each across a
-20x range — so the size ceiling is a budget decision rather than a structural
-one. Two things it measures that a naive reading would get wrong: interiors add
-**no geometry** in the sweep (they are distance-LOD'd and there is no pilot in a
-bench, so the probe puts a stand-in in the `player` group to get the real
-figure), and the **scaled** city costs 7.8x per block because `MenuFloorFrame`'s
-mullion and scaffold spacing are in metres and do not scale.
+triangles, meshes, colliders and generation time. **The cost is flat per block** —
+about 4800 triangles and 30 meshes each across a 20x range — so the size ceiling
+is a budget decision rather than a structural one. One thing it measures that a
+naive reading would get wrong: interiors add **no geometry** in the sweep,
+because they are distance-LOD'd and a bench has no pilot in it, so a separate
+probe puts a stand-in in the `player` group to get the real figure. Its last row
+is not content — it exercises `world_scale` so the generator cannot quietly stop
+honouring `block_size` again.
 
 `tunnel_check` fires each frame's real collider at real walls at real speeds and
 reports where it ends up. **Nothing tunnels at any speed the roster can reach**,
@@ -254,6 +254,12 @@ SAFE one**, which is the opposite of the intuition that prompted the test: a
 Roc's step is four times a Kestrel's but its body is eleven times bigger.
 `continuous_cd` is reported both ways and fixes every failing case; it is off by
 default and the game does not need it today.
+
+**Keep this file's result, not a dependency on it.** The user's standing position
+(2026-08-15): tunnelling is a known property of discrete-step physics, the project
+is **not committed to Godot**, and the engine is *"a base to design the game
+identity and see how it feels"*. So this check is a measurement to carry forward
+into whatever engine the game ends up on, not a constraint to design around.
 
 ---
 

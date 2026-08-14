@@ -46,8 +46,9 @@ Six commits on `full-scale` (`a519451` .. `996d81d`):
 | `a519451` | closed a user-config leak into every bench in the suite |
 | `8253a91` | the feasibility bench (`swarm_bench.gd`) |
 | `37efdda` | the scale yard's signs rebuilt as physical objects (L.q10) |
-| `9aef668` | the big city, the scaled city, `city_load_bench`, `tunnel_check` |
+| `9aef668` | the big city, `city_load_bench`, `tunnel_check` |
 | `996d81d` | Iteration 17 drafted on paper |
+| (next) | phase 0 steering applied: sign legs removed, scaled city deleted |
 
 **New things to run** (both documented in TESTING.md §2):
 
@@ -56,7 +57,7 @@ Six commits on `full-scale` (`a519451` .. `996d81d`):
 <godot> --headless -s scripts/tests/city_load_bench.gd  --path .
 <godot> --headless -s scripts/tests/tunnel_check.gd     --path .
 <godot>            --path . scenes/city_map.tscn         the big city, 12x15
-<godot>            --path . scenes/scaled_city_map.tscn  the city at 10.7x
+
 ```
 
 ---
@@ -65,21 +66,19 @@ Six commits on `full-scale` (`a519451` .. `996d81d`):
 
 Nothing below is blocked on the agent. All of it wants eyes.
 
-1. **The scale yard's new signs.** `<godot> --path . scenes/scale_map.tscn`.
-   They no longer turn to face you and no longer disappear when close; each is a
-   plate on posts, sized by the distance it is meant to be read from. Verified by
-   screenshot from thirteen vantage points, but the verdict is theirs. The knob
-   if it is wrong is one number: `ScaleYard.READ_RATIO`.
-2. **The big city.** `<godot> --path . scenes/city_map.tscn` — 180 blocks,
-   550 x 750 m. One observation to judge rather than a defect: the shared
-   `default_look_config.tres` carries `fog_density = 0.006`, tuned when the city
-   was 260 m deep, so from altitude the far half reads as haze. Down an avenue at
-   street level it looks right.
-3. **The scaled city.** `<godot> --path . scenes/scaled_city_map.tscn`, keys
-   1/2/3. **Its facades are visibly wrong up close and the cause is known**:
-   `MenuFloorFrame`'s wall, mullion and scaffold spacing are in metres and do not
-   scale, so a 350 m building is tiled with human-scale window detail. That file
-   is the menu tower's and was deliberately left alone.
+1. ~~The scale yard's new signs.~~ **SIGNED OFF 2026-08-15** — *"works
+   great!"*, *"the dual side of them is great."* The legs are removed on their
+   call (*"the signs can float in space"*); `READ_RATIO` is untouched.
+2. ~~The big city.~~ **CLOSED 2026-08-15** — *"the city is indeed big... this is
+   good enough now. no need for more work."* One thing noticed and deliberately
+   not fixed: *"the furniture seems to load in when it wants"*, which is the
+   interior distance LOD popping at 140 m and is the mechanism that keeps a big
+   city affordable at all.
+3. ~~The scaled city.~~ **Deleted 2026-08-15** — the user rejected the premise,
+   not the execution: the world stays at real human scale, so a 10.7x city is
+   exactly the conversion pass V.q10 closed. The heavy frame's relationship to a
+   city is *"an extreme flyby at the main route"*, which is a content idea at
+   REAL scale rather than a bigger city.
 
 ---
 
@@ -127,15 +126,32 @@ pilot competence benchmark, and a `PILOT_VERSION` bump.
   a default off them, and a bench that prints warnings teaches people to ignore
   warnings.
 - **Never write to `user://` from a bench or check.**
+- **THE ENGINE IS NOT A COMMITMENT** (user, 2026-08-15): *"we dont have to commit
+  to the godot engine, we are using it now to have a base to design the game
+  identity and see how it feels... we might even migrate to a different engine."*
+  Build the things that survive a migration — the flight model's maths, the war
+  layer's purity, the balance rulers, the design record — and do not design around
+  engine-shaped limits. Measurements of engine behaviour are findings to carry
+  forward, not constraints to obey.
+- **BEFORE CALLING SOMETHING AN ENGINE LIMIT, CHECK WHOSE CONSTANT IT IS.** The
+  agent described the 128-round projectile ceiling as "an engine limit wearing
+  balance's clothes", meaning *a limit in the plumbing rather than the design*,
+  and it was reasonably read as *a limit in Godot*. It is neither:
+  `ProjectilePool.POOL_SIZE` is our own `const int = 128`, and raising it is a
+  one-line edit bounded only by the ~330-unit CPU wall v2.46 measured. Pinned, not
+  raised, per the user — but pinned as **ours**.
 
-### The scars, now five of the same shape
+### The scars
 
-**A CONSTANT THAT WAS CORRECT AT ONE SCALE IS A BUG ON A SIZE LADDER.** Five
+**A CONSTANT THAT WAS CORRECT AT ONE SCALE IS A BUG ON A SIZE LADDER.** Four live
 instances in five days: the overlay's Kestrel-ranged sliders, the wind's 35 m/s
-saturation, the motor audio's `unit_size` and pitch band, `CityLayout`'s
-footprint law and street furniture, and `MenuFloorFrame`'s mullion spacing (found,
-not fixed). **The remaining un-audited places are the HUD's range ticks, the
-reticle and the radar scale.**
+saturation, the motor audio's `unit_size` and pitch band, and `CityLayout`'s
+footprint law and street furniture. **The remaining un-audited places are the
+HUD's range ticks, the reticle and the radar scale** — and note the pattern has
+only ever bitten where something is compared against a per-FRAME quantity, so the
+HUD is the obvious next place. (`MenuFloorFrame`'s metre-denominated mullion
+spacing was a fifth, and is retired rather than fixed: nothing is built at a scale
+that exposes it now the scaled city is gone.)
 
 **Check what `user://` is overriding before believing any config experiment.**
 Found live this session: `FlightController._ready` loaded
