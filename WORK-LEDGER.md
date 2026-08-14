@@ -33,7 +33,7 @@ harmless.
 
 | # | task | status | finding |
 |---|---|---|---|
-| 1 | Crash damage as peak deceleration (E6, E10 step 1) | TODO | |
+| 1 | Crash damage as peak deceleration (E6, E10 step 1) | WIP | |
 | 2 | `crash_check.gd` — the guard for task 1 | TODO | |
 | 3 | HUD scale audit: range ticks, reticle, radar (scar 3) | TODO | |
 | 4 | Component registry as data, no new failure modes (E10 step 2) | TODO | |
