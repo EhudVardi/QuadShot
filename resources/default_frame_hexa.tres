@@ -1,0 +1,23 @@
+; THE HEXA (GAMEPLAY-DESIGN Iteration 17 / E.q1) — the redundancy experiment.
+;
+; E4.1 names more rotors as the cleanest expression of "size buys REDUNDANCY":
+; a quad losing one of four loses 25% of its thrust and gains a violent
+; asymmetry, where six loses 16.7% and can rebalance around the hole. This frame
+; exists so that claim can be FLOWN rather than argued, which is why it is the
+; Kestrel in every respect except the layout.
+;
+; hull and armor are the Kestrel's too. The redundancy this frame is for lives in
+; the rotors, not in the pool, and giving it a bigger bar as well would confound
+; the one thing it is meant to demonstrate.
+[gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
+[ext_resource type="Resource" path="res://resources/default_flight_hexa.tres" id="2_flight"]
+
+[resource]
+script = ExtResource("1_frame")
+frame_id = &"hexa"
+display_name = "Hexa"
+flight_config = ExtResource("2_flight")
+hull = 100.0
+evasion_style = &"jink"

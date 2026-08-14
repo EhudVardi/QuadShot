@@ -233,6 +233,11 @@ func _adopt_frame() -> void:
 	($Health as Health).max_health = frame.hull
 	($Health as Health).armor = frame.armor
 	($Health as Health).revive()
+	# BEFORE the geometry, which reads the mounts off it (E.q1). A frame declares
+	# its rotor layout the way it declares its mass; everything downstream — the
+	# mixer, the meshes, the audio emitters, the HUD pips, the hit picker — asks
+	# the motor model rather than assuming four.
+	_motors.configure(MotorModel.layout_from_id(config.rotor_layout))
 	_apply_frame_geometry()
 
 
@@ -253,12 +258,26 @@ func _apply_frame_geometry() -> void:
 	var motor := Vector3(body * MOTOR_SIZE_RATIO, body * MOTOR_HEIGHT_RATIO,
 			body * MOTOR_SIZE_RATIO)
 	var lift: float = body * MOTOR_LIFT_RATIO
-	var arm: float = config.arm_length
-	for corner: Array in [["MotorFL", -1.0, -1.0], ["MotorFR", 1.0, -1.0],
-			["MotorBL", -1.0, 1.0], ["MotorBR", 1.0, 1.0]]:
-		var node: MeshInstance3D = get_node(NodePath(corner[0])) as MeshInstance3D
+	# THE MESHES FOLLOW THE LAYOUT, not a hard-coded four corners (E.q1). The
+	# scene authors FL/FR/BL/BR so the datum airframe is legible in the editor and
+	# so indices 0-3 keep their nodes; anything past that is built here. A layout
+	# with fewer rotors hides the spares rather than freeing them, so swapping
+	# back to a quad in place cannot lose a mesh it will want again.
+	for i: int in _motors.rotor_count:
+		var node: MeshInstance3D = _motor_mesh(i)
+		node.visible = true
 		node.mesh = _sized_box(node.mesh, motor)
-		node.position = Vector3(float(corner[1]) * arm, lift, float(corner[2]) * arm)
+		var mount: Vector3 = _motors.motor_position(i, config)
+		node.position = Vector3(mount.x, lift, mount.z)
+	var spare: int = _motors.rotor_count
+	while true:
+		var extra: MeshInstance3D = get_node_or_null(
+				NodePath(MOTOR_NODES[spare] if spare < MOTOR_NODES.size()
+				else "Motor%d" % spare)) as MeshInstance3D
+		if extra == null:
+			break
+		extra.visible = false
+		spare += 1
 	var nose: MeshInstance3D = $NoseMarker
 	nose.mesh = _sized_box(nose.mesh, motor)
 	nose.position = Vector3(0.0, body * NOSE_LIFT_RATIO, -body * NOSE_REACH_RATIO)
@@ -266,6 +285,32 @@ func _apply_frame_geometry() -> void:
 	# The lens is placed, not scaled — see FlightConfig.fpv_offset.
 	_fpv_camera.position = config.fpv_offset
 	_fpv_camera.near = maxf(body * NEAR_PLANE_RATIO, NEAR_PLANE_MIN)
+
+
+## The four the .tscn authors, in MotorModel's index order.
+const MOTOR_NODES: Array[String] = ["MotorFL", "MotorFR", "MotorBL", "MotorBR"]
+
+
+## The mesh node for rotor `index`, created on first use past the authored four.
+##
+## A new one copies the mesh of rotor 0 so it inherits the airframe's material —
+## the body's material lives ON the mesh resource, and a bare MeshInstance3D
+## would render a white cube on an otherwise dark quad.
+func _motor_mesh(index: int) -> MeshInstance3D:
+	var node_name: String = MOTOR_NODES[index] if index < MOTOR_NODES.size() \
+			else "Motor%d" % index
+	var node: MeshInstance3D = get_node_or_null(NodePath(node_name)) as MeshInstance3D
+	if node != null:
+		return node
+	node = MeshInstance3D.new()
+	node.name = node_name
+	var datum: MeshInstance3D = get_node_or_null(
+			NodePath(MOTOR_NODES[0])) as MeshInstance3D
+	if datum != null:
+		node.mesh = datum.mesh
+		node.material_override = datum.material_override
+	add_child(node)
+	return node
 
 
 ## A new BoxMesh at `size`, keeping whatever material the old one carried — the
@@ -530,20 +575,27 @@ func _run_rate_control(delta: float) -> void:
 	var command: Vector3 = _rate_controller.update(
 			telemetry_target_rates, telemetry_measured_rates, delta, config,
 			get_contact_count() > 0)
-	# Quad-X mixing: positive pilot roll lowers the right side, positive pitch
-	# raises the nose, positive yaw spins the nose right (signs verified
-	# against X_SIGNS/Z_SIGNS/SPIN_DIRECTIONS in motor_model.gd).
+	# Mixing: positive pilot roll lowers the right side, positive pitch raises the
+	# nose, positive yaw spins the nose right (signs verified against the layout
+	# tables in motor_model.gd).
+	#
+	# MIXED AGAINST THE ACTUAL MOUNT OFFSETS, not against ±1 signs (E.q1). For the
+	# quad-X those offsets ARE ±1, so this is the same arithmetic it always was.
+	# For any other layout each rotor is commanded in proportion to its own moment
+	# arm, which is what produces a pure torque rather than a torque plus a
+	# sideways lurch — the mixer follows the geometry instead of assuming corners.
+	#
 	# Air-mode floor keeps attitude authority at zero throttle. In 3D mode
 	# there is no floor — thrust runs the full [-1, 1] range and PID
 	# corrections around zero provide the authority.
 	var motor_floor: float = config.motor_idle
 	if config.throttle_curve == FlightConfig.ThrottleCurve.THREE_D:
 		motor_floor = -1.0
-	for i: int in MotorModel.MOTOR_COUNT:
+	for i: int in _motors.rotor_count:
 		var motor: float = collective
-		motor -= command.x * MotorModel.X_SIGNS[i]
-		motor -= command.y * MotorModel.Z_SIGNS[i]
-		motor -= command.z * float(MotorModel.SPIN_DIRECTIONS[i])
+		motor -= command.x * _motors.x_offsets[i]
+		motor -= command.y * _motors.z_offsets[i]
+		motor -= command.z * _motors.spins[i]
 		_motors.set_command(i, clampf(motor, motor_floor, 1.0))
 
 

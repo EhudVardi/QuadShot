@@ -29,6 +29,12 @@ const ATLAS: String = "atlas"
 ## worth flying back to back in the scale yard.
 const CONDOR: String = "condor"
 const ROC: String = "roc"
+## THE REDUNDANCY EXPERIMENT (E.q1), and a THIRD axis again: the Kestrel in every
+## respect except that it carries six rotors instead of four. Held identical on
+## purpose — a hexa that also changed mass, TWR or rates would be an interesting
+## aircraft and a useless experiment, because nothing it did could be attributed
+## to the layout.
+const HEXA: String = "hexa"
 
 ## The slice's frames (P3.10). Dart and Shade join when falx and the intel war
 ## arrive to justify them.
@@ -45,7 +51,7 @@ const ROC: String = "roc"
 ## those are the CAMPAIGN's frames, and an experimental airframe on a branch has
 ## no business in the game's front door — which at 3 m it could not fly through
 ## anyway (V.q6).
-const ROSTER: Array[String] = [KESTREL, ATLAS, CONDOR, ROC]
+const ROSTER: Array[String] = [KESTREL, ATLAS, CONDOR, ROC, HEXA]
 
 
 static func config(frame_id: String) -> FrameConfig:

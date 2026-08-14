@@ -520,6 +520,39 @@ Everything you destroy dents the node even if you die (P2.q4), so a failed
 sortie still weakens the target. `-- --fresh` starts a new war; `-- --no-persist`
 leaves the file alone entirely.
 
+### The hexa — the redundancy experiment (Iteration 17 / E.q1)
+
+```
+<godot> --path . -- --frame hexa
+```
+
+Six rotors on a ring at 30 degrees off the nose, alternating 3+3. It is the
+**Kestrel in every respect except the layout** — same 0.28 m, 0.65 kg, TWR 4.5,
+same rates — because a hexa that also changed mass or TWR would be an
+interesting aircraft and a useless experiment: nothing it did could be
+attributed to having six rotors.
+
+It is deliberately **not** in the scale yard's 1/2/3 ladder (that map is about
+SIZE, and this frame is the datum's size) and **not** in the campaign hangar or
+the menu tower, on the same rule the Condor and Roc follow: an experimental
+airframe on a branch has no business in the game's front door.
+
+**TWO NUMBERS ARE KNOWN WRONG FOR IT AND WERE LEFT ALONE, because they are feel
+and feel is the human's:**
+
+- `yaw_authority` 1.5 is a quad number. Yaw torque is the summed signed rotor
+  output, so a 3+3 split sums to ±6 at full differential where a quad sums to
+  ±4 — **this frame has roughly 1.5x the Kestrel's yaw authority from the
+  identical constant**, and the direction to tune is down.
+- The rate gains are a quad's. The mixer commands each rotor in proportion to
+  its real moment arm, and a generated ring sits at √2 arm-lengths where the
+  quad-X's corners sit at 1 along each axis, so the same `rate_p` produces a
+  wider commanded spread. **Expect it to feel twitchier than the Kestrel.**
+
+The motor audio is the third thing wanting a human: the four-emitter detune was
+tuned by ear in v2.43/v2.45, and the spacing rule generalises to six but six
+sources at the same per-pair beat rate is a denser texture, not the same one.
+
 ## 4. The check suite — 24 headless checks
 
 Run all of them before believing anything:

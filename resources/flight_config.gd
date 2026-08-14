@@ -28,6 +28,20 @@ enum InputProfile { GAMEPAD, RADIO_AETR, RADIO_TAER }
 ## that class's own stated reason: a physics dimension with two homes has no rule
 ## for which one wins.
 @export var body_m: float = 0.28
+## HOW MANY ROTORS AND WHERE (GAMEPLAY-DESIGN Iteration 17 / E.q1). `quad_x` is
+## the datum and every shipped frame carries it; `hex_x` puts six on a ring at
+## 30 degrees off the nose with alternating 3+3 spin.
+##
+## It is a STRING rather than an enum so a hand-edited `.tres` reads as English
+## and so an unknown value degrades to the quad instead of erroring. It is also
+## deliberately absent from the debug overlay: rotor count is an airframe, not a
+## live-tunable, and swapping it mid-flight would mean rebuilding the mixer, the
+## meshes and the audio emitters underneath a flying pilot.
+##
+## `MotorModel` reads it once per `_adopt_frame`. No `rotor_count` field sits
+## beside it, on this class's own rule that a physics dimension with two homes has
+## no rule for which one wins — the layout IS the count.
+@export var rotor_layout: StringName = &"quad_x"
 
 @export_group("Motors")
 @export var thrust_to_weight_ratio: float = 4.5

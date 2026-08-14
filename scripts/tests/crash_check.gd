@@ -453,7 +453,7 @@ func _read_components() -> void:
 	_crash_healths = _healths(_main_drone)
 	var bullet_hurt: int = 0
 	var crash_hurt: int = 0
-	for i: int in MotorModel.MOTOR_COUNT:
+	for i: int in _rotor_count():
 		if _bullet_healths[i] < 0.999:
 			bullet_hurt += 1
 		if _crash_healths[i] < 0.999:
@@ -461,7 +461,7 @@ func _read_components() -> void:
 	var spread: float = 0.0
 	var lowest: float = 1.0
 	var highest: float = 0.0
-	for i: int in MotorModel.MOTOR_COUNT:
+	for i: int in _rotor_count():
 		lowest = minf(lowest, _crash_healths[i])
 		highest = maxf(highest, _crash_healths[i])
 	spread = highest - lowest
@@ -498,18 +498,27 @@ func _read_components() -> void:
 	elif _bullet_healths[BULLET_EXPECTS] >= 0.999:
 		_failures.append("a hit arriving from the front-right damaged some rotor other than %d (%s) — the count is right and the CHOICE is wrong, which is what E7's 'the same mistake produces the same wound' forbids"
 				% [BULLET_EXPECTS, str(_bullet_healths)])
-	if crash_hurt != MotorModel.MOTOR_COUNT:
+	if crash_hurt != _rotor_count():
 		_failures.append("a %.1f m/s crash damaged %d of %d rotors — a crash is a whole-airframe event and every component has to feel it, which is the one thing that distinguishes it from a bullet"
-				% [_main_impact, crash_hurt, MotorModel.MOTOR_COUNT])
-	if crash_hurt == MotorModel.MOTOR_COUNT and spread > EVEN_FRAY_EPSILON:
+				% [_main_impact, crash_hurt, _rotor_count()])
+	if crash_hurt == _rotor_count() and spread > EVEN_FRAY_EPSILON:
 		_failures.append("a crash frayed the four rotors by different amounts (spread %.4f) — peak deceleration has no direction, so it cannot prefer a corner"
 				% spread)
 	_finish()
 
 
+## Asked of the airframe rather than assumed (E.q1): main.tscn flies a quad
+## today, and this check should still mean what it says the day it does not.
+func _rotor_count() -> int:
+	if _main_drone == null:
+		return 0
+	var motors: MotorModel = _main_drone.get_node_or_null("MotorModel") as MotorModel
+	return 0 if motors == null else motors.rotor_count
+
+
 func _healths(drone: FlightController) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
-	for i: int in MotorModel.MOTOR_COUNT:
+	for i: int in _rotor_count():
 		out.append(drone.motor_health(i))
 	return out
 

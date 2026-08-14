@@ -69,6 +69,20 @@ const RPM_SWEEP_TOP: float = 0.60
 ## spaced on purpose: the six pairwise differences collapse to just u, 2u and 3u,
 ## so a single number decides every beat rate instead of six unrelated ones.
 const DETUNE_STEPS: Array[float] = [-1.5, -0.5, 0.5, 1.5]
+
+
+## The same even spacing for any rotor count: symmetric about zero, one step
+## apart. Reproduces DETUNE_STEPS exactly at four, and gives six rotors
+## -2.5 .. 2.5.
+##
+## **THE SPACING RULE GENERALISES; WHETHER SIX OF THEM SOUND RIGHT IS AN EAR
+## QUESTION AND IS NOT ANSWERED HERE** (E.q1's second complication). The four-
+## emitter scheme was tuned by ear in v2.43/v2.45, and six sources at the same
+## per-pair beat rate is measurably a denser texture, not the same one. The hexa
+## ships with the quad's numbers deliberately, and this wants a human before any
+## of it is called done.
+static func detune_step(index: int, count: int) -> float:
+	return float(index) - float(count - 1) * 0.5
 ## THE BEAT-RATE RULE, and it is the whole fix for the Condor's *"noticeable
 ## repeating hum"*.
 ##
@@ -135,21 +149,34 @@ func _rebuild() -> void:
 	_tau = RESPONSE_TAU_MIN + RESPONSE_TAU_PER_BODY * body
 	var hz: float = REFERENCE_HZ * pow(REFERENCE_ARM_M / maxf(config.arm_length, 0.001),
 			PITCH_EXPONENT)
+	# ONE EMITTER PER ACTUAL ROTOR, AT ITS ACTUAL MOUNT (E.q1). The mounts are read
+	# from the motor model rather than rebuilt from `arm_length` here, so the
+	# emitters cannot drift from the physics — which they would have the first
+	# time a layout was not a quad-X, since the four lines this replaced assumed
+	# the corners.
+	var motors: MotorModel = _drone.get_node_or_null("MotorModel") as MotorModel
+	if motors == null:
+		return
+	var count: int = motors.rotor_count
 	# Either fast enough to be texture, or slow enough to be inaudible — never
 	# the 2–8 Hz band in between. See BEAT_TARGET_HZ.
+	#
+	# THE WIDEST PAIR IS (count - 1) STEPS APART, not always three: with six
+	# rotors the extremes are 5u rather than 3u, so a guard hard-coded to 3.0
+	# would let the widest beat run past MAX_SPREAD and put a slow wobble back in
+	# the band this rule exists to keep clear.
+	var spread_steps: float = maxf(float(count - 1), 1.0)
 	var spacing: float = BEAT_TARGET_HZ / hz
-	if spacing * 3.0 > MAX_SPREAD:
+	if spacing * spread_steps > MAX_SPREAD:
 		spacing = BEAT_FLOOR_SPACING
-	_load.resize(MotorModel.MOTOR_COUNT)
-	var arm: float = config.arm_length
+	_load.resize(count)
 	var lift: float = body * FlightController.MOTOR_LIFT_RATIO
-	# Motor order matches MotorModel: FL, FR, BL, BR.
-	var mounts: Array[Vector3] = [
-		Vector3(-arm, lift, -arm), Vector3(arm, lift, -arm),
-		Vector3(-arm, lift, arm), Vector3(arm, lift, arm),
-	]
-	_detune.resize(MotorModel.MOTOR_COUNT)
-	for i: int in MotorModel.MOTOR_COUNT:
+	var mounts: Array[Vector3] = []
+	for i: int in count:
+		var mount: Vector3 = motors.motor_position(i, config)
+		mounts.append(Vector3(mount.x, lift, mount.z))
+	_detune.resize(count)
+	for i: int in count:
 		var player := AudioStreamPlayer3D.new()
 		# Its OWN loop, not a shared one: same spectrum, scrambled partial phases.
 		# That is where the width comes from now that the detune is no longer
@@ -157,15 +184,18 @@ func _rebuild() -> void:
 		player.stream = SoundBank.make_motor_loop(hz, ladder, 1.0 - ladder * 0.7, i)
 		player.position = mounts[i]
 		player.unit_size = body * UNIT_SIZE_PER_BODY
-		_detune[i] = DETUNE_STEPS[i] * spacing
+		_detune[i] = detune_step(i, count) * spacing
 		player.volume_db = -60.0
 		_players.append(player)
 		add_child(player)
 		player.play()
 		_load[i] = 0.0
-	print("[audio] %s rotors at %.0f Hz, unit_size %.2f m, response %.0f ms, beats %.1f/%.1f/%.1f Hz"
-			% [config.frame_id, hz, player_unit_size(), _tau * 1000.0,
-			spacing * hz, spacing * 2.0 * hz, spacing * 3.0 * hz])
+	var beats: PackedStringArray = []
+	for step: int in range(1, count):
+		beats.append("%.1f" % (spacing * float(step) * hz))
+	print("[audio] %s %d rotors at %.0f Hz, unit_size %.2f m, response %.0f ms, beats %s Hz"
+			% [config.frame_id, count, hz, player_unit_size(), _tau * 1000.0,
+			"/".join(beats)])
 
 
 func player_unit_size() -> float:

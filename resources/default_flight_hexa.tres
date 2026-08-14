@@ -1,0 +1,77 @@
+; THE HEXA (GAMEPLAY-DESIGN Iteration 17 / E.q1) — six rotors on a ring, and
+; EXPERIMENTAL. The user asked for it as *"a very interesting experiment... a low
+; priority for now, but a very interesting direction to have fun with, and which
+; also pushes us to the simulation direction"*.
+;
+; EVERY FLIGHT NUMBER HERE IS THE KESTREL'S, DELIBERATELY AND WITHOUT EXCEPTION.
+; This is the same 0.28 m, 0.65 kg, TWR-4.5 airframe with two more rotors, so
+; that the ONLY variable between it and the datum is the layout. A hexa that also
+; changed mass, TWR or rates would be an interesting aircraft and a useless
+; experiment, because nothing it did could be attributed to having six rotors.
+;
+; **TWO NUMBERS ARE KNOWN TO BE WRONG FOR IT AND ARE LEFT ALONE ON PURPOSE**,
+; because they are flight feel and flight feel is the human's:
+;
+;   `yaw_authority` 1.5 is a quad number. Yaw torque is the summed signed rotor
+;   output, so a 3+3 split sums to +/-6 at full differential where the quad sums
+;   to +/-4 — this frame has roughly 1.5x the yaw authority of the Kestrel from
+;   the identical constant. It needs re-tuning by hand, and the direction is
+;   down.
+;
+;   The rate gains are a quad's. The mixer commands each rotor in proportion to
+;   its real moment arm, and a generated ring sits at sqrt(2) arm-lengths where
+;   the quad-X's corners sit at 1 along each axis, so the same `rate_p` produces
+;   a larger commanded spread on this frame. Expect it to feel twitchier than the
+;   Kestrel before anyone touches it.
+;
+; The user's own description was *"a HEXA (6, heavy and slow)"*. It is NOT heavy
+; and slow yet — making it so means changing mass and TWR, which is exactly the
+; kind of change that wants hands on sticks first.
+[gd_resource type="Resource" script_class="FlightConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/flight_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+frame_id = &"hexa"
+mass = 0.65
+arm_length = 0.12
+body_m = 0.28
+rotor_layout = &"hex_x"
+thrust_to_weight_ratio = 4.5
+motor_lag_tau = 0.05
+motor_idle = 0.05
+yaw_authority = 1.5
+reverse_thrust_scale = 0.8
+max_rate_deg = Vector3(580, 580, 550)
+expo = Vector3(0.3, 0.3, 0.3)
+gyro_lpf_hz = 90.0
+dterm_lpf_hz = 70.0
+rc_smoothing_hz = 0.0
+rate_p = Vector3(0.007, 0.007, 0.007)
+rate_i = Vector3(0.002, 0.002, 0.002)
+rate_d = Vector3(3e-05, 3e-05, 3e-05)
+rate_ff = Vector3(0.0008, 0.0008, 0.0008)
+ff_lpf_hz = 20.0
+integral_limit = 0.2
+crash_iterm_decay = 1.0
+iterm_error_gate_deg = 300.0
+iterm_relax_hz = 15.0
+iterm_relax_threshold_deg = 40.0
+input_profile = 0
+stick_deadzone = 0.08
+throttle_curve = 2
+max_angle_deg = 56.0
+angle_p = 6.0
+drag_coefficient = 0.03
+angular_damping = 0.013
+fpv_offset = Vector3(0, 0.03, -0.08)
+fpv_uptilt_deg = 48.0
+fpv_fov_deg = 94.0
+chase_distance = 3.5
+chase_height = 1.2
+chase_smoothing = 8.0
+pause_time_scale = 0.03
+autopilot_tilt_deg_per_ms = 4.0
+autopilot_climb_gain = 0.08
+arm_throttle_threshold = 0.05

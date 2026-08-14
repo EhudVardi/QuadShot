@@ -151,7 +151,9 @@ static func of(drone: FlightController, video_damage: float = 0.0,
 		if only_routed and not bool(row["routed"]):
 			continue
 		if int(row["count"]) < 0:
-			for i: int in MotorModel.MOTOR_COUNT:
+			# "one per rotor" means one per rotor THIS AIRFRAME HAS (E.q1): a hexa
+			# gets six rotor rows and six prop rows without this table changing.
+			for i: int in motors.rotor_count:
 				var part := Part.new()
 				part.kind = kind
 				part.index = i
