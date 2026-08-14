@@ -14502,3 +14502,92 @@ question:
 every enterable opening is sized against a named frame, and which frame is a
 property of the building. **And the scaled city is discarded outright** — *"i
 think we can discard the 'scaled city' altogether"* — which is already done.
+
+### E steering round 2 — ANSWERED (2026-08-15)
+
+Four clarifications, and one of them corrects a claim the agent made about the
+rotor experiment being cheap.
+
+- **E.q1 — TWO EXPERIMENTAL FRAMES ARE NAMED: a HEXA (6, heavy and slow) and a
+  TRI (3).** *"i heard this model does not sound great but it actually is very
+  efficient and flyable... this dev vector is low priority and more of a
+  curiocity rather then necessity."*
+  - **THE HEXA IS THE CHEAP ONE AND THE AGENT'S ESTIMATE HOLDS FOR IT.** Six
+    rotors on a ring, alternating spin, 3+3. `apply_thrust` is already
+    positional; the layout tables become `cos`/`sin` of each arm's bearing.
+  - **THE TRI IS NOT, AND THE AGENT'S "SAME PHYSICS WITH N ENTRIES" CLAIM IS
+    WRONG FOR IT.** Three rotors cannot balance reaction torque by counter-
+    rotation — two one way and one the other leaves a permanent net yaw, and
+    there is no arrangement of three that cancels. **Every real tricopter solves
+    this with a SERVO that tilts the tail rotor**, vectoring a component of its
+    thrust sideways to make yaw torque. That is a genuinely different control
+    mechanism, not a different table: the mixer gains a fourth output that is an
+    ANGLE rather than a throttle, and `apply_thrust` gains a per-rotor thrust
+    DIRECTION where today every rotor pushes along body +Y.
+  - **Which makes the tri the more interesting of the two, not the less.** It is
+    the first airframe in this project whose control authority does not come from
+    differential throttle alone, and building it would prove the flight model can
+    express thrust vectoring at all — which is the same machinery a tilt-rotor or
+    a vectored-thrust heavy would need later. The user's *"it actually is very
+    efficient and flyable"* is right and is exactly why: three rotors is the
+    minimum that can hover, so it wastes the least.
+  - **Revised estimate: the hexa is a day; the tri is the day plus the vectoring
+    work**, and the vectoring is the part with design in it (servo rate limits,
+    how much tilt authority, what a damaged servo does — which is a new component
+    for E3's table and a good one).
+- **E.q5 — NO PER-ENEMY DAMAGE VISUALS, and the agent misread the question.** The
+  user was asking about the ENEMY frame, not the player's: *"i thought you are
+  talking about if damaging an enemy frame's engine would, say, push out smoke
+  from the engine part of the enemy. i think thats too complex and can reduce the
+  vastness of the game and battles."*
+  - **The ruling is a scope decision and the reason is the right one**: smoke,
+    sparks or a visibly wounded enemy is a per-body effect that scales with unit
+    count, and this game's direction is vastness — v2.46 measured 320 units before
+    a 240 Hz tick stops fitting, and per-enemy damage VFX would eat that budget
+    for a detail nobody reads at 200 m.
+  - The player-side answer stands unchanged and is already built: the HUD's motor
+    pips plus the VTX feed.
+- **E.q7 — WHAT 6.3x ACTUALLY IS**, because the user asked directly: *"is it
+  correct that you mean that the Roc should be 6.3 times more 'healthy' (health
+  points) than the kestrel?"*
+  - **No. It is not a durability number at all — it is an EXPOSURE number.** Of
+    the rounds a raider fires at it, a Roc is hit by about 6.3 times as many as a
+    Kestrel is, purely because it is a bigger thing to shoot at. Measured, not
+    modelled: 8.7% of shots connect on a Kestrel and 52% on a Roc.
+  - **It says nothing about what should be done about that.** It is the size of
+    the problem, not the shape of the answer, and the answer can be paid in
+    armour, in redundancy, in separation, in a bigger pool, or in nothing at all
+    if the frame is meant to be fragile.
+  - **The user's position is unchanged by the clarification and is the right
+    one:** *"i dont think this should be a factored number that is a ratio from
+    other frames... i feel its necessary, and workable because we have that
+    instrument to feedback our values to steer to a more balanced roster."*
+    So E.q7 stays dissolved: **6.3x is a diagnostic the instrument reports, never
+    an input the design consumes.** There is no decision left in it.
+- **E.q8 — SEVERITY 1.0: FULL SUBSYSTEM DAMAGE.** *"my choice is absolutely '1 =
+  full subsystem damage'. exciting :)"*
+  - **Recorded as the design target: this game's damage model is the full one,
+    and the dial exists for ACCESSIBILITY rather than for us.** Everything in E3
+    through E8 is authored against severity 1.0 from here.
+  - **The shipped default is NOT moved yet, deliberately.** `severity` currently
+    ships at 0.6 in `default_damage_config.tres`, and CLAUDE.md's standing rule is
+    that a default is baked only once the human says the feel is right. Nobody has
+    flown 1.0 with the current model, and it is the one knob that decides how
+    punishing every hit is. It is a ten-second change in the overlay's DAMAGE
+    section, so it belongs on the flight list rather than in a commit — and the
+    agent will bake it the moment it is flown and confirmed.
+
+### On questioning, recorded because it is a working principle
+
+The user, on apologising for a mis-spoken requirement: *"when i apologize, its
+more towards honesty and the desire to be as close to the truth and the real
+desire/dream as possible... 'the road is more important than the destination',
+meaning questioning is a good and productive thing, not necessarily a breaking
+thing."*
+
+Worth keeping in the design record rather than only in a chat log, because it is
+the reason this document has the shape it has. **Half the best decisions in it
+arrived as reversals** — V.q10's ladder, L.q1's rejection of a hull law, E.q7's
+dissolution, the scaled city — and each one was cheap because the premise was
+written down where it could be argued with. A design doc that only recorded
+conclusions would have made every one of those reversals expensive.
