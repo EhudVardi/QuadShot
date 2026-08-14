@@ -328,13 +328,26 @@ func _on_player_damaged(amount: float, remaining: float) -> void:
 	_hud.flash_damage(_incoming_fire_side())
 
 
+## Read off the component registry (Iteration 17 / E10 step 2) rather than off
+## `MotorModel` directly. Bit-identical output today — the registry reports the
+## same rotor healths and the same `1 - _video_damage` — and the point is that
+## the gauge stops knowing what an airframe is built FROM. E.q5's extra pips
+## (power, gyro, a weapon mount) become extra rows in `AirframeComponents.TABLE`
+## rather than extra arguments threaded through here.
+##
+## Called on damage, on repair and on arm, never per frame, so building the list
+## costs nothing worth measuring.
 func _refresh_motor_hud() -> void:
 	var healths := PackedFloat32Array()
-	for i: int in MotorModel.MOTOR_COUNT:
-		healths.append(_drone.motor_health(i))
 	# The transmitter rides the same gauge (v1.42): equipment health is only
 	# real to the pilot if it is READABLE, like the motor pips made the wound.
-	_hud.set_motor_health(healths, 1.0 - _video_damage)
+	var vtx: float = 1.0
+	for part: AirframeComponents.Part in AirframeComponents.of(_drone, _video_damage):
+		if part.kind == &"rotor":
+			healths.append(part.health)
+		elif part.kind == &"vtx":
+			vtx = part.health
+	_hud.set_motor_health(healths, vtx)
 
 
 ## Flew through a repair gate (D5): engines back, hull topped up — and the
