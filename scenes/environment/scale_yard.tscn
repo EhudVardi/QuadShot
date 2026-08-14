@@ -41,6 +41,14 @@ size = Vector2(6000, 6000)
 [sub_resource type="ShaderMaterial" id="mat_structure"]
 shader = ExtResource("2_struct")
 
+; Sign plates and their legs (L.q10). Dark, matte, NOT emissive: a sign is a
+; board with light on it, and a board that glows turns the glyphs back into a
+; floating label. It is also what makes a double-sided sign work at all - the
+; plate has to be opaque or you read the far face through the near one.
+[sub_resource type="StandardMaterial3D" id="mat_sign"]
+albedo_color = Color(0.045, 0.05, 0.065, 1)
+roughness = 0.85
+
 ; Vehicles, people and airliners: lit, not emissive. They have to read as REAL
 ; objects sitting in the world, because their whole job is to be things you
 ; already know the size of - a glowing neon car is a prop, a grey one is a car.
@@ -142,3 +150,4 @@ paint = SubResource("mat_paint")
 tarmac = SubResource("mat_tarmac")
 pad_material = SubResource("mat_pad")
 gate_material = SubResource("mat_gate")
+sign_material = SubResource("mat_sign")

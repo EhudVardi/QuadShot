@@ -13776,3 +13776,60 @@ architecture. Four things staying still is what makes the rest affordable.
     rather than noting**: a leak that currently agrees with the truth is a leak
     nobody will notice on the day it stops agreeing. Scar 1, caught by the first
     line of a smoke test rather than by reasoning about it.
+
+- **2026-08-14 — v2.48. L.q10's HOUSE RULE IS BUILT: world text is an object, and
+  the thing that replaced the billboard is a sizing law rather than a
+  visibility rule.** The scale yard's forty labels used to turn toward the camera
+  and switch off outside a distance window. Both are gone. Each is now a **plate
+  on posts**, built once, facing a fixed bearing.
+  - **The law is one line and it is the user's own principle:**
+    `pixel_size = read_distance / 600`. A sign is sized by the distance it is
+    meant to be read from — *"the height of a human is a small text sign hovers
+    over it, the sign of a 400m height platform may be bigger to be seen from
+    afar"* — so `read_m` is the only size control a caller may pass. **There is
+    no pixel size to author, deliberately**, because an authored glyph size is
+    exactly how the old scheme drifted away from the world it was labelling.
+  - **THIS IS WHAT ACTUALLY FIXES THE CROWDING, and it is worth being precise
+    about why**, because the distance gate was solving a real problem and
+    deleting it without a replacement would have brought the unreadable horizon
+    straight back. Under the old scheme a distant object's label was authored at
+    whatever size looked good from the pad, so it stayed legible — and therefore
+    competing — from everywhere. Under the law, a sign for a thing you read at
+    30 m is three metres of text, which from 600 m away is four arc-minutes wide.
+    It does not need hiding; it is simply small, the way a house number is.
+    Verified by looking: from 1.5 km the map's signage is a scatter of specks,
+    and from 140 m over the pad the far half of the map is clean.
+  - **The altitude comb is the rule made literal**, and it is the user's own
+    example: `read_m` for a pole's sign IS the pole's height, so the 400 m tip
+    carries a sign built to be read from 400 m while the 10 m pole carries one
+    you read from the apron.
+  - **Both faces carry text, and that is a decision.** The rule is that a sign
+    must not TURN, not that it must be readable from one side, and a map whose
+    whole purpose is flying around objects and looking at them would be hostile
+    if half its signage were blank from the far side. The first attempt at this
+    (recorded in the deleted comment) failed because two coplanar copies are read
+    through each other's mirror image; these two are separated by the plate's own
+    thickness and the plate is opaque, so only one is ever visible. Confirmed
+    from a vantage point behind the ruler row: every sign reads the right way
+    round from the back.
+  - **The physical fixes the law could NOT make, which is the half the handoff
+    predicted:** the ladder's three signs are staggered across three altitudes,
+    because plates on frames 7 m apart overlap if they share one; and **GATE
+    COURSE was moved off the pad's forward axis** — dead ahead at 122 m it
+    stacked straight onto the apron's own title from the one viewpoint every
+    flight begins at. Both are placement, which is what L.q10's steering asked
+    for: *"the answer now has to be placement and facing rather than a
+    visibility rule."*
+  - **One constraint discovered while sizing, and it is why the signs are as big
+    as they are.** A 5x7 dot-matrix glyph needs roughly one screen pixel per font
+    row to read at all; the FPV lens is about 94 degrees vertical over 1080
+    lines, i.e. 0.087 degrees per pixel, so a legible glyph must subtend about
+    0.6 degrees. `READ_RATIO` 600 puts it at 0.67. **That is four to eight times
+    larger than real road signage**, and it is not a mistake — a wide-FOV
+    goggle view plus a coarse dot-matrix font genuinely forces large world text.
+    The number is also the one the human already flew: the deleted visibility
+    gate called a sign readable out to 500x its pixel size.
+  - **A small existing defect fell out on the way.** Several signs used a middle
+    dot as a separator, which is not in `GlowText3D.FONT` — so those signs had
+    been rendering a hollow "unknown glyph" box in the middle of their text since
+    the map was built. They are line breaks now.
