@@ -31,7 +31,15 @@ const NOSE_REACH_RATIO: float = 0.3929
 const NEAR_PLANE_RATIO: float = 0.0667
 const NEAR_PLANE_MIN: float = 0.05
 
-## Hard contact; main converts delta-v to crash damage (roadmap M2).
+## Hard contact. Carries the IMPACT SPEED — the velocity the collision took away
+## — which `CombatConfig.impact_g` turns into peak deceleration and main prices
+## as damage (roadmap M2, GAMEPLAY-DESIGN Iteration 17 / E6).
+##
+## The controller reports a SPEED and not a g, deliberately, and the split is the
+## honest one: a speed is what the solver actually produced, a deceleration needs
+## a stopping distance that no physics tick can supply (see `impact_g`). It also
+## keeps this file combat-thin, which is why the damage arithmetic lives on the
+## config rather than here.
 signal crashed(impact_speed: float)
 ## The airframe changed under everything holding a reference to it (V10).
 ##
@@ -473,8 +481,14 @@ func take_hit(damage: float) -> void:
 
 
 func _on_body_entered(_body: Node) -> void:
-	# Delta-v across the collision approximates impact severity; gentle
-	# landings fall under main's damage threshold.
+	# The velocity the collision took away, in one tick. Measured across the whole
+	# ladder and at speeds from 3 to 131 m/s, this IS the impact speed and it IS
+	# the peak of the whole event — the solver stops the body in a single step, so
+	# there is never a later tick that hits harder and nothing is gained by
+	# watching for one. It is also mass-blind, which is what E6 requires.
+	#
+	# One emission per body entered, and that is correct rather than a gap: a
+	# crash that meets two things meets them at two speeds and is priced twice.
 	crashed.emit((_previous_velocity - linear_velocity).length())
 
 

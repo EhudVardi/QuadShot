@@ -283,10 +283,25 @@ func _bests_line() -> String:
 			_profile.best_sorties]
 
 
+## A CRASH IS A WHOLE-AIRFRAME EVENT (GAMEPLAY-DESIGN Iteration 17 / E6, as
+## corrected by the E steering): *"all parts feel a devestating force that shakes
+## the integrity of the entire frame."* It is the opposite of a bullet, which is
+## located, and that contrast is the model's whole content.
+##
+## The direction is cleared FIRST so the crash is unambiguously directionless.
+## Everything downstream keys off that: `apply_hit_to_motors` frays all four
+## rotors when it has no direction and picks the nearest one when it has one, so
+## a crash arriving with a stale bullet's bearing still on the drone would load a
+## single corner and quietly become a bullet. It was already zero here in
+## practice — `_incoming_fire_side` clears it at the end of every damage event —
+## which is exactly why it is worth making a rule rather than leaving it a
+## coincidence.
 func _on_player_crashed(impact_speed: float) -> void:
-	var excess: float = impact_speed - combat_config.crash_damage_speed
-	if excess > 0.0:
-		_drone_health.take(excess * combat_config.crash_damage_scale)
+	var damage: float = combat_config.crash_damage(impact_speed)
+	if damage <= 0.0:
+		return
+	_drone.last_hit_direction = Vector3.ZERO
+	_drone_health.take(damage)
 
 
 func _on_player_damaged(amount: float, remaining: float) -> void:

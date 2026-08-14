@@ -112,10 +112,41 @@ extends TunableConfig
 # airframe you are flying, not to "the player" — a distinction that could not be
 # made while there was one frame. The frame now applies it in
 # FlightController._ready, so the benches see it too.
-## Crash impacts below this delta-v (m/s) are free; above it they hurt.
-@export var crash_damage_speed: float = 12.0
-## Damage per m/s of delta-v beyond the free threshold.
-@export var crash_damage_scale: float = 6.0
+## CRASH DAMAGE IS PEAK DECELERATION (GAMEPLAY-DESIGN Iteration 17 / E6, as
+## corrected by the E steering). The user's model, and it replaced kinetic
+## energy before anything was built: *"damage like trauma is caused by the abrupt
+## acceleration, where all parts feel a devestating force that shakes the
+## integrity of the entire frame."*
+##
+## `crash_crush_m` is the effective stopping distance of an impact — how far the
+## airframe and the thing it hit give way TOGETHER before the aircraft is
+## stopped. It is the only place a crash's abruptness is stated, and everything
+## else here follows from it: peak deceleration is `v^2 / (2 * s * g)`.
+##
+## IT IS ONE NUMBER FOR EVERY FRAME, DELIBERATELY, and that is the whole
+## anti-invulnerability clause. Letting it scale with airframe size would be
+## defensible on its own terms (a 3 m structure has more depth to crush than a
+## 0.28 m one) and would hand the Roc a 10.7x discount on every wall it ever
+## meets — which is precisely the *"no amount of redundancy makes a Roc a
+## battering ram"* the design forbids. Mass appears nowhere in the law at all,
+## which is E6's other half: *"a Roc and a Kestrel stopping from the same speed
+## over the same distance pull the same g."*
+@export var crash_crush_m: float = 0.1
+## Impacts under this peak deceleration (in g) are free; above it they hurt.
+##
+## 73.5 g is exactly the old 12 m/s free threshold expressed in the new law
+## (`12^2 / (2 * 0.1 * 9.8)`), because the Kestrel's crash behaviour is signed
+## off and the free band must not move. A set-down measures 4 g on a Kestrel and
+## 40 g on a Roc, so every landing the roster can make is still free.
+@export var crash_damage_g: float = 73.5
+## Damage per g beyond the free threshold.
+##
+## Calibrated on the one number a pilot actually feels: the speed at which a
+## crash kills a full-health Kestrel. That was 28.67 m/s under the old linear
+## law and it is 28.67 m/s under this one. Below that speed the new law is
+## slightly gentler and above it far harsher, which is E6's *"can even die if
+## faster"* arriving as arithmetic rather than as a special case.
+@export var crash_damage_per_g: float = 0.2892
 @export var respawn_delay: float = 2.5
 
 @export_group("Targets")
@@ -164,3 +195,47 @@ func save_path() -> String:
 
 func defaults_path() -> String:
 	return DEFAULTS_PATH
+
+
+## The project's own gravity, so there is exactly ONE gravity in the game and no
+## second constant to drift from it. Read once, lazily, on first class access —
+## the same value `FlightController` falls under, rather than the 9.80665 the
+## unit "g" formally means, because a crash should be measured in the gravity of
+## the world it happened in.
+static var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+
+## Peak deceleration, in g, of an impact arriving at `impact_speed` (m/s).
+##
+## `v^2 / (2 * s)` is the standard crash-pulse figure and it is the quantity the
+## PHYSICS TICK CANNOT GIVE US, which is why the stopping distance has to be
+## authored. Godot's solver removes the whole velocity in one step whatever the
+## step is, so the raw per-tick deceleration is `v / dt` — a number that triples
+## if someone raises the tick rate and says nothing about the airframe. Measured,
+## not assumed: a Kestrel, a Condor and a Roc all report their full impact speed
+## as a single-tick delta-v, at every speed from 3 to 131 m/s.
+##
+## Two properties fall straight out of the formula, and they are the two E6 asks
+## for. Mass is absent, so a heavy frame is not a safer one. And it is QUADRATIC
+## in speed, so doubling the speed quadruples the g — *"faster is worse"* without
+## a threshold having to fake the curve.
+func impact_g(impact_speed: float) -> float:
+	if crash_crush_m <= 0.0:
+		return 0.0
+	return impact_speed * impact_speed / (2.0 * crash_crush_m * _gravity)
+
+
+## Hull damage from an impact arriving at `impact_speed` (m/s). Zero under the
+## free threshold, which is what keeps landings free.
+func crash_damage(impact_speed: float) -> float:
+	return maxf(impact_g(impact_speed) - crash_damage_g, 0.0) * crash_damage_per_g
+
+
+## The speed at which a crash exactly kills `hull` points of airframe — the one
+## crash number a pilot learns by feel, and therefore the one the law is
+## calibrated on. Inverse of `crash_damage`; INF when the law cannot reach it.
+func crash_lethal_speed(hull: float) -> float:
+	if crash_damage_per_g <= 0.0 or crash_crush_m <= 0.0:
+		return INF
+	return sqrt((hull / crash_damage_per_g + crash_damage_g)
+			* 2.0 * crash_crush_m * _gravity)

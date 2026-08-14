@@ -292,7 +292,10 @@ record.
 `fire_assist_range`, `missile_lock_range`, `missile_speed`,
 `missile_turn_rate_deg`, `missile_prox_radius`, `flak_muzzle_speed`,
 `flak_arm_distance`, `flak_fuse_radius`, `flak_burst_radius`,
-`crash_damage_speed`.
+`crash_crush_m` (was `crash_damage_speed`; Iteration 17 / E6 made crash damage
+peak deceleration, so the crash tunable is now a stopping DISTANCE — and it is
+deliberately the one length here that must NOT scale with the airframe, or the
+heavy frame becomes a battering ram).
 
 **Bestiary (`EnemyConfig` × 8 types):** `speed`, `accel`, `turn_speed_deg`,
 `sight_range`, `preferred_range`, `muzzle_speed`, `swarm_spacing`,
