@@ -2,236 +2,221 @@
 
 A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 [TESTING.md](TESTING.md) and [BALANCE.md](BALANCE.md) first, then
-**GAMEPLAY-DESIGN.md's Iteration 16 (L)**, the new **Iteration 17 (E)** and the
-log entries **v2.46–v2.49** at its tail.
+**GAMEPLAY-DESIGN.md's Iteration 17 (E)** together with the two entries after it,
+`E steering — ANSWERED` and `E steering round 2 — ANSWERED`. The steering
+**corrects the draft in three places**; read the corrections, not just E6.
 
 ---
 
-## WHERE IT STANDS, 2026-08-14 — read this block first
+## WHERE IT STANDS, 2026-08-15 — read this block first
 
-**Branch `full-scale`. Board 23/23 green. Tree CLEAN. `PILOT_VERSION` 7
-(untouched). `master` is untouched and 36 commits behind. Nothing pushed.**
+**Branch `full-scale`. Board 24/24 green. Tree CLEAN. `PILOT_VERSION` 7
+(untouched). `master` is untouched. Nothing pushed.**
 
-**L13 PHASE 0 IS COMPLETE.** All three of its tasks are measured and the answers
-are in `GAMEPLAY-DESIGN.md` v2.46 and v2.49. The short version:
+**ITERATION 17 (E) PHASE 1 IS BUILT.** It went from paper to flying in one
+unattended run: crash deceleration, its check, the component registry, derived
+hit location, the HUD pips, and the hexa. The eight-task ledger that drove it is
+deleted; every finding is below.
 
-- **The size-class roster's founding premise is TRUE.** Ten small units do not
-  merely hurt a Roc, they delete it — 1.2 s of fire against a hovering target,
-  where a Kestrel takes 5.6 s. Nothing downstream is blocked.
-- **But the same measurement is the argument for Phase 1.** Every frame took
-  exactly 13 hits; the whole spread is geometry. A 3 m airframe is a bigger
-  target carrying an identical 100-point hull.
-- **The exposure gap is 6.3x, not 115x**, because enemy aim jitter is uniform in
-  radius so hit chance is linear in size rather than quadratic. **That number is
-  the budget the component model has to hit, and it is why L.q1's frontal-area
-  law was the wrong one** — 6x is reachable, 115x was not.
-- **Nothing tunnels.** At every speed the roster can reach, against walls down to
-  the 0.12 m curb trim. The margins are Kestrel 2.0x, Condor 8.0x, Roc 8.0x, and
-  **the big frame is the SAFE one** — the opposite of the assumption the test was
-  written on.
-- **The city scales linearly** — flat cost per block from 20 blocks to 400 — so
-  its size is a budget decision, not a structural limit.
+What is built, in E10's own order:
 
-**Iteration 17 (E) IS FULLY STEERED** (2026-08-15). All eight questions came
-back. It is still paper only — nothing is built — but nothing is blocked either.
-Read `E steering — ANSWERED` before touching it. The four that changed the design:
-
-- **E.q7 DISSOLVED.** The exposure gap is not a target to author, it is an
-  OUTPUT. Design an airframe from its role, its geometry gives it an exposure,
-  its designer answers that with armour, the armour costs mass. **The 6.3x figure
-  is now a measurement that tells you how much armour the fiction demands**, not
-  a budget to hit.
-- **E6's mechanism is peak DECELERATION, not kinetic energy** — so a crash loads
-  every component at once instead of being a lump aimed at the hull pool.
-- **Components are an OPT-IN TRAIT**, and the Phalanx is not at risk because its
-  screen is a defence mechanic, not a damage model — nothing on it fails.
-- **Components are NOT equal.** The user's ranking: rotors dominate, a damaged VTX
-  is survivable because a stable aircraft can be flown and fired blind.
+| E10 step | what | state |
+|---|---|---|
+| 1. Crash energy (E6) | peak deceleration, `v² / (2·s·g)` | **BUILT**, `crash_check` guards it |
+| 2. Component registry (E3) | `AirframeComponents`, 8 rows, 4 live | **BUILT**, pure refactor |
+| 3. Redundancy (E4.1) | the hexa, 6 rotors, layout as data | **BUILT**, wants hands |
+| 4. Located armour (E4.2/E4.3) | — | not started |
+| 5. `Lethality` Layer 1 rework (E8) | — | not started |
+| 6. The skill surface (E7) | — | not started |
 
 ---
 
-## WHAT THIS SESSION ADDED
+## THE FIVE FINDINGS WORTH CARRYING FORWARD
 
-Six commits on `full-scale` (`a519451` .. `996d81d`):
+**1. THE PHYSICS TICK CANNOT GIVE YOU A DECELERATION, so the stopping distance
+had to be authored.** Godot's solver removes the whole velocity in one step
+whatever the step is, so the raw per-tick figure is `v / dt` — a number that
+triples if anyone raises the tick rate and says nothing about the airframe.
+Measured across the ladder at 3 to 131 m/s: every frame reports its full impact
+speed as a single-tick delta-v, and that delta-v is already the peak of the whole
+event. So crash damage is `v² / (2·s·g)` with `s` a **frame-independent**
+`crash_crush_m` of 0.1 m. Making `s` scale with airframe size is defensible on
+its own terms and would hand the Roc a 10.7x discount on every wall it meets,
+which is exactly the *"no amount of redundancy makes a Roc a battering ram"* E6
+forbids.
 
-| commit | what |
-|---|---|
-| `a519451` | closed a user-config leak into every bench in the suite |
-| `8253a91` | the feasibility bench (`swarm_bench.gd`) |
-| `37efdda` | the scale yard's signs rebuilt as physical objects (L.q10) |
-| `9aef668` | the big city, `city_load_bench`, `tunnel_check` |
-| `996d81d` | Iteration 17 drafted on paper |
-| (next) | phase 0 steering applied: sign legs removed, scaled city deleted |
+**2. THE FIFTH SCAR INSTANCE WAS REAL, AND IT WAS NOT WHERE IT WAS EXPECTED.**
+The HUD's range ticks, reticle and radar were audited and are **clean** — the
+ticks are weapon-denominated and the weapon is frame-independent, the lock cone
+is an angle, the 0.4 m muzzle standoff is measured from the per-frame
+`fpv_offset` so it scales, and there is no radar (it is a war-sim node type). The
+actual instance was one file over, in the **motor pip widget**: `for i: int in 4`
+against a hand-authored 2×2 offset table, which would have drawn four pips for a
+six-rotor frame and silently dropped two rotors. Fixed by projecting each pip
+from its rotor's own mount.
 
-**New things to run** (both documented in TESTING.md §2):
+**3. A MUTATION SURVIVED, AND FIXING THAT IS MOST OF WHAT `crash_check` IS
+WORTH.** Deleting main's `last_hit_direction = Vector3.ZERO` passed the check
+unchanged. A crash frays all rotors only because `apply_hit_to_motors` finds *no*
+direction, so the guard is really a claim about that field being empty — and the
+crash was being flown on a clean airframe where it is empty anyway. **A hit the
+plating eats entirely never emits a damage event, so nothing clears the bearing
+it set, and the Atlas ships with 3 armor**: that state is reachable in the game,
+and it is now planted on the drone before the drop. Same family as the Phalanx's
+tracking mutation: *fixing what a test fires on does not fix what it reads.*
 
-```
-<godot> --headless -s scripts/tests/swarm_bench.gd      --path .
-<godot> --headless -s scripts/tests/city_load_bench.gd  --path .
-<godot> --headless -s scripts/tests/tunnel_check.gd     --path .
-<godot>            --path . scenes/city_map.tscn         the big city, 12x15
+**4. A LIVE `user://` LEAK INTO EVERY CHECK THAT BOOTS `main.tscn`, AND IT IS
+STILL OPEN.** `main.gd:_ready` calls `load_from_user()` on the **shared**
+`default_combat_config.tres`, and seven configs come in that way —
+`frame_kestrel`, `damage_config`, `audio_config`, `enemy_raider`,
+`input_bindings`, `weather_config`, `combat_config`. So `repair_check`,
+`run_check` and `crash_check` all measure whatever the human last saved. It is
+harmless *today* only because the saved files override unrelated fields and
+everything else falls back to script defaults that currently match the `.tres` —
+which is precisely the shape of the `damage_config` leak closed on 2026-08-14.
+`crash_check` defends itself (a `CACHE_MODE_IGNORE` private ruler, and
+`reset_to_defaults()` on main's combat and damage configs). **Closing it properly
+is unclaimed work**: `Frames.build` solves this for the drone with
+`load_user_overrides = false`, and `main.tscn` has no equivalent flag.
 
-```
+**5. MEASURE, DO NOT REASON — it paid three times in one run.** A probe that
+built drones and hit them inside `_initialize` read "all four rotors destroyed"
+on every bearing; `add_child` there defers `_ready`, so `_motors` was Nil and
+every reading was an engine error printed as 0.0. A half-built impact-tracking
+*window* for the crash law was abandoned when the probe showed first contact is
+the peak in all 27 cases — and that a window would have *merged* two real impacts
+into one cheaper one. And the 0.4 m muzzle standoff looked exactly like the fifth
+scar instance until the numbers said it was clear on all four frames.
 
 ---
 
 ## THE HUMAN'S FLIGHT LIST — things waiting for hands, not for code
 
-Nothing below is blocked on the agent. All of it wants eyes.
+**1. THE HEXA.** `<godot> --path . -- --frame hexa`. Six rotors on a ring at 30°
+off the nose, alternating 3+3. It is the **Kestrel in every respect except the
+layout** — same 0.28 m, 0.65 kg, TWR 4.5, same rates — because a hexa that also
+changed mass or TWR would be an interesting aircraft and a useless experiment.
+**Three things are known wrong for it and were deliberately left alone:**
 
-1. ~~The scale yard's new signs.~~ **SIGNED OFF 2026-08-15** — *"works
-   great!"*, *"the dual side of them is great."* The legs are removed on their
-   call (*"the signs can float in space"*); `READ_RATIO` is untouched.
-2. ~~The big city.~~ **CLOSED 2026-08-15** — *"the city is indeed big... this is
-   good enough now. no need for more work."* One thing noticed and deliberately
-   not fixed: *"the furniture seems to load in when it wants"*, which is the
-   interior distance LOD popping at 140 m and is the mechanism that keeps a big
-   city affordable at all.
-3. ~~The scaled city.~~ **Deleted 2026-08-15** — the user rejected the premise,
-   not the execution: the world stays at real human scale, so a 10.7x city is
-   exactly the conversion pass V.q10 closed. The heavy frame's relationship to a
-   city is *"an extreme flyby at the main route"*, which is a content idea at
-   REAL scale rather than a bigger city.
+- `yaw_authority` 1.5 is a quad number. Yaw torque is the summed signed rotor
+  output, so a 3+3 split sums to ±6 at full differential where a quad sums to
+  ±4 — **it has roughly 1.5x the Kestrel's yaw authority from the identical
+  constant**, and the direction to tune is down.
+- The rate gains are a quad's. The mixer commands each rotor in proportion to
+  its real moment arm, and a generated ring sits at √2 arm-lengths where the
+  quad-X's corners sit at 1 along each axis. **Expect it twitchier than the
+  Kestrel.**
+- The motor audio's four-emitter detune was tuned by ear in v2.43/v2.45. The
+  spacing rule generalises to six; whether six sources at the same per-pair beat
+  rate *sound* right is an ear question and is not answered.
+
+**2. CRASH FEEL.** The free band and the lethal speed are pinned to the old law
+exactly — a landing is still free (a set-down measures 4 g on a Kestrel, 40 g on
+a Roc, against a 73.5 g floor) and a crash still kills a full-health Kestrel at
+28.667 m/s. **Between those two points the laws cannot agree**, because one is
+linear in speed and the other quadratic: the largest disagreement in the
+survivable band is −10.2 points at 20 m/s, and the new law is the *gentler* one
+there. Above the lethal speed it is far harsher, which is the intent. **One
+ladder consequence to feel: the Atlas's 190-point hull now dies to a 37.8 m/s
+crash rather than a 43.7 m/s one**, because a quadratic reaches a bigger hull
+sooner than a linear law does.
+
+**3. `severity` 1.0.** E.q8 chose *"absolutely '1 = full subsystem damage'"* as
+the design target, and it still ships at 0.6 in `default_damage_config.tres`
+because nobody has flown 1.0. It is a ten-second change in the overlay's DAMAGE
+section. **Bake it the moment it is flown and confirmed.**
+
+**4. THE HUD PIPS.** Nothing visible changed — no new failure modes exist, so
+there is nothing new to show, and the quad layout is pixel-identical to 0.000000
+px. The widget wants eyes the day a hexa or a fifth component is flown.
 
 ---
 
 ## WHAT IS WAITING, in order
 
-### 1. PHASE 1, in E10's order — unblocked, and start at the top
+### 1. FINISH PHASE 1 — E10 steps 4 and 5
 
-**Crash deceleration first.** It is the least exciting piece and the guard the
-rest is unsafe without, it needs no components, and it is checkable the day it
-lands. The mechanism is settled (E6 as corrected); the calibration is the
-Kestrel's current crash behaviour, which is signed off and must not move.
+**Located armour and separation (E4.2, E4.3).** Armour over *named* components,
+which is what makes "they got my power bus through the plating" a sentence a
+pilot can learn from. The registry already carries mounts for power, gyro, weapon
+mount and magazine as fractions of `body_m`; they are `built: false` and
+`routed: false`, so a component starts doing something by flipping two flags.
 
-Then the component registry as data with no new failure modes, then redundancy,
-then located armour, then the `Lethality` rework.
+**Then the `Lethality` Layer 1 rework (E8)**, and it has a schedule constraint:
+**it must land before L6.3's single re-measure or that re-measure happens
+twice.**
 
-**Two things are PINNED rather than scheduled:** repair priced as a resource
-(E.q3, connects to P5.6's repair bill, which has never repaired anything in
-particular) and magazine detonation (E.q6, pairs with the SAM and Sentinel).
+### 2. THE DELIVERY STAMP IS STALE, DELIBERATELY
 
-### 2. THE ROTOR EXPERIMENT (E.q1) — low priority, high curiosity, cheap
-
-Explicitly *"a very interesting direction to have fun with"* rather than a task.
-**The good news is in the steering entry: the simulation does not need extending.**
-`MotorModel.apply_thrust` is already positional, so a hexacopter is the same
-physics with six entries. What is hard-coded is the LAYOUT — `MOTOR_COUNT` and
-the three ±1 sign tables — across about six files. Estimate a day, low risk
-because `hover_check` flies every roster frame. Two parts want hands:
-`yaw_authority` needs re-tuning for a 3+3 spin split, and the motor audio's
-four-emitter detune scheme was tuned by ear.
+`hexa` joined `Frames.ROSTER`, so `Frames.all_configs()` moved and the committed
+delivery factors are no longer considered current. That is the correct outcome
+and this file's own long-standing rule (*"a new frame joins the stamp the day it
+lands"*) — the roster genuinely moved. It folds into the scheduled re-measure
+rather than needing one of its own.
 
 ### 3. THEN PHASE 2, the pilot (L6.2, L10.2)
 
 Anticipatory planning, a per-class manoeuvre planner behind one shared pilot, a
 pilot competence benchmark, and a `PILOT_VERSION` bump.
 
-### 4. AND ONE RE-MEASURE (L6.3), scheduled and not discovered
+### 4. AND ONE RE-MEASURE (L6.3)
 
-**It must land after Phase 1 and Phase 2, or it lands twice** — L7's risk 3.
+**After Phase 1 and Phase 2, or it lands twice** — L7's risk 3.
+
+### PINNED, not scheduled
+
+Repair priced as a resource (E.q3, connects to P5.6's repair bill, which has
+never repaired anything in particular); magazine detonation (E.q6, pairs with the
+SAM and Sentinel); the **tri** (E.q1 round 2 — three rotors cannot cancel
+reaction torque by counter-rotation, so it needs a servo-tilted tail rotor, which
+is thrust VECTORING and a genuinely different control mechanism; `MotorModel._ring`
+says so at the point someone would reach for it).
 
 ---
 
 ## HOUSE RULES THAT ARE EASY TO MISS
 
-- **COMMIT AS YOU GO — you do not need to ask.** Standing preference, confirmed
-  2026-08-14: *"i really like the way you manage our project versioning, i want
-  to maintain that."* Use the `commit-message` skill's nested format, commit each
-  finished piece of verified work, **never push, never touch `master`**. If a
-  generic session instruction says to commit only when asked, that is a default
-  and this is the project's norm — raise the conflict rather than quietly obeying
-  it.
+- **COMMIT AS YOU GO — you do not need to ask.** Standing preference. Use the
+  `commit-message` skill's nested format, commit each finished piece of verified
+  work, **never push, never touch `master`**. If a generic session instruction
+  says to commit only when asked, that is a default and this is the project's
+  norm — raise the conflict rather than quietly obeying it.
 - **No `Co-Authored-By` trailer.** The user purged it from history. Same rule:
   raise the conflict if a session instruction says otherwise.
 - **Breaking a saved war is allowed and preferred** over slowing development.
 - **Report back with the `report-back` skill's structure**, in PLAIN LANGUAGE.
-- **GAMEPLAY-DESIGN.md is APPEND-ONLY** and is CRLF — append with
-  `sed 's/$/\r/' file >> GAMEPLAY-DESIGN.md`.
+- **GAMEPLAY-DESIGN.md is APPEND-ONLY** and is CRLF.
 - **Treat warnings as errors**, including the engine's leaked-ObjectDB warning at
-  exit: two benches written this session leaked orphan nodes created just to read
-  a default off them, and a bench that prints warnings teaches people to ignore
-  warnings.
-- **Never write to `user://` from a bench or check.**
-- **THE ENGINE IS NOT A COMMITMENT** (user, 2026-08-15): *"we dont have to commit
-  to the godot engine, we are using it now to have a base to design the game
-  identity and see how it feels... we might even migrate to a different engine."*
-  Build the things that survive a migration — the flight model's maths, the war
-  layer's purity, the balance rulers, the design record — and do not design around
-  engine-shaped limits. Measurements of engine behaviour are findings to carry
-  forward, not constraints to obey.
-- **BEFORE CALLING SOMETHING AN ENGINE LIMIT, CHECK WHOSE CONSTANT IT IS.** The
-  agent described the 128-round projectile ceiling as "an engine limit wearing
-  balance's clothes", meaning *a limit in the plumbing rather than the design*,
-  and it was reasonably read as *a limit in Godot*. It is neither:
-  `ProjectilePool.POOL_SIZE` is our own `const int = 128`, and raising it is a
-  one-line edit bounded only by the ~330-unit CPU wall v2.46 measured. Pinned, not
-  raised, per the user — but pinned as **ours**.
-  - **This happened twice in two messages** (the pool, then enemy components), so
-    it is a pattern rather than a slip. The engine-portability position is real
-    and standing, and precisely because it is real it **must not become the
-    answer to every constraint** — doing that hides the limits a new engine would
-    not fix. Enemy components are bounded by how many balance cells a human will
-    read, which no engine changes.
+  exit.
+- **Never write to `user://` from a bench or check** — and see finding 4 above
+  for the read side, which is still open.
+- **Keep Bash calls simple.** The project now has a `.claude/settings.json`
+  allowlisting the Godot headless invocations; **the exe path in those patterns
+  is unquoted**, so invoke it without quotes. `git add`/`git commit` are
+  deliberately not allowlisted (they mutate), so those prompts are expected. Do
+  file work with the Read/Write/Edit tools, never `sed -i` or shell redirects.
+- **THE ENGINE IS NOT A COMMITMENT** (user, 2026-08-15). Build the things that
+  survive a migration — the flight model's maths, the war layer's purity, the
+  balance rulers, the design record — and do not design around engine-shaped
+  limits. **Before calling something an engine limit, check whose constant it
+  is**: `ProjectilePool.POOL_SIZE` is our own `const int = 128`.
 
 ### The scars
 
-**A CONSTANT THAT WAS CORRECT AT ONE SCALE IS A BUG ON A SIZE LADDER.** Four live
-instances in five days: the overlay's Kestrel-ranged sliders, the wind's 35 m/s
-saturation, the motor audio's `unit_size` and pitch band, and `CityLayout`'s
-footprint law and street furniture. **The remaining un-audited places are the
-HUD's range ticks, the reticle and the radar scale** — and note the pattern has
-only ever bitten where something is compared against a per-FRAME quantity, so the
-HUD is the obvious next place. (`MenuFloorFrame`'s metre-denominated mullion
-spacing was a fifth, and is retired rather than fixed: nothing is built at a scale
-that exposes it now the scaled city is gone.)
+**A CONSTANT THAT WAS CORRECT AT ONE SCALE IS A BUG ON A SIZE LADDER.** Now five
+confirmed: the overlay's Kestrel-ranged sliders, the wind's 35 m/s saturation,
+the motor audio's `unit_size` and pitch band, `CityLayout`'s footprint law, and
+**the HUD's motor pip block**. A sixth was found and fixed in the same run: the
+motor audio's beat-spread guard was hard-coded to three steps, and six rotors put
+the extremes five steps apart. **The named HUD places are now audited clean** —
+see the scale-audit block at the head of `reticle_solver.gd`, which also records
+the condition under which each verdict expires.
 
 **Check what `user://` is overriding before believing any config experiment.**
-Found live this session: `FlightController._ready` loaded
-`user://damage_config.tres` outside the `load_user_overrides` guard, so every
-bench in the suite inherited the human's saved damage tuning. It was harmless on
-the day it was found, which is exactly why it was worth closing.
+See finding 4 — still open on the `main.tscn` side.
 
-**Ask of every check "would this still pass if the feature were deleted?"** It
-earned its keep three times this session: it caught a load bench measuring the
-clock instead of the work, a city bench whose generator never ran, and it is why
-`tunnel_check` asserts that something DOES tunnel at the absurd end.
+**Ask of every check "would this still pass if the feature were deleted?"** Seven
+mutations are on record in `crash_check` alone, and the one that mattered is the
+one that *passed*.
 
-### And one about diagnosis
-
-**Measure; do not reason.** The first load instrument read 4.169 ms per tick at
-every unit count and looked like a beautifully optimised game — it was measuring
-Godot's real-time pacing. `Performance.TIME_PHYSICS_PROCESS` was not the fix
-either. The tunnelling result inverted the assumption that prompted the test.
-**Query the engine's actual defaults; print the actual numbers.**
-
----
-
-## WHAT NEEDS THE HUMAN — do not attempt these
-
-- Any flight-feel number. TWR, rates, PID gains, `motor_lag_tau`, rotor count.
-- The audio mix by ear.
-- Fog and look config.
-- The menu tower redesign (L12), including `MenuFloorFrame`'s scale constants.
-- Anything on `master`.
-
-## THE MENU TOWER GAINED A CONCRETE CONSTRAINT (L12)
-
-The user corrected what the scaled city was ever for, and it was never scale:
-*"what i meant is something that is true to scale for the real world, but with
-appertures (windows, passage ways) that allow something like the roc to pass
-within, so that the menu would be feasable."*
-
-**Every enterable opening is sized against a NAMED FRAME**, and which frame is a
-property of the building. The default target is the **Kestrel** — *"openings that
-need to at least allow the kestrel to pass through"* — with the Condor as the
-stretch where a building wants to admit something heavier. That is a
-`BuildingGenerator` / `MenuFloorFrame` parameter (`window_size` already exists at
-3.0 x 2.4 m), not a world scale. A 1.2 m Condor wants about a 2 m clear opening.
-
-## STILL OPEN AND DELIBERATELY UNANSWERED
-
-- **V.q12** — TWR across the ladder. The user is content to leave it.
-- **The Commander's fiction** — person or central computer hub (L.q9).
-- **`continuous_cd`** — measured to fix every tunnelling case and deliberately
-  left off, because the shipped configuration is safe at reachable speeds.
+**Measure; do not reason.** See finding 5.

@@ -14591,3 +14591,55 @@ arrived as reversals** — V.q10's ladder, L.q1's rejection of a hull law, E.q7'
 dissolution, the scaled city — and each one was cheap because the premise was
 written down where it could be argued with. A design doc that only recorded
 conclusions would have made every one of those reversals expensive.
+
+### v2.50 — Iteration 17 phase 1 BUILT (2026-08-15)
+
+E10 steps 1 to 3 went from paper to flying in one unattended run. Board 24/24.
+Recorded here because three of them changed a decision rather than merely
+implementing one.
+
+- **E6's stopping distance had to be AUTHORED, and the reason is a fact about
+  discrete physics rather than about Godot.** The solver removes the whole
+  velocity in one step whatever the step is, so the per-tick deceleration is
+  `v / dt` — a figure that triples if the tick rate is raised and says nothing
+  about the airframe. Measured across the ladder from 3 to 131 m/s: every frame
+  reports its full impact speed as a single-tick delta-v. So the law is
+  `v² / (2·s·g)` with `s` authored, and it carries E6's two demands in its own
+  algebra: mass is absent, and it is quadratic in speed.
+  - **`crash_crush_m` IS ONE NUMBER FOR EVERY FRAME, AND THAT IS THE WHOLE
+    ANTI-INVULNERABILITY CLAUSE.** Letting it scale with airframe size is
+    perfectly defensible — a 3 m structure has more depth to crush than a 0.28 m
+    one — and would hand the Roc a 10.7x discount on every wall it ever meets.
+    That is precisely the battering ram E6 forbids, so the physical argument is
+    refused on design grounds and the refusal is written into the config.
+  - Calibrated on the two numbers a pilot feels: the free band (12.0025 m/s
+    against the old 12.0) and the speed at which a crash kills a full-health
+    Kestrel (28.667 m/s under both laws). Between them the laws cannot agree —
+    one is linear, one quadratic — and the new one is the gentler by up to 10
+    points in the survivable band. Above the lethal speed it is far harsher,
+    which is *"can even die if faster"* arriving as arithmetic.
+- **E.q2's "derived" cost nothing, because the picker was already derived.**
+  `apply_hit_to_motors` selected by dot product against each rotor's own mount,
+  which is count-agnostic and layout-agnostic. Generalising it to "nearest
+  component" moved the SET into data and changed no behaviour: 72 hit bearings on
+  four frames, byte-identical before and after.
+  - **`located` and `routed` had to be two flags, not one.** The transmitter has
+    a mount — it rides the lens at `fpv_offset` — but it already takes a share of
+    EVERY hit regardless of direction, so routing located hits to it as well
+    would double-count it and change a signed-off model.
+- **E.q1's hexa confirmed the steering's claim exactly: the simulation needed no
+  extending.** What assumed four was the layout. One thing the estimate missed:
+  **the quad has to be AUTHORED rather than generated**, because a ring formula
+  reproduces its four mounts but not their ORDER — FL, FR, BL, BR is 315, 45,
+  225, 135 degrees, which no sequential walk produces — and the order is what the
+  mixer, `damage_motor(index)` and the HUD pips are indexed by.
+  - It flies on the Kestrel's exact hover throttle, 3 up / 3 down with a spin sum
+    of zero and its hub at the centre of lift. `yaw_authority`, the rate gains
+    and the audio detune are all knowingly wrong for it and were left for hands.
+- **A fifth instance of the size-ladder scar was found, and not where it was
+  looked for.** The HUD's range ticks, reticle and radar audited clean — and
+  there is no radar, it is a war-sim node type. The instance was in the motor pip
+  widget: `for i in 4` over a hand-authored 2x2 table, which would have drawn
+  four pips for a six-rotor frame. A sixth turned up in the same run: the motor
+  audio's beat-spread guard assumed the widest detuned pair was three steps
+  apart, which is true of four rotors and not of six.
