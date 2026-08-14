@@ -197,6 +197,38 @@ instrument formatted with `%.17g`, which GDScript's `%` operator does not
 support, so it silently wrote the format string 6720 times and four separate
 comparisons came back "bit-for-bit identical" on literal text.
 
+### The feasibility bench — the engine's own walls
+
+```
+<godot> --headless -s scripts/tests/swarm_bench.gd --path .
+<godot>            -s scripts/tests/swarm_bench.gd --path . -- "kill roc 20"
+```
+
+Iteration 16 / L13 phase 0.1, and it answers the user's own question — *"can ~10
+kestrels level frames hurt a roc level frame"* — plus the one behind it: where
+does this engine stop? Two tables, deliberately never conflated. **A** sweeps
+unit counts and reports how many physics ticks per second the scene can supply;
+**B** puts N raiders against one hovering frame of each size and reports how fast
+they kill it. Takes about six minutes for the full board.
+
+**Read the header before trusting a number here.** Three things it refuses to
+do, each on purpose: it never measures the heavy frame shooting *back* (the
+reference pilot is Kestrel-tuned, so "the Roc lost" would be a confound, not a
+result); the target never evades, so table B is the swarm's *ceiling*; and
+headless means no rendering, so table A is the floor of the real cost.
+
+**The load measurement is not the obvious one, and the obvious one is a lie.**
+Wall-clock between physics ticks reads 4.169 ms at every unit count, because
+Godot paces physics to real time and simply waits when there is headroom — a
+sweep of it is a flat line that looks like a beautifully optimised game.
+`Performance.TIME_PHYSICS_PROCESS` is not the fix either (probed: it does include
+the server step, but at 1600 bodies it claims 22 ms per tick while the simulation
+demonstrably holds real time at 4.17). What works is raising
+`Engine.physics_ticks_per_second` far above 240 so the pacing has nothing to wait
+for; the engine then delivers as many ticks per second as the machine can
+compute, and that number *is* the capacity. The distortion-free half — did the
+cell hold a true 240 Hz — is reported beside it, and the two agree at the wall.
+
 ---
 
 ## 3. Running the actual game

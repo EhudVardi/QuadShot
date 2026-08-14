@@ -13672,3 +13672,107 @@ architecture. Four things staying still is what makes the rest affordable.
   hull rather than replacing it. Keeps Phase 1's blast radius small, gives crash
   damage something to damage, and preserves "the airframe broke" as a different
   death from "every rotor failed".
+
+- **2026-08-14 — v2.46. THE FEASIBILITY BENCH (L13 phase 0.1). The answer to
+  L.q2's premise is YES, and it is so emphatic that it turns into the argument
+  for Phase 1.** `scripts/tests/swarm_bench.gd`, two tables that are never
+  conflated: what the ENGINE can hold, and what a swarm can do to a heavy frame.
+  - **Combat viability — ten small units do not merely hurt a Roc, they delete
+    it.** Against a hovering, non-evading target, measured on a machine that
+    cannot be blamed on the pilot because there is no pilot:
+
+    | frame | 5 raiders | 10 raiders | 20 raiders |
+    |---|---|---|---|
+    | Kestrel 0.28 m | dead in 18.4 s | 5.6 s | 3.3 s |
+    | Condor 1.20 m | 3.6 s | 2.2 s | 1.2 s |
+    | Roc 3.00 m | **1.8 s** | **1.2 s** | **0.6 s** |
+
+  - **EVERY CELL TOOK EXACTLY 13 HITS**, which is L3's arithmetic reproduced by a
+    real fight (100 hull / 8 damage). So the 31x spread across that table is
+    **pure geometry** — nothing about the frames' durability differs at all, and
+    the only thing that changes is how quickly thirteen rounds arrive.
+  - **BEING BIG IS, TODAY, A STRICT PENALTY, AND THAT IS THE MEASURED FORM OF
+    L3.** The `_cone_fill` model prices it: a raider's 3 deg jitter puts the miss
+    point UNIFORMLY IN RADIUS on a disc at the target, so hit chance is LINEAR in
+    the frame's size rather than quadratic. Predicted fill of that cone: Kestrel
+    11.1%, Condor 35.1%, Roc 70.1%. Measured connect at the honest sample
+    (N = 5, the longest fight): **8.7% / 37.1% / 52.0%.** The Kestrel and Condor
+    land within a few points; the Roc reads under because a raider opens fire the
+    moment it has line of sight at 45 m, where the same cone is 2.3x wider.
+  - **The shape of the target matters, not just its area**, and getting that
+    wrong is worth recording because it is the same family as every other
+    constant-that-does-not-scale bug. The first version of the model reduced the
+    airframe to a disc of equal area and predicted **99%** for the Roc against a
+    measured 52%. An airframe is a wide flat box (`body_m` across,
+    `body_m x 0.2857` tall): it fills the cone completely across and barely at
+    all vertically, so an equal-area disc silently trades height it does not have
+    for width it cannot use. The model now integrates `min(1, R(theta)/C)` over a
+    full turn.
+  - **A swarm gets in its own way, and the rate at which it does is a design
+    lever nobody knew existed.** Damage per second PER ATTACKER falls as the
+    swarm grows — Roc: 10.8 / 8.2 / 7.9 at N = 5 / 10 / 20; Condor: 5.6 / 4.5 /
+    4.1. The cause is `EnemyDrone._has_line_of_sight`, which raycasts to the
+    player and is blocked by the swarm's own bodies. Twenty attackers deliver
+    2.9x what five do, not 4x. **This is the natural brake on mass raids** and it
+    is emergent rather than authored.
+  - **Engine load: the CPU is not the first wall, and the first wall is a
+    128-element array.**
+
+    | N raiders | tick capacity | headroom at 240 Hz | rounds dropped |
+    |---|---|---|---|
+    | 5 | 14285 Hz | 59.5x | 0% |
+    | 10 | 8466 Hz | 35.3x | 0% |
+    | 20 | 4002 Hz | 16.7x | 0% |
+    | 40 | 1934 Hz | 8.1x | 0% |
+    | 80 | 821 Hz | 3.4x | **33%** |
+    | 160 | 435 Hz | 1.8x | **62%** |
+    | 320 | 209 Hz | **0.87x** | **79%** |
+
+  - **`ProjectilePool.POOL_SIZE` is 128 and it is shared by every shooter in the
+    game.** At 80 attackers a THIRD of all rounds are never created — `fire()`
+    returns silently when the pool is empty, so the fight simply gets quieter and
+    nothing anywhere reports it. That is an engine limit wearing balance's
+    clothes, and it arrives at a quarter of the unit count the CPU can carry. Any
+    future mass-raid content has to move that number or accept a silent damage
+    ceiling; the bench now counts drops so the ceiling can never be invisible
+    again.
+  - **The CPU wall is ~330 raiders** (capacity is almost exactly 80000/N Hz), and
+    it is confirmed twice by two independent measures that agree: at N = 320 the
+    capacity probe reads 209 Hz and the untouched real-time clock reads 179 Hz.
+  - **THE INSTRUMENT ITSELF IS THE OTHER FINDING, and it is a reusable one.** The
+    obvious load measure — wall-clock between physics ticks — reads **4.169 ms at
+    every single unit count**, which is 1/240 s to four digits, because Godot
+    PACES physics to real time and waits whenever there is headroom. A sweep of
+    it is a flat line that looks like a beautifully optimised game.
+    `Performance.TIME_PHYSICS_PROCESS` does not rescue it: probed against
+    script-free rigid bodies it genuinely includes the physics server's step
+    (0.12 ms at 0 bodies, 22 ms at 1600), but at 1600 bodies it claims 22 ms per
+    tick while the simulation is demonstrably holding real time at 4.17 — so it
+    is off by something like the sub-step count and cannot be read as a per-tick
+    cost. **What works is to ask for more ticks than the clock wants**: raise
+    `Engine.physics_ticks_per_second` far above 240 and the pacing has nothing to
+    wait for, so the engine delivers as many ticks per real second as the machine
+    can compute. That number is the capacity. The flat-sweep assert in `_check()`
+    is what caught the first instrument before its numbers were published.
+  - **What this buys Phase 1.** The user's premise for the size-class roster is
+    confirmed, so L11 is safe to build on. But the same table says the Roc's
+    problem is not that it is too weak — it is that **it is a 115x larger target
+    carrying an identical 100-point hull**, and no amount of redundancy that
+    ignores geometry will fix a frame that eats seven times the rounds. L.q1's
+    component model therefore has a size it has to beat, and it is now a measured
+    number rather than an intuition: **a heavy frame needs roughly 6-7x the
+    Kestrel's effective survivability just to break even on exposure.**
+
+- **2026-08-14 — v2.47. A USER-CONFIG LEAK INTO EVERY BENCH IN THE SUITE, found
+  by reading a bench's own startup log.** `Frames.build` sets
+  `load_user_overrides = false` precisely so an instrument measures the repo's
+  numbers — but `FlightController._ready` called `damage_config.load_from_user()`
+  OUTSIDE that guard, so every bench quietly adopted whatever the human had saved
+  into `user://damage_config.tres`. `motor_min_thrust` reaches the flight model on
+  the next tick, so this was a live channel from an overlay slider into the ruler.
+  - **It was harmless on the day it was found**, because the saved file happened
+    to carry no property overrides at all and therefore loaded the script's own
+    defaults, which match the repo's. **That is exactly why it was worth fixing
+    rather than noting**: a leak that currently agrees with the truth is a leak
+    nobody will notice on the day it stops agreeing. Scar 1, caught by the first
+    line of a smoke test rather than by reasoning about it.
