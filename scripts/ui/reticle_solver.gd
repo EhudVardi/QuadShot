@@ -13,6 +13,53 @@ extends RefCounted
 ##
 ## Pure geometry: no nodes owned, no state kept. Hand it the scene's pieces and
 ## it returns screen-space numbers for hud.update_reticle().
+##
+## ---------------------------------------------------------------------------
+## SCALE AUDIT, 2026-08-15 (WORK-LEDGER task 3). AUDITED CLEAN — and the result
+## is worth writing down precisely because it is a negative one.
+##
+## The standing scar is *a constant that was correct for one airframe is a bug on
+## a size ladder*, and it had bitten four times in five days (the overlay's
+## Kestrel-ranged sliders, the wind's 35 m/s saturation, the motor audio's
+## `unit_size` and pitch band, `CityLayout`'s footprint law). The HUD's range
+## ticks, reticle and radar were the named un-audited places. Every number below
+## was MEASURED on all four roster frames rather than reasoned about, and the
+## rule that decides each verdict is: **does this constant get compared against a
+## per-FRAME quantity?**
+##
+##  - **The range ticks and the arc are WEAPON-denominated, not frame-denominated,
+##    and the weapon is frame-independent.** `CombatConfig` is one shared
+##    player-side instance (P4.8), so `fire_assist_range` is 55 m and
+##    `missile_lock_range` 60 m on a 0.65 kg Kestrel and on a 500 kg Roc alike.
+##    Ticks at 20/35/50 m therefore tell every pilot the truth about the gun they
+##    are actually carrying. **THIS VERDICT EXPIRES THE DAY A FRAME CARRIES ITS
+##    OWN WEAPON REACH** — the day CombatConfig stops being one instance the way
+##    EnemyConfig and FlightConfig already have — and on that day these become a
+##    real instance of the scar.
+##  - **The lock cone is an ANGLE, and angles are scale-free.** It reads 107 px
+##    acquire / 164 px hold at 1080p on all four frames — identical, but for the
+##    right reason twice over: 12 degrees is 12 degrees, and every frame happens
+##    to ship the same 94-degree lens. `cone_screen_radius` already projects it
+##    through the frame's own camera, so a frame that ever wants a different lens
+##    gets a correctly resized cone for free.
+##  - **The 0.4 m muzzle standoff is the one that looked like the bug and is
+##    not.** It is a raw metre constant used identically here and in `weapon.gd`,
+##    and 0.4 m is obviously clear of a 0.28 m Kestrel and obviously inside a
+##    3.0 m Roc — except that it is measured from `fpv_offset`, which is authored
+##    PER FRAME and never derived. Measured muzzle against nose: kestrel -0.480
+##    vs -0.140, condor -1.140 vs -0.600, roc -2.250 vs -1.500. Clear on all
+##    four, with the Roc's lens already sitting ahead of its own airframe. The
+##    constant scales because the thing it is measured FROM scales.
+##  - **There is no radar.** `radar` in this codebase is a war-sim node type
+##    (`theater_generator`, `war_manifest`, `sortie_composer`), not an instrument.
+##    One of the three named places does not exist.
+##
+## WHAT THE MEASUREMENT DID SURFACE is a balance fact rather than a HUD one, and
+## it belongs to the roster: flying flat out, the far tick is 1.62 s ahead of a
+## Kestrel and **0.38 s** ahead of a Roc, and the gun's whole 55 m reach is 1.78 s
+## against 0.42 s. The reticle is not lying about that; a 130 m/s aircraft
+## carrying a 55 m gun is.
+## ---------------------------------------------------------------------------
 
 ## Ranges the fall-line arc is sampled at, meters.
 const ARC_RANGES: Array[float] = [2.0, 8.0, 16.0, 26.0, 38.0, 52.0]
