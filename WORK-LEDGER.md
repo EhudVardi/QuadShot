@@ -38,8 +38,8 @@ harmless.
 | 3 | HUD scale audit: range ticks, reticle, radar (scar 3) | DONE | NO fifth instance — ticks are weapon-denominated and the weapon is frame-independent, the lock cone is an angle, the 0.4 m muzzle standoff is measured from the per-frame `fpv_offset` so it scales, and there is no radar. Adjacent: main's 220 m signal leash is 7.1 s on a Kestrel and 1.7 s on a Roc |
 | 4 | Component registry as data, no new failure modes (E10 step 2) | DONE | `AirframeComponents` DESCRIBES, never stores — health stays in `MotorModel`/`main`/`Health`; 8 rows, 4 live; mounts are fractions of `body_m` and a rotor's is read from `MotorModel` so E.q1 moves it for free; board 24/24 with `motor_damage` and `repair` unmodified |
 | 5 | Derived hit location generalised beyond rotors (E.q2) | DONE | picks over `targetable()`, dispatches by kind; `located` and `routed` are two flags because the VTX has a mount but already takes a share of EVERY hit; bit-identical over 72 bearings x 4 frames; crash_check now pins WHICH corner, which caught a sign-flip the count assertion passed |
-| 6 | HUD component pips extended (E.q5, player-side only) | WIP | |
-| 7 | The hexa frame (E.q1) — 6 rotors, layout tables generalised | TODO | |
+| 6 | HUD component pips extended (E.q5, player-side only) | DONE | **THE FIFTH SCAR INSTANCE WAS HERE**, not in task 3's three places: the pip block was `for i in 4` over a hand-authored 2x2 table, so a hexa would draw 4 pips and drop 2 rotors. Layout now projected from each rotor's own mount — 0.000000 px delta for a quad, 6 distinct pips for a synthetic hexa |
+| 7 | The hexa frame (E.q1) — 6 rotors, layout tables generalised | WIP | |
 | 8 | Board + benches + handoff refresh | TODO | |
 
 ---
