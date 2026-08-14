@@ -34,8 +34,8 @@ harmless.
 | # | task | status | finding |
 |---|---|---|---|
 | 1 | Crash damage as peak deceleration (E6, E10 step 1) | DONE | `v^2/(2*s*g)` with ONE frame-independent crush distance; Kestrel's free band and 28.667 m/s lethal speed both exact; the tick cannot supply a deceleration, so `s` had to be authored |
-| 2 | `crash_check.gd` — the guard for task 1 | WIP | |
-| 3 | HUD scale audit: range ticks, reticle, radar (scar 3) | TODO | |
+| 2 | `crash_check.gd` — the guard for task 1 | DONE | 4 claims, board now 24; 6 mutations run and one SURVIVED (main's stale-bearing clear was untested code) — fixed by planting the bearing an armour-absorbed hit really leaves; also found a live `user://` leak into every check that boots `main.tscn` |
+| 3 | HUD scale audit: range ticks, reticle, radar (scar 3) | WIP | |
 | 4 | Component registry as data, no new failure modes (E10 step 2) | TODO | |
 | 5 | Derived hit location generalised beyond rotors (E.q2) | TODO | |
 | 6 | HUD component pips extended (E.q5, player-side only) | TODO | |
