@@ -30,23 +30,34 @@ var _gate_marker: GateMarker
 var _reticle: Reticle
 var _stick_display: StickDisplay
 var _pause_label: Label
-var _motor_status: MotorStatus
+var _motor_status: ComponentStatus
 var _video_glitch: ColorRect
 var _repair_label: Label
 
 
-## Four motor-capability pips in quad-X layout (GAMEPLAY-DESIGN Iteration 7 /
-## D4): the legible half of the wound (the sticks tell you first). Green =
-## healthy, red = failed; a damaged corner is exactly the one the drone now
-## fights toward.
-class MotorStatus:
+## Per-component capability pips (GAMEPLAY-DESIGN Iteration 7 / D4, extended over
+## the component registry in Iteration 17 / E.q5): the legible half of the wound —
+## the sticks tell you first. Green = healthy, red = failed; a damaged corner is
+## exactly the one the drone now fights toward.
+##
+## IT DRAWS WHAT THE REGISTRY SAYS IS BUILT, and knows nothing about what an
+## airframe is made of. E.q5's answer was *"extend the existing widget, reuse the
+## existing channels, and build no new panel"*, and the user's ruling on the
+## enemy side was that per-body damage visuals cost the vastness — so this is the
+## player's HUD and nothing else.
+##
+## THE LAYOUT IS DERIVED FROM THE ROTOR MOUNTS, not authored, and that is a bug
+## fix rather than a flourish. It was `for i in 4` against a hard-coded 2x2 offset
+## table, so a six-rotor frame (E.q1) would have drawn four pips and silently
+## dropped two rotors — the fifth instance of *a constant that was correct for one
+## airframe is a bug on a size ladder*, sitting in the HUD after all. Projecting
+## each rotor's own body-space position reproduces the quad's pixel layout exactly
+## and gives a hexa a hexagon for free.
+class ComponentStatus:
 	extends Control
 
-	## FL, FR, BL, BR — matches MotorModel's order.
-	var healths: PackedFloat32Array = PackedFloat32Array([1.0, 1.0, 1.0, 1.0])
-	## Video-transmitter equipment health (v1.42): the fifth gauge — the feed
-	## is equipment too, and equipment is only real when it is readable.
-	var vtx_health: float = 1.0
+	## Everything the airframe is built from, in AirframeComponents.TABLE order.
+	var parts: Array[AirframeComponents.Part] = []
 
 	## Sharp green->yellow->red ramp: a motor at 0.6 must read as clearly hurt,
 	## not near-green (the old lerp's flaw).
@@ -58,44 +69,106 @@ class MotorStatus:
 			return yellow.lerp(green, (h - 0.6) / 0.4)
 		return red.lerp(yellow, h / 0.6)
 
+	const PIP: float = 20.0
+	const GAP: float = 7.0
+	## Half the pitch between adjacent pips — the radius the mount ring projects
+	## onto. (PIP + GAP) / 2 is what reproduces the old 2x2 block exactly.
+	const SPREAD: float = (PIP + GAP) * 0.5
+
 	func _draw() -> void:
+		if parts.is_empty():
+			return
 		# Bottom-left, grouped with the input indicators (v1.45): out from under
 		# the score / kill-feed text it used to overlap at the top-left. size is
 		# the reference frame (full-rect control under canvas_items stretch), so
 		# this rides the window like the stick display does.
 		var origin := Vector2(30.0, size.y - 150.0)
-		var pip := 20.0
-		var gap := 7.0
-		var offsets: Array[Vector2] = [
-			Vector2(0, 0), Vector2(pip + gap, 0),
-			Vector2(0, pip + gap), Vector2(pip + gap, pip + gap)]
-		draw_string(get_theme_default_font(), origin + Vector2(0, -7),
-				"MOTORS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
-		for i: int in 4:
-			var h: float = healths[i]
-			var box := Rect2(origin + offsets[i], Vector2(pip, pip))
-			# Drained-gauge fill: the pip empties AND reddens as the motor fails,
-			# so a wounded corner is unmissable at a glance.
-			draw_rect(box, Color(0, 0, 0, 0.55))
-			var fill: float = pip * h
-			draw_rect(Rect2(box.position + Vector2(0, pip - fill), Vector2(pip, fill)),
-					ramp(h))
-			var hurt: bool = h < 0.95
-			draw_rect(box, Color(1, 1, 1, 0.85) if hurt else Color(0, 0, 0, 0.6),
-					false, 2.0 if hurt else 1.0)
-		# VTX bar under the quad: drains left-to-right, same ramp, so a frying
+		var centre := origin + Vector2(SPREAD + PIP * 0.5, SPREAD + PIP * 0.5)
+		var rotors: Array[AirframeComponents.Part] = []
+		var bars: Array[AirframeComponents.Part] = []
+		for part: AirframeComponents.Part in parts:
+			if not part.built:
+				continue
+			if part.kind == &"rotor":
+				rotors.append(part)
+			elif part.located:
+				# Everything built that is not a rotor and does have a place on
+				# the airframe reads as a bar. The structure pool is excluded by
+				# `located`: it already has the health bar, and showing it twice
+				# would make the coarse layer look like a component.
+				bars.append(part)
+
+		if not rotors.is_empty():
+			draw_string(get_theme_default_font(), origin + Vector2(0, -7),
+					"MOTORS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
+		var boxes: Array[Rect2] = pip_rects(rotors, centre)
+		for i: int in rotors.size():
+			_gauge(boxes[i], rotors[i].health, true)
+
+		# Bars under the ring: drain left-to-right, same ramp, so a frying
 		# transmitter reads exactly like a frying motor.
-		var bar_top: float = origin.y + 2.0 * pip + gap + 8.0
-		var bar_width: float = 2.0 * pip + gap
-		draw_string(get_theme_default_font(), Vector2(origin.x, bar_top - 3.0),
-				"VTX", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
-		var bar := Rect2(Vector2(origin.x, bar_top), Vector2(bar_width, 8.0))
-		draw_rect(bar, Color(0, 0, 0, 0.55))
-		draw_rect(Rect2(bar.position, Vector2(bar_width * vtx_health, 8.0)),
-				ramp(vtx_health))
-		var vtx_hurt: bool = vtx_health < 0.95
-		draw_rect(bar, Color(1, 1, 1, 0.85) if vtx_hurt else Color(0, 0, 0, 0.6),
-				false, 2.0 if vtx_hurt else 1.0)
+		var bar_width: float = 2.0 * PIP + GAP
+		var bar_top: float = origin.y + 2.0 * PIP + GAP + 8.0
+		for part: AirframeComponents.Part in bars:
+			draw_string(get_theme_default_font(), Vector2(origin.x, bar_top - 3.0),
+					label_for(part.kind), HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+					Color(1, 1, 1, 0.55))
+			_gauge(Rect2(Vector2(origin.x, bar_top), Vector2(bar_width, 8.0)),
+					part.health, false)
+			bar_top += 20.0
+
+	## Where each rotor's pip goes, projected from its own mount on the airframe.
+	##
+	## STATIC AND SEPARATE FROM `_draw` SO IT CAN BE MEASURED. A layout buried in
+	## a draw call can only be checked by looking at it, and this one carries a
+	## claim worth holding: it reproduces the hand-authored 2x2 block exactly for
+	## a quad, and lays a hexa on a ring rather than dropping two rotors.
+	##
+	## The ring is normalised so the widest rotor sits at the edge. Body -Z is the
+	## nose and screen -Y is up, so z maps straight onto y and the picture is the
+	## airframe seen from above, nose up — which is what makes a lit pip mean
+	## "that corner, over there" instead of "the third one in the list".
+	static func pip_rects(rotors: Array[AirframeComponents.Part],
+			centre: Vector2) -> Array[Rect2]:
+		var out: Array[Rect2] = []
+		var reach: float = 0.0
+		for part: AirframeComponents.Part in rotors:
+			reach = maxf(reach, maxf(absf(part.position.x), absf(part.position.z)))
+		for part: AirframeComponents.Part in rotors:
+			var offset := Vector2(part.position.x, part.position.z)
+			if reach > 0.0:
+				offset = offset / reach * SPREAD
+			out.append(Rect2(centre + offset - Vector2(PIP, PIP) * 0.5,
+					Vector2(PIP, PIP)))
+		return out
+
+	## One drained gauge. `vertical` fills bottom-up (a pip), otherwise
+	## left-to-right (a bar); both empty AND redden, so a wounded component is
+	## unmissable at a glance.
+	func _gauge(box: Rect2, health: float, vertical: bool) -> void:
+		var h: float = clampf(health, 0.0, 1.0)
+		draw_rect(box, Color(0, 0, 0, 0.55))
+		if vertical:
+			var fill: float = box.size.y * h
+			draw_rect(Rect2(box.position + Vector2(0.0, box.size.y - fill),
+					Vector2(box.size.x, fill)), ramp(h))
+		else:
+			draw_rect(Rect2(box.position, Vector2(box.size.x * h, box.size.y)),
+					ramp(h))
+		var hurt: bool = h < 0.95
+		draw_rect(box, Color(1, 1, 1, 0.85) if hurt else Color(0, 0, 0, 0.6),
+				false, 2.0 if hurt else 1.0)
+
+	## Four characters or fewer: this sits in the corner of a flying pilot's eye.
+	static func label_for(kind: StringName) -> String:
+		match kind:
+			&"vtx": return "VTX"
+			&"power": return "PWR"
+			&"gyro": return "FCS"
+			&"weapon_mount": return "GUN"
+			&"magazine": return "AMMO"
+			&"prop": return "PROP"
+		return String(kind).to_upper()
 
 
 ## Missile-lock diamond, drawn at the target's screen position: yellow and
@@ -259,7 +332,7 @@ func _ready() -> void:
 	_video_glitch.material = glitch_material
 	_video_glitch.visible = false
 	add_child(_video_glitch)
-	_motor_status = MotorStatus.new()
+	_motor_status = ComponentStatus.new()
 	_motor_status.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_motor_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_motor_status)
@@ -377,9 +450,12 @@ func set_ammo(flak: int, missile: int) -> void:
 	_ammo_label.modulate = Color(1.0, 0.35, 0.25) if dry else Color(0.85, 0.85, 0.9)
 
 
-func set_motor_health(healths: PackedFloat32Array, vtx_health: float = 1.0) -> void:
-	_motor_status.healths = healths
-	_motor_status.vtx_health = vtx_health
+## The whole component list, straight off the registry (E.q5). Replaces
+## `set_motor_health(healths, vtx)`: the gauge no longer takes an array whose
+## length it has to agree with and a transmitter threaded in beside it, so a new
+## component is a `TABLE` row rather than another argument through this seam.
+func set_components(parts: Array[AirframeComponents.Part]) -> void:
+	_motor_status.parts = parts
 	_motor_status.queue_redraw()
 
 

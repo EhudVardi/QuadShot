@@ -338,16 +338,11 @@ func _on_player_damaged(amount: float, remaining: float) -> void:
 ## Called on damage, on repair and on arm, never per frame, so building the list
 ## costs nothing worth measuring.
 func _refresh_motor_hud() -> void:
-	var healths := PackedFloat32Array()
 	# The transmitter rides the same gauge (v1.42): equipment health is only
 	# real to the pilot if it is READABLE, like the motor pips made the wound.
-	var vtx: float = 1.0
-	for part: AirframeComponents.Part in AirframeComponents.of(_drone, _video_damage):
-		if part.kind == &"rotor":
-			healths.append(part.health)
-		elif part.kind == &"vtx":
-			vtx = part.health
-	_hud.set_motor_health(healths, vtx)
+	# The whole list goes across now — the HUD decides what to draw from what the
+	# registry says is built, so main stops being a place components are listed.
+	_hud.set_components(AirframeComponents.of(_drone, _video_damage))
 
 
 ## Flew through a repair gate (D5): engines back, hull topped up — and the
