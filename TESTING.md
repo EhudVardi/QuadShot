@@ -637,6 +637,43 @@ is the E6 guard — plating blunts a crash's rotor fraying by at most 12% (the
 Roc), and a crash's **hull** damage never comes through the component path at
 all, so *"can even die if faster"* is untouched.
 
+### The graze bench — why a building strike can register nothing
+
+```
+<godot> --headless -s scripts/tests/graze_bench.gd --path .
+```
+
+**Measurement only, no pass/fail.** Written to chase a flight report: *"there's a
+bug where sometimes i collid with the buildings and it may not have registered,
+no damage at all."*
+
+**Three things it rules OUT, each checked rather than assumed.** City buildings do
+have colliders (`WorldBuilding` delegates to `MenuBuilding`, which builds a
+`StaticBody3D` with a `CollisionShape3D` per slab); `drone.tscn` does set
+`contact_monitor` with 4 contacts reported; and tunnelling is arithmetic-excluded
+— at 240 Hz a 1.2 m Condor moves 0.25 m per tick at 60 m/s and would need roughly
+288 m/s to skip a wall.
+
+**Stage 1 — the angle sweep — corrected a prediction rather than confirming it.**
+The agent expected the priced impact to be `v x sin(angle)`, since a wall only
+removes the speed going *into* it. Measured, it is about **1.4x that** at every
+angle but head-on: friction also scrubs the speed running *along* the wall, and
+the two together are the delta-v that gets priced. So a graze hurts MORE than
+geometry says and the silent band is narrower than predicted — at 60 m/s only a
+5-degree scrape was free, not the 15 degrees claimed before the bench was run.
+
+**Stage 2 is the actual finding, and it is a defect rather than a trade-off.**
+`body_entered` is an ENTER signal, and a whole building is ONE `StaticBody3D`. So
+drift into a tower at 4 m/s (under the free threshold, priced at 0.00 hull), hold
+contact, then fly into it at 60 m/s without ever separating: **one** crash event,
+**zero** damage. The 60 m/s impact costs nothing at all. Whether a collision hurts
+depends on how fast you ENTERED contact, not on how hard you are hitting — which
+is exactly the "sometimes" in the report.
+
+And a sub-threshold impact is completely silent: `main._on_player_crashed` returns
+early at zero damage, so there is no hull loss, no rotor fraying and no video
+spike. The airframe hits a building and the game says nothing whatsoever.
+
 Run all of them before believing anything:
 
 ```
