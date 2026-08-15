@@ -636,11 +636,28 @@ class HorizonLine:
 	const RUNG_STEP: int = 10
 	const RUNG_MAX: int = 60
 	const RUNG_FRACTION: float = 0.34
-	## How far past the screen edge the line is still drawn before it is dropped.
+	## How far past the screen edge the WORLD horizon is still drawn before it is
+	## dropped. The airframe's own line is never dropped — it pegs to the edge.
 	const OVERSHOOT: float = 1.6
-	## Half the AIRFRAME level line's width, as a fraction of the viewport —
-	## deliberately shorter than the world horizon so the two never read as one.
-	const FRAME_REACH_FRACTION: float = 0.22
+	## HOW FAR IN FROM THE SCREEN EDGE A PEGGED LINE SITS — ONE CONSTANT FOR BOTH,
+	## and it must stay that way.
+	##
+	## The horizon and the airframe mark were briefly given different margins, and
+	## it broke the only invariant this instrument has: at level the two lines
+	## carry the SAME true offset, so pegging them to different limits drew them
+	## 95 px apart and claimed a tilt that did not exist. If both are clamped they
+	## must clamp to the same place, or the gap stops being the tilt. `hud_check`
+	## holds it.
+	##
+	## 210 rather than something smaller because of what it must clear at the
+	## BOTTOM: the AIRFRAME plate is 150 px tall sitting 26 px off the edge, so its
+	## top is 176 px up. A 90 px margin pegged the line at y 990 on a 1080 screen
+	## and drew it straight through the middle of the plate.
+	const PEG_MARGIN: float = 210.0
+	## How far the airframe's level BRACKET reaches past the aiming-point gap.
+	## Short on purpose: it is a fixed mark, not a horizon, and drawing it long
+	## made it read as a second horizon that had stopped working.
+	const BRACKET: float = 26.0
 	## Past this much tilt off vertical the arrow warns: `cos(60 deg)` is 0.5, so
 	## half the rotors' push has stopped fighting gravity.
 	const TILT_WARN_DEG: float = 60.0
@@ -714,6 +731,40 @@ class HorizonLine:
 		return Vector2(asin(clampf(-u.z, -1.0, 1.0)), atan2(u.x, u.y))
 
 
+	## THE AIRFRAME LINE'S COLOUR, AS A CONTINUOUS RAMP RATHER THAN A THRESHOLD.
+	##
+	## It was a single switch at 60 degrees and the human flew it and reported
+	## *"didnt notice and color change"* — which is what a threshold gets you: a
+	## change that happens once, in an attitude you may never hold, with nothing
+	## in between to tell you it is coming.
+	##
+	## A ramp is a reading at every angle instead. It is keyed to the physics
+	## rather than to taste: `cos(tilt)` is the share of thrust still fighting
+	## gravity, so green through amber to red tracks lift being spent — amber at
+	## 45 degrees is 71% of your lift left, red at 60 is half.
+	## WHITE AT LEVEL, NOT GREEN, AND FOR TWO REASONS BOTH FOUND BY FLYING IT.
+	##
+	## The human could not see this line at all, and the screenshot said why:
+	## *"hehe the green you see is the landing pad :)"* — dev_map's ground is a
+	## neon green checker, so a green line on it is invisible in exactly the
+	## attitude where you are closest to the ground and need it most.
+	##
+	## And it was against the project's own palette anyway. CLAIM.md assigns
+	## **green = pads**; cyan/blue is navigation, red threat, orange score, amber
+	## pylons, yellow your fire. White was the one unclaimed value, and it is also
+	## what a real attitude indicator uses for the aircraft symbol.
+	static func tilt_tint(tilt: float) -> Color:
+		var level := Color(1.0, 1.0, 1.0, 0.95)
+		var amber := Color(1.0, 0.8, 0.25, 0.95)
+		var red := Color(1.0, 0.35, 0.2, 0.95)
+		if tilt <= 0.0:
+			return level
+		if tilt < TILT_WARN_DEG * 0.75:
+			return level.lerp(amber, tilt / (TILT_WARN_DEG * 0.75))
+		return amber.lerp(red, clampf((tilt - TILT_WARN_DEG * 0.75)
+				/ (TILT_WARN_DEG * 0.75), 0.0, 1.0))
+
+
 	## HOW FAR THE ROTORS ARE PUSHING OFF VERTICAL, in degrees. 0 is level and
 	## every degree past that is lift traded for speed: only `cos(tilt)` of the
 	## thrust is still fighting gravity.
@@ -741,14 +792,24 @@ class HorizonLine:
 		# Pitch UP pushes the horizon DOWN the screen, and screen Y grows
 		# downward, so the sign works out with no negation.
 		var drop: float = tan(pitch) * f
-		# The airframe's level line is drawn even when the WORLD horizon is off
-		# screen, because looking near-vertically is exactly when you most want to
-		# know where your own level is.
-		_draw_frame_level(basis, f)
+		# THE AIRFRAME'S LINE IS DRAWN LAST, ON TOP OF EVERYTHING — see the call at
+		# the end of this function. It used to be drawn FIRST, so the horizon and
+		# every ladder rung painted straight over it, which is half of why the
+		# human could not find it: *"im not sure i see the green line."*
 		if absf(drop) > size.y * OVERSHOOT:
-			# Looking near-vertically: the horizon is far off screen and a line
-			# pinned to the edge would be a lie about where it is.
+			# Looking near-vertically: the world horizon is far enough off screen
+			# that pinning it to the edge would be a lie about where it is.
+			_draw_frame_level(basis, f)
 			return
+		# THE HORIZON PEGS TO THE EDGE RATHER THAN LEAVING THE SCREEN, because it
+		# is the line the pilot flies by and 48 degrees of lens uptilt puts it
+		# BELOW the bottom edge in level flight — 19 px on a 1080 screen at this
+		# frame's 94 degree lens. An attitude reference that disappears in level
+		# flight is not a reference, and it was the one the human went looking for
+		# and could not find.
+		var horizon_limit: float = size.y * 0.5 - PEG_MARGIN
+		var horizon_pegged: bool = absf(drop) > horizon_limit
+		drop = clampf(drop, -horizon_limit, horizon_limit)
 		var reach: float = size.x * REACH_FRACTION
 		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
 		# WORLD UP, PROJECTED, AND THE SIGN IS DERIVED RATHER THAN EYEBALLED.
@@ -760,13 +821,24 @@ class HorizonLine:
 		# under roll; level flight looked perfect, which is exactly how it survived.
 		var up: Vector2 = world_up_screen(roll)
 		var along := Vector2(cos(roll), sin(roll))
-		var tint := Color(0.55, 0.85, 1.0, 0.32)
+		# BRIGHTER THAN IT WAS, because this is the line that FOLLOWS THE HORIZON
+		# and therefore the one the pilot actually flies by. It was a 0.32-alpha
+		# hairline while a long white line sat below it pretending to be the
+		# horizon; the emphasis was on the wrong one of the two.
+		var tint := Color(0.7, 0.92, 1.0, 0.75)
 		# TWO DASHED RUNS WITH A GAP, so the horizon never draws through the
 		# aiming point. Dashed on the human's reference: a solid line this wide
 		# fights the scene, and the same length broken up reads as a SCALE while
 		# letting the world through.
-		_dashes(at - along * reach, at - along * GAP, tint, 1.5)
-		_dashes(at + along * GAP, at + along * reach, tint, 1.5)
+		_dashes(at - along * reach, at - along * GAP, tint, 2.0)
+		_dashes(at + along * GAP, at + along * reach, tint, 2.0)
+		if horizon_pegged:
+			# Say so, rather than letting a clamped horizon read as a true one.
+			var out_dir: float = signf(tan(pitch))
+			for step: int in 3:
+				var tip: Vector2 = at + Vector2(0.0, out_dir * (10.0 + float(step) * 7.0))
+				draw_line(tip - along * 8.0, tip, tint, 2.0)
+				draw_line(tip + along * 8.0, tip, tint, 2.0)
 		# Wing marks at the ends, turned toward the sky, so the line reads as an
 		# attitude instrument rather than as a stray scratch.
 		for side: float in [-1.0, 1.0]:
@@ -774,6 +846,11 @@ class HorizonLine:
 			draw_line(end, end + up * 7.0, tint, 1.5)
 		if ladder:
 			_draw_ladder(at, along, up, f, reach)
+		# LAST, so nothing is drawn over the one line the pilot flies by. At level
+		# it sits exactly on the world horizon by construction, so if it were not
+		# on top it would be invisible in precisely the attitude a pilot checks
+		# most often.
+		_draw_frame_level(basis, f)
 
 
 	## THE PITCH LADDER (the human: *"i want realism"*), in the convention a real
@@ -867,29 +944,67 @@ class HorizonLine:
 			return
 		var pr: Vector2 = reference_pitch_roll(camera_basis, thrust_axis)
 		var drop: float = tan(pr.x) * f
-		if absf(drop) > size.y * OVERSHOOT:
-			# The airframe's own level plane is far off screen; a line pinned to
-			# the edge would be a lie about where it is.
-			return
+		# PEGGED TO THE EDGE RATHER THAN LOST OFF IT, and this is the fix for the
+		# bug that made the whole instrument invisible.
+		#
+		# `fpv_uptilt_deg` is 48 degrees. At LEVEL HOVER the airframe's own level
+		# plane therefore projects to `tan(48) * f` — about 600 px below centre on
+		# a 1080 screen, which is off the bottom of it. The geometry was right and
+		# the instrument was useless: a real 48-degree-uptilt quad hovering does
+		# look mostly at sky, but a reference you cannot see in the most common
+		# attitude in the game is not a reference. The human flew it and could not
+		# find the line, and they were correct.
+		#
+		# So it clamps to the edge and SAYS SO with outward chevrons. A pegged
+		# line is honest — "your level is further that way than the screen goes" —
+		# where silently vanishing was not.
+		var limit: float = size.y * 0.5 - PEG_MARGIN
+		var pegged: bool = absf(drop) > limit
+		drop = clampf(drop, -limit, limit)
 		var tilt: float = tilt_degrees(thrust_axis)
-		var hot: bool = tilt >= TILT_WARN_DEG
-		var tint := Color(1.0, 0.45, 0.2, 0.8) if hot else Color(0.5, 1.0, 0.7, 0.6)
+		var tint: Color = tilt_tint(tilt)
 		var along := Vector2(cos(pr.y), sin(pr.y))
 		var up: Vector2 = world_up_screen(pr.y)
 		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
-		# SHORTER THAN THE WORLD HORIZON, and SOLID where that one is dashed, so
-		# the two can never be mistaken for one another at a glance.
-		var reach: float = size.x * FRAME_REACH_FRACTION
-		draw_line(at - along * reach, at - along * GAP, tint, 1.5)
-		draw_line(at + along * GAP, at + along * reach, tint, 1.5)
-		# Ends turned toward the airframe's OWN sky, which is what says this line
-		# belongs to the aircraft rather than to the world.
-		for side: float in [-1.0, 1.0]:
-			var end: Vector2 = at + along * reach * side
-			draw_line(end, end + up * 6.0, tint, 1.5)
+		# SHORTER THAN THE WORLD HORIZON, SOLID where that one is dashed, and
+		# THICKER — it has to survive sitting exactly on top of the horizon, which
+		# is where it lives whenever the aircraft is level.
+		# A SHORT BRACKET, NOT A LONG LINE, AND THE HUMAN'S FLIGHT REPORT IS WHY:
+		# *"i think it doesnt compensate for the pitch... once i lift off it
+		# doesnt follow the horizon level."*
+		#
+		# They are right, and it is a fact about the configuration rather than a
+		# bug. In FPV the lens is BOLTED TO THE FRAME, so the airframe's own level
+		# plane sits at a CONSTANT screen position — `tan(fpv_uptilt_deg)` below
+		# the boresight, whatever the aircraft does. It cannot follow the horizon;
+		# only the horizon moves. Drawn as a long line it looked like a broken
+		# horizon, because that is what a long horizontal line claims to be.
+		#
+		# So it is now what it actually is: a FIXED REFERENCE MARK reading "your
+		# level is here", with the world horizon as the thing that travels to meet
+		# it. Bring the horizon onto this bracket and you are level. The angle
+		# rides it, because at 48 degrees of uptilt on a 94 degree lens that mark
+		# lives off the bottom edge and the NUMBER is what survives the clamp.
+		var shade := Color(0.0, 0.0, 0.0, 0.45)
+		for pass_index: int in 2:
+			var col: Color = shade if pass_index == 0 else tint
+			var width: float = 5.0 if pass_index == 0 else 2.5
+			for side: float in [-1.0, 1.0]:
+				var inner: Vector2 = at + along * GAP * side
+				var outer: Vector2 = at + along * (GAP + BRACKET) * side
+				draw_line(inner, outer, col, width)
+				draw_line(outer, outer + up * 8.0, col, width)
+		if pegged:
+			# Chevrons along the direction the mark really lies, so a clamped
+			# reading can never be mistaken for a true one.
+			var out_dir: float = signf(tan(pr.x))
+			for step: int in 3:
+				var tip: Vector2 = at + Vector2(0.0, out_dir * (9.0 + float(step) * 6.0))
+				draw_line(tip - along * 6.0, tip, tint, 2.0)
+				draw_line(tip + along * 6.0, tip, tint, 2.0)
 		draw_string(get_theme_default_font(),
-				at + along * reach + Vector2(8.0, -6.0), "%d°" % roundi(tilt),
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
+				at + along * (GAP + BRACKET) + Vector2(8.0, -6.0),
+				"%d°" % roundi(tilt), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
 
 
 ## Raw gamepad stick positions: two boxes flanking the health bar, a dot per

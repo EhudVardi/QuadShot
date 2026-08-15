@@ -310,6 +310,50 @@ func _check_attitude() -> void:
 	if H.reference_pitch_roll(Basis.IDENTITY, Vector3.ZERO) != Vector2.ZERO:
 		_failures.append("an unset thrust axis must produce no line rather than a NaN")
 
+	# CLAIM 9c — ONE PEG MARGIN, AND IT CLEARS THE AIRFRAME PLATE. Both of these
+	# were bugs found by SCREENSHOTTING the HUD rather than by reasoning about it.
+	#
+	# `fpv_uptilt_deg` is 48 on a 94-degree lens, which puts level flight 19 px
+	# BELOW the bottom edge of a 1080 screen — so both lines clamp in ordinary
+	# flight, and what they clamp to matters. Given two different margins they
+	# drew 95 px apart at LEVEL and claimed a tilt that did not exist, because the
+	# gap between them is the entire instrument.
+	print("")
+	print("[hud] CLAIM 9c — ONE PEG MARGIN, CLEARING THE AIRFRAME PLATE.")
+	var margin: float = H.PEG_MARGIN
+	var plate_top: float = GameHud.ComponentStatus.PLATE.y + 26.0
+	print("[hud] peg margin %.0f px; the plate's top edge is %.0f px up."
+			% [margin, plate_top])
+	if margin < plate_top:
+		_failures.append("a pegged line sits %.0f px from the edge while the AIRFRAME plate reaches %.0f px up, so the two overlap — the first screenshot ever taken of this line had it drawn straight through the middle of the plate"
+				% [margin, plate_top])
+	# And the peg must never be so deep that it eats the middle of the screen.
+	if margin > 1080.0 * 0.5 * 0.75:
+		_failures.append("the peg margin %.0f px pulls a clamped line most of the way to screen centre, where it reads as a true horizon rather than as a clamped one"
+				% margin)
+
+	# CLAIM 9b — THE COLOUR IS A RAMP, NOT A SWITCH. It was a single threshold at
+	# 60 degrees and the human flew it and never saw it change: a switch fires
+	# once, in an attitude you may never hold, with no warning that it is coming.
+	print("")
+	print("[hud] CLAIM 9b — THE TILT COLOUR RAMPS THE WHOLE WAY UP.")
+	print("[hud] %10s %26s %12s" % ["tilt deg", "colour", "lift left"])
+	var last: Color = H.tilt_tint(0.0)
+	var moved: int = 0
+	for tilt_deg: float in [0.0, 15.0, 30.0, 45.0, 60.0, 75.0]:
+		var col: Color = H.tilt_tint(tilt_deg)
+		print("[hud] %10.0f %26s %11.0f%%" % [tilt_deg, str(col).substr(0, 26),
+				cos(deg_to_rad(tilt_deg)) * 100.0])
+		if tilt_deg > 0.0 and col != last:
+			moved += 1
+		last = col
+	print("[hud] the colour moved at %d of the 5 steps above level." % moved)
+	if moved < 4:
+		_failures.append("the tilt colour changed at only %d of 5 steps from level to 75 degrees — it is behaving like a threshold, and a threshold is what the pilot flew and never noticed"
+				% moved)
+	if H.tilt_tint(0.0) == H.tilt_tint(45.0):
+		_failures.append("level and 45 degrees are the same colour, so the ramp says nothing at the angle where a quarter of the lift is already gone")
+
 	# CLAIM 10 — THE PITCH LADDER IS THE REAL PROJECTION, not a spacing someone
 	# liked the look of. A rung `d` degrees off level sits `tan(d) * f` from the
 	# horizon, which is the SAME arithmetic that places the horizon itself — so
