@@ -45,6 +45,7 @@ var _drill: Dictionary = {}
 var _state: int = BRIEF
 var _artifact_path: String = ""
 var _artifact_dir: String = ARTIFACT_DIR
+var _pilot: String = "human"
 
 var _samples: Array = []
 var _tick: int = 0
@@ -58,6 +59,7 @@ var _wait_s: float = 0.0
 var _loss: float = 0.0
 var _next_step_at: float = 0.0
 var _call_t: float = -1.0
+var _mark_pressed: bool = false
 
 var _brief_root: Control
 var _brief_label: Label
@@ -89,6 +91,12 @@ func _ready() -> void:
 	at = args.find("--out")
 	if at >= 0 and at + 1 < args.size():
 		_artifact_dir = args[at + 1]
+	# WHO FLEW IT, and it defaults to the human because they are the point. The
+	# plumbing smoke test overrides it so a scripted run can never be mistaken for
+	# a reading — an artifact that says "human" is a claim, not a filename.
+	at = args.find("--pilot")
+	if at >= 0 and at + 1 < args.size():
+		_pilot = args[at + 1]
 	_drill = DrillBook.drill(_drill_id)
 	# The ONE user:// file a drill reads: their sticks. Re-enabled around the
 	# single call rather than left on, so nothing else can follow it in.
@@ -114,8 +122,8 @@ func _ready() -> void:
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_drone_health.damaged.connect(func(_amount: float, remaining: float) -> void:
 			_hud.set_health(remaining, _drone_health.max_health))
-	_drone.airframe_reset.connect(_abort_attempt.bind("reset"))
-	_drone_health.died.connect(_abort_attempt.bind("destroyed"))
+	_drone.airframe_reset.connect(_on_reset)
+	_drone_health.died.connect(_on_died)
 	_flown_unix = int(Time.get_unix_time_from_system())
 	_artifact_path = "%s/%s_%s.json" % [_artifact_dir, _drill_id, _stamp()]
 	for line: String in DrillBook.brief_lines(_drill_id):
@@ -123,7 +131,26 @@ func _ready() -> void:
 	print("[drill] artifact -> %s" % _artifact_path)
 
 
+## THE PILOT'S MARK, as a named entry point rather than only an inline input
+## test. `Input.is_action_just_pressed` is keyed to the exact physics frame the
+## press landed on, so a script driving this from a frame signal is always one
+## frame late and the mark is silently swallowed — which is how a plumbing test
+## ends up proving nothing. The flag is consumed on the next tick either way.
+func mark() -> void:
+	_mark_pressed = true
+
+
+## Whether an attempt is actually under way. The smoke test marks repeatedly
+## until this turns true rather than counting seconds, so it cannot be silently
+## defeated by a mark gate it does not know about — which is exactly what a
+## fixed delay did the moment `hold_tilt` gained a speed and clearance gate.
+func running() -> bool:
+	return _state == RUNNING
+
+
 func _physics_process(delta: float) -> void:
+	var pressed: bool = _mark_pressed or Input.is_action_just_pressed(&"fire")
+	_mark_pressed = false
 	_brief_root.visible = not _drone.armed
 	if not _drone.armed:
 		if _state != BRIEF:
@@ -134,20 +161,24 @@ func _physics_process(delta: float) -> void:
 		_state = READY
 		_hud.add_kill_feed("ARMED — %s" % _drill["title"])
 	if _state == READY:
-		_ready_state()
+		_ready_state(pressed)
 		return
 	_clock += delta
 	if _drill_id == "rotor_out":
 		_step_failure()
 	_tick += 1
 	if _tick % SAMPLE_EVERY == 0:
-		_samples.append({
-			"t": _clock,
-			"tilt_deg": GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y),
-			"pos": _drone.global_position,
-			"loss": _loss,
-		})
-	_running_state()
+		_take_sample()
+	_running_state(pressed)
+
+
+func _take_sample() -> void:
+	_samples.append({
+		"t": _clock,
+		"tilt_deg": GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y),
+		"pos": _drone.global_position,
+		"loss": _loss,
+	})
 
 
 func _process(_ignored: float) -> void:
@@ -163,11 +194,11 @@ func _process(_ignored: float) -> void:
 ## Waiting for the pilot's MARK, with the drill's own entry condition enforced.
 ## The gate is stated in the brief and refused out loud, so every attempt starts
 ## from the same place and a run is comparable with the one before it.
-func _ready_state() -> void:
+func _ready_state(pressed: bool) -> void:
 	var refusal: String = _mark_refusal()
 	_status_label.text = "%s — READY. squeeze FIRE to mark.%s" % [_drill["title"],
 			"" if refusal.is_empty() else "   (%s)" % refusal]
-	if not Input.is_action_just_pressed(&"fire"):
+	if not pressed:
 		return
 	if not refusal.is_empty():
 		_hud.add_kill_feed("MARK REFUSED — %s" % refusal)
@@ -195,6 +226,14 @@ func _mark_refusal() -> String:
 			var gate: float = float(_drill["level_gate_deg"])
 			if tilt > gate:
 				return "get level first — %.0f deg of tilt, need under %.0f" % [tilt, gate]
+			var settled: float = _drone.linear_velocity.length()
+			if settled > float(_drill["mark_speed_max"]):
+				return "settle first — %.1f m/s, need under %.1f" % [settled,
+						float(_drill["mark_speed_max"])]
+			var clearance: float = _drone.global_position.y - ($Pad as Node3D).global_position.y
+			if clearance < float(_drill["mark_clearance_m"]):
+				return "get off the pad — %.1f m clear, need %.1f" % [clearance,
+						float(_drill["mark_clearance_m"])]
 		"rotor_out":
 			var speed: float = _drone.linear_velocity.length()
 			if speed > float(_drill["mark_speed_max"]):
@@ -221,7 +260,7 @@ func _step_failure() -> void:
 	_next_step_at += float(_drill["step_period_s"])
 
 
-func _running_state() -> void:
+func _running_state(pressed: bool) -> void:
 	match _drill_id:
 		"hold_tilt":
 			var tilt: float = GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y)
@@ -234,7 +273,7 @@ func _running_state() -> void:
 				_finish_attempt("ground")
 		"rotor_out":
 			_status_label.text = "HOLD STATION — squeeze FIRE the instant you feel it   (%4.1f s)" % _clock
-			if Input.is_action_just_pressed(&"fire"):
+			if pressed:
 				if _loss <= 0.0:
 					_void_attempt("called before the failure began")
 					return
@@ -246,7 +285,16 @@ func _running_state() -> void:
 
 # --- recording ------------------------------------------------------------
 
+## THE LAST SAMPLE IS TAKEN HERE, AT THE INSTANT THE ATTEMPT ENDS, and the
+## plumbing smoke test is what found out why it has to be.
+##
+## Sampling runs at 60 Hz off a 240 Hz tick, so an event can land up to three
+## ticks after the most recent sample — and `rotor_out` ends on an EVENT, the
+## pilot's call. A scripted pilot that called at exactly 25% of a rotor was
+## recorded at 20%, a whole staircase step low, because the last sample predated
+## the step it called. One extra sample closes it for both drills.
 func _finish_attempt(reason: String) -> void:
+	_take_sample()
 	var measures: Dictionary = DrillMeasures.compute(_drill_id, _samples,
 			{"call_t": _call_t})
 	_attempts.append({
@@ -270,6 +318,23 @@ func _void_attempt(reason: String) -> void:
 	_hud.add_kill_feed("VOID — %s. settle and MARK again." % reason)
 	print("[drill] void: %s" % reason)
 	_reset_for_next()
+
+
+## DEATH DISARMS, and that is what makes the drill recoverable without a
+## respawn timer. Left armed, a dead pilot's attempt would keep sampling a hull
+## on the ground and they could still MARK; disarmed, the brief comes back and
+## R puts them on the pad with a revived airframe, which is the loop the drill
+## already uses between attempts.
+func _on_died() -> void:
+	_abort_attempt("destroyed")
+	_drone.disarm()
+	_hud.show_death(true)
+	_hud.add_kill_feed("DESTROYED — press R to go back to the pad")
+
+
+func _on_reset() -> void:
+	_hud.show_death(false)
+	_abort_attempt("reset")
 
 
 ## A run cut short by something that is not the drill — a reset, a crash, a
@@ -312,7 +377,7 @@ func _write_artifact() -> void:
 	var config: FlightConfig = _drone.config
 	var payload: Dictionary = {
 		"drill": _drill_id,
-		"pilot": "human",
+		"pilot": _pilot,
 		"note": "H5 deviation data — a human reading, never merged into the balance base table",
 		"flown_utc": Time.get_datetime_string_from_system(true),
 		"flown_unix": _flown_unix,

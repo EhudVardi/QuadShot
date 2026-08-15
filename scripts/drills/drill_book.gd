@@ -53,7 +53,8 @@ const DRILLS: Dictionary = {
 		"task": [
 			"Arm, lift off the pad, and get level and steady.",
 			"Squeeze the FIRE trigger to MARK the start. It refuses unless you are",
-			"  within 12 degrees of level, so every attempt starts from one place.",
+			"  level (under 12 deg), steady (under 8 m/s) and 5 m clear of the pad,",
+			"  so every attempt starts from one place.",
 			"Then pitch the nose DOWN to 30 degrees of tilt and hold it there.",
 			"Fly the number printed beside the airframe's level bracket.",
 			"The window is 20 seconds. R resets you to the pad for another attempt.",
@@ -63,8 +64,13 @@ const DRILLS: Dictionary = {
 		"target_tilt_deg": 30.0,
 		"tolerance_deg": 5.0,
 		"hold_target_s": 10.0,
-		## Level enough to MARK from: the stated, enforced initial condition.
+		## The stated, ENFORCED initial condition. The brief already promised
+		## "level and steady", and a gate that only checked attitude would let an
+		## attempt begin in a 60 m/s dive off the end of the last one — which is a
+		## different task wearing the same name.
 		"level_gate_deg": 12.0,
+		"mark_speed_max": 8.0,
+		"mark_clearance_m": 5.0,
 		"measures": {
 			"capture_s": {
 				"label": "time to first reach the band",

@@ -553,12 +553,12 @@ The motor audio is the third thing wanting a human: the four-emitter detune was
 tuned by ear in v2.43/v2.45, and the spacing rule generalises to six but six
 sources at the same per-pair beat rate is a denser texture, not the same one.
 
-## 4. The check suite — 26 headless checks
+## 4. The check suite — 27 headless checks
 
 **Run the whole board with one command** (`tools/board.sh`, added 2026-08-15):
 
 ```
-./tools/board.sh          all 26, about 5 minutes
+./tools/board.sh          all 27, about 5 minutes
 ./tools/board.sh fast     skips lethality, about 2-3 minutes
 ```
 
@@ -604,6 +604,41 @@ is read from the `.tres`, so the human can change any value without the check
 arguing; what it guards is the mechanism. Two more mutations on record: delete
 the `- part.armor` in `_damage_component` (all three plated frames report they
 stopped nothing) and flip its sign (all three report letting more through).
+
+`drill_check` (2026-08-15) guards the **pilot-in-the-loop instrument** — the
+drills the human flies and the predictions they are graded against (§5). What it
+guards is not "does the drill fly", it is **whether the argument can be rigged**.
+
+Ten claims. Four of them are the instrument's spine:
+
+- **A predicted band may not exceed 40% of what could physically have
+  happened.** Every measure declares a `plausible` range, and a band hedged wide
+  enough that it cannot miss fails the board. This is the claim that keeps a
+  prediction from being unfalsifiable by construction.
+- **A sentinel sits at the WORST end of its measure.** A reading the pilot never
+  produced must never score better than a bad one, and `hold_s` is the trap:
+  zero is the natural default and high is what "better" means for it.
+- **The refusals.** A prediction whose fingerprint does not match what was flown,
+  a prediction committed AFTER the flight, and a run carrying no fingerprint at
+  all must each produce a refusal **and no verdict rows** — a refusal that still
+  prints a table is a refusal nobody reads.
+- **The fingerprint covers the REASONS, not only the numbers.** The claim is not
+  "between 10 and 17 seconds", it is "between 10 and 17 seconds BECAUSE the
+  printed tilt closes a loop that eyeballing a horizon does not", so a rewritten
+  argument must invalidate the same way a moved band does.
+
+Two more have teeth because they refuse the obvious implementation. `hold_s` is
+the longest **unbroken** run in the band, so a synthetic flight with runs of 5 s
+and 4 s must read 5.00 and never 9.00. And `rotor_out` measures drift and sag
+from **the failure's own start**, so the synthetic pilot flies 40 m and climbs
+12 m *before* the rotor is touched — a window-start implementation reads 46 and
+-9 where this reads 6 and 3.
+
+Six mutations on record, each failing a different claim: widen `hold_s`'s band to
+the full range (claim 2), make `verdict` always return HIT (4), count total
+in-band time instead of the longest run (5), measure rotor drift from
+`samples[0]` (6), drop the fingerprint test in `refusal` (9), and fingerprint the
+numbers without the reasons (10).
 
 ### The plating bench — what an armour value is actually worth
 
@@ -1084,6 +1119,76 @@ against the bot's 0.17, human 1.03 with flak against the bot's 0.99.
 director ON. Nobody has ever measured a human hand-aiming with it OFF, which is
 exactly the number that would settle whether the Screamer hard-counters the chip
 gun or merely taxes it.
+
+### The pilot-in-the-loop drills (task 8, 2026-08-15)
+
+The aim drill generalised: **any** question, not just aim. You fly a stated
+task; the agent's prediction for what you will do is already in git; a report
+afterwards says plainly where it was wrong.
+
+```
+<godot> --path . scenes/drill.tscn -- --list
+<godot> --path . scenes/drill.tscn -- --drill hold_tilt
+<godot> --path . scenes/drill.tscn -- --drill rotor_out
+<godot> --headless -s scripts/tests/drill_report.gd --path .
+```
+
+The world is one thing: **a launch pad 250 m up over open ground**, no enemies,
+no gates, no score. 250 m is arithmetic rather than taste — a quad tilted 30
+degrees on hover collective keeps only `cos(30)` of its lift, which is 262 m of
+descent across `hold_tilt`'s 20-second window, so a lower pad would be measuring
+how much sky the map had.
+
+**FIRE is the MARK button** in both drills and the weapons are disabled, so a
+squeeze cannot put a bolt, a heat needle or recoil into the reading. The mark
+is refused out loud unless the drill's stated entry condition is met.
+
+- **`hold_tilt`** — hold 30 degrees of tilt for 10 unbroken seconds, flying the
+  number printed beside the airframe's level bracket. It is the first test of
+  the attitude instruments that landed in the HUD rounds, which were built and
+  never judged by hands.
+- **`rotor_out`** — one rotor fails in 5% steps every 2 seconds (about one raider
+  bolt at severity 0.6) and you squeeze FIRE the instant you feel it. **The
+  airframe plate is hidden on purpose**: the question is whether a located
+  failure can be FELT, and a gauge drawing the rotor emptying answers a
+  different question perfectly.
+
+**The drill flies the REPO's flight numbers, not your saved tuning** — the
+override switch goes off in `_enter_tree`, before the drone's `_ready`. Your
+input bindings are the single exception, re-enabled around that one call, because
+without your radio mapping there is no flight to measure.
+
+Results land in `user://blackbox/drills/<drill>_<stamp>.json`, rewritten after
+every completed attempt. **They are H5 deviation data like the aim drill's** and
+never enter `balance/delivery_factors.json` or any base table: this instrument
+exists to ARGUE with those numbers, which it cannot do if it is quietly folded
+into them.
+
+**Why the prediction is trustworthy**, in the order the mechanisms bite: one
+committed JSON per drill, so `git log -1 --format=%ct` dates that prediction and
+nothing else moves it; a fingerprint of the prediction stamped into the run, so
+an edit afterwards makes the report print STALE instead of grading; and an
+ordering test, so a prediction committed after the flight is refused outright
+rather than compared.
+
+**The plumbing smoke test** — off the board, because it spends real seconds:
+
+```
+<godot> --headless -s scripts/tests/drill_smoke.gd --path . \
+    -- --drill hold_tilt --out <scratch dir> --pilot smoke-bot
+```
+
+A scripted pilot flies a whole drill so a broken state machine is found here
+rather than by a human twenty minutes into a session. **Its numbers are not
+data** — it marks `rotor_out` by reading the rotor's health, which is the exact
+thing the drill asks a human about. `--pilot` is required and refused if missing:
+an artifact that says "human" is a claim about where a number came from.
+
+It earned its keep on its first run. Sampling is 60 Hz off a 240 Hz tick, and
+`rotor_out` ends on an EVENT, so a call placed at exactly 25% of a rotor was
+recorded at **20%** — a whole staircase step low, because the last sample
+predated the step it called. The attempt now takes one final sample at the
+instant it ends.
 
 ---
 

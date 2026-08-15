@@ -138,7 +138,7 @@ static func report_lines(drill_id: String, prediction: Dictionary,
 	out.append("")
 	var attempts: Array = artifact.get("attempts", []) as Array
 	var row_list: Array = rows(drill_id, prediction, artifact.get("summary", {}) as Dictionary)
-	out.append("%-14s %-18s %10s %8s   %s"
+	out.append("%-14s %-24s %10s %8s   %s"
 			% ["measure", "predicted", "best", "spread", "verdict"])
 	for row: Dictionary in row_list:
 		var predicted: String = "%.2f .. %.2f %s" % [row["low"], row["high"], row["unit"]]
@@ -147,7 +147,7 @@ static func report_lines(drill_id: String, prediction: Dictionary,
 			verdict_text += " by %.2f %s" % [row["miss"], row["unit"]]
 		if bool(row["sentinel"]):
 			verdict_text += "  (never produced)"
-		out.append("%-14s %-18s %10.2f %8.2f   %s" % [row["name"], predicted,
+		out.append("%-14s %-24s %10.2f %8.2f   %s" % [row["name"], predicted,
 				row["value"], DrillMeasures.spread(drill_id, attempts, String(row["name"])),
 				verdict_text])
 	out.append("")

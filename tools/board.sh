@@ -10,7 +10,7 @@
 #
 # Takes about 5 minutes; `lethality` is most of it.
 #
-#   ./tools/board.sh          all 24
+#   ./tools/board.sh          all 27
 #   ./tools/board.sh fast     skip lethality, about 2-3 minutes
 set -u
 
@@ -19,7 +19,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 CHECKS="hover combat wave missile run repair motor_damage menu manifest
         sortie_compose falx screamer composition heat ammo sortie war_loop
-        war_room aegis lance phalanx terrain crash separation hud"
+        war_room aegis lance phalanx terrain crash separation hud drill"
 if [ "${1:-}" != "fast" ]; then
     CHECKS="$CHECKS lethality"
 fi
