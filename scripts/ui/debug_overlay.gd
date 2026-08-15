@@ -47,6 +47,11 @@ var _bindings_edit_paused: bool = false
 ## device -> axis values at capture start (rest positions for switch capture).
 var _capture_rest: Dictionary = {}
 
+## Quad-X names, in MotorModel's index order. Only used while the airframe HAS
+## four rotors — past that the bars are numbered, because "FL" means nothing on a
+## ring of six (E.q1). The count comes from the motor model, never from here:
+## this list was a hard-coded four and drew four bars on a six-rotor aircraft,
+## which is how the human found it.
 const _MOTOR_NAMES: Array[String] = ["FL", "FR", "BL", "BR"]
 const _AXIS_NAMES: Array[String] = ["roll", "pitch", "yaw"]
 
@@ -405,10 +410,12 @@ func _update_telemetry() -> void:
 
 
 func _build_motor_bars() -> void:
-	for motor_name: String in _MOTOR_NAMES:
+	var motors: MotorModel = drone.get_node_or_null("MotorModel") as MotorModel
+	var count: int = 4 if motors == null else motors.rotor_count
+	for i: int in count:
 		var row := HBoxContainer.new()
 		var label := Label.new()
-		label.text = motor_name
+		label.text = _MOTOR_NAMES[i] if count == _MOTOR_NAMES.size() else "M%d" % i
 		label.custom_minimum_size.x = 30.0
 		var bar := ProgressBar.new()
 		bar.min_value = 0.0

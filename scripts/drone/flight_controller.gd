@@ -41,6 +41,10 @@ const NEAR_PLANE_MIN: float = 0.05
 ## keeps this file combat-thin, which is why the damage arithmetic lives on the
 ## config rather than here.
 signal crashed(impact_speed: float)
+## The dev reset put the airframe back to new. Whoever owns the wounds that do
+## NOT live on the drone — the hull bar and the video transmitter, both in main —
+## clears them here, so one keypress means one thing.
+signal airframe_reset
 ## The airframe changed under everything holding a reference to it (V10).
 ##
 ## `config` is a DIFFERENT FlightConfig instance after a swap, so anything that
@@ -406,12 +410,24 @@ func place_at(new_transform: Transform3D) -> void:
 	_spawn_transform = new_transform
 
 
+## The dev reset (B / R). A FULL restore, not just a teleport.
+##
+## It repaired the rotors and nothing else, which read as "reset does not clear
+## damage" from the cockpit — the human's report, and they were right: the two
+## wounds you can actually SEE are the hull bar and the broken video feed, and
+## both survived it. The rotor repair was already here, so the intent was never
+## in doubt; the hull and the transmitter simply live in `main` and were never
+## wired up. `airframe_reset` is that wiring.
 func reset_to_spawn() -> void:
 	disarm()
 	global_transform = _spawn_transform
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_motors.repair()
+	_rate_controller.clear_integrator()
+	last_hit_direction = Vector3.ZERO
+	($Health as Health).revive()
+	airframe_reset.emit()
 	print("[drone] reset to spawn")
 
 

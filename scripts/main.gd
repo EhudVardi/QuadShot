@@ -95,6 +95,7 @@ func _ready() -> void:
 	_drone_health.damaged.connect(_on_player_damaged)
 	_drone_health.died.connect(_on_player_died)
 	_drone.crashed.connect(_on_player_crashed)
+	_drone.airframe_reset.connect(_on_airframe_reset)
 	for gate: Node in get_tree().get_nodes_in_group(&"repair_gates"):
 		(gate as RepairGate).repaired.connect(_on_engines_restored)
 	_hud.set_health(_drone_health.current, _drone_health.max_health)
@@ -343,6 +344,16 @@ func _refresh_motor_hud() -> void:
 	# The whole list goes across now — the HUD decides what to draw from what the
 	# registry says is built, so main stops being a place components are listed.
 	_hud.set_components(AirframeComponents.of(_drone, _video_damage))
+
+
+## The dev reset (B / R) put the airframe back to new, so the two wounds that
+## live HERE rather than on the drone go with it: the hull bar and the video
+## transmitter. Without this the key teleported you home still broken, which is
+## exactly how it read from the cockpit.
+func _on_airframe_reset() -> void:
+	_repair_video()
+	_refresh_motor_hud()
+	_hud.set_health(_drone_health.current, _drone_health.max_health)
 
 
 ## Flew through a repair gate (D5): engines back, hull topped up — and the
