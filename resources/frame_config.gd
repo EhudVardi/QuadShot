@@ -43,6 +43,29 @@ extends TunableConfig
 ## grammar, applied to the player's side). The Atlas is the one frame in the P3.3
 ## roster that carries any; 0 for everyone else.
 @export var armor: float = 0.0
+## PLATING OVER NAMED COMPONENTS (GAMEPLAY-DESIGN Iteration 17 / E4.2), keyed by
+## the component kind in `AirframeComponents.TABLE` — `{&"rotor": 0.04}` and so
+## on. Absent kinds carry nothing.
+##
+## E4.2's whole argument is that this is NOT a flat pool: *"A 500 kg airframe can
+## carry plating over its power bus and its gyro; a 650 g quad carries nothing.
+## Armour that protects a NAMED thing is legible in a way a hull number never is
+## — 'they got my power bus through the plating' is a sentence a pilot can learn
+## from."*
+##
+## The value is a FLAT reduction in the capability a single hit can strip from
+## that component, in the same 0-to-1 units the component's health uses, and the
+## flatness is deliberate — the same grammar `armor` above already uses. It is
+## worth most against many small hits and least against few big ones, so plating
+## answers chip fire and does nothing about a missile, which is the character the
+## stat should have.
+##
+## **EMPTY ON EVERY SHIPPED FRAME**, so this field changes nothing until values
+## are authored. E.q7 governs how they get authored when they are: armour follows
+## from a frame's VALUE and its EXPOSURE — *"say the Roc is heavy AND powerful, so
+## i would equip it with medium armor, because it may be more expensive so i
+## would protect it more"* — and never from a ratio against another frame.
+@export var component_armor: Dictionary = {}
 
 ## Break, settle, fire, break — the PILOT_VERSION 5 tactical jink. Dodge while
 ## under fire, hold the line while the gun is on the target.

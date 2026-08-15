@@ -75,6 +75,10 @@ class Part:
 	var routed: bool = false
 	## What losing it costs.
 	var cost: Cost = Cost.INTEGRITY
+	## Plating over THIS component (E4.2), from `FrameConfig.component_armor`.
+	## Flat: subtracted from the capability a single hit can strip, in the same
+	## 0-to-1 units as `health`. Zero on every shipped frame so far.
+	var armor: float = 0.0
 	## LOCATED components can be picked by where a hit came from. The structure
 	## pool cannot — it is the whole airframe, which is why E5 keeps it as a pool
 	## beside the components rather than as one of them.
@@ -146,6 +150,12 @@ static func of(drone: FlightController, video_damage: float = 0.0,
 	var motors: MotorModel = drone.get_node_or_null("MotorModel") as MotorModel
 	if motors == null:
 		return parts
+	# Plating is a property of the FRAME, not of the component list (E4.2): the
+	# same rotor is bare on a Kestrel and armoured on something that can carry the
+	# weight, so the table stays universal and the airframe says what it protects.
+	var plating: Dictionary = {}
+	if drone.frame != null:
+		plating = drone.frame.component_armor
 	for row: Dictionary in TABLE:
 		var kind: StringName = row["kind"]
 		if only_routed and not bool(row["routed"]):
@@ -164,6 +174,7 @@ static func of(drone: FlightController, video_damage: float = 0.0,
 				part.built = bool(row["built"])
 				part.routed = bool(row["routed"])
 				part.cost = row["cost"]
+				part.armor = float(plating.get(kind, 0.0))
 				part.health = drone.motor_health(i) if kind == &"rotor" else 1.0
 				parts.append(part)
 			continue
@@ -173,6 +184,7 @@ static func of(drone: FlightController, video_damage: float = 0.0,
 		single.built = bool(row["built"])
 		single.routed = bool(row["routed"])
 		single.cost = row["cost"]
+		single.armor = float(plating.get(kind, 0.0))
 		match kind:
 			&"vtx":
 				single.position = config.fpv_offset

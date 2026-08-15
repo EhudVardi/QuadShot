@@ -568,9 +568,20 @@ func _apply_crash(raw: float) -> void:
 ## *"every component present, only the built ones doing anything"*, so the table
 ## can hold the whole of E3 while the failure modes arrive one at a time.
 func _damage_component(part: AirframeComponents.Part, amount: float) -> void:
+	# PLATING IS APPLIED HERE AND NOWHERE ELSE (E4.2). Every path that can hurt a
+	# component — a located round, a crash, and whatever routes here later — goes
+	# through this function, so armour cannot be bypassed by adding a new one.
+	#
+	# Flat, in the same 0-to-1 units as the component's health, which is the same
+	# grammar `FrameConfig.armor` already uses on the hull: worth most against
+	# many small hits and least against few big ones. A rotor plated at 0.05 is
+	# untouched by chip fire and no better off against a missile.
+	var through: float = amount - part.armor
+	if through <= 0.0:
+		return
 	match part.kind:
 		&"rotor":
-			_motors.damage_motor(part.index, amount)
+			_motors.damage_motor(part.index, through)
 		_:
 			pass
 
