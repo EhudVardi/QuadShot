@@ -29,7 +29,7 @@ when the human explicitly asks (2026-08-15 ruling).
 
 | # | task | status | finding |
 |---|---|---|---|
-| 1 | Hit separation (E4.3) — a round straddles a small frame, takes one part of a big one | TODO | |
+| 1 | Hit separation (E4.3) — a round straddles a small frame, takes one part of a big one | WIP | |
 | 2 | `separation_check` — the guard for task 1 | TODO | |
 | 3 | Per-component armour as data (E4.2), all zeros so nothing moves | TODO | |
 | 4 | Author armour onto the heavy frames from role, provisional | TODO | |
