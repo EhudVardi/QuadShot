@@ -33,9 +33,20 @@ when the human explicitly asks (2026-08-15 ruling).
 | 2 | `separation_check` — the guard for task 1 | DONE | board now 25; the trap named in the file is that "a hit damages the right component" passes on the OLD code too — only a comparison across frame sizes distinguishes them; 3 mutations run, each failing a different sentence |
 | 3 | Per-component armour as data (E4.2), all zeros so nothing moves | DONE | `FrameConfig.component_armor`, flat, applied in the single `_damage_component` chokepoint so no future path can bypass it; empty everywhere so zero is an exact no-op (0.2400 to 4 dp). **Found an interaction task 4 must reckon with:** separation splits a round into one big share plus small ones, and flat plating eats the small ones entirely — so armour is worth MORE on a small tightly-packed frame, the opposite of where E4.2 expects it carried |
 | 4 | Author armour onto the heavy frames from role, provisional | DONE | Rotor plating, all PROVISIONAL, denominated in raider bolts (a bolt strips 0.048 at severity 0.6): roc 0.024 medium (E.q7's worked example verbatim), condor 0.012 light, atlas 0.006 a token, kestrel/hexa nothing with the absence authored. **The ledger's trap is real and runs BOTH WAYS**: per ROUND a point of plating is worth 2.71x more on a 0.28 m frame (it eats separation's small shares whole), but per FIGHT it inverts — the Roc's 0.024 saves 8.8x what the Atlas's 0.006 does, because it is hit 6x as often. E4.2's assumption holds, it needed the right denominator. `armor_bench` is the standing witness; `separation_check` gained claim 5 (2 mutations). **The Condor is now the roster's most rotor-fragile frame in a fight** (1.336 lost per 100 bolts fired vs Kestrel 0.418, Roc 1.248) — reported, not tuned. Plating costs no mass yet, which leaves E.q7's loop open |
-| 5 | `Lethality` Layer 1 rework (E8): expected hits-to-kill + expected FIRST FAILURE | WIP | |
-| 6 | `lethality_check` plants shots at NAMED LOCATIONS (E8) | TODO | |
-| 7 | Board + benches + handoff refresh | TODO | |
+| 5 | **Plating costs mass** — close E.q7's loop with the human's own shell model | WIP | |
+| 6 | The collision bug: a building strike that sometimes registers nothing | TODO | |
+| 7 | HUD: a top-down plate of the airframe with equipment where it physically sits | TODO | |
+| 8 | The pilot-in-the-loop instrument — the human as the reading | TODO | |
+| 9 | `Lethality` Layer 1 rework (E8): expected hits-to-kill + expected FIRST FAILURE | TODO | |
+| 10 | `lethality_check` plants shots at NAMED LOCATIONS (E8) | TODO | |
+| 11 | Board + benches + handoff refresh | TODO | |
+
+**Re-ordered 2026-08-15 after the human read task 4's report.** Tasks 5 to 8 are
+theirs and did not exist before that message; the two `Lethality` tasks were 5
+and 6 and are pushed back rather than dropped. E8's schedule constraint still
+holds — the Layer 1 rework must land before L6.3's single re-measure or that
+re-measure happens twice — and nothing has scheduled that re-measure yet, so
+there is room.
 
 ---
 
@@ -110,7 +121,89 @@ measurement is information about the design, not a licence to fudge a cell green
 **Mark every value PROVISIONAL and put it on the human's flight list.** Armour
 changes what survives, which is feel.
 
-### 5. `Lethality` Layer 1 rework (E8)
+### 5. Plating costs mass — E.q7's loop, closed
+
+**The human's ruling, given twice, and the second time with the model:**
+
+> *"since we agreed that armor is simply something that reduces damage taken, we
+> can say its equivalent to the thickness of the shell. so the mass is roughly
+> thickness times the shell plan area may be be right"*
+
+So armour value IS plate thickness, and mass is `density x thickness x area`.
+E.q7's fiction becomes arithmetic: *"the engineer would have to reinforce it with
+armor, which would then make it heavier, affecting the balance."*
+
+**THE PHYSICS PAYS FOR E4.2 RATHER THAN JUST OBEYING IT.** Plate mass goes as
+`t x S²` and airframe mass as `S³`, so at equal thickness a big frame spends a
+SMALLER fraction of itself on the same armour. That is the square-cube law, and
+it is the real reason *"a 500 kg airframe can carry plating; a 650 g quad carries
+nothing"* is true instead of merely stated. Measure it and say so.
+
+**MASS IS A FLIGHT-FEEL NUMBER AND IS NORMALLY OFF LIMITS.** This is authorised
+and only this: derived plate mass, never a hand-edit of `FlightConfig.mass`.
+
+- Dry mass stays the authored config value. Plate mass is DERIVED and added on
+  top, so `.tres` files keep saying what the airframe weighs empty.
+- **TWR must droop.** The thrust budget is bought with the dry airframe, so
+  adding plate mass without adding thrust is what makes armour cost performance.
+  If it does not droop, the loop is still open and the task is not done.
+- Print the ladder before and after. `hover_check` flies every roster frame, so
+  a frame that can no longer hover fails the board rather than surprising a pilot.
+
+### 6. The collision bug
+
+Reported from the Condor flight: *"there's a bug where sometimes i collid with
+the buildings and it may not have registered, no damage at all. lets see if it
+will happen again."*
+
+**They deprioritised it and it is still worth an audit**, because it lands in the
+crash path that E6 just rewrote. Cheap things to rule out, in order: is the free
+band (`crash_damage_g` 73.5) simply eating a glancing touch, which would be
+CORRECT behaviour; does the building's collision layer reach the drone's contact
+monitor at all; and can a fast Condor TUNNEL through a wall between physics ticks,
+which would explain "sometimes" better than anything else.
+
+**Do not manufacture a fix for a bug not reproduced.** Report what the path can
+and cannot drop, and give them a route that would reproduce it deliberately.
+
+### 7. HUD — a top-down plate of the airframe
+
+The human's design, quoted so it is not paraphrased away:
+
+> *"have a top image of our craft (a projection of the craft from top to bottom)
+> with equipment shown and what is mounted and where. so rotors health can then
+> located where its physically is in the image, the vtx can located somewhere
+> reasonable on the craft, and more equipment such as weapons, armour, etc."*
+>
+> *"for rotors a simple circle that use the color hue to express the rotor state,
+> for vtx it can show some shap that express 'transmitting' using the color hue.
+> each gauge should have the value of it printed as characters, inside the shape
+> or next to it."*
+
+**`AirframeComponents` was built for exactly this and nobody has used it yet.**
+Every part already carries a `position` in body space and a `health`, so the plate
+is a projection of data that exists — not a new bookkeeping system. Read mounts
+from the registry, never re-author them, or the hexa breaks the widget again
+(that was scar instance five).
+
+### 8. The pilot-in-the-loop instrument
+
+> *"i want to create an instrument that will put ME as the pilot of a reading you
+> can run and test or recognize patterns, etc. you tell me the situation, what you
+> want me to do, and then read the result and compare to your assertions. it would
+> bring you a new source of results to argue on. after all, the player is here to
+> be served."*
+
+**The precedent is `aim_drill.tscn` (H.q4) and this generalises it.** That one
+puts the human on the bot aim bench's exact ruler and writes deviation data to
+`user://blackbox/aim_drill_*.json`. What is being asked for is the same shape for
+ANY question: a stated situation, a stated task, a recorded run, and a comparison
+against what the agent predicted.
+
+The thing that makes it an instrument rather than a demo is the **prediction
+written down BEFORE the human flies**, so the comparison can embarrass it.
+
+### 9. `Lethality` Layer 1 rework (E8)
 
 A component model breaks Layer 1's assumption that "hits to kill" is one number.
 The proposal, from E8:
@@ -121,15 +214,18 @@ The proposal, from E8:
   which component goes first, and after how many hits. *"That is the number a
   pilot experiences, and nothing in the instrument reports it today."*
 
-### 6. `lethality_check` at named locations
+### 10. `lethality_check` at named locations
 
 E8 again: *"`lethality_check` must be extended to plant shots at NAMED LOCATIONS
 rather than into an undifferentiated pool, or Layer 1's new arithmetic has no
 witness."*
 
-### 7. Board, benches, handoff
+### 11. Board, benches, handoff
 
-- The 24-check board (25 if task 2 landed), all green.
+- The 25-check board, all green.
 - `swarm_bench`, `city_load_bench`, `tunnel_check` PASS.
 - `--headless --import` clean; boot every scene touched. Warnings are errors.
 - Fold every finding into `HANDOFF-NEXT.md` and delete this file.
+
+**Run the board ALONE.** A full run and a second Godot process launched beside it
+made `lethality` report NO VERDICT on 2026-08-15; it passes when run by itself.
