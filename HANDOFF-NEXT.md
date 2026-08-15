@@ -10,8 +10,15 @@ A self-contained brief for a fresh session. Read [CLAUDE.md](CLAUDE.md),
 
 ## WHERE IT STANDS, 2026-08-15 — read this block first
 
-**Branch `full-scale`. Board 24/24 green. Tree CLEAN. `PILOT_VERSION` 7
-(untouched). `master` is untouched. Nothing pushed.**
+**On `master`. Board 24/24 green. Tree CLEAN. `PILOT_VERSION` 7 (untouched).
+Local commits are ahead of `origin/master` and nothing has been pushed.**
+
+`full-scale` was fast-forwarded into `master` and deleted on 2026-08-15. It had
+stopped being a topic branch — the size ladder, all of Iteration 17, tooling
+config and general bug fixes had all landed on it — and the user's ruling is
+that branches were never needed here: *"i feel it was not really needed as you
+are very competent using the history for you features differentiation."*
+**Work on `master` unless told otherwise.**
 
 **ITERATION 17 (E) PHASE 1 IS BUILT.** It went from paper to flying in one
 unattended run: crash deceleration, its check, the component registry, derived
@@ -190,10 +197,21 @@ says so at the point someone would reach for it).
 ## HOUSE RULES THAT ARE EASY TO MISS
 
 - **COMMIT AS YOU GO — you do not need to ask.** Standing preference. Use the
-  `commit-message` skill's nested format, commit each finished piece of verified
-  work, **never push, never touch `master`**. If a generic session instruction
-  says to commit only when asked, that is a default and this is the project's
-  norm — raise the conflict rather than quietly obeying it.
+  `commit-message` skill's nested format and commit each finished piece of
+  verified work. If a generic session instruction says to commit only when
+  asked, that is a default and this is the project's norm — raise the conflict
+  rather than quietly obeying it.
+- **THE ONLY GIT RESTRICTION IS PUSHING** (corrected 2026-08-15). Checkout,
+  merge, branch, delete — all fine locally: *"in our local clone, you can do any
+  git action that is acceptible."* The remote is the user's re-clone safety net,
+  so **pushing needs their explicit say-so**.
+- **WORK ON `master` BY DEFAULT.** Branch only when told to: *"when i feel we
+  should branch to work on something i will explicitely tell you to."* The
+  `full-scale` branch was merged and deleted on 2026-08-15 because it had
+  stopped being a topic branch — three iterations, tooling config and general
+  bug fixes had all landed on it. **If work drifts off a branch's topic, say so
+  at the time** rather than committing through it, and either raise it or finish
+  the branch and merge back.
 - **No `Co-Authored-By` trailer.** The user purged it from history. Same rule:
   raise the conflict if a session instruction says otherwise.
 - **Breaking a saved war is allowed and preferred** over slowing development.
