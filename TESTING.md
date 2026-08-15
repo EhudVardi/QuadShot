@@ -553,7 +553,45 @@ The motor audio is the third thing wanting a human: the four-emitter detune was
 tuned by ear in v2.43/v2.45, and the spacing rule generalises to six but six
 sources at the same per-pair beat rate is a denser texture, not the same one.
 
-## 4. The check suite — 24 headless checks
+## 4. The check suite — 25 headless checks
+
+**Run the whole board with one command** (`tools/board.sh`, added 2026-08-15):
+
+```
+./tools/board.sh          all 25, about 5 minutes
+./tools/board.sh fast     skips lethality, about 2-3 minutes
+```
+
+It prints one PASS/FAIL line per check and exits non-zero if any is not green.
+It exists for a reason worth knowing: **a permission allowlist matches the
+command STRING**, so running the board as a shell `for` loop can never match an
+entry — the loop body contains a variable and is not statically knowable. Every
+board run therefore prompted for permission, forever, however carefully the
+allowlist was written. One script is one command, and one command is matchable.
+
+`separation_check` (2026-08-15) guards E4.3, the iteration's central symmetry: a
+round has a footprint in METRES, so a 0.28 m Kestrel whose rotors sit 0.24 m
+apart has one round straddle **three** of them while a 3.0 m Roc whose rotors sit
+2.6 m apart has the same round take **one**. Nobody authors that — it falls out
+of building each airframe at true size.
+
+**The trap the file had to avoid is the obvious assertion.** "A hit damages at
+least one component" passes on the code separation replaced, and so does "a hit
+damages the right component". The only claim that distinguishes them is a
+**comparison across frame sizes**, so every stage is the same round fired at
+different airframes. It also holds that damage is CONSERVED (straddling three
+costs what landing on one costs — 0.2400 on every frame, to four decimals),
+that a hit stays CONCENTRATED rather than smearing, and that a hit never
+vanishes on the large frame where nothing at all falls inside the footprint —
+that last one is a separate code path nothing else exercises.
+
+Three mutations are on record and each fails a different sentence: scale the
+footprint by `body_m` (every frame touches the same count — precisely the
+authored-symmetry mistake E4.3 forbids), drop the weight normalisation (the same
+round removes between 0.1178 and 0.3763 depending on the airframe), and widen
+the footprint to 8 m (the worst-hit rotor takes only 26%).
+
+
 
 Run all of them before believing anything:
 
