@@ -1,0 +1,135 @@
+[gd_scene load_steps=20 format=3]
+
+; THE DRILL WORLD, AND IT IS DELIBERATELY EMPTY.
+;
+; A drill measures one thing about the pilot, so everything that could be a
+; second explanation for a number is left out: no enemies, no scenery to thread,
+; no gates, no score. What is here is a LAUNCH PAD AT 250 m over open ground,
+; which is the whole of the situation both shipped drills need.
+;
+; 250 m IS ARITHMETIC, NOT TASTE. `hold_tilt` asks for 30 degrees of nose-down
+; held through a 20-second window, and a quad tilted 30 degrees on hover
+; collective keeps only cos(30) of its lift — a net 1.31 m/s^2 downward, which is
+; 262 m of descent over the window. A pad any lower would end every attempt on
+; the ground and the drill would be measuring how much sky it had, not how
+; steadily the pilot flies. `rotor_out` degrades a rotor until the pilot notices
+; and wants the same height underneath it. Starting ON something also means B/R
+; puts you back on it, so a second attempt costs a keypress instead of a climb.
+
+[ext_resource type="Script" path="res://scripts/drills/drill_runner.gd" id="1_drill"]
+[ext_resource type="Resource" path="res://resources/default_input_bindings.tres" id="2_bind"]
+[ext_resource type="Shader" path="res://resources/checker_ground.gdshader" id="3_checker"]
+[ext_resource type="Script" path="res://scripts/environment/look_controller.gd" id="4_look"]
+[ext_resource type="Resource" path="res://resources/default_look_config.tres" id="5_lookcfg"]
+[ext_resource type="PackedScene" path="res://scenes/drone/drone.tscn" id="6_drone"]
+[ext_resource type="Script" path="res://scripts/combat/projectile_pool.gd" id="7_pool"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="8_sfx"]
+[ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="9_acfg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="10_hud"]
+
+[sub_resource type="ShaderMaterial" id="mat_ground"]
+shader = ExtResource("3_checker")
+
+; 4 km of it. The ground's own edge must never be visible, because a drill about
+; reading the horizon cannot have a false one in the picture.
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector2(4000, 4000)
+
+[sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.1, 0.3, 0.16, 1)
+emission_enabled = true
+emission = Color(0.2, 1, 0.45, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="BoxMesh" id="mesh_pad"]
+material = SubResource("mat_pad")
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxShape3D" id="shape_pad"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.1, 0.13, 0.22, 1)
+sky_horizon_color = Color(0.5, 0.42, 0.42, 1)
+sky_curve = 0.12
+ground_horizon_color = Color(0.4, 0.34, 0.32, 1)
+ground_bottom_color = Color(0.08, 0.07, 0.09, 1)
+sun_angle_max = 20.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 4
+tonemap_exposure = 1.0
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.5
+glow_enabled = true
+glow_blend_mode = 1
+glow_bloom = 0.1
+glow_hdr_threshold = 1.0
+fog_enabled = true
+fog_light_color = Color(0.62, 0.56, 0.66, 1)
+fog_sun_scatter = 0.2
+fog_density = 0.0015
+fog_aerial_perspective = 0.6
+fog_sky_affect = 0.4
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.12
+
+[node name="Drill" type="Node3D"]
+script = ExtResource("1_drill")
+input_bindings = ExtResource("2_bind")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 30, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.4
+shadow_enabled = true
+
+[node name="LookController" type="Node" parent="."]
+script = ExtResource("4_look")
+look_config = ExtResource("5_lookcfg")
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("mesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("shape_ground")
+
+; Green because the palette says pads are green (CLAUDE.md), and emissive so it
+; is findable from 150 m up while nose-down at 30 degrees.
+[node name="Pad" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 250, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Pad"]
+mesh = SubResource("mesh_pad")
+
+[node name="Collision" type="CollisionShape3D" parent="Pad"]
+shape = SubResource("shape_pad")
+
+[node name="Drone" parent="." instance=ExtResource("6_drone")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 250.6, 0)
+
+[node name="ProjectilePool" type="Node" parent="."]
+script = ExtResource("7_pool")
+
+[node name="SoundBank" type="Node" parent="."]
+script = ExtResource("8_sfx")
+audio_config = ExtResource("9_acfg")
+
+[node name="Hud" parent="." instance=ExtResource("10_hud")]

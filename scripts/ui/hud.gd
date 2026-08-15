@@ -1173,7 +1173,15 @@ func set_thrust_axis(world_up_of_airframe: Vector3) -> void:
 ## in the kill feed. The horizon and the thrust arrow are NOT toggled with it:
 ## they are the instrument, and the ladder is the detail around them.
 func toggle_pitch_ladder() -> bool:
-	_horizon.ladder = not _horizon.ladder
+	return set_pitch_ladder(not _horizon.ladder)
+
+
+## The ladder set rather than flipped, for a caller that needs a KNOWN state
+## instead of the opposite of whatever it was. The drill runner is the first:
+## a drill whose stated situation is "the ladder is on" cannot be run by
+## toggling and hoping.
+func set_pitch_ladder(on: bool) -> bool:
+	_horizon.ladder = on
 	_horizon.queue_redraw()
 	return _horizon.ladder
 
@@ -1269,6 +1277,14 @@ func set_components(parts: Array[AirframeComponents.Part]) -> void:
 
 
 ## Video-breakup intensity [0, 1]; 0 hides the overlay entirely (no cost).
+## THE AIRFRAME PLATE, HIDDEN — for the one caller that needs the pilot NOT to
+## have it. `rotor_out` asks how much of a rotor a human loses before they feel
+## it, and a gauge that draws the rotor emptying answers a different question
+## perfectly. Nothing in the game hides it; only the drill does.
+func set_plate_visible(shown: bool) -> void:
+	_motor_status.visible = shown
+
+
 func set_video_glitch(intensity: float) -> void:
 	var clamped: float = clampf(intensity, 0.0, 1.0)
 	_video_glitch.visible = clamped > 0.001

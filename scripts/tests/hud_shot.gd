@@ -12,13 +12,19 @@ extends SceneTree
 ##
 ## RUN IT WITHOUT --headless, or there is no framebuffer to capture:
 ##   <godot> --path . -s scripts/tests/hud_shot.gd -- --out <folder>
+##   <godot> --path . -s scripts/tests/hud_shot.gd -- --scene res://scenes/drill.tscn
+##
+## `--scene` because the rig is worth pointing at anything with a Drone in it —
+## the drill runner's brief panel was checked this way, and the whole lesson of
+## round 5 was that a picture settles in one look what reasoning had got wrong
+## three times.
 ##
 ## It writes one PNG per attitude, because the whole question is what the
 ## instruments do as the aircraft moves: level (where the airframe's line sits
 ## exactly on the world horizon by construction) and two tilts (where they
 ## separate). A single level shot would have shown one line and settled nothing.
 
-const SCENE: String = "res://scenes/dev_map.tscn"
+const DEFAULT_SCENE: String = "res://scenes/dev_map.tscn"
 ## Attitudes to capture: name, then roll and pitch in degrees.
 const SHOTS: Array = [
 	["level", 0.0, 0.0],
@@ -32,6 +38,7 @@ const HOLD_FRAMES: int = 6
 
 var _root_node: Node3D
 var _drone: Node3D
+var _scene: String = DEFAULT_SCENE
 var _out: String = ""
 var _index: int = 0
 var _frames: int = 0
@@ -46,10 +53,13 @@ func _initialize() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	var at: int = args.find("--out")
 	_out = args[at + 1] if at >= 0 and at + 1 < args.size() else "user://hud_shots"
+	at = args.find("--scene")
+	if at >= 0 and at + 1 < args.size():
+		_scene = args[at + 1]
 	DirAccess.make_dir_recursive_absolute(_out)
-	_root_node = (load(SCENE) as PackedScene).instantiate() as Node3D
+	_root_node = (load(_scene) as PackedScene).instantiate() as Node3D
 	root.add_child(_root_node)
-	print("[shot] booting %s, writing to %s" % [SCENE, _out])
+	print("[shot] booting %s, writing to %s" % [_scene, _out])
 	process_frame.connect(_on_frame)
 
 
@@ -61,7 +71,7 @@ func _on_frame() -> void:
 				return
 			_drone = _root_node.get_node_or_null("Drone") as Node3D
 			if _drone == null:
-				print("[shot] FAILED: no Drone in %s" % SCENE)
+				print("[shot] FAILED: no Drone in %s" % _scene)
 				quit(1)
 				return
 			# Frozen so physics does not fight the pose. The HUD reads
