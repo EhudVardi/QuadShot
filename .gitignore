@@ -6,3 +6,6 @@
 
 # Brainstorming visual-companion scratch (design sessions)
 .superpowers/
+
+# Claude Code personal settings: machine-specific paths, not shared.
+.claude/settings.local.json
