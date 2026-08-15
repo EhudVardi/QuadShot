@@ -81,6 +81,14 @@ class ComponentStatus:
 	const RING: float = 46.0
 	const ROTOR_R: float = 15.0
 	const PLATE := Vector2(168.0, 150.0)
+	## The hull silhouette's half-extent, and the clearance every other component
+	## keeps from it.
+	const HULL_HALF := Vector2(15.0, 21.0)
+	const HULL_CLEAR: float = 13.0
+	## How far out the description-only rows are pushed sideways. Wider than the
+	## hull plus its clearance (15 + 13), so a ghost can never land on the
+	## silhouette however its mount is authored.
+	const GHOST_X: float = 30.0
 	## Anything this far from the hub is pulled back in. Only reachable by a lens
 	## mounted further forward than the rotors, which is the Condor and the Roc.
 	const EDGE: float = 62.0
@@ -118,7 +126,9 @@ class ComponentStatus:
 			draw_line(centre, points[part.id], Color(0.55, 0.62, 0.7, 0.5), 3.0)
 		_hull_body(centre)
 
-		var ghosts: Array[AirframeComponents.Part] = []
+		# `layout` owns WHERE, this owns WHAT — so the check measures the same
+		# positions the pilot sees. Splitting the two is how the gyro came to be
+		# drawn clear of the hull while the check still read it dead centre.
 		for part: AirframeComponents.Part in parts:
 			if not points.has(part.id):
 				continue
@@ -134,38 +144,7 @@ class ComponentStatus:
 				# registry are description-only, and drawing them with a reading
 				# would be inventing one — so they get a dim mark that says the
 				# equipment is aboard and where, and no number at all.
-				ghosts.append(part)
-
-		# GHOSTS LAST, AND SPREAD SIDEWAYS. Two collisions make this necessary and
-		# both come from the registry being honest rather than from a bug. A prop
-		# sits at its rotor's exact mount, so it would draw on top of the disc —
-		# it is skipped, and when props become damageable they belong AS a ring on
-		# the rotor rather than as a second mark beside it. And every singleton in
-		# MOUNTS is on the centreline, so power, gyro, the gun and the magazine
-		# would stack on one another and on the lens.
-		#
-		# The lateral offset is PRESENTATIONAL and the vertical position is not:
-		# fore-and-aft is the axis that carries the information (the pack is aft,
-		# the gun is forward), and that is the one kept true.
-		var index: int = 0
-		for part: AirframeComponents.Part in ghosts:
-			if _shares_mount(part, points):
-				continue
-			var side: float = -1.0 if index % 2 == 0 else 1.0
-			_ghost(Vector2(centre.x + side * 30.0, points[part.id].y), part, side)
-			index += 1
-
-	## Does this part sit exactly where something already drawn sits? True for
-	## every prop, which shares its rotor's mount by design.
-	static func _shares_mount(part: AirframeComponents.Part,
-			points: Dictionary) -> bool:
-		var at: Vector2 = points[part.id]
-		for id: StringName in points:
-			if id == part.id:
-				continue
-			if String(id).begins_with("rotor") and points[id].distance_to(at) < 1.0:
-				return true
-		return false
+				_ghost(at, part, signf(at.x - centre.x))
 
 	## WHERE EVERY PART GOES, keyed by `Part.id`.
 	##
@@ -200,15 +179,83 @@ class ComponentStatus:
 						Vector2(part.position.x, part.position.z).length())
 		if reach <= 0.0:
 			return out
+		# Pass 1: rotors and everything BUILT, at their own mounts.
+		var ghosts: Array[AirframeComponents.Part] = []
 		for part: AirframeComponents.Part in parts:
 			# The structure pool has no location by design (E5): it is the whole
-			# airframe, and it already has the health bar.
+			# airframe, and it is drawn AS the airframe rather than placed on it.
 			if not part.located:
 				continue
 			var offset := Vector2(part.position.x, part.position.z) / reach * RING
-			out[part.id] = centre + Vector2(clampf(offset.x, -EDGE, EDGE),
+			offset = Vector2(clampf(offset.x, -EDGE, EDGE),
 					clampf(offset.y, -EDGE, EDGE))
+			if not part.built:
+				ghosts.append(part)
+				continue
+			if part.kind != &"rotor":
+				offset = _clear_hull(offset)
+			out[part.id] = centre + offset
+
+		# Pass 2: THE ROWS THAT CANNOT FAIL YET, SPREAD SIDEWAYS. Two collisions
+		# make this necessary and both come from the registry being honest rather
+		# than from a bug. A prop sits at its rotor's exact mount, so it is
+		# dropped — when props become damageable they belong AS a ring on the
+		# rotor, not as a second mark beside it. And every singleton in MOUNTS is
+		# on the centreline, so the pack, the gyro, the gun and the magazine would
+		# stack on one another and on the hull.
+		#
+		# THE LATERAL OFFSET IS PRESENTATIONAL AND THE VERTICAL ONE IS NOT:
+		# fore-and-aft carries the information (the pack is aft, the gun is
+		# forward) and that is the axis kept true. GHOST_X clears the hull by
+		# construction — it is wider than the silhouette plus its clearance.
+		var index: int = 0
+		for part: AirframeComponents.Part in ghosts:
+			var offset := Vector2(part.position.x, part.position.z) / reach * RING
+			if _on_a_rotor(offset, parts, reach):
+				continue
+			var side: float = -1.0 if index % 2 == 0 else 1.0
+			out[part.id] = centre + Vector2(side * GHOST_X,
+					clampf(offset.y, -EDGE, EDGE))
+			index += 1
 		return out
+
+
+	## Does this offset land on a rotor's mount? True for every prop, which shares
+	## its rotor's position by design.
+	static func _on_a_rotor(offset: Vector2,
+			parts: Array[AirframeComponents.Part], reach: float) -> bool:
+		for part: AirframeComponents.Part in parts:
+			if part.kind != &"rotor":
+				continue
+			var at := Vector2(part.position.x, part.position.z) / reach * RING
+			if at.distance_to(offset) < 1.0:
+				return true
+		return false
+
+
+	## PUSH A MOUNT CLEAR OF THE HULL SILHOUETTE.
+	##
+	## Once hull became the body itself, anything mounted ON the body was drawn
+	## inside a filled box — and the lens is the case that bites, because
+	## `fpv_offset` puts it a whisker forward of the hull's own top edge (-21.7 px
+	## against a half-height of 21) so its glyph and its reading landed on the
+	## silhouette. Reported from the cockpit: *"there's overlap with the drawing,
+	## there's some text behind the body damage meters."*
+	##
+	## Pushed along the axis it already leans on, so the ORDER survives: the lens
+	## and the gun stay forward of the hull, the pack and the magazine stay aft.
+	## A part sitting exactly on the hub (the gyro, at 0,0,0) has no direction to
+	## be pushed along and is left where it is — `_draw` spreads the unbuilt rows
+	## sideways anyway, which clears it.
+	static func _clear_hull(offset: Vector2) -> Vector2:
+		var limit := HULL_HALF + Vector2(HULL_CLEAR, HULL_CLEAR)
+		if absf(offset.x) > limit.x or absf(offset.y) > limit.y:
+			return offset
+		if absf(offset.y) >= absf(offset.x) and absf(offset.y) > 0.001:
+			return Vector2(offset.x, signf(offset.y) * limit.y)
+		if absf(offset.x) > 0.001:
+			return Vector2(signf(offset.x) * limit.x, offset.y)
+		return offset
 
 	## THE HULL, DRAWN AS THE AIRFRAME'S OWN BODY — which is the creative bit the
 	## human left open, and it falls out of what the structure pool already IS.
@@ -225,7 +272,7 @@ class ComponentStatus:
 	func _hull_body(centre: Vector2) -> void:
 		var h: float = clampf(hull, 0.0, 1.0)
 		var tint: Color = ramp(h)
-		var half := Vector2(15.0, 21.0)
+		var half := HULL_HALF
 		var box := Rect2(centre - half, half * 2.0)
 		draw_rect(box, Color(0.10, 0.12, 0.16, 0.9))
 		draw_rect(Rect2(box.position + Vector2(0.0, box.size.y * (1.0 - h)),

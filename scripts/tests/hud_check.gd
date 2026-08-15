@@ -88,6 +88,21 @@ func _measure(frame_id: String, drone: FlightController,
 			forward_y = minf(forward_y, at.y)
 		elif part.position.z > 0.0001:
 			aft_y = maxf(aft_y, at.y)
+	# CLAIM 6's raw material: how deep into the hull silhouette the worst-placed
+	# non-rotor component sits. Rotors are exempt — they are out on the arms and
+	# the hull is drawn between them by construction.
+	var deepest: float = -INF
+	var worst: String = ""
+	for part: AirframeComponents.Part in parts:
+		if not points.has(part.id) or part.kind == &"rotor":
+			continue
+		var d: Vector2 = points[part.id] - centre
+		var half: Vector2 = GameHud.ComponentStatus.HULL_HALF
+		# Negative = outside the box on at least one axis; positive = inside both.
+		var inside: float = minf(half.x - absf(d.x), half.y - absf(d.y))
+		if inside > deepest:
+			deepest = inside
+			worst = String(part.id)
 	return {
 		"frame": frame_id,
 		"rotors": motors.rotor_count,
@@ -97,6 +112,8 @@ func _measure(frame_id: String, drone: FlightController,
 		"aft_y": aft_y,
 		"furthest": furthest,
 		"has_structure": points.has(&"structure"),
+		"deepest": deepest,
+		"worst": worst,
 	}
 
 
@@ -182,6 +199,29 @@ func _check(_centre: Vector2) -> void:
 		highest = maxf(highest, float(row["ring"]))
 	var spread: float = (highest - lowest) / maxf(highest, 0.001) * 100.0
 	print("[hud] %.1f px to %.1f px, %.2f%% apart." % [lowest, highest, spread])
+	# CLAIM 6 — nothing is drawn ON TOP OF THE HULL. Added after the human flew it:
+	# once hull became the silhouette itself, the lens landed on the box edge and
+	# its reading was drawn over the fill.
+	#
+	# IT ASSERTS A CLEARANCE, NOT MERELY "OUTSIDE THE BOX", and the difference is
+	# the whole value of the claim. Dropping the clearance leaves the lens 0.7 px
+	# beyond the hull's edge — technically outside, and the first version of this
+	# assertion passed on it — while the transmitter's arcs reach 12 px and its
+	# reading is drawn further out still. A mount point is not what gets drawn.
+	print("")
+	print("[hud] CLAIM 6 — NOTHING IS MOUNTED ON TOP OF THE HULL SILHOUETTE.")
+	var wanted: float = GameHud.ComponentStatus.HULL_CLEAR
+	print("[hud] every non-rotor mount must clear the silhouette by %.0f px, which is"
+			% wanted)
+	print("[hud] what the glyphs and their readings actually occupy.")
+	print("[hud] %8s %10s %14s" % ["frame", "worst", "clearance px"])
+	for row: Dictionary in _rows:
+		var clear_by: float = -float(row["deepest"])
+		print("[hud] %8s %10s %14.1f" % [row["frame"], row["worst"], clear_by])
+		if clear_by < wanted - 0.5:
+			_failures.append("on the %s the '%s' mount clears the hull silhouette by only %.1f px against the %.0f px its glyph and reading occupy — it is drawn over the integrity gauge. Being merely OUTSIDE the box is not enough: without the clearance the lens sits 0.7 px past the edge and still overlaps"
+					% [row["frame"], row["worst"], clear_by, wanted])
+
 	if spread > 1.0:
 		_failures.append("the rotor ring is %.1f px on one frame and %.1f px on another (%.2f%% apart) — it must be IDENTICAL on every frame, and it stops being so the moment the layout is normalised on the whole airframe instead of the rotor span. Measured, that mutation moves it 1.7%% today because the Condor's and Roc's lenses sit just past the rotor diagonal; a longer-nosed frame would move it far more, and the failure is that the picture changes shape at all"
 				% [lowest, highest, spread])

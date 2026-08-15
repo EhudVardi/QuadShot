@@ -74,17 +74,23 @@ vertical_alignment = 1
 ; readout you consult WHILE aiming. Both are drawn by hud.gd rather than being
 ; ProgressBar nodes; see ComponentStatus._hull_body and WeaponGauge.
 
-; Magazines, beside the bars they belong with. Text rather than a bar because
-; a count you must spend deliberately is a number, not a level.
+; Magazines. Text rather than a bar because a count you must spend deliberately
+; is a number, not a level.
+;
+; LIFTED ABOVE THE PLATE (2026-08-15). It used to sit with the hull and heat bars
+; at -80, and when those were retired the AIRFRAME plate moved into that exact
+; space and drew straight over it - reported from the cockpit as *"there's some
+; text behind the body damage meters."* The plate spans 176 px to 26 px off the
+; bottom edge and carries its own header at 182, so this clears it at 206.
 [node name="AmmoLabel" type="Label" parent="."]
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -150.0
-offset_top = -80.0
+offset_top = -206.0
 offset_right = 150.0
-offset_bottom = -60.0
+offset_bottom = -186.0
 mouse_filter = 2
 theme_override_font_sizes/font_size = 14
 text = ""
