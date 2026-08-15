@@ -337,6 +337,7 @@ func _build() -> void:
 	_add_section_header("FRAME: %s" % drone.frame.display_name.to_upper())
 	_add_preset_bar("frame/%s" % drone.frame.frame_id, drone.frame)
 	_add_config_rows(drone.frame, _FRAME_FLOAT_ROWS, [])
+	_add_rotor_plating_row(drone.frame)
 	_add_section_header("COMBAT")
 	_add_preset_bar("combat", combat_config)
 	_add_config_rows(combat_config, _COMBAT_FLOAT_ROWS, [])
@@ -516,6 +517,42 @@ func _add_preset_bar(kind: String, config: TunableConfig) -> void:
 	row.add_child(save_button)
 	row.add_child(delete_button)
 	_section.add_child(row)
+
+
+## ROTOR PLATING (GAMEPLAY-DESIGN Iteration 17 / E4.2), hand-wired because it is
+## the one tunable in the project that lives inside a Dictionary rather than in a
+## field of its own. `FrameConfig.component_armor` is keyed by component kind so
+## that a frame can plate its power bus without the config gaining a field per row
+## of `AirframeComponents.TABLE` — which is right for the data and wrong for a
+## slider machine that binds by property name.
+##
+## Only the rotor key is exposed, because the rotor is the only component a hit
+## can currently reach (`_damage_component` dispatches nothing else). The rest
+## arrive with the failure modes that make them mean something; a slider for
+## plating over a component nothing can damage would be a dead tunable, which is
+## FlightConfig's own standing rule.
+##
+## THE RANGE IS FRAME-INDEPENDENT AND THAT IS CORRECT HERE, which is worth saying
+## out loud in the file where the size-ladder scar was first found: these sliders
+## were scar instance 1, being ranged for a Kestrel. Plating is subtracted from
+## the capability a hit strips, and capability is 0-to-1 on every airframe in the
+## roster, so 0 to 0.1 spans the same thing on a 0.28 m quad and a 3 m aircraft.
+## The top of the range is a turret shell's whole rotor bite at severity 1.0.
+func _add_rotor_plating_row(frame: FrameConfig) -> void:
+	_add_slider(_section, "rotor plating", 0.0, 0.1, 0.001,
+			func() -> float:
+				return float(frame.component_armor.get(&"rotor", 0.0)),
+			func(v: float) -> void:
+				# Rebuilt rather than mutated in place: the Dictionary is shared
+				# with whatever else holds this FrameConfig, and dropping the key
+				# at zero keeps "carries nothing" as an ABSENT entry, which is
+				# what every unplated frame's .tres actually says.
+				var plating: Dictionary = frame.component_armor.duplicate()
+				if v <= 0.0:
+					plating.erase(&"rotor")
+				else:
+					plating[&"rotor"] = v
+				frame.component_armor = plating)
 
 
 func _add_config_rows(config: TunableConfig, float_rows: Array[Array],

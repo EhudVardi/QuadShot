@@ -33,13 +33,26 @@ extends SceneTree
 ##  4. **A hit never vanishes**, including on the frame where nothing at all
 ##     falls inside the footprint — the large airframe's ordinary case, which is
 ##     served by a separate code path and would otherwise be silent.
+##  5. **Plating reduces, and only reduces** (E4.2). Added when task 4 authored
+##     the first non-zero `component_armor`, because until then the mechanism had
+##     no witness on the board at all.
+##
+## **CLAIMS 1 TO 4 ARE MEASURED WITH PLATING OFF, AND THAT IS A STATEMENT RATHER
+## THAN A CONVENIENCE.** Separation decides WHERE a round lands; plating decides
+## how much of it survives the airframe. They are two mechanisms and this file is
+## about the first. Left mixed, claim 2 stopped being a conservation test the
+## moment the Atlas gained plating — it read the armour as a leak and failed,
+## which is the check measuring the wrong thing rather than the code being wrong.
+## The plating is stated here the way `Jamming.bench_override` lets a bench state
+## its jam, and claim 5 turns it back on for a second pass.
 ##
 ## WOULD IT STILL PASS IF THE FEATURE WERE DELETED? No, and the mutations are on
 ## record in the commit: restore single-nearest (claim 1 collapses to 1 rotor
 ## everywhere), drop the weight normalisation (claim 2 fails), scale the footprint
 ## by `body_m` (claim 1 fails — every frame touches the same count, which is
-## precisely the authored-symmetry mistake E4.3 forbids), and widen the footprint
-## until the round smears (claim 3 fails).
+## precisely the authored-symmetry mistake E4.3 forbids), widen the footprint
+## until the round smears (claim 3 fails), and delete the `- part.armor` in
+## `_damage_component` (claim 5 fails on all three plated frames).
 ##
 ## Run: <godot> --headless -s scripts/tests/separation_check.gd --path .
 
@@ -54,7 +67,13 @@ const CONSERVATION_EPSILON: float = 0.001
 const LADDER: Array[String] = ["kestrel", "condor", "roc"]
 
 var _rows: Array[Dictionary] = []
+var _plated_rows: Array[Dictionary] = []
 var _drones: Dictionary = {}
+## THE ROSTER'S SHIPPED PLATING, TAKEN BEFORE ANYTHING TOUCHES IT. `Frames.config`
+## goes through `load`, which caches, so every drone built here shares ONE
+## FrameConfig per frame — and this file writes to it to turn plating off. Read
+## the value back afterwards and you get whatever the last pass left behind.
+var _shipped: Dictionary = {}
 var _failures: PackedStringArray = []
 var _done: bool = false
 
@@ -63,6 +82,8 @@ func _initialize() -> void:
 	# An instrument measures the REPO's numbers, never one machine's tuning.
 	TunableConfig.user_overrides_enabled = false
 	for frame_id: String in Frames.ROSTER:
+		_shipped[frame_id] = float(
+				Frames.config(frame_id).component_armor.get(&"rotor", 0.0))
 		var drone: FlightController = Frames.build(frame_id)
 		root.add_child(drone)
 		# Frozen: the only thing under test is where one round lands, and a
@@ -80,13 +101,19 @@ func _on_frame() -> void:
 		return
 	_done = true
 	for frame_id: String in Frames.ROSTER:
-		_rows.append(_fire_at(frame_id))
+		_rows.append(_fire_at(frame_id, false))
+	for frame_id: String in Frames.ROSTER:
+		_plated_rows.append(_fire_at(frame_id, true))
 	_report()
 
 
-func _fire_at(frame_id: String) -> Dictionary:
+func _fire_at(frame_id: String, plated: bool) -> Dictionary:
 	var drone: FlightController = _drones[frame_id]
 	drone.repair_motors()
+	# Stated, never inherited: claims 1 to 4 are about separation alone, and
+	# plating would show up in them as damage going missing.
+	drone.frame.component_armor = {} if not plated \
+			else {&"rotor": float(_shipped[frame_id])}
 	# One round, always the same bearing, always front-right of the airframe.
 	drone.last_hit_direction = (drone.global_basis
 			* Vector3(1.0, 0.0, -1.0)).normalized()
@@ -107,6 +134,7 @@ func _fire_at(frame_id: String) -> Dictionary:
 		"frame": frame_id,
 		"body": drone.config.body_m,
 		"rotors": motors.rotor_count,
+		"plating": float(_shipped[frame_id]) if plated else 0.0,
 		"touched": touched,
 		"total": total,
 		"share": top / maxf(total, 0.000001),
@@ -129,6 +157,8 @@ func _report() -> void:
 	print("[separation] The footprint is in METRES and does not scale with the")
 	print("[separation] airframe. That is the entire mechanic: the frames differ")
 	print("[separation] only in how far apart their own rotors sit.")
+	print("[separation] PLATING IS OFF for this table: it is a separation")
+	print("[separation] measurement, and armour would read as damage going missing.")
 	print("[separation] %8s %7s %7s %8s %9s %9s  %s"
 			% ["frame", "body m", "rotors", "touched", "top share", "dealt",
 			"rotor health"])
@@ -211,6 +241,54 @@ func _check() -> void:
 		if float(row["total"]) <= 0.0:
 			_failures.append("the round did NOTHING to the %s — on a frame whose components all sit outside the footprint the nearest one has to take the whole hit, and that fallback is a separate code path nothing else exercises"
 					% row["frame"])
+
+	_check_plating()
+
+
+## CLAIM 5 — the same round again, with each frame's SHIPPED plating on.
+##
+## Two halves, and the second is the one with teeth. Plating must never let more
+## damage through than bare metal does — a sign error or an added-instead-of-
+## subtracted armour term is the cheapest possible bug here and would otherwise
+## sail through every other claim in this file. And on a frame that actually ships
+## plating, something must be stopped: an armour value nobody applies is exactly
+## the untested-code-wearing-a-comment shape the crash guard's surviving mutation
+## taught this project to look for.
+##
+## The expectation comes from the `.tres`, never from a list here. A frame whose
+## plating the human sets to zero stops being asserted the moment they save the
+## file, which is correct — the VALUES are theirs and the MECHANISM is the board's.
+func _check_plating() -> void:
+	print("")
+	print("[separation] CLAIM 5 — PLATING REDUCES, AND ONLY REDUCES (E4.2).")
+	print("[separation] The same round, each frame's shipped component_armor on:")
+	print("[separation] %8s %9s %9s %9s %9s  %s"
+			% ["frame", "plating", "bare", "plated", "stopped", "rotor health"])
+	var plated_frames: int = 0
+	for row: Dictionary in _plated_rows:
+		# Paired by NAME, not by index. The two passes walk the same roster in the
+		# same order today, and an index pairing would go on comparing happily
+		# while reporting one frame's armour against another frame's bare metal.
+		var bare: float = float(_find(String(row["frame"]))["total"])
+		var through: float = float(row["total"])
+		var plating: float = float(row["plating"])
+		print("[separation] %8s %9.4f %9.4f %9.4f %9.4f  %s"
+				% [row["frame"], plating, bare, through, bare - through,
+				row["healths"]])
+		if through > bare + CONSERVATION_EPSILON:
+			_failures.append("plating on the %s let MORE of the round through than bare metal did (%.4f against %.4f) — armour that adds damage is a sign error, and no other claim in this file would see it"
+					% [row["frame"], through, bare])
+		if plating <= 0.0:
+			if absf(through - bare) > CONSERVATION_EPSILON:
+				_failures.append("the %s ships no plating at all, yet the plated pass differs from the bare one (%.4f against %.4f) — zero armour has to be an exact no-op or the roster's unplated frames are being quietly modified"
+						% [row["frame"], through, bare])
+			continue
+		plated_frames += 1
+		if bare - through <= 0.0:
+			_failures.append("the %s ships %.4f of rotor plating and it stopped NOTHING (%.4f through against %.4f bare) — the value is authored in default_frame_%s.tres and nothing is applying it"
+					% [row["frame"], plating, through, bare, row["frame"]])
+	if plated_frames <= 0:
+		_failures.append("not one frame in the roster ships any component_armor, so this claim asserted nothing at all — the E4.2 mechanism is unguarded whether it works or not")
 
 
 func _worst_share() -> float:

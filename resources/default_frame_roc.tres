@@ -11,6 +11,29 @@
 ; in the roster's files — but it is NOT measured for this frame. The jink was
 ; measured best for the Kestrel and worst for the Atlas (v1.81); nobody has flown
 ; the reference pilot in a 500 kg airframe. Treat it as a default, not a finding.
+;
+; component_armor rotor 0.024 — PROVISIONAL, MEDIUM, and it is the human's own
+; worked example rather than a derivation (Iteration 17 / E.q7): *"say the Roc is
+; heavy AND powerful, so i would equip it with medium armor, because it may be
+; more expensive so i would protect it more."* Armour follows from VALUE and
+; EXPOSURE, never from a ratio against another frame.
+;
+; Half a raider bolt: a bolt strips 0.048 of rotor capability at the shipped
+; severity, and 0.024 turns away half of it. MEDIUM is the whole of the design
+; statement — it blunts the roster's standard small arm and defeats nothing. A
+; value of 0.048 would make the Roc's rotors immune to raider fire outright, which
+; is the invulnerability E6 forbids in spirit, and no frame gets it.
+;
+; It is the most-plated frame on both of E.q7's axes at once: 500 kg and 3 m of
+; airframe to hang plate on, the roster's highest value to protect, and the
+; roster's worst exposure — 52% of the rounds fired at it connect, against the
+; Kestrel's 8.7% (E2, `swarm_bench` v2.46).
+;
+; THE MASS IS NOT PAID YET, and that is an honest gap rather than an oversight.
+; E.q7's fiction is a loop — *"the engineer would have to reinforce it with armor,
+; which would then make it heavier, affecting the balance"* — and today plating is
+; free: nothing on this frame gained a gram for carrying it. Closing that loop
+; means a mass cost, and mass is a flight-feel number and therefore the human's.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
@@ -22,4 +45,7 @@ frame_id = &"roc"
 display_name = "Roc"
 flight_config = ExtResource("2_flight")
 hull = 100.0
+component_armor = {
+&"rotor": 0.024
+}
 evasion_style = &"jink"

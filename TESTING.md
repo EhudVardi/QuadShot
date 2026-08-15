@@ -591,7 +591,51 @@ authored-symmetry mistake E4.3 forbids), drop the weight normalisation (the same
 round removes between 0.1178 and 0.3763 depending on the airframe), and widen
 the footprint to 8 m (the worst-hit rotor takes only 26%).
 
+**It gained a fifth claim on 2026-08-15, when the first non-zero
+`component_armor` was authored** (E4.2). Claims 1 to 4 now run with plating
+explicitly **OFF** — separation decides *where* a round lands and plating decides
+how much survives the airframe, and left mixed the conservation claim read the
+Atlas's armour as a leak and failed. Claim 5 turns each frame's shipped plating
+back on for a second pass and holds two things: plating must never let **more**
+through than bare metal (a sign error is the cheapest bug here and no other claim
+would see it), and a frame that *ships* plating must stop **something** — an
+armour value nobody applies is untested code wearing a comment. The expectation
+is read from the `.tres`, so the human can change any value without the check
+arguing; what it guards is the mechanism. Two more mutations on record: delete
+the `- part.armor` in `_damage_component` (all three plated frames report they
+stopped nothing) and flip its sign (all three report letting more through).
 
+### The plating bench — what an armour value is actually worth
+
+```
+<godot> --headless -s scripts/tests/armor_bench.gd --path .
+```
+
+**Measurement only, no pass/fail**, and deliberately so: E.q7 dissolved the
+question of what the armour numbers should come out to, so a check asserting a
+target would assert the thing the user refused to author. Five tables, and the
+two that matter disagree with each other on purpose.
+
+**Table B — per ROUND, plating is worth more on a small frame.** Separation
+splits a round on a 0.28 m airframe into one large share and two small ones, and
+flat plating eats the small ones *entirely*. Measured: 0.006 of plating stops
+0.0163 on a Kestrel-sized frame (**2.71x its face value**) and exactly 0.0060 on
+a Condor or Roc, which take the whole round on one rotor. That is the opposite of
+where E4.2 assumes armour gets carried.
+
+**Table D — per FIGHT, it inverts, and this is the level that matters.** A big
+frame is hit far more often, so its plating fires far more often. Per 100 raider
+bolts *fired*, the Roc's 0.024 saves 1.248 of rotor capability against the
+Atlas's 0.006 saving 0.142 — **8.8x more protection from 4x the plating**. E4.2's
+assumption holds; it just needed the right denominator.
+
+Table C reads the roster against every bestiary round at **both** severities,
+because plating is subtracted *after* severity has scaled the round: the round
+shrinks as the dial comes down and the plating does not, so one authored value
+turns away 50% of a raider bolt at the shipped 0.6 and 30% at E.q8's 1.0. Table E
+is the E6 guard — plating blunts a crash's rotor fraying by at most 12% (the
+Roc), and a crash's **hull** damage never comes through the component path at
+all, so *"can even die if faster"* is untouched.
 
 Run all of them before believing anything:
 

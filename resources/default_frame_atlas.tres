@@ -20,6 +20,34 @@
 ; 1.9x mass on softer rates cannot break a firing solution before it can no
 ; longer shoot back, so its survival is spent where it was bought — in hull 190
 ; and armor 3. The Kestrel keeps the tactical jink; see FrameConfig.evasion_style.
+;
+; component_armor rotor 0.006 — PROVISIONAL, and the SMALLEST value on the roster
+; (Iteration 17 / E4.2, authored from role per E.q7). The plating ladder is
+; denominated in raider bolts, because that is the round the game actually fires:
+; a bolt strips 0.048 of rotor capability at the shipped severity, so 0.006 is an
+; EIGHTH of a bolt and is deliberately a token.
+;
+; Why the armoured frame gets the least plating, which reads backwards and is not:
+; the Atlas already ANSWERED its exposure, in the older grammar. Its 1.9x mass
+; bought hull 190 and armor 3, and E4.2's own argument for plating is a mass
+; argument — *"a 500 kg airframe can carry plating over its power bus and its
+; gyro; a 650 g quad carries nothing"*. A 1.24 kg quad is much nearer the second
+; sentence than the first, and its 0.28 m body gives it the roster's SMALLEST
+; exposure (8.7% of raider rounds connect, against the Roc's 52%).
+;
+; What it is for, then: `armor` protects how long the Atlas lives, and nothing it
+; carries protects how well it FLIES while living. A frame whose doctrine is to
+; hold the line and eat the fire can be shot down to a wallowing wreck with its
+; hull bar still healthy, so its designer spends a little of the remaining budget
+; on the rotors and none of it anywhere else.
+;
+; MEASURED CONSEQUENCE, and it is the finding this value exists to expose
+; (`armor_bench`): 0.006 turns away 34% of a raider bolt's rotor bite here, where
+; the Roc's 0.024 — four times as much plating — turns away 50%. E4.3's separation
+; splits a round on a 0.28 m airframe into one large share and two small ones, and
+; flat plating eats the small ones ENTIRELY. Per round, plating is worth 2.71x more
+; on this frame than on a Roc. Per FIGHT it inverts, because the Roc is hit six
+; times as often; see armor_bench table D.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
@@ -32,4 +60,7 @@ display_name = "Atlas"
 flight_config = ExtResource("2_flight")
 hull = 190.0
 armor = 3.0
+component_armor = {
+&"rotor": 0.006
+}
 evasion_style = &"hold"

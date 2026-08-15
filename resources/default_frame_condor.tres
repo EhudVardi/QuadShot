@@ -5,6 +5,23 @@
 ; `hull` 100 and `evasion_style` jink for the same reasons as the Roc: V.q4 is
 ; open, so size stays the only variable, and no reference pilot has flown this
 ; airframe so its evasion identity is a default rather than a measurement.
+;
+; component_armor rotor 0.012 — PROVISIONAL, LIGHT (Iteration 17 / E4.2, authored
+; from role per E.q7). A quarter of a raider bolt: a bolt strips 0.048 of rotor
+; capability at the shipped severity, and 0.012 turns away a quarter of it.
+;
+; From role, not from a ratio. At 32 kg this is the first frame on the ladder with
+; a real payload budget, so plating over the motor nacelles is something it can
+; actually carry — and at 1.2 m it collects 37% of the rounds fired at it against
+; the Kestrel's 8.7%, so it has a reason to. It is LIGHT rather than medium
+; because it is the cheap workhorse of the ladder: an engineer protects it, they
+; do not armour it the way they would armour the machine that costs fifteen times
+; as much.
+;
+; THIS DOES NOT REOPEN THE `hull` DECISION ABOVE. Holding hull at 100 keeps SIZE
+; the only variable for the scale yard, which is a FLIGHT comparison — nothing
+; shoots at anyone there. Component plating is a different axis and does not enter
+; that map at all.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
@@ -16,4 +33,7 @@ frame_id = &"condor"
 display_name = "Condor"
 flight_config = ExtResource("2_flight")
 hull = 100.0
+component_armor = {
+&"rotor": 0.012
+}
 evasion_style = &"jink"

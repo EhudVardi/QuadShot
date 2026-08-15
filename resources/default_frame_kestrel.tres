@@ -8,6 +8,12 @@
 ; flies the PILOT_VERSION 5 tactical jink — break, settle, fire, break — which is
 ; measured as best on both axes at once for this airframe (v1.81), and which the
 ; Atlas is measured as unable to fly at all.
+;
+; NO `component_armor`, and the absence is authored rather than skipped
+; (Iteration 17 / E4.2). It is E4.2's own worked example — *"a 650 g quad carries
+; nothing"* — and it is also what this frame IS: P3.4 defines the Kestrel's whole
+; column as zeros on purpose, so the datum stays the thing every other frame is a
+; delta against. A plated Kestrel would move the origin of the ruler.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]

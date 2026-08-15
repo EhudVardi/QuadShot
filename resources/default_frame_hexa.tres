@@ -9,6 +9,17 @@
 ; hull and armor are the Kestrel's too. The redundancy this frame is for lives in
 ; the rotors, not in the pool, and giving it a bigger bar as well would confound
 ; the one thing it is meant to demonstrate.
+;
+; NO `component_armor`, for that same reason and one more (Iteration 17 / E4.2).
+; The confound would be unusually bad here: six rotors inside 0.28 m put FOUR of
+; them inside one round's footprint against a quad's three, so flat plating eats
+; three small shares instead of two and is worth 3.07x its face value against the
+; quad's 2.71x (`armor_bench` table B). Plating this frame would hand it a
+; survivability edge that looks like redundancy and is actually separation.
+;
+; THE FRAME IS FROZEN (the human's ruling, 2026-08-15): quads only, it proved the
+; layout machinery works, and it is not to be extended or tuned. It is reported by
+; the benches and never used to set a value.
 [gd_resource type="Resource" script_class="FrameConfig" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://resources/frame_config.gd" id="1_frame"]
