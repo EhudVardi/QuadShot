@@ -67,33 +67,12 @@ text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HealthBar" type="ProgressBar" parent="."]
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -150.0
-offset_top = -42.0
-offset_right = 150.0
-offset_bottom = -22.0
-mouse_filter = 2
-value = 100.0
-show_percentage = false
-
-; The blaster's duty cycle, sat directly above the hull bar and deliberately
-; thinner: it is a thing you manage, not a thing you lose.
-[node name="HeatBar" type="ProgressBar" parent="."]
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -150.0
-offset_top = -58.0
-offset_right = 150.0
-offset_bottom = -46.0
-mouse_filter = 2
-value = 0.0
-show_percentage = false
+; THE HULL BAR AND THE HEAT BAR ARE BOTH GONE (2026-08-15, the human's redesign).
+; Hull is now the airframe's own silhouette on the AIRFRAME plate, which sits in
+; exactly the space these two used to occupy - between the stick boxes - and the
+; blaster's heat is a half ring around the aiming point, because heat is the one
+; readout you consult WHILE aiming. Both are drawn by hud.gd rather than being
+; ProgressBar nodes; see ComponentStatus._hull_body and WeaponGauge.
 
 ; Magazines, beside the bars they belong with. Text rather than a bar because
 ; a count you must spend deliberately is a number, not a level.

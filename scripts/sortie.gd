@@ -121,6 +121,11 @@ func _process(_delta: float) -> void:
 	if not _started and _drone.armed and _drone_health.alive:
 		_start()
 	_hud.set_heat(_weapon.heat_fraction(), _weapon.overheated)
+	# The airframe plate (E.q5). Fed here as well as in main, because a composed
+	# sortie is a real fight and the pilot wants to know which rotor is gone;
+	# without this the plate would draw the hull alone in the one scene the whole
+	# campaign is flown through.
+	_hud.set_components(AirframeComponents.of(_drone, _video_damage))
 	_hud.set_ammo(-1 if _flak.unlimited() else _flak.rounds,
 			-1 if _missiles.unlimited() else _missiles.rounds)
 	_update_lock_indicator()

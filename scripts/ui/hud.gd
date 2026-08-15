@@ -12,8 +12,6 @@ const KILL_FEED_SECONDS: float = 3.0
 @onready var _score_label: Label = $ScoreLabel
 @onready var _combo_label: Label = $ComboLabel
 @onready var _wave_label: Label = $WaveLabel
-@onready var _health_bar: ProgressBar = $HealthBar
-@onready var _heat_bar: ProgressBar = $HeatBar
 @onready var _ammo_label: Label = $AmmoLabel
 @onready var _damage_flash: ColorRect = $DamageFlash
 @onready var _death_label: Label = $DeathLabel
@@ -29,6 +27,7 @@ var _lock_indicator: LockIndicator
 var _gate_marker: GateMarker
 var _reticle: Reticle
 var _stick_display: StickDisplay
+var _heat_gauge: WeaponGauge
 var _pause_label: Label
 var _motor_status: ComponentStatus
 var _video_glitch: ColorRect
@@ -58,6 +57,14 @@ class ComponentStatus:
 
 	## Everything the airframe is built from, in AirframeComponents.TABLE order.
 	var parts: Array[AirframeComponents.Part] = []
+	## STRUCTURAL INTEGRITY, 0..1, drawn as the hull itself.
+	##
+	## Fed by `set_health` rather than read off the `structure` row of `parts`,
+	## and the difference matters: only `main.gd` and the composed sortie feed the
+	## component list, while SIX callers feed the health. Taking hull from the
+	## registry would have left the menu tower, the aim drill and the duel
+	## harness with no hull readout the moment the old bar was retired.
+	var hull: float = 1.0
 
 	## Sharp green->yellow->red ramp: a motor at 0.6 must read as clearly hurt,
 	## not near-green (the old lerp's flaw).
@@ -79,16 +86,22 @@ class ComponentStatus:
 	const EDGE: float = 62.0
 
 	func _draw() -> void:
-		if parts.is_empty():
-			return
-		# Bottom-left, grouped with the input indicators (v1.45). `size` is the
-		# reference frame (full-rect control under canvas_items stretch), so this
-		# rides the window like the stick display does.
-		var origin := Vector2(30.0, size.y - PLATE.y - 40.0)
-		var centre := origin + PLATE * 0.5
-		draw_string(get_theme_default_font(), origin + Vector2(0.0, -6.0),
+		# BOTTOM CENTRE, between the two stick boxes (the human's placement). The
+		# sticks sit at +/- 230 px with a 38 px half-width, so their inner edges
+		# are at +/- 192 and this 168-wide plate drops into the gap the old
+		# hull/heat/ammo bars used to fill.
+		var centre := Vector2(size.x * 0.5, size.y - PLATE.y * 0.5 - 26.0)
+		draw_string(get_theme_default_font(),
+				centre + Vector2(-PLATE.x * 0.5, -PLATE.y * 0.5 - 6.0),
 				"AIRFRAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
 				Color(1, 1, 1, 0.55))
+		# THE HULL IS DRAWN EVEN WITH NO COMPONENT LIST, because six callers feed
+		# the health and only two feed the parts. A scene that never calls
+		# `set_components` still gets its integrity readout, which is what the
+		# retired ProgressBar used to guarantee everywhere.
+		if parts.is_empty():
+			_hull_body(centre)
+			return
 
 		var points: Dictionary = layout(parts, centre)
 		var rotors: Array[AirframeComponents.Part] = []
@@ -103,16 +116,7 @@ class ComponentStatus:
 		# corner, over there" rather than "the third one in the list".
 		for part: AirframeComponents.Part in rotors:
 			draw_line(centre, points[part.id], Color(0.55, 0.62, 0.7, 0.5), 3.0)
-		var hull_half := Vector2(13.0, 18.0)
-		draw_rect(Rect2(centre - hull_half, hull_half * 2.0),
-				Color(0.16, 0.19, 0.24, 0.85))
-		draw_rect(Rect2(centre - hull_half, hull_half * 2.0),
-				Color(0.55, 0.62, 0.7, 0.55), false, 1.0)
-		# The nose, so "up is forward" is stated by the picture and not only by
-		# the fact that the lens happens to be drawn at the top.
-		draw_line(centre + Vector2(0.0, -hull_half.y),
-				centre + Vector2(0.0, -hull_half.y - 7.0),
-				Color(0.55, 0.62, 0.7, 0.55), 2.0)
+		_hull_body(centre)
 
 		var ghosts: Array[AirframeComponents.Part] = []
 		for part: AirframeComponents.Part in parts:
@@ -205,6 +209,35 @@ class ComponentStatus:
 			out[part.id] = centre + Vector2(clampf(offset.x, -EDGE, EDGE),
 					clampf(offset.y, -EDGE, EDGE))
 		return out
+
+	## THE HULL, DRAWN AS THE AIRFRAME'S OWN BODY — which is the creative bit the
+	## human left open, and it falls out of what the structure pool already IS.
+	##
+	## E5 keeps `hull` as a **structural integrity pool** beside the components
+	## rather than as one of them, and the registry marks it `located = false`
+	## because it has no place on the airframe: it IS the airframe. So it gets no
+	## pip and no bar — the hull silhouette in the middle of the plate drains and
+	## reddens, and the number sits inside it. Losing integrity visibly empties the
+	## picture of the aircraft, which is the one wound that should read that way.
+	##
+	## It is the only gauge here fed by a value rather than by the registry; see
+	## `hull` for why.
+	func _hull_body(centre: Vector2) -> void:
+		var h: float = clampf(hull, 0.0, 1.0)
+		var tint: Color = ramp(h)
+		var half := Vector2(15.0, 21.0)
+		var box := Rect2(centre - half, half * 2.0)
+		draw_rect(box, Color(0.10, 0.12, 0.16, 0.9))
+		draw_rect(Rect2(box.position + Vector2(0.0, box.size.y * (1.0 - h)),
+				Vector2(box.size.x, box.size.y * h)),
+				Color(tint.r, tint.g, tint.b, 0.5))
+		draw_rect(box, tint, false, 1.5)
+		# The nose, so "up is forward" is stated by the picture and not only by
+		# the fact that the lens happens to be drawn at the top.
+		draw_line(centre + Vector2(0.0, -half.y), centre + Vector2(0.0, -half.y - 7.0),
+				Color(0.55, 0.62, 0.7, 0.55), 2.0)
+		_value(centre, h)
+
 
 	## A rotor: a disc whose HUE is its state, with the reading inside it. The
 	## human's shape, and it beats a square pip for the reason they gave — a rotor
@@ -405,6 +438,114 @@ class Reticle:
 					at + Vector2(cos(a1), sin(a1)) * radius, col, 1.5)
 
 
+## A WEAPON'S STATE AS A HALF RING AROUND THE AIMING POINT (the human's design,
+## 2026-08-15): *"redo the blaster power gauge into some half ring at the right
+## from the center, the aiming point at. at idle is gray half noticed, when used,
+## flash a bit, fill it in some color like yellow from bottom as 0% up to the full
+## up as 100%."*
+##
+## **IT IS DELIBERATELY GENERIC, because they said what it is for**: *"this
+## concept can be used to show weapon state gauge like power/heat/ammunition or
+## some another attribute of a weapon equipment."* So it carries a fraction, a
+## tint, a short label and a side — nothing about heat — and a second weapon's
+## magazine is another instance rather than another widget.
+##
+## WHY IT BELONGS AT THE RETICLE AND NOT AT THE BOTTOM OF THE SCREEN: it is the
+## only readout you consult WHILE aiming. The old heat bar sat 58 px off the
+## bottom edge, which is a glance away from the target at exactly the moment you
+## cannot afford one.
+##
+## It fills from the BOTTOM UP, so "full" is up and "empty" is down — the reading
+## a pilot already has for a fuel gauge, a magazine and a battery.
+class WeaponGauge:
+	extends Control
+
+	## Far enough out to clear the reticle's own rings and the lock diamond.
+	const RADIUS: float = 92.0
+	const THICKNESS: float = 7.0
+	## How fast a use-flash fades, in fractions per second.
+	const FLASH_DECAY: float = 3.2
+
+	## 0..1. What the gauge is showing.
+	var fraction: float = 0.0
+	## Fill colour. Yellow for the blaster because the palette says so
+	## (CLAUDE.md): yellow = your fire.
+	var tint: Color = Color(1.0, 0.85, 0.25)
+	## Locked out / spent — pulses red instead of filling.
+	var alarm: bool = false
+	## +1 draws on the right of the aiming point, -1 on the left, so a second
+	## weapon can sit opposite without either of them moving.
+	var side: float = 1.0
+	var label: String = ""
+
+	var _flash: float = 0.0
+	var _previous: float = 0.0
+
+	func _process(delta: float) -> void:
+		if _flash <= 0.0:
+			return
+		_flash = maxf(_flash - delta * FLASH_DECAY, 0.0)
+		queue_redraw()
+
+	## THE FLASH IS DERIVED FROM THE VALUE RISING, not from a "fired" signal.
+	## Nothing has to tell this widget that the trigger was pulled: heat going up
+	## IS the trigger being pulled, and a magazine going down is the same event
+	## for a gauge that counts the other way. One less wire to keep in sync, and
+	## it works for any attribute that moves when the weapon is used.
+	func show_value(value: float, alarm_state: bool) -> void:
+		var next: float = clampf(value, 0.0, 1.0)
+		if absf(next - _previous) > 0.0005:
+			_flash = 1.0
+		_previous = next
+		fraction = next
+		alarm = alarm_state
+		queue_redraw()
+
+	func _draw() -> void:
+		var at := size * 0.5
+		# Bottom of the ring is +PI/2 (screen Y grows downward) and the top is
+		# -PI/2, so sweeping between them across `side` traces the half facing
+		# outward from the aiming point.
+		var start: float = PI * 0.5
+		var finish: float = -PI * 0.5
+		if side < 0.0:
+			start = PI * 0.5
+			finish = PI * 1.5
+		# IDLE IS BARELY THERE. A gauge you are not currently managing must not
+		# compete with the target, and the flash is what brings it back.
+		var track: float = 0.10 + 0.30 * _flash
+		draw_arc(at, RADIUS, start, finish, 40, Color(0.75, 0.78, 0.85, track),
+				THICKNESS)
+		var fill: Color = tint
+		if alarm:
+			# A pulsing red ring is "the gun is dead, stop pulling" and must be
+			# tellable from "you have a burst left" WITHOUT reading a number.
+			var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018)
+			fill = Color(1.0, 0.22, 0.16).lerp(Color(1.0, 0.75, 0.3), pulse)
+		if fraction > 0.001:
+			draw_arc(at, RADIUS, start,
+					start + (finish - start) * fraction, 40,
+					Color(fill.r, fill.g, fill.b, 0.55 + 0.45 * _flash), THICKNESS)
+		# End caps: where 0% and 100% are, so a part-filled ring is readable
+		# without having to remember which way it grows.
+		_cap(at, start, Color(1, 1, 1, 0.18 + 0.25 * _flash))
+		_cap(at, finish, Color(1, 1, 1, 0.18 + 0.25 * _flash))
+		if label != "":
+			var font: Font = get_theme_default_font()
+			var text_at := at + Vector2(side * (RADIUS + 12.0), 4.0)
+			var width: float = font.get_string_size(label,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			if side < 0.0:
+				text_at.x -= width
+			draw_string(font, text_at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10,
+					Color(fill.r, fill.g, fill.b, 0.35 + 0.5 * _flash))
+
+	func _cap(at: Vector2, angle: float, col: Color) -> void:
+		var unit := Vector2(cos(angle), sin(angle))
+		draw_line(at + unit * (RADIUS - THICKNESS * 0.7),
+				at + unit * (RADIUS + THICKNESS * 0.7), col, 1.5)
+
+
 ## Raw gamepad stick positions: two boxes flanking the health bar, a dot per
 ## stick (left = yaw/throttle, right = roll/pitch), x right / y up. Raw on
 ## purpose — no deadzone, expo or curve — so the pilot sees the hardware.
@@ -483,6 +624,14 @@ func _ready() -> void:
 	_stick_display.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stick_display)
+	# The blaster's heat, as a half ring around the aiming point. Yellow because
+	# the palette says so (CLAUDE.md): yellow = your fire.
+	_heat_gauge = WeaponGauge.new()
+	_heat_gauge.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_heat_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_heat_gauge.label = "HEAT"
+	_heat_gauge.side = 1.0
+	add_child(_heat_gauge)
 	_repair_label = Label.new()
 	_repair_label.text = "⟳ ENGINES RESTORED"
 	_repair_label.add_theme_color_override(&"font_color", Color(0.3, 1.0, 0.45))
@@ -543,9 +692,16 @@ func announce_gate(sortie: int) -> void:
 	_wave_label.text = "SORTIE %d CLEAR — EXIT GATE OPEN" % sortie
 
 
+## STRUCTURAL INTEGRITY, now drawn as the airframe's own hull on the plate rather
+## than as a bar under it (the human's call, 2026-08-15: *"we can now add the hull
+## health to it in some creative way"*). The ProgressBar it replaced is gone.
+##
+## Still a value passed IN rather than read off the component registry, because
+## six callers feed this and only two feed the parts list — the menu tower, the
+## aim drill and the duel harness would all have lost their hull readout.
 func set_health(current: float, maximum: float) -> void:
-	_health_bar.max_value = maximum
-	_health_bar.value = current
+	_motor_status.hull = current / maximum if maximum > 0.0 else 0.0
+	_motor_status.queue_redraw()
 
 
 ## The blaster's heat, 0..1, and whether it has locked out.
@@ -557,13 +713,12 @@ func set_health(current: float, maximum: float) -> void:
 ## broken weapon the first time it bites.
 ##
 ## Yellow because the palette says so (CLAUDE.md): yellow = your fire.
+##
+## Now a half ring around the AIMING POINT instead of a bar 58 px off the bottom
+## edge, because heat is the one readout you consult while aiming and the old
+## placement cost a glance away from the target to read it.
 func set_heat(fraction: float, overheated: bool) -> void:
-	_heat_bar.value = clampf(fraction, 0.0, 1.0) * 100.0
-	if overheated:
-		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018)
-		_heat_bar.modulate = Color(1.0, 0.22, 0.16).lerp(Color(1.0, 0.75, 0.3), pulse)
-		return
-	_heat_bar.modulate = Color(0.95, 0.9, 0.35).lerp(Color(1.0, 0.45, 0.15), fraction)
+	_heat_gauge.show_value(fraction, overheated)
 
 
 ## The two magazines. A weapon passing -1 has no magazine at all and is left
