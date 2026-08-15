@@ -30,8 +30,8 @@ when the human explicitly asks (2026-08-15 ruling).
 | # | task | status | finding |
 |---|---|---|---|
 | 1 | Hit separation (E4.3) — a round straddles a small frame, takes one part of a big one | DONE | `hit_footprint_m` 0.25 m, frame-independent BY DESIGN — kestrel/atlas touch 3 rotors (79% on the worst), condor/roc touch 1 (100%), hexa touches 4 (51%); damage conserved at 0.2400 on every frame. Also added `tools/board.sh`: a `for` loop can never match a permission allowlist, one script can |
-| 2 | `separation_check` — the guard for task 1 | WIP | |
-| 3 | Per-component armour as data (E4.2), all zeros so nothing moves | TODO | |
+| 2 | `separation_check` — the guard for task 1 | DONE | board now 25; the trap named in the file is that "a hit damages the right component" passes on the OLD code too — only a comparison across frame sizes distinguishes them; 3 mutations run, each failing a different sentence |
+| 3 | Per-component armour as data (E4.2), all zeros so nothing moves | WIP | |
 | 4 | Author armour onto the heavy frames from role, provisional | TODO | |
 | 5 | `Lethality` Layer 1 rework (E8): expected hits-to-kill + expected FIRST FAILURE | TODO | |
 | 6 | `lethality_check` plants shots at NAMED LOCATIONS (E8) | TODO | |
