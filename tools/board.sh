@@ -19,7 +19,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 CHECKS="hover combat wave missile run repair motor_damage menu manifest
         sortie_compose falx screamer composition heat ammo sortie war_loop
-        war_room aegis lance phalanx terrain crash separation"
+        war_room aegis lance phalanx terrain crash separation hud"
 if [ "${1:-}" != "fast" ]; then
     CHECKS="$CHECKS lethality"
 fi

@@ -553,12 +553,12 @@ The motor audio is the third thing wanting a human: the four-emitter detune was
 tuned by ear in v2.43/v2.45, and the spacing rule generalises to six but six
 sources at the same per-pair beat rate is a denser texture, not the same one.
 
-## 4. The check suite — 25 headless checks
+## 4. The check suite — 26 headless checks
 
 **Run the whole board with one command** (`tools/board.sh`, added 2026-08-15):
 
 ```
-./tools/board.sh          all 25, about 5 minutes
+./tools/board.sh          all 26, about 5 minutes
 ./tools/board.sh fast     skips lethality, about 2-3 minutes
 ```
 
@@ -636,6 +636,27 @@ turns away 50% of a raider bolt at the shipped 0.6 and 30% at E.q8's 1.0. Table 
 is the E6 guard — plating blunts a crash's rotor fraying by at most 12% (the
 Roc), and a crash's **hull** damage never comes through the component path at
 all, so *"can even die if faster"* is untouched.
+
+`hud_check` (2026-08-15) guards the **airframe plate** — the HUD's top-down
+picture of the aircraft, with every component drawn where it physically sits.
+It exists because that widget has already carried the size-ladder scar once: the
+motor block was `for i: int in 4` over a hand-authored 2×2 table, so a six-rotor
+frame drew four gauges and silently dropped two rotors. **That was found by an
+audit, and an audit does not run again tomorrow.**
+
+Five claims: every rotor gets a place whatever the count; the picture is
+**nose-up** (a forward rotor draws above an aft one, which is what makes a lit
+gauge mean *that corner*); nothing is drawn off the plate; the structure pool
+gets no place at all (it is the whole airframe, and already has the health bar);
+and **the rotor ring is the same size on every frame**.
+
+That last one has teeth and earned its keep on its first run — it caught a real
+flaw in the layout it was written to guard. The ring was normalised on
+`max(|x|, |z|)`, which measures a *square* while the plate draws a *circle*, so a
+quad-X's diagonal rotors sat at 65 px while a hexa's ring rotors sat at 46 px.
+Mutation on record: normalise on the whole airframe instead of the rotor span and
+the ring becomes frame-dependent (1.7% today, because the Condor's and Roc's
+lenses sit just past the rotor diagonal).
 
 ### The graze bench — why a building strike can register nothing
 

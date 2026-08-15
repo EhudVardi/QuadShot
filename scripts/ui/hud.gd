@@ -69,95 +69,226 @@ class ComponentStatus:
 			return yellow.lerp(green, (h - 0.6) / 0.4)
 		return red.lerp(yellow, h / 0.6)
 
-	const PIP: float = 20.0
-	const GAP: float = 7.0
-	## Half the pitch between adjacent pips — the radius the mount ring projects
-	## onto. (PIP + GAP) / 2 is what reproduces the old 2x2 block exactly.
-	const SPREAD: float = (PIP + GAP) * 0.5
+	## Radius the WIDEST ROTOR projects to. Everything else on the airframe is
+	## placed by the same scale, so the picture keeps its proportions.
+	const RING: float = 46.0
+	const ROTOR_R: float = 15.0
+	const PLATE := Vector2(168.0, 150.0)
+	## Anything this far from the hub is pulled back in. Only reachable by a lens
+	## mounted further forward than the rotors, which is the Condor and the Roc.
+	const EDGE: float = 62.0
 
 	func _draw() -> void:
 		if parts.is_empty():
 			return
-		# Bottom-left, grouped with the input indicators (v1.45): out from under
-		# the score / kill-feed text it used to overlap at the top-left. size is
-		# the reference frame (full-rect control under canvas_items stretch), so
-		# this rides the window like the stick display does.
-		var origin := Vector2(30.0, size.y - 150.0)
-		var centre := origin + Vector2(SPREAD + PIP * 0.5, SPREAD + PIP * 0.5)
+		# Bottom-left, grouped with the input indicators (v1.45). `size` is the
+		# reference frame (full-rect control under canvas_items stretch), so this
+		# rides the window like the stick display does.
+		var origin := Vector2(30.0, size.y - PLATE.y - 40.0)
+		var centre := origin + PLATE * 0.5
+		draw_string(get_theme_default_font(), origin + Vector2(0.0, -6.0),
+				"AIRFRAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+				Color(1, 1, 1, 0.55))
+
+		var points: Dictionary = layout(parts, centre)
 		var rotors: Array[AirframeComponents.Part] = []
-		var bars: Array[AirframeComponents.Part] = []
 		for part: AirframeComponents.Part in parts:
-			if not part.built:
-				continue
 			if part.kind == &"rotor":
 				rotors.append(part)
-			elif part.located:
-				# Everything built that is not a rotor and does have a place on
-				# the airframe reads as a bar. The structure pool is excluded by
-				# `located`: it already has the health bar, and showing it twice
-				# would make the coarse layer look like a component.
-				bars.append(part)
 
-		if not rotors.is_empty():
-			draw_string(get_theme_default_font(), origin + Vector2(0, -7),
-					"MOTORS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
-		var boxes: Array[Rect2] = pip_rects(rotors, centre)
-		for i: int in rotors.size():
-			_gauge(boxes[i], rotors[i].health, true)
+		# THE AIRFRAME ITSELF, drawn before anything mounted on it: arms out to
+		# every rotor, then the hull over the top. This is the half the human
+		# asked for that the pip block never had — *"a projection of the craft
+		# from top to bottom"* — and it is what makes a lit gauge mean "that
+		# corner, over there" rather than "the third one in the list".
+		for part: AirframeComponents.Part in rotors:
+			draw_line(centre, points[part.id], Color(0.55, 0.62, 0.7, 0.5), 3.0)
+		var hull_half := Vector2(13.0, 18.0)
+		draw_rect(Rect2(centre - hull_half, hull_half * 2.0),
+				Color(0.16, 0.19, 0.24, 0.85))
+		draw_rect(Rect2(centre - hull_half, hull_half * 2.0),
+				Color(0.55, 0.62, 0.7, 0.55), false, 1.0)
+		# The nose, so "up is forward" is stated by the picture and not only by
+		# the fact that the lens happens to be drawn at the top.
+		draw_line(centre + Vector2(0.0, -hull_half.y),
+				centre + Vector2(0.0, -hull_half.y - 7.0),
+				Color(0.55, 0.62, 0.7, 0.55), 2.0)
 
-		# Bars under the ring: drain left-to-right, same ramp, so a frying
-		# transmitter reads exactly like a frying motor.
-		var bar_width: float = 2.0 * PIP + GAP
-		var bar_top: float = origin.y + 2.0 * PIP + GAP + 8.0
-		for part: AirframeComponents.Part in bars:
-			draw_string(get_theme_default_font(), Vector2(origin.x, bar_top - 3.0),
-					label_for(part.kind), HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
-					Color(1, 1, 1, 0.55))
-			_gauge(Rect2(Vector2(origin.x, bar_top), Vector2(bar_width, 8.0)),
-					part.health, false)
-			bar_top += 20.0
+		var ghosts: Array[AirframeComponents.Part] = []
+		for part: AirframeComponents.Part in parts:
+			if not points.has(part.id):
+				continue
+			var at: Vector2 = points[part.id]
+			if part.kind == &"rotor":
+				_rotor(at, part)
+			elif part.kind == &"vtx":
+				_transmitter(at, part)
+			elif part.built:
+				_block(at, part)
+			else:
+				# NOT A GAUGE, because nothing can move it yet. Four rows of the
+				# registry are description-only, and drawing them with a reading
+				# would be inventing one — so they get a dim mark that says the
+				# equipment is aboard and where, and no number at all.
+				ghosts.append(part)
 
-	## Where each rotor's pip goes, projected from its own mount on the airframe.
+		# GHOSTS LAST, AND SPREAD SIDEWAYS. Two collisions make this necessary and
+		# both come from the registry being honest rather than from a bug. A prop
+		# sits at its rotor's exact mount, so it would draw on top of the disc —
+		# it is skipped, and when props become damageable they belong AS a ring on
+		# the rotor rather than as a second mark beside it. And every singleton in
+		# MOUNTS is on the centreline, so power, gyro, the gun and the magazine
+		# would stack on one another and on the lens.
+		#
+		# The lateral offset is PRESENTATIONAL and the vertical position is not:
+		# fore-and-aft is the axis that carries the information (the pack is aft,
+		# the gun is forward), and that is the one kept true.
+		var index: int = 0
+		for part: AirframeComponents.Part in ghosts:
+			if _shares_mount(part, points):
+				continue
+			var side: float = -1.0 if index % 2 == 0 else 1.0
+			_ghost(Vector2(centre.x + side * 30.0, points[part.id].y), part, side)
+			index += 1
+
+	## Does this part sit exactly where something already drawn sits? True for
+	## every prop, which shares its rotor's mount by design.
+	static func _shares_mount(part: AirframeComponents.Part,
+			points: Dictionary) -> bool:
+		var at: Vector2 = points[part.id]
+		for id: StringName in points:
+			if id == part.id:
+				continue
+			if String(id).begins_with("rotor") and points[id].distance_to(at) < 1.0:
+				return true
+		return false
+
+	## WHERE EVERY PART GOES, keyed by `Part.id`.
 	##
-	## STATIC AND SEPARATE FROM `_draw` SO IT CAN BE MEASURED. A layout buried in
-	## a draw call can only be checked by looking at it, and this one carries a
-	## claim worth holding: it reproduces the hand-authored 2x2 block exactly for
-	## a quad, and lays a hexa on a ring rather than dropping two rotors.
+	## STATIC AND SEPARATE FROM `_draw` SO IT CAN BE MEASURED — a layout buried in
+	## a draw call can only be checked by looking at it.
 	##
-	## The ring is normalised so the widest rotor sits at the edge. Body -Z is the
-	## nose and screen -Y is up, so z maps straight onto y and the picture is the
-	## airframe seen from above, nose up — which is what makes a lit pip mean
-	## "that corner, over there" instead of "the third one in the list".
-	static func pip_rects(rotors: Array[AirframeComponents.Part],
-			centre: Vector2) -> Array[Rect2]:
-		var out: Array[Rect2] = []
+	## NORMALISED ON THE ROTOR SPAN, not on the widest part of the whole airframe.
+	## The rotors are what you read at a glance, so they keep the ring at a fixed
+	## size on every frame and anything reaching past them is clamped to the plate.
+	##
+	## Scaling to fit EVERYTHING is the obvious alternative and it makes the ring
+	## frame-dependent: measured, the Condor's and the Roc's would shrink by 1.7%,
+	## because their lenses sit fractionally beyond the rotor diagonal (z -0.74
+	## against 0.727). Small today and not the point — the point is that the
+	## picture would change shape per frame at all, and a longer-nosed frame would
+	## move it much further. `hud_check` claim 5 holds the ring identical.
+	##
+	## Body -Z is the nose and screen -Y is up, so z maps straight onto y and this
+	## is the airframe seen from above, nose up.
+	static func layout(parts: Array[AirframeComponents.Part],
+			centre: Vector2) -> Dictionary:
+		var out: Dictionary = {}
+		# THE RADIUS, NOT THE WIDEST AXIS. Taking `max(|x|, |z|)` measures a
+		# SQUARE and the plate draws a CIRCLE, so a quad-X — whose rotors sit on
+		# the diagonal — pushed its corners out to RING x root 2 while a hexa's
+		# ring rotors landed at exactly RING. 65 px against 46 px for the same
+		# widget, caught by `hud_check`'s fifth claim on its first run.
 		var reach: float = 0.0
-		for part: AirframeComponents.Part in rotors:
-			reach = maxf(reach, maxf(absf(part.position.x), absf(part.position.z)))
-		for part: AirframeComponents.Part in rotors:
-			var offset := Vector2(part.position.x, part.position.z)
-			if reach > 0.0:
-				offset = offset / reach * SPREAD
-			out.append(Rect2(centre + offset - Vector2(PIP, PIP) * 0.5,
-					Vector2(PIP, PIP)))
+		for part: AirframeComponents.Part in parts:
+			if part.kind == &"rotor":
+				reach = maxf(reach,
+						Vector2(part.position.x, part.position.z).length())
+		if reach <= 0.0:
+			return out
+		for part: AirframeComponents.Part in parts:
+			# The structure pool has no location by design (E5): it is the whole
+			# airframe, and it already has the health bar.
+			if not part.located:
+				continue
+			var offset := Vector2(part.position.x, part.position.z) / reach * RING
+			out[part.id] = centre + Vector2(clampf(offset.x, -EDGE, EDGE),
+					clampf(offset.y, -EDGE, EDGE))
 		return out
 
-	## One drained gauge. `vertical` fills bottom-up (a pip), otherwise
-	## left-to-right (a bar); both empty AND redden, so a wounded component is
-	## unmissable at a glance.
-	func _gauge(box: Rect2, health: float, vertical: bool) -> void:
-		var h: float = clampf(health, 0.0, 1.0)
-		draw_rect(box, Color(0, 0, 0, 0.55))
-		if vertical:
-			var fill: float = box.size.y * h
-			draw_rect(Rect2(box.position + Vector2(0.0, box.size.y - fill),
-					Vector2(box.size.x, fill)), ramp(h))
-		else:
-			draw_rect(Rect2(box.position, Vector2(box.size.x * h, box.size.y)),
-					ramp(h))
-		var hurt: bool = h < 0.95
-		draw_rect(box, Color(1, 1, 1, 0.85) if hurt else Color(0, 0, 0, 0.6),
-				false, 2.0 if hurt else 1.0)
+	## A rotor: a disc whose HUE is its state, with the reading inside it. The
+	## human's shape, and it beats a square pip for the reason they gave — a rotor
+	## is a disc on the real aircraft, so the picture reads as the machine.
+	func _rotor(at: Vector2, part: AirframeComponents.Part) -> void:
+		var h: float = clampf(part.health, 0.0, 1.0)
+		var tint: Color = ramp(h)
+		draw_circle(at, ROTOR_R, Color(0.0, 0.0, 0.0, 0.6))
+		# The disc fills as it dies rather than only reddening: a ring that is
+		# both emptier AND redder survives being glanced at.
+		draw_circle(at, maxf(ROTOR_R * h, 2.0), Color(tint.r, tint.g, tint.b, 0.5))
+		draw_arc(at, ROTOR_R, 0.0, TAU, 28, tint, 2.0)
+		_plating(at, ROTOR_R + 3.0, part)
+		_value(at, h)
+
+	## The transmitter, as a thing that BROADCASTS: a hub with two arcs opening
+	## forward. Hue is its state like everything else, so a failing feed reads the
+	## same way a failing rotor does - which is D1's whole thesis, and is why the
+	## jam effect reuses the damage overlay.
+	func _transmitter(at: Vector2, part: AirframeComponents.Part) -> void:
+		var h: float = clampf(part.health, 0.0, 1.0)
+		var tint: Color = ramp(h)
+		draw_circle(at, 3.5, tint)
+		# The arcs THIN OUT as the transmitter dies, so a wrecked feed is a stub
+		# rather than a full broadcast in an alarming colour.
+		for i: int in 2:
+			var radius: float = 7.0 + float(i) * 5.0
+			draw_arc(at, radius, PI * 1.15, PI * 1.85, 14, tint,
+					maxf(2.0 * h, 0.6))
+		_plating(at, 15.0, part)
+		draw_string(get_theme_default_font(), at + Vector2(9.0, 4.0),
+				"%s %d" % [label_for(part.kind), roundi(h * 100.0)],
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, tint)
+
+	## Any other BUILT component: a small block at its mount with its label and
+	## reading beside it. Nothing reaches this today, and it is what a new failure
+	## mode gets for free the day it flips `built`.
+	func _block(at: Vector2, part: AirframeComponents.Part) -> void:
+		var h: float = clampf(part.health, 0.0, 1.0)
+		var tint: Color = ramp(h)
+		var box := Rect2(at - Vector2(6.0, 6.0), Vector2(12.0, 12.0))
+		draw_rect(box, Color(0.0, 0.0, 0.0, 0.6))
+		draw_rect(Rect2(box.position + Vector2(0.0, box.size.y * (1.0 - h)),
+				Vector2(box.size.x, box.size.y * h)), tint)
+		draw_rect(box, tint, false, 1.0)
+		_plating(at, 11.0, part)
+		draw_string(get_theme_default_font(), at + Vector2(10.0, 4.0),
+				"%s %d" % [label_for(part.kind), roundi(h * 100.0)],
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, tint)
+
+	## Equipment that is aboard but cannot fail yet: where it sits, what it is,
+	## and deliberately no reading.
+	func _ghost(at: Vector2, part: AirframeComponents.Part, side: float) -> void:
+		var dim := Color(0.62, 0.68, 0.76, 0.4)
+		draw_arc(at, 4.5, 0.0, TAU, 12, dim, 1.0)
+		_plating(at, 8.0, part)
+		# The label reads OUTWARD from the airframe, so it never runs back across
+		# the hull it is annotating.
+		var text: String = label_for(part.kind)
+		var font: Font = get_theme_default_font()
+		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
+				-1, 9).x
+		var dx: float = 8.0 if side > 0.0 else -8.0 - width
+		draw_string(font, at + Vector2(dx, 3.5), text,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 9, dim)
+
+	## ARMOUR, SHOWN AS A RING AROUND WHAT IT PROTECTS (E4.2). Plating that
+	## protects a NAMED thing is the whole argument for the mechanic — *"they got
+	## my power bus through the plating"* — and a number in a config cannot say
+	## that. Drawn only where there IS plating, so an unarmoured frame is not
+	## covered in empty rings.
+	func _plating(at: Vector2, radius: float, part: AirframeComponents.Part) -> void:
+		if part.armor <= 0.0:
+			return
+		draw_arc(at, radius, 0.0, TAU, 24, Color(0.62, 0.78, 1.0, 0.75), 2.0)
+
+	## The reading, as characters, centred in the shape it belongs to.
+	func _value(at: Vector2, health: float) -> void:
+		var font: Font = get_theme_default_font()
+		var text: String = "%d" % roundi(clampf(health, 0.0, 1.0) * 100.0)
+		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
+				-1, 10).x
+		draw_string(font, at + Vector2(-width * 0.5, 3.5), text,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.92))
 
 	## Four characters or fewer: this sits in the corner of a flying pilot's eye.
 	static func label_for(kind: StringName) -> String:
