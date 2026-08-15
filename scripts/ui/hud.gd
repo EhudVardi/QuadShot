@@ -618,10 +618,24 @@ class WeaponGauge:
 class HorizonLine:
 	extends Control
 
-	## Half the drawn width, in pixels.
-	const REACH: float = 150.0
+	## Half the horizon's width, as a FRACTION of the viewport width — so it spans
+	## about 80% of the screen on any window. A fraction rather than a pixel
+	## count for the reason this project has learned five times over: a constant
+	## that is right at one size is wrong at another.
+	const REACH_FRACTION: float = 0.40
+	## Dash geometry, in pixels. Long enough to read as one line at a glance,
+	## broken enough to let the world through — a solid line this wide fights the
+	## scene, which is why Liftoff's is dashed and why this one is too.
+	const DASH: float = 14.0
+	const DASH_GAP: float = 10.0
 	## Clear space either side of the aiming point.
 	const GAP: float = 16.0
+	## Pitch ladder: a labelled rung every RUNG_STEP degrees out to RUNG_MAX, each
+	## drawn at this fraction of the horizon's own width so the horizon stays the
+	## dominant line.
+	const RUNG_STEP: int = 10
+	const RUNG_MAX: int = 60
+	const RUNG_FRACTION: float = 0.34
 	## How far past the screen edge the line is still drawn before it is dropped.
 	const OVERSHOOT: float = 1.6
 	## How long the thrust arrow is, in pixels.
@@ -636,6 +650,30 @@ class HorizonLine:
 	## aircraft and several scenes fly one. Zero hides the arrow, which is what a
 	## scene that never sets it gets.
 	var thrust_axis: Vector3 = Vector3.ZERO
+	## The pitch ladder, on the human's call — *"we can always add and set a
+	## toggle. i want realism."* Bound to `hud_ladder_toggle`, default on.
+	var ladder: bool = true
+
+	## HOW FAR OFF THE HORIZON A GIVEN PITCH ANGLE SITS, in pixels.
+	##
+	## The one piece of arithmetic the whole instrument rests on, and it is the
+	## real projection rather than a spacing someone liked the look of: a point
+	## `degrees` above the horizon subtends `tan(degrees)` at the lens, so it
+	## lands `tan(degrees) * f` off the horizon line, where `f` is the focal
+	## length in pixels. Which is exactly how the horizon's own offset from screen
+	## centre is computed, so the ladder and the horizon cannot drift apart.
+	static func rung_offset(degrees: float, focal_px: float) -> float:
+		return tan(deg_to_rad(degrees)) * focal_px
+
+
+	## The focal length in pixels for a viewport of this height at this FOV.
+	##
+	## Godot's `fov` is the VERTICAL angle under the default `keep_height` aspect
+	## mode, which is what makes height the right denominator — using the width
+	## here is a bug that only shows on a non-16:9 window.
+	static func focal_px(viewport_height: float, fov_degrees: float) -> float:
+		return (viewport_height * 0.5) / tan(deg_to_rad(fov_degrees) * 0.5)
+
 
 	## WHERE THE SKY IS ON SCREEN, for a given camera roll.
 	##
@@ -686,7 +724,7 @@ class HorizonLine:
 		var forward: Vector3 = -basis.z
 		var pitch: float = asin(clampf(forward.y, -1.0, 1.0))
 		var roll: float = camera_roll(basis)
-		var f: float = (size.y * 0.5) / tan(deg_to_rad(camera.fov) * 0.5)
+		var f: float = focal_px(size.y, camera.fov)
 		# Pitch UP pushes the horizon DOWN the screen, and screen Y grows
 		# downward, so the sign works out with no negation.
 		var drop: float = tan(pitch) * f
@@ -698,6 +736,7 @@ class HorizonLine:
 			# Looking near-vertically: the horizon is far off screen and a line
 			# pinned to the edge would be a lie about where it is.
 			return
+		var reach: float = size.x * REACH_FRACTION
 		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
 		# WORLD UP, PROJECTED, AND THE SIGN IS DERIVED RATHER THAN EYEBALLED.
 		# World up is (0,1,0); in camera space that is
@@ -709,16 +748,79 @@ class HorizonLine:
 		var up: Vector2 = world_up_screen(roll)
 		var along := Vector2(cos(roll), sin(roll))
 		var tint := Color(0.55, 0.85, 1.0, 0.32)
-		# TWO SEGMENTS WITH A GAP, so the horizon never draws through the aiming
-		# point. Drawing a transparent line over it does nothing at all, which is
-		# what the first version did.
-		draw_line(at - along * REACH, at - along * GAP, tint, 1.5)
-		draw_line(at + along * GAP, at + along * REACH, tint, 1.5)
+		# TWO DASHED RUNS WITH A GAP, so the horizon never draws through the
+		# aiming point. Dashed on the human's reference: a solid line this wide
+		# fights the scene, and the same length broken up reads as a SCALE while
+		# letting the world through.
+		_dashes(at - along * reach, at - along * GAP, tint, 1.5)
+		_dashes(at + along * GAP, at + along * reach, tint, 1.5)
 		# Wing marks at the ends, turned toward the sky, so the line reads as an
 		# attitude instrument rather than as a stray scratch.
 		for side: float in [-1.0, 1.0]:
-			var end: Vector2 = at + along * REACH * side
+			var end: Vector2 = at + along * reach * side
 			draw_line(end, end + up * 7.0, tint, 1.5)
+		if ladder:
+			_draw_ladder(at, along, up, f, reach)
+
+
+	## THE PITCH LADDER (the human: *"i want realism"*), in the convention a real
+	## attitude indicator uses.
+	##
+	## A rung every RUNG_STEP degrees, labelled, drawn SHORTER than the horizon so
+	## the horizon stays the dominant line — and **rungs above the horizon are
+	## solid while rungs below are dashed**. That is not decoration: when the
+	## horizon itself has slid off-screen, the only thing telling you whether you
+	## are looking at sky or at ground is which style of rung is in front of you,
+	## and fast-and-low is exactly when the horizon is off-screen.
+	##
+	## It rides `along` and `up`, so it rolls WITH the horizon rather than staying
+	## screen-locked. A ladder that did not roll would be worse than none: it
+	## would read as level attitude while the aircraft was on its side.
+	func _draw_ladder(at: Vector2, along: Vector2, up: Vector2, f: float,
+			reach: float) -> void:
+		var font: Font = get_theme_default_font()
+		var half: float = reach * RUNG_FRACTION
+		var tint := Color(0.55, 0.85, 1.0, 0.26)
+		var degrees: int = RUNG_STEP
+		while degrees <= RUNG_MAX:
+			for sign_up: int in [1, -1]:
+				var offset: float = rung_offset(float(degrees * sign_up), f)
+				# `up` points at the sky and screen Y grows downward, so a
+				# POSITIVE pitch angle is drawn along +up.
+				var mid: Vector2 = at + up * offset
+				if mid.y < -40.0 or mid.y > size.y + 40.0:
+					continue
+				var a: Vector2 = mid - along * half
+				var b: Vector2 = mid + along * half
+				if sign_up > 0:
+					draw_line(a, b, tint, 1.5)
+				else:
+					_dashes(a, b, tint, 1.5)
+				# Ends turned toward the horizon, which is the other half of the
+				# convention: the rung "points" back to level.
+				var inward: Vector2 = -up * signf(float(sign_up)) * 6.0
+				draw_line(a, a + inward, tint, 1.5)
+				draw_line(b, b + inward, tint, 1.5)
+				var text: String = "%d" % degrees
+				draw_string(font, b + along * 6.0 + Vector2(0.0, 4.0), text,
+						HORIZONTAL_ALIGNMENT_LEFT, -1, 10, tint)
+			degrees += RUNG_STEP
+
+
+	## A dashed run between two points. Godot has no dashed-line primitive, and
+	## the alternative — one `draw_line` per dash computed at the call site — is
+	## how three call sites end up with three different dash rhythms.
+	func _dashes(from: Vector2, to: Vector2, col: Color, width: float) -> void:
+		var span: Vector2 = to - from
+		var length: float = span.length()
+		if length < 0.001:
+			return
+		var step: Vector2 = span / length
+		var travelled: float = 0.0
+		while travelled < length:
+			var end: float = minf(travelled + DASH, length)
+			draw_line(from + step * travelled, from + step * end, col, width)
+			travelled = end + DASH_GAP
 
 
 	## THE DIRECTION THE ROTORS ARE PUSHING, drawn from the aiming point, with the
@@ -923,6 +1025,15 @@ func announce_gate(sortie: int) -> void:
 func set_thrust_axis(world_up_of_airframe: Vector3) -> void:
 	_horizon.thrust_axis = world_up_of_airframe
 	_horizon.queue_redraw()
+
+
+## The pitch ladder on or off, returning the new state so the caller can say so
+## in the kill feed. The horizon and the thrust arrow are NOT toggled with it:
+## they are the instrument, and the ladder is the detail around them.
+func toggle_pitch_ladder() -> bool:
+	_horizon.ladder = not _horizon.ladder
+	_horizon.queue_redraw()
+	return _horizon.ladder
 
 
 ## One weapon-state ring at the aiming point. `span` is how much of the circle it

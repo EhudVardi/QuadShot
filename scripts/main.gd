@@ -108,6 +108,9 @@ func _process(delta: float) -> void:
 		_drone_health.heal(RunMods.current.regen_rate * delta)
 		_hud.set_health(_drone_health.current, _drone_health.max_health)
 	_handle_pause()
+	if Input.is_action_just_pressed(&"hud_ladder_toggle"):
+		_hud.add_kill_feed("pitch ladder %s"
+				% ("on" if _hud.toggle_pitch_ladder() else "off"))
 	if Input.is_action_just_pressed(&"camera_toggle"):
 		if _fpv_camera.current:
 			_chase_camera.make_current()

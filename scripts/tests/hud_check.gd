@@ -296,6 +296,43 @@ func _check_attitude() -> void:
 		_failures.append("a level aircraft under a level camera must push straight up the screen and it reads %s"
 				% str(sideways))
 
+	# CLAIM 10 — THE PITCH LADDER IS THE REAL PROJECTION, not a spacing someone
+	# liked the look of. A rung `d` degrees off level sits `tan(d) * f` from the
+	# horizon, which is the SAME arithmetic that places the horizon itself — so
+	# the two cannot drift apart. Even spacing is the tempting wrong answer and
+	# it is wrong by 15% of a screen height by 60 degrees.
+	print("")
+	print("[hud] CLAIM 10 — THE PITCH LADDER USES THE REAL PROJECTION.")
+	var f: float = H.focal_px(1080.0, 90.0)
+	print("[hud] 1080p at 90 deg FOV: focal length %.1f px" % f)
+	print("[hud] %8s %12s %14s" % ["degrees", "offset px", "even-spaced px"])
+	var even: float = H.rung_offset(float(H.RUNG_STEP), f)
+	var previous: float = 0.0
+	var step: int = H.RUNG_STEP
+	while step <= H.RUNG_MAX:
+		var got: float = H.rung_offset(float(step), f)
+		var want: float = tan(deg_to_rad(float(step))) * f
+		print("[hud] %8d %12.1f %14.1f"
+				% [step, got, even * float(step) / float(H.RUNG_STEP)])
+		if absf(got - want) > 0.01:
+			_failures.append("the %d degree rung is placed at %.2f px where the projection puts it at %.2f px"
+					% [step, got, want])
+		# Rungs must SPREAD with angle. Even spacing would keep this constant and
+		# is exactly the shortcut this claim exists to refuse.
+		if got - previous <= 0.0:
+			_failures.append("the %d degree rung is not further from the horizon than the one below it (%.1f against %.1f) — the ladder must open out with angle, and a ladder at even pixel spacing is a ladder that lies about every angle except its first"
+					% [step, got, previous])
+		previous = got
+		step += H.RUNG_STEP
+	var spread_ratio: float = H.rung_offset(60.0, f) / maxf(H.rung_offset(10.0, f), 0.001)
+	print("[hud] 60 deg sits %.2fx as far out as 10 deg (even spacing would be 6.00x)"
+			% spread_ratio)
+	if absf(spread_ratio - 6.0) < 0.5:
+		_failures.append("the 60 degree rung sits %.2fx as far out as the 10 degree one, which is what EVEN spacing would give — the ladder is not being projected"
+				% spread_ratio)
+	if H.rung_offset(0.0, f) != 0.0:
+		_failures.append("the zero-degree rung must sit exactly on the horizon")
+
 
 func _find(frame_id: String) -> Dictionary:
 	for row: Dictionary in _rows:

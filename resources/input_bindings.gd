@@ -17,6 +17,7 @@ const ACTIONS: Array[StringName] = [
 	&"camera_toggle", &"fire", &"fire_missile", &"fire_flak",
 	&"flak_switch", &"missile_auto_switch",
 	&"pause_toggle", &"pause_switch", &"overlay_toggle",
+	&"hud_ladder_toggle",
 ]
 
 ## Always bound from the flight (resumed) set, in BOTH contexts — pausing
@@ -79,6 +80,11 @@ static func factory_defaults() -> Dictionary:
 		"pause_toggle": [make_key(KEY_P)],
 		"pause_switch": [],
 		"overlay_toggle": [make_key(KEY_TAB), make_button(JOY_BUTTON_START)],
+		# The pitch ladder, on and off in flight (the human: *"we can always add
+		# and set a toggle. i want realism"*). Keyboard only by default: every
+		# gamepad button is already spoken for, and a display toggle has no
+		# business taking one off a weapon.
+		"hud_ladder_toggle": [make_key(KEY_H)],
 	}
 
 
