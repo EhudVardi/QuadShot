@@ -8,7 +8,16 @@ extends TunableConfig
 @export_group("Volume")
 @export var master_volume: float = 0.1
 @export var sfx_volume: float = 1.0
-@export var motor_volume: float = 1.0
+## Baked to 0.5 on 2026-08-15, on the human's call once the four-emitter rework
+## was signed off: *"burn motor_volume to 0.5, now that it works good. its now
+## def too low."* It had shipped at 0.05, a tenth of this.
+##
+## THE SCRIPT DEFAULT IS KEPT IN STEP WITH `default_audio_config.tres` ON
+## PURPOSE. It was 1.0 against a .tres of 0.05, and that gap is exactly the
+## silent desync the `user://` leak fix warned about: a saved override that names
+## other fields loads THIS value, not the .tres one, so the two disagreeing means
+## a config can arrive twenty times too loud depending on which path it took.
+@export var motor_volume: float = 0.5
 @export var wind_volume: float = 1.0
 
 @export_group("Pause")
