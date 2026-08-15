@@ -279,22 +279,36 @@ func _check_attitude() -> void:
 		_failures.append("an unset thrust axis must read 0 rather than a NaN out of acos")
 
 	print("")
-	print("[hud] CLAIM 9 — A THRUST AXIS DOWN THE LENS HAS NO SCREEN DIRECTION.")
-	# Looking straight down at a level aircraft: thrust points at the camera, so
-	# there is no on-screen arrow to draw and drawing one would be a lie.
-	var looking_down := Basis.looking_at(Vector3.DOWN, Vector3.FORWARD)
-	var degenerate: Vector2 = H.thrust_screen_dir(looking_down, Vector3.UP)
-	print("[hud] straight down the lens: %s" % str(degenerate))
-	if degenerate != Vector2.ZERO:
-		_failures.append("thrust pointing straight into the lens produced a screen direction %s — there is no direction to draw and inventing one puts an arrow on the HUD that means nothing"
-				% str(degenerate))
-	var level_cam := Basis.IDENTITY
-	var sideways: Vector2 = H.thrust_screen_dir(level_cam, Vector3.UP)
-	print("[hud] level camera, level aircraft: %s (must point up the screen)"
-			% str(sideways))
-	if sideways.distance_to(Vector2(0.0, -1.0)) > 0.001:
-		_failures.append("a level aircraft under a level camera must push straight up the screen and it reads %s"
-				% str(sideways))
+	print("[hud] CLAIM 9 — LEVEL MEANS THE TWO LINES COINCIDE, EXACTLY.")
+	print("[hud] The whole instrument is the GAP between the world horizon and the")
+	print("[hud] airframe's own level line, so a level aircraft must close it to")
+	print("[hud] nothing — by construction, never by tuning.")
+	# THE THRUST AXIS IS DERIVED FROM AN AIRFRAME BASIS, exactly as the game
+	# derives it (`_drone.global_basis.y`), and the tilt is SWEPT. Comparing a
+	# level aircraft's axis against world up directly would be a tautology — the
+	# two are the same vector by definition — so the claim would compare the
+	# function to itself and could never fail. Sweeping the tilt is what gives it
+	# teeth, and 0.5 degrees is in the sweep because the small-angle regime is
+	# where an alignment instrument either works or is decoration.
+	print("[hud] %10s %14s %14s" % ["tilt deg", "line gap deg", "printed deg"])
+	for tilt_deg: float in [0.0, 0.5, 5.0, 30.0, 60.0]:
+		var airframe := Basis(Vector3.RIGHT, deg_to_rad(-tilt_deg))
+		var axis: Vector3 = airframe.y
+		var world: Vector2 = H.reference_pitch_roll(Basis.IDENTITY, Vector3.UP)
+		var frame: Vector2 = H.reference_pitch_roll(Basis.IDENTITY, axis)
+		var gap: float = rad_to_deg(absf(frame.x - world.x))
+		var printed: float = H.tilt_degrees(axis)
+		print("[hud] %10.1f %14.3f %14.3f" % [tilt_deg, gap, printed])
+		if absf(gap - tilt_deg) > 0.05:
+			_failures.append("an aircraft tilted %.1f degrees separated the two lines by %.3f — the GAP IS THE TILT, and at level it must close to nothing or the instrument cannot be trusted at the small angles that alignment is actually about"
+					% [tilt_deg, gap])
+		# The picture and the number have to be the same claim. They come from
+		# different arithmetic, so nothing but a check makes them agree.
+		if absf(printed - tilt_deg) > 0.05:
+			_failures.append("the line puts the aircraft %.1f degrees off level and the printed readout says %.3f — the picture and the number are telling the pilot different things"
+					% [tilt_deg, printed])
+	if H.reference_pitch_roll(Basis.IDENTITY, Vector3.ZERO) != Vector2.ZERO:
+		_failures.append("an unset thrust axis must produce no line rather than a NaN")
 
 	# CLAIM 10 — THE PITCH LADDER IS THE REAL PROJECTION, not a spacing someone
 	# liked the look of. A rung `d` degrees off level sits `tan(d) * f` from the

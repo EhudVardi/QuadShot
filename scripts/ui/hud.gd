@@ -638,8 +638,9 @@ class HorizonLine:
 	const RUNG_FRACTION: float = 0.34
 	## How far past the screen edge the line is still drawn before it is dropped.
 	const OVERSHOOT: float = 1.6
-	## How long the thrust arrow is, in pixels.
-	const THRUST_REACH: float = 54.0
+	## Half the AIRFRAME level line's width, as a fraction of the viewport —
+	## deliberately shorter than the world horizon so the two never read as one.
+	const FRAME_REACH_FRACTION: float = 0.22
 	## Past this much tilt off vertical the arrow warns: `cos(60 deg)` is 0.5, so
 	## half the rotors' push has stopped fighting gravity.
 	const TILT_WARN_DEG: float = 60.0
@@ -689,9 +690,28 @@ class HorizonLine:
 		return Vector2(sin(roll), -cos(roll))
 
 
-	## The camera's roll, from its own basis.
-	static func camera_roll(camera_basis: Basis) -> float:
-		return atan2(camera_basis.x.y, camera_basis.y.y)
+	## THE PITCH AND ROLL OF THE CAMERA AGAINST ANY "UP", as (pitch, roll) radians.
+	##
+	## **This is the whole instrument in one function, and that is the point.** A
+	## horizon is the plane perpendicular to some up-vector, projected. Feed it
+	## WORLD up and you get the real horizon; feed it the airframe's THRUST axis
+	## and you get the plane the rotors push against — the aircraft's own level,
+	## which in FPV sits off the boresight by exactly the camera's uptilt.
+	##
+	## Two lines out of one piece of arithmetic, and that is what makes "align
+	## them" exact rather than approximate: when the aircraft is level the two
+	## up-vectors ARE the same vector, so the lines coincide by construction and
+	## never by tuning.
+	##
+	## Both fall out of the reference up expressed in CAMERA space, `u = B⁻¹·U`:
+	## its z says how far the camera's forward is tipped out of that plane, and
+	## its x/y say where that up sits on screen.
+	static func reference_pitch_roll(camera_basis: Basis,
+			up_world: Vector3) -> Vector2:
+		if up_world.length_squared() < 0.000001:
+			return Vector2.ZERO
+		var u: Vector3 = camera_basis.inverse() * up_world.normalized()
+		return Vector2(asin(clampf(-u.z, -1.0, 1.0)), atan2(u.x, u.y))
 
 
 	## HOW FAR THE ROTORS ARE PUSHING OFF VERTICAL, in degrees. 0 is level and
@@ -703,16 +723,6 @@ class HorizonLine:
 		return rad_to_deg(acos(clampf(axis.normalized().y, -1.0, 1.0)))
 
 
-	## Which way the thrust axis points ON SCREEN, or ZERO when it points straight
-	## at or away from the lens and has no on-screen direction to draw.
-	static func thrust_screen_dir(camera_basis: Basis, axis: Vector3) -> Vector2:
-		if axis.length_squared() < 0.000001:
-			return Vector2.ZERO
-		var local: Vector3 = camera_basis.inverse() * axis.normalized()
-		var flat := Vector2(local.x, -local.y)
-		return Vector2.ZERO if flat.length() < 0.001 else flat.normalized()
-
-
 	func _draw() -> void:
 		var camera: Camera3D = get_viewport().get_camera_3d()
 		if camera == null:
@@ -721,17 +731,20 @@ class HorizonLine:
 		# Forward is -Z on a Godot camera. Pitch is how far that is lifted off
 		# the horizontal; roll is how far the camera's own up is turned from the
 		# world's, measured in the plane the pilot sees.
-		var forward: Vector3 = -basis.z
-		var pitch: float = asin(clampf(forward.y, -1.0, 1.0))
-		var roll: float = camera_roll(basis)
+		# The world horizon is the plane perpendicular to WORLD up, so it comes
+		# out of the very same function the airframe's own level line does — see
+		# `reference_pitch_roll` for why that is the point rather than a tidy-up.
+		var pr: Vector2 = reference_pitch_roll(basis, Vector3.UP)
+		var pitch: float = pr.x
+		var roll: float = pr.y
 		var f: float = focal_px(size.y, camera.fov)
 		# Pitch UP pushes the horizon DOWN the screen, and screen Y grows
 		# downward, so the sign works out with no negation.
 		var drop: float = tan(pitch) * f
-		# The thrust arrow is drawn even when the horizon is off screen, because
-		# looking near-vertically is exactly when you most want to know which way
-		# you are being pushed.
-		_draw_thrust(basis)
+		# The airframe's level line is drawn even when the WORLD horizon is off
+		# screen, because looking near-vertically is exactly when you most want to
+		# know where your own level is.
+		_draw_frame_level(basis, f)
 		if absf(drop) > size.y * OVERSHOOT:
 			# Looking near-vertically: the horizon is far off screen and a line
 			# pinned to the edge would be a lie about where it is.
@@ -830,39 +843,53 @@ class HorizonLine:
 	## especially when i fly close to the ground"* — and then the case that
 	## matters: *"close to the ground and fast."*
 	##
-	## **THE NUMBER IS THE POINT, and it is why this is not just an arrow.** Thrust
-	## is along body +Y, so only `cos(tilt)` of it is still fighting gravity: at
-	## 60 degrees over, half the rotors' push has stopped holding you up. Flying
-	## fast and low is exactly the attitude where that is largest and where feel
-	## reports nothing until the ground arrives. The arrow says which way, the
-	## number says how much of your lift you have traded for speed.
+	## **A LINE, NOT AN ARROW, ON THE HUMAN'S CALL** — *"i want a line that will
+	## highlight the angle of the fpv tilt. instead of that arrow that drawn from
+	## the center up."* They are right, and the reason is worth keeping: an
+	## arrow-against-a-line is a coarse comparison, while LINE AGAINST LINE is a
+	## precise one. Reading this HUD is reading the GAP between two lines, and a
+	## gap closes visibly in a way an angle between two different shapes does not.
 	##
-	## IN FPV THIS BARELY MOVES, AND THAT IS CORRECT RATHER THAN BROKEN. The lens
-	## is bolted to the frame, so body +Y projects to a near-fixed screen
-	## direction and the thing that moves against it is the HORIZON. That pairing
-	## is the instrument: roll and pitch until the horizon sits square across the
-	## arrow. In chase view the camera is not frame-fixed and the arrow swings on
-	## its own, reading directly as "which way am I being pushed".
-	func _draw_thrust(camera_basis: Basis) -> void:
+	## IT IS ALSO LITERALLY THE FPV TILT. The lens is uptilted by
+	## `fpv_uptilt_deg`, which is exactly why the airframe's own level plane does
+	## not sit on the boresight — so where this line falls IS that angle, shown.
+	##
+	## **THE NUMBER RIDES IT** because only `cos(tilt)` of the thrust is still
+	## fighting gravity: at 60 degrees over, half the rotors' push has stopped
+	## holding you up. Fast and low is exactly the attitude where that is largest
+	## and where feel reports nothing until the ground arrives.
+	##
+	## In FPV this line barely moves and the WORLD horizon moves against it, which
+	## is correct rather than broken — it is the reference. In chase view the
+	## camera is not frame-fixed and it swings on its own.
+	func _draw_frame_level(camera_basis: Basis, f: float) -> void:
 		if thrust_axis.length_squared() < 0.000001:
 			return
-		var dir: Vector2 = thrust_screen_dir(camera_basis, thrust_axis)
-		if dir == Vector2.ZERO:
-			# Thrust points straight at or away from the lens: there is no
-			# on-screen direction to draw, and inventing one would be a lie.
+		var pr: Vector2 = reference_pitch_roll(camera_basis, thrust_axis)
+		var drop: float = tan(pr.x) * f
+		if absf(drop) > size.y * OVERSHOOT:
+			# The airframe's own level plane is far off screen; a line pinned to
+			# the edge would be a lie about where it is.
 			return
 		var tilt: float = tilt_degrees(thrust_axis)
 		var hot: bool = tilt >= TILT_WARN_DEG
-		var tint := Color(1.0, 0.45, 0.2, 0.85) if hot else Color(0.5, 1.0, 0.7, 0.7)
-		var at := size * 0.5
-		var tip: Vector2 = at + dir * THRUST_REACH
-		draw_line(at + dir * GAP, tip, tint, 2.0)
-		# An open arrowhead, so it never reads as a filled reticle element.
-		var wing: Vector2 = Vector2(-dir.y, dir.x) * 6.0
-		draw_line(tip, tip - dir * 11.0 + wing, tint, 2.0)
-		draw_line(tip, tip - dir * 11.0 - wing, tint, 2.0)
-		draw_string(get_theme_default_font(), tip + dir * 6.0 + Vector2(6.0, 4.0),
-				"%d°" % roundi(tilt), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
+		var tint := Color(1.0, 0.45, 0.2, 0.8) if hot else Color(0.5, 1.0, 0.7, 0.6)
+		var along := Vector2(cos(pr.y), sin(pr.y))
+		var up: Vector2 = world_up_screen(pr.y)
+		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
+		# SHORTER THAN THE WORLD HORIZON, and SOLID where that one is dashed, so
+		# the two can never be mistaken for one another at a glance.
+		var reach: float = size.x * FRAME_REACH_FRACTION
+		draw_line(at - along * reach, at - along * GAP, tint, 1.5)
+		draw_line(at + along * GAP, at + along * reach, tint, 1.5)
+		# Ends turned toward the airframe's OWN sky, which is what says this line
+		# belongs to the aircraft rather than to the world.
+		for side: float in [-1.0, 1.0]:
+			var end: Vector2 = at + along * reach * side
+			draw_line(end, end + up * 6.0, tint, 1.5)
+		draw_string(get_theme_default_font(),
+				at + along * reach + Vector2(8.0, -6.0), "%d°" % roundi(tilt),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
 
 
 ## Raw gamepad stick positions: two boxes flanking the health bar, a dot per
