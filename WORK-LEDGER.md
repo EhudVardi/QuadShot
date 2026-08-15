@@ -41,6 +41,39 @@ when the human explicitly asks (2026-08-15 ruling).
 | 10 | `lethality_check` plants shots at NAMED LOCATIONS (E8) | TODO | |
 | 11 | Board + benches + handoff refresh | TODO | |
 
+### PINNED, EXPLICITLY NOT THIS SESSION
+
+**Iteration 18 — the macro scale-and-roster wishlist.** The human's words:
+*"i want to have (later, not cutting this session) a session of creative
+definition and construction of the full size scale of items in the game... i want
+to see how the fighting in a fight scale of the condor/roc can be... i imagine
+different turrets, missile sams, flak, i imagine land vehicles that some can shoot
+me some not, humans shoot me. i need creativity."*
+
+Also in scope when it runs: **player weapon upgrades**, and **sound as design**
+rather than polish — *"the blaster sound for example right now sounds like a water
+gun, so a roc cannon need to sound respectively powerful, i keep hearing in my head
+the sound of the a10 warthouge large minigun."*
+
+**The central question, and it is theirs:** the Kestrel is true to scale as a real
+racing quad, and the scaled-down hobby playground *"is still a true asset of this
+game"*. So does QuadShot become one continuous scale ladder, or keep two honest
+registers — a models playground and a war? Everything else hangs off that, so it
+goes first.
+
+**FORMAT: GAMEPLAY-DESIGN.md's own iteration format, not the `brainstorming`
+skill.** Brainstorming converges — one design, terminating in `writing-plans` —
+and its own rules say to decompose a multi-subsystem request and pick one. This
+session needs the opposite motion. The iteration format (a letter, numbered
+sections, open questions answered by ID) is what P3.3's roster and P4.8's bestiary
+came out of. Brainstorming is right LATER, for one bounded piece off the wishlist,
+which is exactly what it was used for once here already
+(`docs/superpowers/specs/2026-07-25-b3-interiors-design.md`, B3 interiors).
+
+The full prompt was handed to the human in chat on 2026-08-15.
+
+---
+
 **Re-ordered 2026-08-15 after the human read task 4's report.** Tasks 5 to 8 are
 theirs and did not exist before that message; the two `Lethality` tasks were 5
 and 6 and are pushed back rather than dropped. E8's schedule constraint still
