@@ -489,8 +489,24 @@ func _read_components() -> void:
 		_fail("the %.1f m/s drop KILLED the pilot, so the rotor readings below are from a dead airframe — the drop is meant to sit between the free threshold and the lethal speed"
 				% _main_impact)
 		return
-	if bullet_hurt != 1:
-		_failures.append("a located hit damaged %d rotors, not 1 — a bullet is supposed to be the LOCATED case, and if it frays the whole airframe then the crash stage below proves nothing"
+	# CONCENTRATED, not "exactly one". This assertion asked for a single rotor
+	# until E4.3's separation landed, and separation deliberately breaks that on
+	# a small airframe: a Kestrel's rotors sit 0.24 m apart, so one round reaches
+	# three of them, while a Roc's sit 2.6 m apart and it reaches exactly one.
+	# The claim that survives both is the one that was always the real one — a
+	# bullet is LOCATED, so the rotor it lands on takes the clear majority of it.
+	var bullet_top: float = 0.0
+	var bullet_total: float = 0.0
+	for i: int in _rotor_count():
+		var lost: float = 1.0 - _bullet_healths[i]
+		bullet_total += lost
+		bullet_top = maxf(bullet_top, lost)
+	var concentration: float = bullet_top / maxf(bullet_total, 0.0001)
+	if concentration < 0.5:
+		_failures.append("a located hit put only %.0f%% of itself on its worst-hit rotor across %d of them — a bullet has to be CONCENTRATED, or nothing below distinguishes it from a crash"
+				% [concentration * 100.0, bullet_hurt])
+	if bullet_hurt >= _rotor_count():
+		_failures.append("a located hit reached every one of the %d rotors — that is a crash, not a bullet, whatever the weights say"
 				% bullet_hurt)
 	# WHICH corner, not merely how many (E.q2's repeatability requirement, and the
 	# regression guard for generalising the picker from "nearest rotor" to

@@ -10,6 +10,7 @@ motor_damage_max = 0.5
 motor_min_thrust = 0.3
 crash_motor_scale = 0.8
 crash_asymmetry = 0.6
+hit_footprint_m = 0.25
 video_glitch_on_hit = 0.85
 video_glitch_decay = 2.8
 video_damage_scale = 1.0

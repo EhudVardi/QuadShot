@@ -83,6 +83,32 @@ extends TunableConfig
 ## crash loading the WHOLE frame is E6's actual content.
 @export var crash_asymmetry: float = 0.6
 
+@export_group("Separation")
+## HOW WIDE A ROUND'S DAMAGE REACHES ACROSS THE AIRFRAME, in metres
+## (GAMEPLAY-DESIGN Iteration 17 / E4.3). Components within this distance of the
+## impact point share the hit, weighted by how close they are.
+##
+## IT IS IN METRES AND FRAME-INDEPENDENT, AND THAT IS THE ENTIRE MECHANIC — the
+## same reasoning as `CombatConfig.crash_crush_m`, in the opposite direction.
+## Because it does not scale, a 0.28 m Kestrel whose rotors sit 0.24 m apart has
+## a round straddle three of them, while a 3.0 m Roc whose rotors sit 2.6 m apart
+## has the same round take exactly one. E4.3:
+##
+##   *"The same geometry that makes the big frame easier to hit makes each hit
+##   less concentrated — one round takes one component instead of straddling
+##   three. So exposure grows with size and concentration falls with size, and
+##   they move in the same ratio."*
+##
+## That symmetry is the strongest argument in the whole iteration that a located
+## damage model is the RIGHT answer to L3 rather than merely an interesting one,
+## and it is free: nobody authors it, it falls out of building each airframe at
+## its true size. Scaling this value per frame would delete it outright.
+##
+## DAMAGE IS CONSERVED. A round that straddles three components does not do three
+## times as much; the weights are normalised, so this decides WHERE a hit lands
+## and never how big it is.
+@export var hit_footprint_m: float = 0.25
+
 @export_group("Video")
 ## FPV feed breakup punched in on each hit (scaled by hit size and severity),
 ## which then decays fast — the abrupt, sudden telegraph (D4 / Dq4).

@@ -453,29 +453,56 @@ func apply_hit_to_motors(damage: float) -> void:
 		return
 	if amount <= 0.0:
 		return
-	from_body = from_body.normalized()
-	# NEAREST COMPONENT, not nearest rotor (E.q2, answered `derived`). The
-	# selection was always count-agnostic and layout-agnostic — a dot product
-	# against each part's own mount — so generalising it cost nothing but the
-	# name of the list it walks. Verified bit-identical against the old picker
-	# over 72 hit bearings on all four frames.
-	var best: AirframeComponents.Part = null
-	var best_dot: float = -2.0
-	for part: AirframeComponents.Part in AirframeComponents.targetable(self):
-		var pos: Vector3 = part.position
+	_apply_located(from_body.normalized(), amount)
+
+
+## A located hit, spread across whatever it actually reaches (E.q2 `derived`,
+## E4.3 separation).
+##
+## The round arrives from `from_body` and therefore meets the airframe on that
+## side; the impact point is that bearing taken out to the hull's own edge. Every
+## routed component within `hit_footprint_m` of it shares the damage, weighted by
+## closeness — and because that footprint is a fixed number of METRES, a small
+## airframe's tightly packed rotors share a round while a large one's take it
+## singly. Nobody authors that difference; it is what building at true size buys.
+##
+## DAMAGE IS CONSERVED: the weights are normalised, so straddling three
+## components costs the same as landing on one. This decides WHERE, never how
+## much.
+##
+## The nearest component takes the whole hit when nothing falls inside the
+## footprint, which is the large airframe's ordinary case and is what keeps E7's
+## repeatability — *"if in two different runs i get the same engine hit — thats a
+## lession to be learned"* — true on a frame whose parts are metres apart.
+func _apply_located(from_body: Vector3, amount: float) -> void:
+	var parts: Array[AirframeComponents.Part] = AirframeComponents.targetable(self)
+	if parts.is_empty() or amount <= 0.0:
+		return
+	var impact: Vector3 = from_body * (config.body_m * 0.5)
+	impact.y = 0.0
+	var footprint: float = damage_config.hit_footprint_m
+	var weights: Array[float] = []
+	var total: float = 0.0
+	var nearest: int = 0
+	var nearest_distance: float = INF
+	for i: int in parts.size():
+		var pos: Vector3 = parts[i].position
 		pos.y = 0.0
-		# A centre-mounted part has no side for a hit to arrive from, and
-		# `normalized()` on a zero vector is zero, which would make it win every
-		# tie at the origin. No routed component sits there today; the guard is
-		# for the day one does (E3's gyro is mounted at the centre of mass).
-		if pos.length_squared() < 0.000001:
-			continue
-		var d: float = pos.normalized().dot(from_body)
-		if d > best_dot:
-			best_dot = d
-			best = part
-	if best != null:
-		_damage_component(best, amount)
+		var distance: float = pos.distance_to(impact)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = i
+		var weight: float = 0.0
+		if footprint > 0.0:
+			weight = maxf(1.0 - distance / footprint, 0.0)
+		weights.append(weight)
+		total += weight
+	if total <= 0.0:
+		_damage_component(parts[nearest], amount)
+		return
+	for i: int in parts.size():
+		if weights[i] > 0.0:
+			_damage_component(parts[i], amount * weights[i] / total)
 
 
 ## A crash frays the WHOLE frame, and lopsidedly (E6, corrected by the human's
