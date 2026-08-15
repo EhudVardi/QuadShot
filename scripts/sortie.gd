@@ -127,11 +127,14 @@ func _process(_delta: float) -> void:
 	# campaign is flown through.
 	_hud.set_components(AirframeComponents.of(_drone, _video_damage))
 	_hud.set_ammo(-1 if _flak.unlimited() else _flak.rounds,
-			-1 if _missiles.unlimited() else _missiles.rounds)
+			-1 if _missiles.unlimited() else _missiles.rounds,
+			_flak.magazine(), _missiles.magazine())
 	_update_lock_indicator()
 	_update_reticle()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
+	# Body +Y IS the thrust axis on a multirotor.
+	_hud.set_thrust_axis(_drone.global_basis.y)
 	_update_signal_leash(_delta)
 	_update_video_feed(_delta)
 

@@ -27,7 +27,14 @@ var _lock_indicator: LockIndicator
 var _gate_marker: GateMarker
 var _reticle: Reticle
 var _stick_display: StickDisplay
+var _horizon: HorizonLine
+## Weapon state, all at the aiming point (the human: *"most weapon gauges should
+## be at the center area of the hud"*). Heat owns the right half; the two
+## magazines split the left into quarters, since a count is a shorter story than
+## a duty cycle and two of them have to share a side.
 var _heat_gauge: WeaponGauge
+var _flak_gauge: WeaponGauge
+var _missile_gauge: WeaponGauge
 var _pause_label: Label
 var _motor_status: ComponentStatus
 var _video_glitch: ColorRect
@@ -85,10 +92,6 @@ class ComponentStatus:
 	## keeps from it.
 	const HULL_HALF := Vector2(15.0, 21.0)
 	const HULL_CLEAR: float = 13.0
-	## How far out the description-only rows are pushed sideways. Wider than the
-	## hull plus its clearance (15 + 13), so a ghost can never land on the
-	## silhouette however its mount is authored.
-	const GHOST_X: float = 30.0
 	## Anything this far from the hub is pulled back in. Only reachable by a lens
 	## mounted further forward than the rotors, which is the Condor and the Roc.
 	const EDGE: float = 62.0
@@ -137,14 +140,10 @@ class ComponentStatus:
 				_rotor(at, part)
 			elif part.kind == &"vtx":
 				_transmitter(at, part)
-			elif part.built:
-				_block(at, part)
 			else:
-				# NOT A GAUGE, because nothing can move it yet. Four rows of the
-				# registry are description-only, and drawing them with a reading
-				# would be inventing one — so they get a dim mark that says the
-				# equipment is aboard and where, and no number at all.
-				_ghost(at, part, signf(at.x - centre.x))
+				# Any OTHER built component. Nothing reaches this today; it is
+				# what a new failure mode gets for free the day it flips `built`.
+				_block(at, part)
 
 	## WHERE EVERY PART GOES, keyed by `Part.id`.
 	##
@@ -179,58 +178,38 @@ class ComponentStatus:
 						Vector2(part.position.x, part.position.z).length())
 		if reach <= 0.0:
 			return out
-		# Pass 1: rotors and everything BUILT, at their own mounts.
-		var ghosts: Array[AirframeComponents.Part] = []
 		for part: AirframeComponents.Part in parts:
 			# The structure pool has no location by design (E5): it is the whole
 			# airframe, and it is drawn AS the airframe rather than placed on it.
-			if not part.located:
+			if not part.located or not part.built:
 				continue
 			var offset := Vector2(part.position.x, part.position.z) / reach * RING
 			offset = Vector2(clampf(offset.x, -EDGE, EDGE),
 					clampf(offset.y, -EDGE, EDGE))
-			if not part.built:
-				ghosts.append(part)
-				continue
 			if part.kind != &"rotor":
 				offset = _clear_hull(offset)
 			out[part.id] = centre + offset
 
-		# Pass 2: THE ROWS THAT CANNOT FAIL YET, SPREAD SIDEWAYS. Two collisions
-		# make this necessary and both come from the registry being honest rather
-		# than from a bug. A prop sits at its rotor's exact mount, so it is
-		# dropped — when props become damageable they belong AS a ring on the
-		# rotor, not as a second mark beside it. And every singleton in MOUNTS is
-		# on the centreline, so the pack, the gyro, the gun and the magazine would
-		# stack on one another and on the hull.
+		# THE ROWS THAT CANNOT FAIL YET ARE NOT DRAWN AT ALL, and that is a
+		# retreat from the previous version rather than an oversight.
 		#
-		# THE LATERAL OFFSET IS PRESENTATIONAL AND THE VERTICAL ONE IS NOT:
-		# fore-and-aft carries the information (the pack is aft, the gun is
-		# forward) and that is the axis kept true. GHOST_X clears the hull by
-		# construction — it is wider than the silhouette plus its clearance.
-		var index: int = 0
-		for part: AirframeComponents.Part in ghosts:
-			var offset := Vector2(part.position.x, part.position.z) / reach * RING
-			if _on_a_rotor(offset, parts, reach):
-				continue
-			var side: float = -1.0 if index % 2 == 0 else 1.0
-			out[part.id] = centre + Vector2(side * GHOST_X,
-					clampf(offset.y, -EDGE, EDGE))
-			index += 1
+		# They were marked with a dim ring and a three-letter label at their real
+		# mounts, spread sideways to stop them stacking on the centreline. Flown,
+		# the labels collided with the rotor discs — GUN and AMMO reach across the
+		# forward and aft arms — and the plate read as clutter twice running.
+		#
+		# Two things settle it. Half of E3's registry cannot fail, so every one of
+		# those marks carried a POSITION and no reading, which is the weakest
+		# thing a gauge can be. And the human has since placed the two that are
+		# weapons: *"most weapon gauges should be at the center area of the hud"* —
+		# so the gun and the magazine belong on the rings at the aiming point, not
+		# on the airframe. Each of these comes back as a real gauge on the day it
+		# can actually be lost.
+		#
+		# Props are excluded by the same rule for a second reason: a prop sits at
+		# its rotor's exact mount, and when props become damageable they belong AS
+		# a ring on the rotor rather than as a mark beside it.
 		return out
-
-
-	## Does this offset land on a rotor's mount? True for every prop, which shares
-	## its rotor's position by design.
-	static func _on_a_rotor(offset: Vector2,
-			parts: Array[AirframeComponents.Part], reach: float) -> bool:
-		for part: AirframeComponents.Part in parts:
-			if part.kind != &"rotor":
-				continue
-			var at := Vector2(part.position.x, part.position.z) / reach * RING
-			if at.distance_to(offset) < 1.0:
-				return true
-		return false
 
 
 	## PUSH A MOUNT CLEAR OF THE HULL SILHOUETTE.
@@ -335,22 +314,6 @@ class ComponentStatus:
 				"%s %d" % [label_for(part.kind), roundi(h * 100.0)],
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, tint)
 
-	## Equipment that is aboard but cannot fail yet: where it sits, what it is,
-	## and deliberately no reading.
-	func _ghost(at: Vector2, part: AirframeComponents.Part, side: float) -> void:
-		var dim := Color(0.62, 0.68, 0.76, 0.4)
-		draw_arc(at, 4.5, 0.0, TAU, 12, dim, 1.0)
-		_plating(at, 8.0, part)
-		# The label reads OUTWARD from the airframe, so it never runs back across
-		# the hull it is annotating.
-		var text: String = label_for(part.kind)
-		var font: Font = get_theme_default_font()
-		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
-				-1, 9).x
-		var dx: float = 8.0 if side > 0.0 else -8.0 - width
-		draw_string(font, at + Vector2(dx, 3.5), text,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 9, dim)
-
 	## ARMOUR, SHOWN AS A RING AROUND WHAT IT PROTECTS (E4.2). Plating that
 	## protects a NAMED thing is the whole argument for the mechanic — *"they got
 	## my power bus through the plating"* — and a number in a config cannot say
@@ -445,6 +408,9 @@ class Reticle:
 
 	const GUN := Color(1.0, 0.9, 0.3)
 	const NAV := Color(0.35, 0.75, 1.0)
+	## Minimum vertical gap between two range labels, in pixels. An 11 px font
+	## needs about this much before two numbers start touching.
+	const LABEL_PITCH: float = 15.0
 
 	func _draw() -> void:
 		# Missile lock zone (always shown): the ACQUIRE ring — start a lock with
@@ -463,9 +429,20 @@ class Reticle:
 		_cross(center, 4.0, Color(GUN, 0.5))
 		if arc.size() >= 2:
 			draw_polyline(arc, Color(GUN, 0.55), 1.5)
+		# EVERY TICK IS DRAWN, BUT NOT EVERY LABEL. The fall-line compresses with
+		# range, so the far ticks bunch together and their range numbers were
+		# drawn on top of one another — reported from the cockpit as *"the
+		# targeting indicator looks weird, like two texts overlap."*
+		#
+		# The MARKS stay at full density because they are the scale; only the text
+		# is thinned, and dropping a label never moves the tick it belonged to.
+		var last_label_y: float = -INF
 		for tick: Dictionary in ticks:
 			var p: Vector2 = tick["pos"]
 			draw_line(p + Vector2(-5, 0), p + Vector2(5, 0), Color(GUN, 0.7), 1.5)
+			if absf(p.y - last_label_y) < LABEL_PITCH:
+				continue
+			last_label_y = p.y
 			draw_string(get_theme_default_font(), p + Vector2(9, 4),
 					tick["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(GUN, 0.7))
 		draw_arc(pipper, 7.0, 0.0, TAU, 24, GUN, 2.0)
@@ -523,7 +500,21 @@ class WeaponGauge:
 	## +1 draws on the right of the aiming point, -1 on the left, so a second
 	## weapon can sit opposite without either of them moving.
 	var side: float = 1.0
+	## HOW MUCH OF THE CIRCLE THIS GAUGE OWNS, in radians — PI for a half ring,
+	## PI/2 for a quarter (the human: *"ammo counters can also be half ring, or
+	## even quarter"*). Two quarters stack on one side where a half would not fit.
+	var span: float = PI
+	## Where the fill STARTS, in radians, measured the way `draw_arc` measures:
+	## 0 is +X and +PI/2 is straight down, because screen Y grows downward. The
+	## fill runs from here toward the top of the circle.
+	var start_angle: float = PI * 0.5
+	## Rings at different radii nest instead of colliding, so a frame carrying
+	## three weapons reads as three concentric arcs.
+	var radius: float = RADIUS
 	var label: String = ""
+	## Shown beside the label when >= 0: the count behind the fraction, because a
+	## magazine is a NUMBER you spend deliberately and a bar cannot say "2 left".
+	var count: int = -1
 
 	var _flash: float = 0.0
 	var _previous: float = 0.0
@@ -550,18 +541,15 @@ class WeaponGauge:
 
 	func _draw() -> void:
 		var at := size * 0.5
-		# Bottom of the ring is +PI/2 (screen Y grows downward) and the top is
-		# -PI/2, so sweeping between them across `side` traces the half facing
-		# outward from the aiming point.
-		var start: float = PI * 0.5
-		var finish: float = -PI * 0.5
-		if side < 0.0:
-			start = PI * 0.5
-			finish = PI * 1.5
+		# The fill always runs from `start_angle` TOWARD THE TOP of the circle,
+		# which is what makes "full is up" true for a half on the right, a half on
+		# the left and any quarter of either.
+		var start: float = start_angle
+		var finish: float = start_angle - span * signf(side if side != 0.0 else 1.0)
 		# IDLE IS BARELY THERE. A gauge you are not currently managing must not
 		# compete with the target, and the flash is what brings it back.
 		var track: float = 0.10 + 0.30 * _flash
-		draw_arc(at, RADIUS, start, finish, 40, Color(0.75, 0.78, 0.85, track),
+		draw_arc(at, radius, start, finish, 40, Color(0.75, 0.78, 0.85, track),
 				THICKNESS)
 		var fill: Color = tint
 		if alarm:
@@ -570,27 +558,209 @@ class WeaponGauge:
 			var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018)
 			fill = Color(1.0, 0.22, 0.16).lerp(Color(1.0, 0.75, 0.3), pulse)
 		if fraction > 0.001:
-			draw_arc(at, RADIUS, start,
+			draw_arc(at, radius, start,
 					start + (finish - start) * fraction, 40,
 					Color(fill.r, fill.g, fill.b, 0.55 + 0.45 * _flash), THICKNESS)
 		# End caps: where 0% and 100% are, so a part-filled ring is readable
 		# without having to remember which way it grows.
 		_cap(at, start, Color(1, 1, 1, 0.18 + 0.25 * _flash))
 		_cap(at, finish, Color(1, 1, 1, 0.18 + 0.25 * _flash))
-		if label != "":
-			var font: Font = get_theme_default_font()
-			var text_at := at + Vector2(side * (RADIUS + 12.0), 4.0)
-			var width: float = font.get_string_size(label,
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-			if side < 0.0:
-				text_at.x -= width
-			draw_string(font, text_at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10,
-					Color(fill.r, fill.g, fill.b, 0.35 + 0.5 * _flash))
+		if label == "":
+			return
+		# THE TEXT SITS OFF THE MIDDLE OF THIS GAUGE'S OWN ARC, not at the
+		# horizontal centreline. Two quarters on the same side share that
+		# centreline, and anchoring both there is precisely how two readouts end
+		# up drawn on top of each other.
+		var font: Font = get_theme_default_font()
+		var middle: float = start + (finish - start) * 0.5
+		var text: String = label if count < 0 else "%s %d" % [label, count]
+		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
+				-1, 10).x
+		var text_at := at + Vector2(cos(middle), sin(middle)) * (radius + 11.0)
+		text_at.y += 4.0
+		if cos(middle) < 0.0:
+			text_at.x -= width
+		draw_string(font, text_at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10,
+				Color(fill.r, fill.g, fill.b, 0.35 + 0.5 * _flash))
 
 	func _cap(at: Vector2, angle: float, col: Color) -> void:
 		var unit := Vector2(cos(angle), sin(angle))
-		draw_line(at + unit * (RADIUS - THICKNESS * 0.7),
-				at + unit * (RADIUS + THICKNESS * 0.7), col, 1.5)
+		draw_line(at + unit * (radius - THICKNESS * 0.7),
+				at + unit * (radius + THICKNESS * 0.7), col, 1.5)
+
+
+## THE HORIZON, AND WHICH WAY IS UP (the human's ask, 2026-08-15): *"i also want
+## a horizon line that will stay parallel to the horizon, and it would be pointing
+## directly up, perpendicular to the frame so it points up so on the fpv view it
+## would show at the top when the camera angle is high."*
+##
+## Two things in one instrument, and they answer different questions:
+##
+##  - **The LINE is the world's horizon**, drawn where it really is. It stays
+##    parallel to the true horizon and slides DOWN the screen as you pitch up,
+##    which is the sentence the ask ends on: at a high camera angle it sits near
+##    the top edge, because that is where the ground actually is.
+##  - **The TICK is world UP**, perpendicular to the line and pointing at the sky.
+##    On an aircraft that can be inverted, "which of the two sides is the sky" is
+##    a real question and a bare line cannot answer it.
+##
+## IT READS THE LIVE CAMERA rather than being fed by anyone, because it must be
+## true of whatever the pilot is actually looking through — the FPV lens, the
+## chase camera, or the war room. `get_viewport().get_camera_3d()` is the one
+## source that cannot disagree with the picture.
+##
+## THE PROJECTION IS THE REAL ONE, not an eyeballed offset. `f` is the focal
+## length in pixels for this viewport and this FOV, so the line lands where the
+## horizon lands. Godot's `fov` is the VERTICAL angle under the default
+## `keep_height` aspect mode, which is what makes `size.y` the right denominator —
+## an implementation detail worth writing down, because using the width here is a
+## bug that only shows on a non-16:9 window.
+class HorizonLine:
+	extends Control
+
+	## Half the drawn width, in pixels.
+	const REACH: float = 150.0
+	## Clear space either side of the aiming point.
+	const GAP: float = 16.0
+	## How far past the screen edge the line is still drawn before it is dropped.
+	const OVERSHOOT: float = 1.6
+	## How long the thrust arrow is, in pixels.
+	const THRUST_REACH: float = 54.0
+	## Past this much tilt off vertical the arrow warns: `cos(60 deg)` is 0.5, so
+	## half the rotors' push has stopped fighting gravity.
+	const TILT_WARN_DEG: float = 60.0
+
+	## WHICH WAY THE ROTORS ARE PUSHING, in world space — the drone's body +Y.
+	##
+	## Fed in rather than looked up, because the HUD has no idea which node is the
+	## aircraft and several scenes fly one. Zero hides the arrow, which is what a
+	## scene that never sets it gets.
+	var thrust_axis: Vector3 = Vector3.ZERO
+
+	## WHERE THE SKY IS ON SCREEN, for a given camera roll.
+	##
+	## STATIC SO IT CAN BE MEASURED, and it is static because the version that
+	## was not got the sign wrong. World up is (0,1,0); in camera space that is
+	## `(basis.x.y, basis.y.y, basis.z.y)`, and screen Y grows downward, so its
+	## screen direction is `(basis.x.y, -basis.y.y)` — which with
+	## `roll = atan2(basis.x.y, basis.y.y)` is exactly `(sin, -cos)`. The first
+	## version wrote `(-sin, -cos)` and pointed the tick the wrong way under roll.
+	## LEVEL FLIGHT LOOKED PERFECT EITHER WAY, which is how it survived a
+	## rendered boot, and is why `hud_check` now asserts it at a roll.
+	static func world_up_screen(roll: float) -> Vector2:
+		return Vector2(sin(roll), -cos(roll))
+
+
+	## The camera's roll, from its own basis.
+	static func camera_roll(camera_basis: Basis) -> float:
+		return atan2(camera_basis.x.y, camera_basis.y.y)
+
+
+	## HOW FAR THE ROTORS ARE PUSHING OFF VERTICAL, in degrees. 0 is level and
+	## every degree past that is lift traded for speed: only `cos(tilt)` of the
+	## thrust is still fighting gravity.
+	static func tilt_degrees(axis: Vector3) -> float:
+		if axis.length_squared() < 0.000001:
+			return 0.0
+		return rad_to_deg(acos(clampf(axis.normalized().y, -1.0, 1.0)))
+
+
+	## Which way the thrust axis points ON SCREEN, or ZERO when it points straight
+	## at or away from the lens and has no on-screen direction to draw.
+	static func thrust_screen_dir(camera_basis: Basis, axis: Vector3) -> Vector2:
+		if axis.length_squared() < 0.000001:
+			return Vector2.ZERO
+		var local: Vector3 = camera_basis.inverse() * axis.normalized()
+		var flat := Vector2(local.x, -local.y)
+		return Vector2.ZERO if flat.length() < 0.001 else flat.normalized()
+
+
+	func _draw() -> void:
+		var camera: Camera3D = get_viewport().get_camera_3d()
+		if camera == null:
+			return
+		var basis: Basis = camera.global_basis
+		# Forward is -Z on a Godot camera. Pitch is how far that is lifted off
+		# the horizontal; roll is how far the camera's own up is turned from the
+		# world's, measured in the plane the pilot sees.
+		var forward: Vector3 = -basis.z
+		var pitch: float = asin(clampf(forward.y, -1.0, 1.0))
+		var roll: float = camera_roll(basis)
+		var f: float = (size.y * 0.5) / tan(deg_to_rad(camera.fov) * 0.5)
+		# Pitch UP pushes the horizon DOWN the screen, and screen Y grows
+		# downward, so the sign works out with no negation.
+		var drop: float = tan(pitch) * f
+		# The thrust arrow is drawn even when the horizon is off screen, because
+		# looking near-vertically is exactly when you most want to know which way
+		# you are being pushed.
+		_draw_thrust(basis)
+		if absf(drop) > size.y * OVERSHOOT:
+			# Looking near-vertically: the horizon is far off screen and a line
+			# pinned to the edge would be a lie about where it is.
+			return
+		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
+		# WORLD UP, PROJECTED, AND THE SIGN IS DERIVED RATHER THAN EYEBALLED.
+		# World up is (0,1,0); in camera space that is
+		# `basis.transposed() * up = (basis.x.y, basis.y.y, basis.z.y)`, and screen
+		# Y grows downward, so its screen direction is `(basis.x.y, -basis.y.y)` —
+		# which with `roll = atan2(basis.x.y, basis.y.y)` is `(sin, -cos)`.
+		# The first version wrote `(-sin, -cos)` and pointed the tick the wrong way
+		# under roll; level flight looked perfect, which is exactly how it survived.
+		var up: Vector2 = world_up_screen(roll)
+		var along := Vector2(cos(roll), sin(roll))
+		var tint := Color(0.55, 0.85, 1.0, 0.32)
+		# TWO SEGMENTS WITH A GAP, so the horizon never draws through the aiming
+		# point. Drawing a transparent line over it does nothing at all, which is
+		# what the first version did.
+		draw_line(at - along * REACH, at - along * GAP, tint, 1.5)
+		draw_line(at + along * GAP, at + along * REACH, tint, 1.5)
+		# Wing marks at the ends, turned toward the sky, so the line reads as an
+		# attitude instrument rather than as a stray scratch.
+		for side: float in [-1.0, 1.0]:
+			var end: Vector2 = at + along * REACH * side
+			draw_line(end, end + up * 7.0, tint, 1.5)
+
+
+	## THE DIRECTION THE ROTORS ARE PUSHING, drawn from the aiming point, with the
+	## tilt off vertical printed beside it (the human's ask, 2026-08-15): *"an
+	## indicator that points exactly to the same direction as the rotors push, so
+	## i'll have a way to align with the horizon, not just with feel, useful
+	## especially when i fly close to the ground"* — and then the case that
+	## matters: *"close to the ground and fast."*
+	##
+	## **THE NUMBER IS THE POINT, and it is why this is not just an arrow.** Thrust
+	## is along body +Y, so only `cos(tilt)` of it is still fighting gravity: at
+	## 60 degrees over, half the rotors' push has stopped holding you up. Flying
+	## fast and low is exactly the attitude where that is largest and where feel
+	## reports nothing until the ground arrives. The arrow says which way, the
+	## number says how much of your lift you have traded for speed.
+	##
+	## IN FPV THIS BARELY MOVES, AND THAT IS CORRECT RATHER THAN BROKEN. The lens
+	## is bolted to the frame, so body +Y projects to a near-fixed screen
+	## direction and the thing that moves against it is the HORIZON. That pairing
+	## is the instrument: roll and pitch until the horizon sits square across the
+	## arrow. In chase view the camera is not frame-fixed and the arrow swings on
+	## its own, reading directly as "which way am I being pushed".
+	func _draw_thrust(camera_basis: Basis) -> void:
+		if thrust_axis.length_squared() < 0.000001:
+			return
+		var dir: Vector2 = thrust_screen_dir(camera_basis, thrust_axis)
+		if dir == Vector2.ZERO:
+			# Thrust points straight at or away from the lens: there is no
+			# on-screen direction to draw, and inventing one would be a lie.
+			return
+		var tilt: float = tilt_degrees(thrust_axis)
+		var hot: bool = tilt >= TILT_WARN_DEG
+		var tint := Color(1.0, 0.45, 0.2, 0.85) if hot else Color(0.5, 1.0, 0.7, 0.7)
+		var at := size * 0.5
+		var tip: Vector2 = at + dir * THRUST_REACH
+		draw_line(at + dir * GAP, tip, tint, 2.0)
+		# An open arrowhead, so it never reads as a filled reticle element.
+		var wing: Vector2 = Vector2(-dir.y, dir.x) * 6.0
+		draw_line(tip, tip - dir * 11.0 + wing, tint, 2.0)
+		draw_line(tip, tip - dir * 11.0 - wing, tint, 2.0)
+		draw_string(get_theme_default_font(), tip + dir * 6.0 + Vector2(6.0, 4.0),
+				"%d°" % roundi(tilt), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
 
 
 ## Raw gamepad stick positions: two boxes flanking the health bar, a dot per
@@ -671,14 +841,20 @@ func _ready() -> void:
 	_stick_display.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_stick_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stick_display)
-	# The blaster's heat, as a half ring around the aiming point. Yellow because
-	# the palette says so (CLAUDE.md): yellow = your fire.
-	_heat_gauge = WeaponGauge.new()
-	_heat_gauge.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_heat_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_heat_gauge.label = "HEAT"
-	_heat_gauge.side = 1.0
-	add_child(_heat_gauge)
+	# The horizon, under the weapon rings so the instruments draw over it.
+	_horizon = HorizonLine.new()
+	_horizon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_horizon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_horizon)
+	# The blaster's heat: the right HALF, yellow because the palette says so
+	# (CLAUDE.md): yellow = your fire.
+	_heat_gauge = _add_gauge("HEAT", 1.0, PI, PI * 0.5, Color(1.0, 0.85, 0.25))
+	# The two magazines split the LEFT side into quarters, drawn one radius apart
+	# so they nest rather than collide. Both fill toward the top, so "full is up"
+	# holds for every gauge on the screen.
+	_flak_gauge = _add_gauge("FLAK", -1.0, PI * 0.5, PI * 0.5,
+			Color(1.0, 0.62, 0.2))
+	_missile_gauge = _add_gauge("MSL", -1.0, PI * 0.5, PI, Color(0.8, 0.5, 1.0))
 	_repair_label = Label.new()
 	_repair_label.text = "⟳ ENGINES RESTORED"
 	_repair_label.add_theme_color_override(&"font_color", Color(0.3, 1.0, 0.45))
@@ -739,6 +915,34 @@ func announce_gate(sortie: int) -> void:
 	_wave_label.text = "SORTIE %d CLEAR — EXIT GATE OPEN" % sortie
 
 
+## WHICH WAY THE ROTORS ARE PUSHING — the drone's body +Y in world space, which
+## on a multirotor IS the thrust axis. Pass `Vector3.ZERO` to hide the arrow.
+##
+## Fed rather than looked up: the HUD does not know which node is the aircraft,
+## and four scenes fly one.
+func set_thrust_axis(world_up_of_airframe: Vector3) -> void:
+	_horizon.thrust_axis = world_up_of_airframe
+	_horizon.queue_redraw()
+
+
+## One weapon-state ring at the aiming point. `span` is how much of the circle it
+## owns (PI a half, PI/2 a quarter) and `start_angle` is where its fill begins,
+## measured the way `draw_arc` does — so two quarters can share a side by starting
+## a quarter-turn apart.
+func _add_gauge(text: String, at_side: float, span: float, start_angle: float,
+		tint: Color) -> WeaponGauge:
+	var gauge := WeaponGauge.new()
+	gauge.set_anchors_preset(Control.PRESET_FULL_RECT)
+	gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gauge.label = text
+	gauge.side = at_side
+	gauge.span = span
+	gauge.start_angle = start_angle
+	gauge.tint = tint
+	add_child(gauge)
+	return gauge
+
+
 ## STRUCTURAL INTEGRITY, now drawn as the airframe's own hull on the plate rather
 ## than as a bar under it (the human's call, 2026-08-15: *"we can now add the hull
 ## health to it in some creative way"*). The ProgressBar it replaced is gone.
@@ -771,7 +975,13 @@ func set_heat(fraction: float, overheated: bool) -> void:
 ## The two magazines. A weapon passing -1 has no magazine at all and is left
 ## off the readout entirely — the ABSENCE of a number is information: it says
 ## that weapon never runs out, which is exactly the blaster's contract.
-func set_ammo(flak: int, missile: int) -> void:
+func set_ammo(flak: int, missile: int, flak_max: int = 0,
+		missile_max: int = 0) -> void:
+	_magazine(_flak_gauge, flak, flak_max)
+	_magazine(_missile_gauge, missile, missile_max)
+	# The text stays as well as the rings, and deliberately: a ring answers "how
+	# much is left" at a glance while you are aiming, and the exact count is a
+	# number you spend deliberately. They are two different questions.
 	var parts: PackedStringArray = []
 	if flak >= 0:
 		parts.append("FLAK %d" % flak)
@@ -781,6 +991,19 @@ func set_ammo(flak: int, missile: int) -> void:
 	# Dry is a state you must notice mid-fight, not one you read.
 	var dry: bool = (flak == 0) or (missile == 0)
 	_ammo_label.modulate = Color(1.0, 0.35, 0.25) if dry else Color(0.85, 0.85, 0.9)
+
+
+## A magazine on a ring. `rounds` of -1 means the weapon has no magazine at all,
+## which hides the gauge entirely — the ABSENCE is information, and it is the
+## blaster's contract. `capacity` of 0 means the caller has not been taught to
+## pass one yet, which also hides it rather than inventing a denominator.
+func _magazine(gauge: WeaponGauge, rounds: int, capacity: int) -> void:
+	if rounds < 0 or capacity <= 0:
+		gauge.visible = false
+		return
+	gauge.visible = true
+	gauge.count = rounds
+	gauge.show_value(float(rounds) / float(capacity), rounds == 0)
 
 
 ## The whole component list, straight off the registry (E.q5). Replaces

@@ -126,12 +126,16 @@ func _process(delta: float) -> void:
 			_start_run()
 	_hud.set_heat(_weapon.heat_fraction(), _weapon.overheated)
 	_hud.set_ammo(-1 if _flak.unlimited() else _flak.rounds,
-			-1 if _missiles.unlimited() else _missiles.rounds)
+			-1 if _missiles.unlimited() else _missiles.rounds,
+			_flak.magazine(), _missiles.magazine())
 	_update_lock_indicator()
 	_update_gate_marker()
 	_update_reticle()
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
+	# Body +Y IS the thrust axis on a multirotor, so this is literally which way
+	# the rotors are pushing.
+	_hud.set_thrust_axis(_drone.global_basis.y)
 	_update_signal_leash(delta)
 	_update_damage_feedback(delta)
 

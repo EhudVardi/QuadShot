@@ -222,9 +222,79 @@ func _check(_centre: Vector2) -> void:
 			_failures.append("on the %s the '%s' mount clears the hull silhouette by only %.1f px against the %.0f px its glyph and reading occupy — it is drawn over the integrity gauge. Being merely OUTSIDE the box is not enough: without the clearance the lens sits 0.7 px past the edge and still overlaps"
 					% [row["frame"], row["worst"], clear_by, wanted])
 
+	_check_attitude()
+
 	if spread > 1.0:
 		_failures.append("the rotor ring is %.1f px on one frame and %.1f px on another (%.2f%% apart) — it must be IDENTICAL on every frame, and it stops being so the moment the layout is normalised on the whole airframe instead of the rotor span. Measured, that mutation moves it 1.7%% today because the Condor's and Roc's lenses sit just past the rotor diagonal; a longer-nosed frame would move it far more, and the failure is that the picture changes shape at all"
 				% [lowest, highest, spread])
+
+
+## CLAIMS 7 TO 9 — THE ATTITUDE INSTRUMENTS, which are pure geometry and so are
+## the one part of a HUD that CAN be checked headless.
+##
+## They exist because the sky-tick's sign was wrong in the first version and a
+## rendered boot did not catch it: `world_up_screen` returned `(-sin, -cos)`
+## instead of `(sin, -cos)`, which is IDENTICAL at zero roll and backwards
+## everywhere else. Level flight looked perfect. So every claim below is asserted
+## at a ROLL, never only at level.
+func _check_attitude() -> void:
+	var H := GameHud.HorizonLine
+	print("")
+	print("[hud] CLAIM 7 — THE SKY IS UP WHEN LEVEL, AND TILTS THE RIGHT WAY.")
+	var level: Vector2 = H.world_up_screen(0.0)
+	print("[hud] roll 0: world up projects to (%.2f, %.2f)" % [level.x, level.y])
+	if level.distance_to(Vector2(0.0, -1.0)) > 0.001:
+		_failures.append("at zero roll the sky must be straight up the screen (0, -1) and it reads (%.2f, %.2f)"
+				% [level.x, level.y])
+	# Roll is atan2(basis.x.y, basis.y.y), so a POSITIVE roll is the camera's own
+	# right side lifted — and the sky must then lean to screen RIGHT.
+	var rolled: Vector2 = H.world_up_screen(deg_to_rad(30.0))
+	print("[hud] roll +30: world up projects to (%.2f, %.2f), x must be positive"
+			% [rolled.x, rolled.y])
+	if rolled.x <= 0.0:
+		_failures.append("at +30 degrees of roll the sky leans to screen x %.2f — the sign is inverted, which is the exact bug this claim was written for and it is invisible at zero roll"
+				% rolled.x)
+	if absf(rolled.length() - 1.0) > 0.001:
+		_failures.append("the projected sky direction is not a unit vector (%.3f long)"
+				% rolled.length())
+
+	print("")
+	print("[hud] CLAIM 8 — TILT OFF VERTICAL IS THE ANGLE IT CLAIMS TO BE.")
+	print("[hud] %14s %12s" % ["thrust axis", "tilt deg"])
+	# cos(tilt) of the thrust is what still fights gravity, so these numbers are
+	# the pilot's lift budget and not decoration.
+	var cases: Array = [
+		[Vector3.UP, 0.0],
+		[Vector3(sin(deg_to_rad(30.0)), cos(deg_to_rad(30.0)), 0.0), 30.0],
+		[Vector3(0.0, cos(deg_to_rad(60.0)), -sin(deg_to_rad(60.0))), 60.0],
+		[Vector3(1.0, 0.0, 0.0), 90.0],
+	]
+	for case: Array in cases:
+		var got: float = H.tilt_degrees(case[0] as Vector3)
+		print("[hud] %14s %12.2f" % [str(case[0]).substr(0, 14), got])
+		if absf(got - float(case[1])) > 0.05:
+			_failures.append("a thrust axis %s is %.1f degrees off vertical and the instrument reads %.2f — the number is a lift budget (only cos(tilt) still fights gravity), so it cannot be approximate"
+					% [str(case[0]), float(case[1]), got])
+	if H.tilt_degrees(Vector3.ZERO) != 0.0:
+		_failures.append("an unset thrust axis must read 0 rather than a NaN out of acos")
+
+	print("")
+	print("[hud] CLAIM 9 — A THRUST AXIS DOWN THE LENS HAS NO SCREEN DIRECTION.")
+	# Looking straight down at a level aircraft: thrust points at the camera, so
+	# there is no on-screen arrow to draw and drawing one would be a lie.
+	var looking_down := Basis.looking_at(Vector3.DOWN, Vector3.FORWARD)
+	var degenerate: Vector2 = H.thrust_screen_dir(looking_down, Vector3.UP)
+	print("[hud] straight down the lens: %s" % str(degenerate))
+	if degenerate != Vector2.ZERO:
+		_failures.append("thrust pointing straight into the lens produced a screen direction %s — there is no direction to draw and inventing one puts an arrow on the HUD that means nothing"
+				% str(degenerate))
+	var level_cam := Basis.IDENTITY
+	var sideways: Vector2 = H.thrust_screen_dir(level_cam, Vector3.UP)
+	print("[hud] level camera, level aircraft: %s (must point up the screen)"
+			% str(sideways))
+	if sideways.distance_to(Vector2(0.0, -1.0)) > 0.001:
+		_failures.append("a level aircraft under a level camera must push straight up the screen and it reads %s"
+				% str(sideways))
 
 
 func _find(frame_id: String) -> Dictionary:
