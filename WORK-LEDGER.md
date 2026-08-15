@@ -260,5 +260,14 @@ witness."*
 - `--headless --import` clean; boot every scene touched. Warnings are errors.
 - Fold every finding into `HANDOFF-NEXT.md` and delete this file.
 
-**Run the board ALONE.** A full run and a second Godot process launched beside it
-made `lethality` report NO VERDICT on 2026-08-15; it passes when run by itself.
+**`board.sh` COULD NOT READ `lethality`'S VERDICT AND NOBODY NOTICED.** Its grep
+was anchored (`PASS$`) and that check signs off with *"PASS - calculator matches
+Health.take on every cell"*, so every full board run reported NO VERDICT. The
+first occurrence was blamed on two Godot processes overlapping — a guess, stated
+as a cause, and wrong. It reproduced on a board running completely alone, and
+testing the grep against the check's saved output took one command and settled it.
+
+**The lesson is the project's own and it was ignored for an hour: measure, do not
+reason.** The harness failed SAFE, which is the only reason it surfaced at all —
+a verdict it cannot read counts as not-green. An anchored grep that had instead
+matched too much would have reported a broken check as passing, forever.

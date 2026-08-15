@@ -26,8 +26,23 @@ fi
 
 failed=0
 for c in $CHECKS; do
+    # PASS/FAIL AS WHOLE WORDS, ANYWHERE ON THE LINE - never anchored to the end.
+    #
+    # This was 'PASS$|FAIL' until 2026-08-15 and it could not read `lethality`
+    # AT ALL, because that check signs off with "PASS - calculator matches
+    # Health.take on every cell" and the anchor demanded PASS be the last thing
+    # on the line. Every full board run reported it as NO VERDICT, which was
+    # blamed on two Godot processes overlapping before the grep was actually
+    # tested against the check's real output.
+    #
+    # It failed SAFE - a verdict it cannot read counts as not-green - which is the
+    # only reason it was noticed rather than quietly passing a broken check.
+    # \b matters: it keeps "FAILURE" from reading as a failure.
+    #
+    # `tail -1` takes the LAST match, which is the verdict: checks that print
+    # per-claim "FAIL: <reason>" lines put their one-word summary after them.
     line=$("$GODOT" --headless -s "scripts/tests/${c}_check.gd" --path "$ROOT" 2>&1 \
-        | grep -E 'PASS$|FAIL' | tail -1)
+        | grep -E '\b(PASS|FAIL)\b' | tail -1)
     if [ -z "$line" ]; then
         printf '[board] %-16s NO VERDICT\n' "$c"
         failed=$((failed + 1))
