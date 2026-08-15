@@ -92,10 +92,16 @@ func _on_frame() -> void:
 			_phase = RUN
 		RUN:
 			_ticks += 1
-			# Hold the approach velocity until contact, exactly as crash_check
+			# Hold the approach velocity until CONTACT, exactly as crash_check
 			# does: otherwise drag makes each angle arrive at a different speed
 			# and an ANGLE comparison quietly becomes a drag comparison.
-			if _emitted < 0.0 and _hold != Vector3.ZERO:
+			#
+			# Gated on contact rather than on the emission, and the distinction is
+			# load-bearing now that contact is priced from `_physics_process`:
+			# this handler runs first, so holding until the crash fires would
+			# restore the approach speed before the drone could difference it and
+			# every impact would read 0.00 m/s.
+			if _drone.get_contact_count() == 0 and _hold != Vector3.ZERO:
 				_drone.linear_velocity = _hold
 			if _emitted >= 0.0 or _ticks >= MAX_TICKS:
 				_record()
@@ -190,23 +196,40 @@ func _build_press() -> void:
 	_arena = Node3D.new()
 	root.add_child(_arena)
 	_drone = Frames.build(FRAME)
+	# ONE StaticBody3D carrying TWO shapes — a face to slide along and a ledge
+	# jutting out of it. This is the shape a real building has: MenuBuilding puts
+	# every slab's CollisionShape3D under a single body, so the whole tower is one
+	# body and `body_entered` can only ever fire for it once.
 	var wall := StaticBody3D.new()
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(1.0, 400.0, 400.0)
-	shape.shape = box
-	wall.add_child(shape)
+	var face := CollisionShape3D.new()
+	var face_box := BoxShape3D.new()
+	face_box.size = Vector3(1.0, 40.0, 400.0)
+	face.shape = face_box
+	wall.add_child(face)
+	var ledge := CollisionShape3D.new()
+	var ledge_box := BoxShape3D.new()
+	ledge_box.size = Vector3(8.0, 40.0, 4.0)
+	ledge.shape = ledge_box
+	ledge.position = Vector3(-4.0, 0.0, 60.0)
+	wall.add_child(ledge)
 	_arena.add_child(wall)
 	wall.global_position = Vector3.ZERO
+	# No gravity and no motors: the only forces here are the two contacts, so
+	# nothing has to be forced tick by tick and the solver is never fought.
 	_drone.gravity_scale = 0.0
 	_arena.add_child(_drone)
 	var body: float = _drone_body()
-	_drone.global_position = Vector3(-(0.5 + body * 0.5 + 0.4), 0.0, 0.0)
-	# A gentle drift in: well under the free band, so first contact costs nothing.
-	_hold = Vector3(4.0, 0.0, 0.0)
-	_drone.linear_velocity = _hold
+	# STARTED CLOSE TO THE LEDGE ON PURPOSE. The first version began 80 m up the
+	# wall and never arrived: sliding along a face with contact friction bleeds
+	# about 20 m/s^2, so 60 m/s had fallen to 16.9 m/s by z 53.8 and the ledge was
+	# never reached at all. A stage that cannot say it failed to run reports "no
+	# impact" for "no test", which is why the end state is printed below.
+	_drone.global_position = Vector3(-(0.5 + body * 0.5 + 0.2), 0.0, 45.0)
+	# Drift GENTLY onto the face while running FAST along it. First contact is
+	# well under the free band; the ledge at z 60 is not.
+	_drone.linear_velocity = Vector3(1.5, 0.0, 60.0)
 	_hits = 0
-	_stage2 = {"first": -1.0, "after_push": -1.0, "hits": 0}
+	_stage2 = {"first": -1.0, "worst": 0.0, "hits": 0}
 	_drone.crashed.connect(_on_press_crashed)
 	_stage2_ticks = 0
 	_stage2_pushed = false
@@ -216,24 +239,20 @@ func _on_press_crashed(impact_speed: float) -> void:
 	_hits += 1
 	if _stage2["first"] < 0.0:
 		_stage2["first"] = impact_speed
-	elif _stage2_pushed and _stage2["after_push"] < 0.0:
-		_stage2["after_push"] = impact_speed
+	_stage2["worst"] = maxf(float(_stage2["worst"]), impact_speed)
 
 
 func _run_press() -> void:
 	_stage2_ticks += 1
-	# Keep driving into the wall the whole time, the way a pilot holding forward
-	# stick against a building would.
-	if not _stage2_pushed:
-		_drone.linear_velocity = Vector3(4.0, 0.0, 0.0)
-		# Once contact has certainly been made, shove hard WITHOUT separating.
-		if _stage2_ticks > 120:
-			_stage2_pushed = true
-	else:
-		_drone.linear_velocity = Vector3(60.0, 0.0, 0.0)
-	if _stage2_ticks < 400:
+	if _stage2_ticks < 600:
 		return
 	_stage2["hits"] = _hits
+	# Where it actually ended up and how fast it was still going. Printed because
+	# the first version of this stage silently never reached the ledge at all, and
+	# a table that cannot say so reports "no impact" for "no test".
+	_stage2["end_z"] = _drone.global_position.z
+	_stage2["end_x"] = _drone.global_position.x
+	_stage2["end_speed"] = _drone.linear_velocity.length()
 	_teardown()
 	_report_press()
 
@@ -241,25 +260,29 @@ func _run_press() -> void:
 func _report_press() -> void:
 	_phase = DONE
 	print("")
-	print("=== STAGE 2 — A BUILDING IS ONE BODY, SO IT IS ENTERED ONCE ===")
-	print("[graze] Drift into the wall at 4 m/s (under the free band), hold contact,")
-	print("[graze] then drive into it at 60 m/s WITHOUT ever separating.")
-	print("[graze] first contact emitted %.2f m/s -> %.2f hull"
+	print("=== STAGE 2 — THE LEDGE: A SECOND IMPACT ON A BODY ALREADY TOUCHED ===")
+	print("[graze] ONE StaticBody3D with two shapes, which is the shape a real")
+	print("[graze] building has - MenuBuilding puts every slab's collider under a")
+	print("[graze] single body. Drift onto the face at 1.5 m/s (free) while running")
+	print("[graze] along it at 60 m/s, then meet a ledge 60 m down the wall.")
+	print("[graze] No velocity is forced tick by tick: gravity and the motors are")
+	print("[graze] off, so the only forces in play are the two contacts.")
+	print("[graze] first contact  %.2f m/s -> %.2f hull"
 			% [maxf(float(_stage2["first"]), 0.0),
 			_combat.crash_damage(maxf(float(_stage2["first"]), 0.0))])
-	if float(_stage2["after_push"]) >= 0.0:
-		print("[graze] the 60 m/s shove emitted %.2f m/s -> %.2f hull"
-				% [float(_stage2["after_push"]),
-				_combat.crash_damage(float(_stage2["after_push"]))])
-	else:
-		print("[graze] the 60 m/s shove emitted NOTHING — no second crash event.")
-	print("[graze] total crash events over the whole run: %d" % int(_stage2["hits"]))
+	print("[graze] worst impact   %.2f m/s -> %.2f hull"
+			% [float(_stage2["worst"]),
+			_combat.crash_damage(float(_stage2["worst"]))])
+	print("[graze] contact ticks priced: %d" % int(_stage2["hits"]))
+	print("[graze] ended at x %.2f z %.2f, still doing %.2f m/s (ledge is at z 60)"
+			% [float(_stage2["end_x"]), float(_stage2["end_z"]),
+			float(_stage2["end_speed"])])
 	print("")
-	print("[graze] `body_entered` is an ENTER signal and a whole building is a single")
-	print("[graze] StaticBody3D with one CollisionShape3D per slab, so a scrape that")
-	print("[graze] never separates is priced ONCE, at whatever the first touch was")
-	print("[graze] worth. That is the strongest candidate for a collision that")
-	print("[graze] 'did not register': the register happened, and it was free.")
+	print("[graze] BEFORE THE FIX the ledge cost NOTHING: `body_entered` is an ENTER")
+	print("[graze] signal, the body had already been entered by the gentle touch, and")
+	print("[graze] a second strike on it could not fire. Whether a collision hurt")
+	print("[graze] depended on how fast you ENTERED contact rather than on how hard")
+	print("[graze] you were hitting. Contact is now priced every tick it lasts.")
 	for child: Node in root.get_children():
 		child.free()
 	print("")

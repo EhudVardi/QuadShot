@@ -147,9 +147,19 @@ func _on_physics_frame() -> void:
 			# same launch — drag scales with frontal area over mass — and a mass
 			# comparison silently becomes a drag comparison. Measured before this
 			# line existed: a 6% spread across the ladder, entirely from the run-up.
-			if _emitted < 0.0 and _hold != Vector3.ZERO:
+			#
+			# GATED ON CONTACT RATHER THAN ON THE EMISSION (2026-08-15), and this
+			# preserves the hold's intent rather than relaxing it. "Until contact"
+			# was written as "until the crash fires" back when the crash fired from
+			# `body_entered`, during the solver step. Contact is now priced from
+			# `_physics_process`, which runs AFTER this handler — so holding until
+			# the emission meant re-writing the post-collision velocity back to the
+			# approach speed before the drone could ever difference it, and every
+			# wall in this file reported a 0.00 m/s impact. The rig was overwriting
+			# the very quantity it exists to measure.
+			if _drone.get_contact_count() == 0 and _hold != Vector3.ZERO:
 				_drone.linear_velocity = _hold
-			if _emitted < 0.0:
+			if _drone.get_contact_count() == 0:
 				_speed_before = _drone.linear_velocity.length()
 			if _emitted >= 0.0 or _ticks >= MAX_TICKS:
 				_record()

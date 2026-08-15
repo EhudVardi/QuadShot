@@ -113,6 +113,10 @@ var _rate_controller: RateController = RateController.new()
 var _arm_switch_was: bool = false
 var _spawn_transform: Transform3D
 var _previous_velocity: Vector3 = Vector3.ZERO
+## False until the first physics tick has stored a velocity to difference against.
+## Without it, a bench that sets `linear_velocity` before the drone ever ticks
+## would have its whole launch speed read as a collision on tick one.
+var _previous_velocity_valid: bool = false
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -184,7 +188,10 @@ func _ready() -> void:
 			print("[config] loaded %s" % damage_config.save_path())
 		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_spawn_transform = global_transform
-	body_entered.connect(_on_body_entered)
+	# NOT connected to `body_entered` any more, and that is the whole of the fix
+	# for the silent building strike — see `_price_contact`. `contact_monitor` and
+	# `max_contacts_reported` stay set in drone.tscn because `get_contact_count()`
+	# needs them, and so does the rate controller's ground check.
 	# THE UPTILT MUST EXIST BEFORE THE FIRST PHYSICS TICK, and until 2026-08-06 it
 	# did not. It was applied only in `_process`, which runs on the IDLE frame —
 	# so whether the camera was tilted when the first `_physics_process` ran
@@ -363,10 +370,16 @@ func swap_frame(next: FrameConfig) -> void:
 	_rate_controller.reset()
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	# The velocity was just thrown away by hand, so the next tick must not read
+	# the discarded speed as a collision (see `_price_contact`).
+	_previous_velocity_valid = false
 	frame_changed.emit()
 
 
 func _physics_process(delta: float) -> void:
+	# FIRST, before anything this tick touches the velocity: price whatever the
+	# solver did to us during the LAST step.
+	_price_contact()
 	if damage_config != null:
 		_motors.min_thrust_floor = damage_config.motor_min_thrust
 	_input.poll(config, hover_throttle(), delta)
@@ -387,6 +400,7 @@ func _physics_process(delta: float) -> void:
 	_motors.apply_thrust(self, config, _gravity)
 	_apply_aerodynamics()
 	_previous_velocity = linear_velocity
+	_previous_velocity_valid = true
 
 
 func arm() -> bool:
@@ -421,6 +435,9 @@ func place_at(new_transform: Transform3D) -> void:
 	global_transform = new_transform
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	# Teleported and stopped by hand, so the next tick has no honest velocity
+	# difference to price (see `_price_contact`).
+	_previous_velocity_valid = false
 	_spawn_transform = new_transform
 
 
@@ -440,6 +457,8 @@ func reset_to_spawn() -> void:
 	_motors.repair()
 	_rate_controller.clear_integrator()
 	last_hit_direction = Vector3.ZERO
+	# Same reason as `place_at`: the speed was discarded, not lost to a wall.
+	_previous_velocity_valid = false
 	($Health as Health).revive()
 	airframe_reset.emit()
 	print("[drone] reset to spawn")
@@ -703,24 +722,51 @@ func take_hit(damage: float) -> void:
 	($Health as Health).take(damage)
 
 
-func _on_body_entered(_body: Node) -> void:
-	# The velocity the collision took away, in one tick. Measured across the whole
-	# ladder and at speeds from 3 to 131 m/s, this IS the impact speed and it IS
-	# the peak of the whole event — the solver stops the body in a single step, so
-	# there is never a later tick that hits harder and nothing is gained by
-	# watching for one. It is also mass-blind, which is what E6 requires.
-	#
-	# One emission per body entered, and that is correct rather than a gap: a
-	# crash that meets two things meets them at two speeds and is priced twice.
-	#
+## PRICE CONTACT EVERY TICK IT LASTS, not only the tick it began (the human's
+## ruling, 2026-08-15, option 2 of three offered).
+##
+## **THE BUG THIS REPLACES, because it is worth never rebuilding.** This used to
+## hang off `body_entered`, which is an ENTER signal — and a whole building is ONE
+## `StaticBody3D` carrying a `CollisionShape3D` per slab. So an airframe that
+## touched a tower gently and then flew into it never entered a second time, and
+## the entire encounter was priced at whatever that first touch was worth.
+## Measured by `graze_bench`: drift in at 4 m/s (free, 0.00 hull), hold contact,
+## then drive into it at 60 m/s — one event, zero damage. Whether a collision hurt
+## depended on how fast you ENTERED contact rather than on how hard you were
+## hitting, which is exactly the *"sometimes"* in the flight report.
+##
+## **WHY EMITTING EVERY CONTACT TICK IS SAFE, AND IT IS ARITHMETIC RATHER THAN A
+## HOPE.** The threshold is 73.5 g, which needs 12.0 m/s of delta-v in a SINGLE
+## tick. At 240 Hz an airframe under full power builds at most `TWR x g / 240` —
+## half a metre per second on the fiercest frame in the roster — so grinding along
+## a wall under thrust can never reach it, and resting on the ground produces
+## `g / 240` = 0.04 m/s. Only a genuine strike crosses the line, and a strike
+## spends its own speed doing so, which makes the mechanic self-limiting: you
+## cannot be re-accelerated to 12 m/s inside one tick to be hit again.
+##
+## So the sub-threshold ticks cost one `crash_damage` call that returns zero and
+## an early return in `main`, and this file stays combat-thin: it reports a SPEED
+## every tick there is contact, and what that speed is worth is not its business.
+func _price_contact() -> void:
+	# The first tick has no previous velocity to difference against, and a bench
+	# that sets `linear_velocity` before the drone ever ticks would otherwise read
+	# its whole launch speed as a collision.
+	if not _previous_velocity_valid:
+		return
+	if get_contact_count() <= 0:
+		return
 	# WHICH WAY THE AIRFRAME WAS GOING, in body space, kept for the asymmetric
-	# crash below. The direction of travel IS the side that hit, and it has to be
-	# captured HERE: `apply_hit_to_motors` runs later in the same frame, by which
-	# time the impact has already started spinning the aircraft.
+	# crash. The direction of travel IS the side that hit, and it has to be
+	# captured from the PRE-collision velocity: by now the impact has already
+	# started spinning the aircraft.
 	var travel: Vector3 = global_basis.inverse() * _previous_velocity
 	travel.y = 0.0
 	last_crash_heading = travel.normalized() if travel.length_squared() > 0.000001 \
 			else Vector3.ZERO
+	# The velocity the solver took away across the last step. Measured across the
+	# whole ladder from 3 to 131 m/s, this is mass-blind, which is what E6
+	# requires — and it is measured the same way it always was, so E6's
+	# calibration is untouched by the change in WHEN it is read.
 	crashed.emit((_previous_velocity - linear_velocity).length())
 
 
