@@ -12,6 +12,16 @@ extends TunableConfig
 ## the newbie floor); 1 = full subsystem degradation (flying the wounded quad).
 ## Scales every subsystem effect below. The combat twin of the rate-preset
 ## ladder (D3) — sim-leaning default, generous arcade floor, never a wall.
+## STAYS AT 0.6, and the decision is now a considered one rather than a pending
+## one. E.q8 named 1.0 as the design target — *"my choice is absolutely '1 = full
+## subsystem damage'"* — and it was offered for baking on 2026-08-15 once the
+## human had actually flown it. They declined: *"severity can stay in 0.6."*
+##
+## Worth recording because 1.0 remains what the model is AUTHORED against; what
+## the game SHIPS at is a separate call, and this is it. Raising it is a
+## roster-wide change rather than a damage-model one — every enemy gets
+## meaningfully more dangerous at once, and every counter-web band was measured
+## here — so the shipped value moving is a balance event, not a tuning tweak.
 @export var severity: float = 0.6
 
 @export_group("Motors")
@@ -30,7 +40,28 @@ extends TunableConfig
 ## How much of a CRASH's damage each motor takes. Crashes fray every rotor at
 ## once, so this is kept low — a rough landing must not spiral all engines to
 ## nothing; the repair pad is the recovery, this is the price.
-@export var crash_motor_scale: float = 0.4
+## Baked 0.4 -> 0.8 on 2026-08-15, after the human flew it and found crashes
+## barely marked the rotors: *"i had to push the motor damage scale to close to
+## max and the severity as well, to really see damage with head on collision."*
+##
+## The measurement behind the number, at the SHIPPED severity of 0.6 — leading
+## rotor health after a head-on, which is what the pilot sees on the pips:
+##
+##     speed     hull lost     at 0.4      at 0.8
+##     15 m/s        11.9        0.96        0.92
+##     20 m/s        37.8        0.88        0.76
+##     25 m/s        71.0        0.77        0.54
+##     28.7 m/s     100.3        0.68        0.35   <- a crash that KILLS you
+##
+## The bottom row is the argument. At 0.4 a crash violent enough to kill you left
+## the leading rotor at two thirds health, which is why the whole mechanic read
+## as weak however hard you hit something.
+##
+## THE KNOB THE HUMAN REACHED FOR FIRST WAS `motor_damage_scale`, AND THAT WOULD
+## HAVE BEEN A TRAP: it is shared with bullets, so five times the crash bite is
+## also five times the bite of every enemy bolt in the game. This one is
+## crash-only, which is why the tuning belongs here.
+@export var crash_motor_scale: float = 0.8
 ## HOW LOPSIDED A CRASH IS. 0 = every rotor takes exactly the same (the model as
 ## it shipped until 2026-08-15); 1 = only the rotors that led the impact take
 ## anything at all.
@@ -65,7 +96,22 @@ extends TunableConfig
 ## the transmitter health lost per unit of relative hit size (hit / max
 ## hull), before severity. At 3.0 and severity 0.6, a raider bolt on a
 ## Kestrel costs ~14% of the transmitter.
-@export var video_damage_scale: float = 3.0
+## Baked 3.0 -> 1.0 on 2026-08-15, on the human's call: *"i think it should be
+## somewhere at 1.0."*
+##
+## At 3.0 the transmitter was the most fragile thing on the airframe by a wide
+## margin — a hit worth a third of the hull destroyed it OUTRIGHT, so at any
+## meaningful severity essentially every real hit blinded the pilot. Measured
+## beside the rotors it was stark: 40 points of damage took the camera to 0.00
+## while the rotors sat at 0.78, which is why a crash looked catastrophic on the
+## feed and barely marked the props.
+##
+## At 1.0 the transmitter costs its share of the hull and no more: a hit worth a
+## third of the hull takes a third of the camera. E.q8 ranks the components and
+## the VTX is explicitly the survivable one — *"good rotor with damaged vtx and
+## good weapons is medium effective because a player can blind shot more and he
+## can be more stable"* — which 3.0 flatly contradicted.
+@export var video_damage_scale: float = 1.0
 ## The two knobs below define how NOTICEABLE the effect is globally; the
 ## transmitter's health is the knob over the knobs — every one of them is
 ## multiplied by how wrecked the equipment is.
