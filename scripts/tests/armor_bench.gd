@@ -40,6 +40,9 @@ const PROBE: String = "raider"
 ## A crash big enough to be felt and small enough to survive, in hull points —
 ## the band E6's guard lives in.
 const CRASH_HULL: float = 40.0
+## The plate table F hangs on EVERY frame to isolate the square-cube law. It is
+## the Roc's shipped value, so the heaviest frame's row is also its real one.
+const UNIFORM_PLATING: float = 0.024
 
 ## HOW OFTEN EACH FRAME IS ACTUALLY HIT, measured by `swarm_bench` in v2.46
 ## against ten raiders (GAMEPLAY-DESIGN E2) and quoted rather than re-run, because
@@ -108,6 +111,7 @@ func _on_frame() -> void:
 	_table_c()
 	_table_d()
 	_table_e()
+	_table_f()
 	for child: Node in root.get_children():
 		child.free()
 	print("")
@@ -350,3 +354,68 @@ func _table_e() -> void:
 		print("[armor] %8s %9.4f %9.4f %9.4f %9.4f %7.0f%%  %s"
 				% [frame_id, plating, bare, through, stopped,
 				stopped / maxf(bare, 0.000001) * 100.0, row["healths"]])
+
+
+## TABLE F — WHAT THE PLATING WEIGHS, and why the big frame is the one that can
+## carry it (E.q7's loop, closed 2026-08-15 on the human's own model: *"armor is
+## simply something that reduces damage taken, we can say its equivalent to the
+## thickness of the shell. so the mass is roughly thickness times the shell plan
+## area"*).
+##
+## THE SECOND HALF IS THE ONE THAT PROVES SOMETHING. Pricing the shipped roster
+## only says what today's values cost. Pricing the SAME plate on every frame
+## isolates the square-cube law: plate mass goes as area (S squared) and an
+## airframe's mass goes as volume (S cubed), so an identical plate is a far
+## smaller fraction of a big frame. That is E4.2's *"a 500 kg airframe can carry
+## plating; a 650 g quad carries nothing"* stated as arithmetic rather than as a
+## design preference, and it is the reason the authored ladder rises with size.
+func _table_f() -> void:
+	print("")
+	print("=== TABLE F — WHAT PLATING WEIGHS, AND WHAT IT COSTS IN THRUST ===")
+	print("[armor] Plate mass is areal density x armour x area x count. TWR droops")
+	print("[armor] because the thrust budget is bought with the DRY airframe, so")
+	print("[armor] nobody authors the penalty - it falls out.")
+	print("[armor] %8s %8s %9s %9s %8s %7s %8s %9s"
+			% ["frame", "dry kg", "plating", "plate kg", "of dry", "TWR", "-> TWR",
+			"hover"])
+	for frame_id: String in Frames.ROSTER:
+		var drone: FlightController = _drones[frame_id]
+		var frame: FrameConfig = Frames.config(frame_id)
+		frame.component_armor = {} if _plating(frame_id) <= 0.0 \
+				else {&"rotor": _plating(frame_id)}
+		var dry: float = drone.config.mass
+		var plate: float = drone.plate_mass()
+		print("[armor] %8s %8.2f %9.4f %9.3f %7.1f%% %7.1f %8.2f %9.4f"
+				% [frame_id, dry, _plating(frame_id), plate,
+				plate / maxf(dry, 0.000001) * 100.0,
+				drone.config.thrust_to_weight_ratio, drone.effective_twr(),
+				drone.hover_throttle()])
+
+	print("")
+	print("[armor] THE SAME PLATE ON EVERY FRAME (%.4f, the Roc's), which is the"
+			% UNIFORM_PLATING)
+	print("[armor] comparison that isolates the square-cube law:")
+	print("[armor] %8s %8s %8s %9s %8s %8s"
+			% ["frame", "body m", "dry kg", "plate kg", "of dry", "vs roc"])
+	var roc_share: float = 0.0
+	var rows: Array[Dictionary] = []
+	for frame_id: String in Frames.ROSTER:
+		var drone: FlightController = _drones[frame_id]
+		var frame: FrameConfig = Frames.config(frame_id)
+		frame.component_armor = {&"rotor": UNIFORM_PLATING}
+		var dry: float = drone.config.mass
+		var plate: float = drone.plate_mass()
+		var share: float = plate / maxf(dry, 0.000001) * 100.0
+		if frame_id == Frames.ROC:
+			roc_share = share
+		rows.append({"frame": frame_id, "body": drone.config.body_m, "dry": dry,
+				"plate": plate, "share": share})
+	for row: Dictionary in rows:
+		print("[armor] %8s %8.2f %8.2f %9.3f %7.1f%% %7.1fx"
+				% [row["frame"], row["body"], row["dry"], row["plate"],
+				row["share"], float(row["share"]) / maxf(roc_share, 0.000001)])
+	# Restore, so anything printed after this reads the roster and not the demo.
+	for frame_id: String in Frames.ROSTER:
+		var frame: FrameConfig = Frames.config(frame_id)
+		frame.component_armor = {} if _plating(frame_id) <= 0.0 \
+				else {&"rotor": _plating(frame_id)}

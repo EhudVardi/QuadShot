@@ -66,6 +66,29 @@ extends TunableConfig
 ## i would equip it with medium armor, because it may be more expensive so i
 ## would protect it more"* — and never from a ratio against another frame.
 @export var component_armor: Dictionary = {}
+## WHAT A UNIT OF PLATING WEIGHS, in kg per square metre of plate per unit of
+## `component_armor` (GAMEPLAY-DESIGN Iteration 17 / E.q7, the human's own model):
+##
+##   *"since we agreed that armor is simply something that reduces damage taken,
+##   we can say its equivalent to the thickness of the shell. so the mass is
+##   roughly thickness times the shell plan area."*
+##
+## So an armour value IS a plate thickness, and plate mass is `density x thickness
+## x area`. Density and thickness only ever appear multiplied together and neither
+## is separately measurable from anything in this game, so they are ONE number
+## here rather than two that would invite tuning against each other.
+##
+## THE ANCHOR, so the number is not arbitrary: armour 1.0 means no hit can ever
+## damage that component, which is "immune to anything the bestiary fires" — call
+## that 50 mm of steel. 7850 kg/m3 x 0.05 m = 392.5 kg/m2 per unit of armour, and
+## the Roc's 0.024 is then a 1.2 mm plate. Halving or doubling the anchor moves
+## every mass below by the same factor and changes none of the conclusions, which
+## is worth knowing before anyone tunes it.
+##
+## IT IS PER FRAME because plate material is an airframe decision — a stealth
+## frame would plausibly buy composite and pay less per unit — but nothing on the
+## roster differs today, and a frame that wanted to differ would say so here.
+@export var plate_areal_density: float = 392.5
 
 ## Break, settle, fire, break — the PILOT_VERSION 5 tactical jink. Dodge while
 ## under fire, hold the line while the gun is on the target.

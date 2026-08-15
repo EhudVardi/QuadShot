@@ -232,7 +232,6 @@ func _adopt_frame() -> void:
 			print("[config] loaded %s" % frame.loaded_from)
 		if config.load_from_user():
 			print("[config] loaded %s" % config.loaded_from)
-	mass = config.mass
 	# The frame owns the hull, and applies it HERE rather than in main.gd. That
 	# move closes a hole in the instrument: the benches instantiate this scene
 	# directly and never ran main's wiring, so they measured whatever default sat
@@ -247,6 +246,16 @@ func _adopt_frame() -> void:
 	# mixer, the meshes, the audio emitters, the HUD pips, the hit picker — asks
 	# the motor model rather than assuming four.
 	_motors.configure(MotorModel.layout_from_id(config.rotor_layout))
+	# AFTER the layout, never before: plate mass is priced per ROTOR among other
+	# things, so a hexa pays for six pods and the count has to be real by now.
+	_apply_loaded_mass()
+	# Printed only when there IS plating, so an unplated frame's boot line is
+	# unchanged and the ladder's logs stay comparable across the roster.
+	var plate: float = plate_mass()
+	if plate > 0.0:
+		print("[frame] %s carries %.3f kg of plating (%.1f%% of its dry mass): TWR %.1f -> %.2f"
+				% [frame.display_name, plate, plate / maxf(config.mass, 0.0001) * 100.0,
+				config.thrust_to_weight_ratio, effective_twr()])
 	_apply_frame_geometry()
 
 
@@ -602,11 +611,43 @@ func repair_motors() -> void:
 	_rate_controller.clear_integrator()
 
 
+## THE AIRFRAME AS FLOWN: authored dry mass plus whatever its plating weighs
+## (GAMEPLAY-DESIGN Iteration 17 / E.q7). The `.tres` keeps saying what the
+## airframe weighs EMPTY, which is the number an engineer would quote, and the
+## armour is a load it carries.
+func loaded_mass() -> float:
+	return config.mass + plate_mass()
+
+
+## What this airframe's plating weighs, kg. Zero on any frame with no plating, so
+## an unplated roster is bit-identical to the model before E.q7's loop closed.
+func plate_mass() -> float:
+	return AirframeComponents.plate_mass(frame, config, _motors.rotor_count)
+
+
+## THE PERFORMANCE HALF OF E.q7'S LOOP, and it is deliberately NOT compensated.
+## `MotorModel.max_total_thrust` is `TWR x config.mass x g` — the thrust budget is
+## bought with the DRY airframe — so hanging plate on it lifts the hover throttle
+## and drops the effective thrust-to-weight without anybody authoring a penalty.
+## That is *"the armor costs mass, and the mass costs performance"* falling out of
+## the arithmetic rather than being applied to it.
+func effective_twr() -> float:
+	var loaded: float = loaded_mass()
+	if loaded <= 0.0:
+		return 0.0
+	return _motors.max_total_thrust(config, _gravity) / (loaded * _gravity)
+
+
+func _apply_loaded_mass() -> void:
+	mass = loaded_mass()
+
+
 ## Throttle fraction at which total thrust equals weight. With the linear
-## thrust model this is exactly 1/TWR; computed honestly so it stays correct
-## if the thrust model gains a curve later.
+## thrust model this is exactly 1/TWR on a bare airframe; computed honestly so it
+## stays correct with plating aboard, and so it would stay correct if the thrust
+## model gained a curve later.
 func hover_throttle() -> float:
-	return config.mass * _gravity / _motors.max_total_thrust(config, _gravity)
+	return loaded_mass() * _gravity / _motors.max_total_thrust(config, _gravity)
 
 
 ## Test/setup hook: skip motor spool-up (see scripts/tests/hover_check.gd).

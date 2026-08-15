@@ -126,6 +126,65 @@ const MOUNTS: Dictionary = {
 	&"magazine": Vector3(0.0, -0.08, 0.22),
 }
 
+## HOW BIG A PLATE OVER EACH COMPONENT IS: the radius of the plated disc, as a
+## fraction of `body_m` (E.q7's mass loop). Fractions for the same reason MOUNTS
+## uses them — a motor pod on a 3 m aircraft is not the size of one on a 5-inch
+## quad, and a constant here would be the size-ladder scar again.
+##
+## The rotor's 0.10 is a pod rather than a bare motor can: what you would actually
+## armour to keep a corner making thrust is the motor and its speed controller
+## together. On the Kestrel that is a 56 mm disc, which is a 2207 motor and an
+## ESC; on the Roc it is 600 mm, which is a motor a 500 kg aircraft would carry.
+##
+## EVERY KIND HAS AN ENTRY, including the four that cannot be damaged yet, so that
+## authoring plating over an unbuilt component is never silently FREE. A missing
+## entry would price at zero and the mistake would look like a working feature.
+const PLATE_RADIUS: Dictionary = {
+	&"rotor": 0.10,
+	&"prop": 0.10,
+	&"vtx": 0.04,
+	&"power": 0.09,
+	&"gyro": 0.05,
+	&"weapon_mount": 0.07,
+	&"magazine": 0.08,
+	&"structure": 0.0,
+}
+
+
+## WHAT THIS AIRFRAME'S PLATING WEIGHS, in kg (E.q7, the human's shell model:
+## *"the mass is roughly thickness times the shell plan area"*).
+##
+## Pure and static on purpose — it takes the two resources and a rotor count
+## rather than a live drone, so it can be computed BEFORE the node is configured
+## and so a bench can price a frame without building one.
+##
+## **THE SQUARE-CUBE LAW IS WHY E4.2 IS TRUE RATHER THAN MERELY ASSERTED.** Plate
+## mass goes as area, which is `S²`; an airframe's own mass goes as volume, `S³`.
+## So the SAME thickness costs a big frame a far smaller fraction of itself, which
+## is exactly *"a 500 kg airframe can carry plating over its power bus and its
+## gyro; a 650 g quad carries nothing"* arriving as arithmetic instead of as a
+## design statement. Measured on this roster: plating a Kestrel to the Roc's
+## standard would cost 14.3% of the Kestrel's mass and 2.1% of the Roc's.
+static func plate_mass(frame: FrameConfig, config: FlightConfig,
+		rotor_count: int) -> float:
+	if frame == null or config == null:
+		return 0.0
+	var total: float = 0.0
+	for row: Dictionary in TABLE:
+		var kind: StringName = row["kind"]
+		var armor: float = float(frame.component_armor.get(kind, 0.0))
+		if armor <= 0.0:
+			continue
+		var radius: float = float(PLATE_RADIUS.get(kind, 0.0)) * config.body_m
+		if radius <= 0.0:
+			continue
+		var area: float = PI * radius * radius
+		# "one per rotor" means one plate per rotor THIS airframe has, so a hexa
+		# pays for six and the count is never assumed.
+		var count: int = rotor_count if int(row["count"]) < 0 else int(row["count"])
+		total += frame.plate_areal_density * armor * area * float(count)
+	return total
+
 
 ## The live component list for one airframe.
 ##
