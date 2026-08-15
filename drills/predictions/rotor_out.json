@@ -1,0 +1,22 @@
+{
+	"drill": "rotor_out",
+	"by": "agent (Claude Opus 5), 2026-08-15, before any human flight of this drill",
+	"reasoning": "A rotor is a quarter of the lift, so losing fraction L of one costs L/4 of total thrust. On a TWR-4.5 Kestrel hover collective is 1/4.5 = 0.222, and holding altitude with the wound needs collective x L/(4-L) more: at L=0.4 that is 2.5 percentage points of stick, which is below what a hand reads. Worse for the pilot, the rate loop is a PID on measured rates WITH an integrator, and a steady asymmetry is precisely what an integrator absorbs - within about a second of each 5% step the aircraft stops tilting and the wound is folded into trim. The airframe plate is hidden, so there is no visual cue either. That leaves accumulated station drift and the feel of an asymmetric response to a correction, and both need a big bite before they say anything. So my claim is that this damage model is close to INVISIBLE to a hovering pilot, and that the aircraft barely moves while it becomes invisible. If the call lands under 0.30 the pilot is reading a cue this reasoning does not contain, and naming that cue is worth more than the drill.",
+	"bands": {
+		"detect_loss": {
+			"low": 0.45,
+			"high": 0.7,
+			"why": "nine to fourteen raider bolts into one rotor before it is felt, because the integrator hides each step and the throttle change is a couple of percentage points"
+		},
+		"drift_m": {
+			"low": 2.0,
+			"high": 15.0,
+			"why": "the loop holds attitude, so drift is only the residue of each step's transient plus the pilot's own station-keeping error over twenty-odd seconds - present, but not the thing that gives the failure away"
+		},
+		"sag_m": {
+			"low": -2.0,
+			"high": 8.0,
+			"why": "the thrust deficit is small and the pilot is actively holding height by eye, so I expect a few metres either way rather than a sink that announces itself"
+		}
+	}
+}

@@ -1,0 +1,22 @@
+{
+	"drill": "hold_tilt",
+	"by": "agent (Claude Opus 5), 2026-08-15, before any human flight of this drill",
+	"reasoning": "Acro has no attitude hold, so 30 degrees of tilt has to be actively maintained for the whole window against an aircraft that is accelerating and descending the entire time. What is new here is that the pilot has a NUMBER to fly rather than a feel: the airframe level bracket prints its own tilt off vertical, and a printed number closes a loop that eyeballing a horizon does not. So I expect the band to be captured almost immediately and held well past the ten-second success target, with the residual error small. The half of this I am least sure of is rms_deg, because it is measured from first capture to the END of the window and therefore includes whatever happens after a break-out - a pilot who loses it at fifteen seconds and chases it back pays for that in this number and nowhere else.",
+	"bands": {
+		"capture_s": {
+			"low": 0.5,
+			"high": 3.0,
+			"why": "pitching from level to 30 degrees is under a second of stick on a Kestrel at these rates, and the band is 10 degrees wide, so the only cost is one correction pass while the pilot learns where the number sits"
+		},
+		"hold_s": {
+			"low": 10.0,
+			"high": 17.0,
+			"why": "this is the claim that the instrument works: with a printed tilt figure and a plus-or-minus-5-degree band, a practiced acro pilot should beat the stated 10-second target outright, and best-of across several attempts should approach the 18.5 seconds the window physically allows"
+		},
+		"rms_deg": {
+			"low": 1.5,
+			"high": 5.0,
+			"why": "steady-state error against a printed number should sit inside a couple of degrees; the band's top end is the allowance for the capture transient and for one break-out, both of which this measure deliberately includes"
+		}
+	}
+}
