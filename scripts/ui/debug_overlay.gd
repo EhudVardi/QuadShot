@@ -227,6 +227,7 @@ const _DAMAGE_FLOAT_ROWS: Array[Array] = [
 	["motor_damage_max", 0.0, 1.0, 0.05],
 	["motor_min_thrust", 0.0, 1.0, 0.05],
 	["crash_motor_scale", 0.0, 1.0, 0.05],
+	["crash_asymmetry", 0.0, 1.0, 0.05],
 	["video_glitch_on_hit", 0.0, 1.0, 0.05],
 	["video_glitch_decay", 0.5, 6.0, 0.1],
 	["video_damage_scale", 0.0, 8.0, 0.1],

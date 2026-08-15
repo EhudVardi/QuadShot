@@ -27,10 +27,30 @@ extends TunableConfig
 ## keeps a motor-out flyable-but-punishing; drive toward 0 for lethal realism.
 ## 0.30 = a dead corner still pulls its weight enough to fight home to a pad.
 @export var motor_min_thrust: float = 0.30
-## How much of a CRASH's (directionless) damage each motor takes. Crashes fray
-## all four at once, so this is kept low — a rough landing must not spiral all
-## engines to nothing; the repair pad is the recovery, this is the price.
+## How much of a CRASH's damage each motor takes. Crashes fray every rotor at
+## once, so this is kept low — a rough landing must not spiral all engines to
+## nothing; the repair pad is the recovery, this is the price.
 @export var crash_motor_scale: float = 0.4
+## HOW LOPSIDED A CRASH IS. 0 = every rotor takes exactly the same (the model as
+## it shipped until 2026-08-15); 1 = only the rotors that led the impact take
+## anything at all.
+##
+## It exists because the even version was measured to be FREE. A crash and a
+## bullet of the same size both took a real bite out of the rotors, but the crash
+## spread it perfectly evenly — and a multirotor does not care about a symmetric
+## loss, it just needs a little more throttle. Flown on the position-hold
+## autopilot: a bullet produced 2.32 m/s of drift and 27.63 degrees of tilt, and
+## the identical damage as a crash produced **0.00 and 0.00**. The user flew it
+## and said so before the bench did: *"the props got damaged but way less, the
+## quad is still absolutely flyable... taking damage from being shot makes the
+## quad way WAY worse to fly."*
+##
+## THE WEIGHTS ARE NORMALISED so the MEAN is unchanged. Asymmetry redistributes a
+## crash across the airframe, it does not make one bigger or smaller — which
+## keeps this knob independent of `crash_motor_scale` and keeps E6's calibration
+## intact. Every rotor still takes something at any value below 1, because a
+## crash loading the WHOLE frame is E6's actual content.
+@export var crash_asymmetry: float = 0.6
 
 @export_group("Video")
 ## FPV feed breakup punched in on each hit (scaled by hit size and severity),

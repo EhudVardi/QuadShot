@@ -65,7 +65,8 @@ const LADDER_TOLERANCE_PCT: float = 1.0
 const QUADRATIC_TOLERANCE: float = 0.15
 ## Claim 2: a set-down and a wall must not be the same kind of event.
 const LANDING_WALL_RATIO: float = 50.0
-## Claim 4: rotors are frayed equally by a crash, to within this much capability.
+## Claim 4: below this much difference between the best and worst rotor, a crash
+## counts as perfectly flat — which is the thing it must no longer be.
 const EVEN_FRAY_EPSILON: float = 0.001
 ## Claim 4b: the rotor a front-right hit belongs to. `MotorModel`'s order is
 ## FL, FR, BL, BR, and the planted bearing is +X / -Z, so it is FR.
@@ -418,8 +419,15 @@ func _run_bullet() -> void:
 				* Vector3(-1.0, 0.0, 1.0)).normalized()
 		# Dropped from a height that lands between the free threshold and the
 		# lethal speed: it has to hurt, and the pilot has to survive to be read.
+		#
+		# AND IT ARRIVES AT AN ANGLE, which is load-bearing rather than incidental.
+		# A perfectly vertical impact has no leading side in the rotor plane —
+		# every arm meets the ground at once — so it is legitimately even, and the
+		# first version of this stage dropped straight down and failed the
+		# asymmetry assertion on behaviour that was correct. Real crashes are
+		# angled; this one carries 6 m/s of forward drift into the ground.
 		_main_drone.global_position = Vector3(0.0, 10.0, 0.0)
-		_main_drone.linear_velocity = Vector3(0.0, -12.0, 0.0)
+		_main_drone.linear_velocity = Vector3(0.0, -12.0, -6.0)
 		_main_drone.crashed.connect(_on_main_crashed)
 		_phase = MAIN_CRASH
 		_main_wait = 0
@@ -496,14 +504,34 @@ func _read_components() -> void:
 	if crash_hurt != _rotor_count():
 		_failures.append("a %.1f m/s crash damaged %d of %d rotors — a crash is a whole-airframe event and every component has to feel it, which is the one thing that distinguishes it from a bullet"
 				% [_main_impact, crash_hurt, _rotor_count()])
-	if crash_hurt == _rotor_count() and spread > EVEN_FRAY_EPSILON:
-		_failures.append("a crash frayed the four rotors by different amounts (spread %.4f) — peak deceleration has no direction, so it cannot prefer a corner"
-				% spread)
+	# AND IT IS LOPSIDED. This assertion is the exact inverse of the one it
+	# replaced, which demanded the four rotors be frayed EQUALLY — and that
+	# assertion was passing on a behaviour the human flew and rejected. An even
+	# crash is FREE: measured at 0.00 m/s of drift and 0.00 degrees of tilt
+	# against a bullet's 2.32 and 27.63, because a multirotor does not care about
+	# a symmetric loss. So a crash must still load every rotor (above) and must
+	# NOT load them all the same (here).
+	#
+	# The drop is vertical, so the leading side is whichever way the airframe was
+	# drifting when it met the ground — the check does not care WHICH corner, only
+	# that the wound is not flat, which is the property that makes it felt.
+	if crash_hurt == _rotor_count() and spread <= EVEN_FRAY_EPSILON \
+			and _crash_asymmetry() > 0.0:
+		_failures.append("a crash frayed every rotor by the SAME amount (spread %.4f) at crash_asymmetry %.2f — a symmetric wound is one a multirotor simply trims out, and it was measured to cost 0.00 m/s of drift and 0.00 degrees of tilt"
+				% [spread, _crash_asymmetry()])
 	_finish()
 
 
 ## Asked of the airframe rather than assumed (E.q1): main.tscn flies a quad
 ## today, and this check should still mean what it says the day it does not.
+## Read off the live config so the stage above states the condition it is
+## testing under, rather than assuming the shipped default.
+func _crash_asymmetry() -> float:
+	if _main_drone == null or _main_drone.damage_config == null:
+		return 0.0
+	return _main_drone.damage_config.crash_asymmetry
+
+
 func _rotor_count() -> int:
 	if _main_drone == null:
 		return 0

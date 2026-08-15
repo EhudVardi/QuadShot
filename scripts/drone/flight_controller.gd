@@ -88,6 +88,11 @@ var team: StringName = &"player"
 ## World direction the last projectile hit came FROM (set by projectile.gd,
 ## consumed by main.gd for the HUD damage-direction indicator).
 var last_hit_direction: Vector3 = Vector3.ZERO
+## Body-space direction of travel at the last collision, flattened to the rotor
+## plane. Consumed and cleared by `apply_hit_to_motors` to weight a crash toward
+## the side that led the impact. Zero means "no crash heading" and restores the
+## perfectly even spread this replaced.
+var last_crash_heading: Vector3 = Vector3.ZERO
 ## Effective throttle [0, 1] this tick (gamepad, or the test override below).
 var collective: float = 0.0
 ## Test hook (scripts/tests/hover_check.gd): >= 0 replaces gamepad throttle.
@@ -438,25 +443,15 @@ func reset_to_spawn() -> void:
 func apply_hit_to_motors(damage: float) -> void:
 	if damage_config == null or damage_config.severity <= 0.0:
 		return
-	var amount: float = minf(damage * damage_config.motor_damage_scale,
-			damage_config.motor_damage_max) * damage_config.severity
-	if amount <= 0.0:
-		return
+	var raw: float = damage * damage_config.motor_damage_scale
+	var amount: float = minf(raw, damage_config.motor_damage_max) \
+			* damage_config.severity
 	var from_body: Vector3 = global_basis.inverse() * last_hit_direction
 	from_body.y = 0.0
 	if from_body.length_squared() < 0.000001:
-		# Directionless (a crash): frays the whole frame, but gently — a rough
-		# landing must not nuke all four engines into a death spiral. The pad
-		# (D5) is the recovery; this is the price, not a sentence.
-		#
-		# Walked over the REGISTRY rather than over MOTOR_COUNT (E10 step 2), so
-		# E6's *"all parts feel"* it is literally what this loop says. Only the
-		# built components can absorb anything today, so the result is identical
-		# to the four-rotor version it replaced — and a component that becomes
-		# damageable is loaded by a crash the day it is added, with no edit here.
-		var crash_amount: float = amount * damage_config.crash_motor_scale
-		for part: AirframeComponents.Part in AirframeComponents.of(self):
-			_damage_component(part, crash_amount)
+		_apply_crash(raw)
+		return
+	if amount <= 0.0:
 		return
 	from_body = from_body.normalized()
 	# NEAREST COMPONENT, not nearest rotor (E.q2, answered `derived`). The
@@ -481,6 +476,62 @@ func apply_hit_to_motors(damage: float) -> void:
 			best = part
 	if best != null:
 		_damage_component(best, amount)
+
+
+## A crash frays the WHOLE frame, and lopsidedly (E6, corrected by the human's
+## flight report 2026-08-15). Two changes from the version this replaces, both
+## approved after the bench measured what was wrong with it:
+##
+## **THE BULLET CAP DOES NOT APPLY.** `motor_damage_max` exists so that *"one bolt
+## frays a motor, it never kills one outright"* — a rule about small arms, which a
+## crash had been inheriting. It meant rotor damage stopped rising at about 50
+## points, so a 130 m/s impact into a building cost exactly what a 25 m/s bump
+## did. Crash severity never reached the rotors at all above that line, which
+## quietly undid the whole point of making crash damage scale with violence.
+##
+## **AND IT IS WEIGHTED TOWARD THE SIDE THAT HIT.** An even crash was measured to
+## be FREE: identical damage produced 27.63 degrees of tilt as a bullet and
+## **0.00** as a crash, because a multirotor does not care about a symmetric loss.
+## The weights are normalised to mean 1, so this redistributes the wound rather
+## than resizing it, and every rotor still takes something at any asymmetry below
+## 1 — a crash loading the whole frame is E6's actual content and is not up for
+## negotiation, only its evenness was.
+func _apply_crash(raw: float) -> void:
+	var heading: Vector3 = last_crash_heading
+	last_crash_heading = Vector3.ZERO
+	var base: float = raw * damage_config.severity \
+			* damage_config.crash_motor_scale
+	if base <= 0.0:
+		return
+	# Walked over the REGISTRY rather than over a rotor count (E10 step 2), so
+	# E6's *"all parts feel"* it is literally what this loop says, and a
+	# component that becomes damageable is loaded by a crash the day it is added.
+	var parts: Array[AirframeComponents.Part] = AirframeComponents.of(self)
+	var lean: float = clampf(damage_config.crash_asymmetry, 0.0, 1.0)
+	if heading.length_squared() < 0.000001 or lean <= 0.0:
+		for part: AirframeComponents.Part in parts:
+			_damage_component(part, base)
+		return
+	# `heading` is the way the airframe was travelling, so a rotor lying along it
+	# is on the leading edge and meets the wall first.
+	var weights: Array[float] = []
+	var total: float = 0.0
+	for part: AirframeComponents.Part in parts:
+		var flat := Vector3(part.position.x, 0.0, part.position.z)
+		var lead: float = 0.0
+		if flat.length_squared() > 0.000001:
+			lead = maxf(flat.normalized().dot(heading), 0.0)
+		var weight: float = (1.0 - lean) + lean * lead
+		weights.append(weight)
+		total += weight
+	# Normalised to mean 1: asymmetry moves the damage around the airframe, it
+	# does not add or remove any. Without this, raising the knob would silently
+	# make every crash gentler and re-tune E6's calibration by accident.
+	var mean: float = total / float(maxi(weights.size(), 1))
+	if mean <= 0.0:
+		return
+	for i: int in parts.size():
+		_damage_component(parts[i], base * weights[i] / mean)
 
 
 ## Route damage to one component. The dispatch is where "addressable" stops being
@@ -582,6 +633,15 @@ func _on_body_entered(_body: Node) -> void:
 	#
 	# One emission per body entered, and that is correct rather than a gap: a
 	# crash that meets two things meets them at two speeds and is priced twice.
+	#
+	# WHICH WAY THE AIRFRAME WAS GOING, in body space, kept for the asymmetric
+	# crash below. The direction of travel IS the side that hit, and it has to be
+	# captured HERE: `apply_hit_to_motors` runs later in the same frame, by which
+	# time the impact has already started spinning the aircraft.
+	var travel: Vector3 = global_basis.inverse() * _previous_velocity
+	travel.y = 0.0
+	last_crash_heading = travel.normalized() if travel.length_squared() > 0.000001 \
+			else Vector3.ZERO
 	crashed.emit((_previous_velocity - linear_velocity).length())
 
 

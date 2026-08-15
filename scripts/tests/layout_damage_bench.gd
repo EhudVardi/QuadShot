@@ -27,6 +27,9 @@ const YAW_TARGET: float = 3.0
 ## Open-loop yaw differential, as a fraction of full command.
 const YAW_COMMAND: float = 0.25
 const HIT: float = 40.0
+## Past the old `motor_damage_max` cap, which is where crash severity used to
+## stop reaching the rotors entirely.
+const HARD_HIT: float = 100.0
 
 enum { OPEN_LOOP, CLOSED_LOOP, WOUND_FLY, REPORT }
 
@@ -152,7 +155,10 @@ func _run_closed_loop() -> void:
 ## TABLE B, first half: the same damage delivered two ways, every component read
 ## off the registry afterwards.
 func _measure_components() -> void:
-	for frame_id: String in [Frames.KESTREL, Frames.HEXA]:
+	for spec: Array in [[Frames.KESTREL, HIT], [Frames.HEXA, HIT],
+			[Frames.KESTREL, HARD_HIT]]:
+		var frame_id: String = spec[0]
+		var hit: float = spec[1]
 		for mode: String in ["crash", "bullet"]:
 			var arena := Node3D.new()
 			root.add_child(arena)
@@ -162,7 +168,12 @@ func _measure_components() -> void:
 			# A crash is directionless; a bullet arrives from a bearing.
 			drone.last_hit_direction = Vector3.ZERO if mode == "crash" \
 					else (drone.global_basis * Vector3(1.0, 0.0, -1.0)).normalized()
-			drone.apply_hit_to_motors(HIT)
+			# A crash carries a HEADING (the way the airframe was going) rather
+			# than a bearing it was shot from. Set here the way _on_body_entered
+			# sets it, so this measures a real angled impact and not a flat one.
+			if mode == "crash":
+				drone.last_crash_heading = Vector3(0.0, 0.0, -1.0)
+			drone.apply_hit_to_motors(hit)
 			var healths: PackedStringArray = []
 			var lowest: float = 1.0
 			var motors: MotorModel = drone.get_node("MotorModel") as MotorModel
@@ -172,10 +183,11 @@ func _measure_components() -> void:
 			# The VTX arithmetic, lifted from main._on_player_damaged so the two
 			# cannot disagree: it is the same for a crash and for a bullet.
 			var dc: DamageConfig = drone.damage_config
-			var vtx: float = clampf(HIT / 100.0 * dc.video_damage_scale
+			var vtx: float = clampf(hit / 100.0 * dc.video_damage_scale
 					* dc.severity, 0.0, 1.0)
 			_components.append({
 				"frame": frame_id,
+				"hit": hit,
 				"mode": mode,
 				"rotors": "/".join(healths),
 				"worst": lowest,
@@ -211,7 +223,9 @@ func _run_wound_flight() -> void:
 		_drone.damage_config.severity = 1.0
 		_drone.last_hit_direction = Vector3.ZERO if case["mode"] == "crash" \
 				else (_drone.global_basis * Vector3(1.0, 0.0, -1.0)).normalized()
-		_drone.apply_hit_to_motors(HIT)
+		if case["mode"] == "crash":
+			_drone.last_crash_heading = Vector3(0.0, 0.0, -1.0)
+		_drone.apply_hit_to_motors(float(case["hit"]))
 		_drone.arm()
 		_drone.prime_motors(_drone.hover_throttle())
 		_drone.autopilot = true
@@ -232,6 +246,7 @@ func _run_wound_flight() -> void:
 	var case: Dictionary = _components[_index]
 	_flight.append({
 		"frame": case["frame"],
+		"hit": case["hit"],
 		"mode": case["mode"],
 		"drift": _sum_drift / float(maxi(_n, 1)),
 		"tilt": _sum_tilt / float(maxi(_n, 1)),
@@ -274,21 +289,22 @@ func _report() -> void:
 	print("[layout] Same %.0f points of damage, delivered two ways, at severity 1.0." % HIT)
 	print("[layout] 'spread' is the gap between the best and worst rotor: it is what")
 	print("[layout] the airframe has to FIGHT, and a symmetric wound has none.")
-	print("[layout] %8s %8s %-26s %8s %8s %9s"
-			% ["frame", "mode", "rotor health", "worst", "spread", "vtx lost"])
+	print("[layout] %8s %5s %7s %-32s %7s %7s %8s"
+			% ["frame", "dmg", "mode", "rotor health", "worst", "spread", "vtx"])
 	for row: Dictionary in _components:
-		print("[layout] %8s %8s %-26s %8.2f %8.2f %9.2f"
-				% [row["frame"], row["mode"], row["rotors"], row["worst"],
-				row["spread"], row["vtx_lost"]])
+		print("[layout] %8s %5.0f %7s %-32s %7.2f %7.2f %8.2f"
+				% [row["frame"], row["hit"], row["mode"], row["rotors"],
+				row["worst"], row["spread"], row["vtx_lost"]])
 
 	print("")
 	print("[layout] And what the pilot feels, flying each wounded airframe on the")
 	print("[layout] position-hold autopilot — drift off station and tilt off level:")
-	print("[layout] %8s %8s %11s %11s"
-			% ["frame", "mode", "drift m/s", "tilt deg"])
+	print("[layout] %8s %5s %7s %11s %11s"
+			% ["frame", "dmg", "mode", "drift m/s", "tilt deg"])
 	for row: Dictionary in _flight:
-		print("[layout] %8s %8s %11.2f %11.2f"
-				% [row["frame"], row["mode"], row["drift"], row["tilt"]])
+		print("[layout] %8s %5.0f %7s %11.2f %11.2f"
+				% [row["frame"], row["hit"], row["mode"], row["drift"],
+				row["tilt"]])
 
 	for child: Node in root.get_children():
 		child.free()
