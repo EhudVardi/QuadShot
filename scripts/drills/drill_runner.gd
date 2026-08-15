@@ -78,7 +78,7 @@ func _ready() -> void:
 	if args.has("--list"):
 		for id: String in DrillBook.ids():
 			print("[drill] %-12s %s" % [id, DrillBook.drill(id)["title"]])
-		get_tree().quit()
+		_shutdown(0)
 		return
 	var at: int = args.find("--drill")
 	if at >= 0 and at + 1 < args.size():
@@ -86,7 +86,7 @@ func _ready() -> void:
 	if not DrillBook.has(_drill_id):
 		push_error("[drill] no such drill '%s' — try one of %s"
 				% [_drill_id, ", ".join(DrillBook.ids())])
-		get_tree().quit(1)
+		_shutdown(1)
 		return
 	at = args.find("--out")
 	if at >= 0 and at + 1 < args.size():
@@ -129,6 +129,18 @@ func _ready() -> void:
 	for line: String in DrillBook.brief_lines(_drill_id):
 		print("[drill] %s" % line)
 	print("[drill] artifact -> %s" % _artifact_path)
+
+
+## LEAVING BEFORE THE OVERLAY EXISTS, and the processing has to be turned off by
+## hand. `SceneTree.quit()` sets a flag and execution carries straight on, so
+## `--list` printed its two lines and then crashed every frame until the engine
+## actually left — assigning `visible` on a null brief panel that `_ready` had
+## returned before building. The same sentence bit `hud_check` on the day it
+## landed; it is a GDScript fact worth writing down twice.
+func _shutdown(code: int) -> void:
+	set_physics_process(false)
+	set_process(false)
+	get_tree().quit(code)
 
 
 ## THE PILOT'S MARK, as a named entry point rather than only an inline input
