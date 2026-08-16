@@ -780,6 +780,36 @@ The pitch ladder deliberately keeps **unsigned** rung labels with dashed rungs
 below the horizon. That is the real-HUD convention, and the human's own rule was
 to defer to it where it exists.
 
+**Claim 9f — the horizon rolls with the aircraft, including upside down.** The
+whole of round 6 shipped with this broken and every claim green; it took a human
+rolling inverted to find it: *"when i roll 180 degrees... the horizon dotted line
+and the entire ladder seems to align itself IN REVERSE."*
+
+The offset was applied straight down **screen Y** when it belongs along the
+aircraft's own up axis. Write world up in camera space as `u`: the horizon's
+closest point to the principal point is `up * (f · u.z / h)` with
+`h = sqrt(u.x² + u.y²)`, and `up` is `(sin roll, −cos roll)`, which **rolls**. A
+screen-Y offset is the same answer at roll 0 and wrong everywhere else. Inverted
+it is the exact negative, so the line ran from the horizon at twice the rate the
+pilot pitched. At 90 degrees of roll it failed invisibly instead: the line is
+vertical there, so offsetting it vertically slid it along *itself* and pinned the
+horizon to the screen centre at every pitch angle.
+
+**Sweeping pitch could never have caught it** — that is the point worth keeping.
+Every existing claim varied pitch at roll 0. What catches it is comparing the
+same pitch at *different rolls*, which is the same shape of claim
+`separation_check` needed across frame sizes: one run through a sweep says
+nothing, and the comparison between two is the whole finding. The claim holds
+three things — the offset is perpendicular to the line (any component along it
+moves nothing), rolling changes the line's angle and never its distance from
+centre, and 180 degrees **negates** it. Mutation on record: return
+`Vector2(0, drop)` and three of those fail at once.
+
+`screen_extent` is checked with it. Off-screen has to be measured along `up`, not
+against half the screen height: on its side the horizon runs vertically and a
+1920×1080 screen reaches 960 px sideways against 540 px vertically, so a
+height-only test calls a visible knife-edge horizon gone.
+
 ### The graze bench — why a building strike can register nothing
 
 ```

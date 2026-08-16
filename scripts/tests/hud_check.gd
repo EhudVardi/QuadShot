@@ -382,6 +382,55 @@ func _check_attitude() -> void:
 			_failures.append("looking straight %s produced %s rather than a finite offset"
 					% ["up" if pitch_deg > 0.0 else "down", polar])
 
+	# CLAIM 9f — THE HORIZON ROLLS WITH THE AIRCRAFT, INCLUDING UPSIDE DOWN.
+	#
+	# The whole of round 6 passed with this broken, and it took a human rolling
+	# inverted to find it: *"when i roll 180 degrees... the horizon dotted line and
+	# the entire ladder seems to align itself IN REVERSE."* The offset was applied
+	# down SCREEN Y instead of along the aircraft's own up axis, which is the same
+	# answer at roll 0 and wrong at every other roll.
+	#
+	# Sweeping pitch at roll 0 could never have caught it. What catches it is
+	# comparing the SAME pitch at different ROLLS, which is the same shape of claim
+	# `separation_check` needed across frame sizes: one flight through the sweep
+	# tells you nothing, and the comparison between two is the whole finding.
+	print("")
+	print("[hud] CLAIM 9f — THE OFFSET ROLLS WITH THE AIRCRAFT.")
+	print("[hud] %10s %20s %14s" % ["roll deg", "offset px", "along the line?"])
+	var pitch_rad: float = deg_to_rad(20.0)
+	var upright: Vector2 = H.horizon_offset(pitch_rad, 0.0, focal)
+	for roll_deg: float in [0.0, 45.0, 90.0, 180.0]:
+		var roll_rad: float = deg_to_rad(roll_deg)
+		var offset: Vector2 = H.horizon_offset(pitch_rad, roll_rad, focal)
+		var line_dir := Vector2(cos(roll_rad), sin(roll_rad))
+		# The offset must be PERPENDICULAR to the line. Any component along it
+		# slides the line across itself and moves nothing, which is exactly how the
+		# 90-degree case failed silently.
+		var slide: float = absf(offset.dot(line_dir))
+		print("[hud] %10.0f %20s %14.3f" % [roll_deg, str(offset.round()), slide])
+		if slide > 0.01:
+			_failures.append("at %.0f degrees of roll the horizon offset has a %.2f px component ALONG the line, which moves it nowhere — the offset must be perpendicular or the instrument stops responding to pitch"
+					% [roll_deg, slide])
+		if absf(offset.length() - upright.length()) > 0.01:
+			_failures.append("rolling to %.0f degrees changed the horizon's DISTANCE from centre (%.2f against %.2f) — roll turns the line, it does not move it further away"
+					% [roll_deg, offset.length(), upright.length()])
+	# INVERTED IS THE CASE THE HUMAN FOUND. Upside down, the same pitch must put
+	# the horizon on the OPPOSITE side of the screen, because the sky is now below.
+	var inverted: Vector2 = H.horizon_offset(pitch_rad, PI, focal)
+	print("[hud] upright %s, inverted %s" % [str(upright.round()), str(inverted.round())])
+	if (upright + inverted).length() > 0.01:
+		_failures.append("inverted, the horizon offset is %s where upright it is %s — rolling 180 degrees must NEGATE it, and drawing it the same way is a line that runs from the horizon at twice the rate you pitch"
+				% [str(inverted), str(upright)])
+	# And the screen's reach must follow the roll too: on its side the horizon runs
+	# vertically and the screen is WIDER than it is tall.
+	var wide: float = H.screen_extent(Vector2(1920.0, 1080.0), Vector2(1.0, 0.0))
+	var tall: float = H.screen_extent(Vector2(1920.0, 1080.0), Vector2(0.0, 1.0))
+	print("[hud] a 1920x1080 screen reaches %.0f px sideways and %.0f px vertically"
+			% [wide, tall])
+	if wide <= tall:
+		_failures.append("the screen extent reads %.0f px sideways against %.0f px vertically on a landscape viewport — a height-only test calls a visible knife-edge horizon gone"
+				% [wide, tall])
+
 	# CLAIM 9e — THE TILT READOUT IS SIGNED, AND THE SIGN IS FORE/AFT ONLY.
 	# The human's ask: *"if i pitch up (go backwards), the angle should be positive
 	# and when i pitch down (go forward), it should be negative."*

@@ -37,6 +37,10 @@ const SHOTS: Array = [
 	["pitch45", 0.0, -45.0],
 	["pitchup30", 0.0, 30.0],
 	["roll35_pitch15", 35.0, -15.0],
+	# INVERTED, and it is here because a whole round of this instrument shipped
+	# with the horizon running BACKWARDS upside down and every claim green.
+	["inverted_pitch15", 180.0, -15.0],
+	["knife_edge", 90.0, -15.0],
 ]
 const SETTLE_FRAMES: int = 45
 const HOLD_FRAMES: int = 6

@@ -12,7 +12,6 @@ const KILL_FEED_SECONDS: float = 3.0
 @onready var _score_label: Label = $ScoreLabel
 @onready var _combo_label: Label = $ComboLabel
 @onready var _wave_label: Label = $WaveLabel
-@onready var _ammo_label: Label = $AmmoLabel
 @onready var _damage_flash: ColorRect = $DamageFlash
 @onready var _death_label: Label = $DeathLabel
 @onready var _kill_feed: VBoxContainer = $KillFeed
@@ -101,11 +100,11 @@ class ComponentStatus:
 		# sticks sit at +/- 230 px with a 38 px half-width, so their inner edges
 		# are at +/- 192 and this 168-wide plate drops into the gap the old
 		# hull/heat/ammo bars used to fill.
+		# NO HEADER. It said "AIRFRAME" over a picture of the airframe, which is a
+		# caption on a diagram that has never needed one — the human's call, and
+		# they are right: the plate is drawn as the aircraft seen from above and
+		# nothing about it is ambiguous. Every glyph on a HUD costs attention.
 		var centre := Vector2(size.x * 0.5, size.y - PLATE.y * 0.5 - 26.0)
-		draw_string(get_theme_default_font(),
-				centre + Vector2(-PLATE.x * 0.5, -PLATE.y * 0.5 - 6.0),
-				"AIRFRAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
-				Color(1, 1, 1, 0.55))
 		# THE HULL IS DRAWN EVEN WITH NO COMPONENT LIST, because six callers feed
 		# the health and only two feed the parts. A scene that never calls
 		# `set_components` still gets its integrity readout, which is what the
@@ -852,6 +851,43 @@ class HorizonLine:
 		return clampf(raw, -FAR, FAR)
 
 
+	## THE HORIZON'S OFFSET FROM SCREEN CENTRE, AS A VECTOR — and the vector is the
+	## whole point, because the offset is along the AIRCRAFT'S OWN UP AXIS and not
+	## down the screen.
+	##
+	## THIS IS THE INVERTED-FLIGHT BUG, and the human found it by rolling over:
+	## *"when i roll 180 degrees... the horizon dotted line and the entire ladder
+	## seems to align itself IN REVERSE, so it never aligns with the horizon but
+	## instead moves fast in the opposite direction of the pitch."* They were
+	## exactly right, and the geometry says why.
+	##
+	## Write world up in camera space as `u`. The horizon is the vanishing line of
+	## every direction perpendicular to `u`, which on screen is
+	## `u.x * sx - u.y * sy - f * u.z = 0`. Its closest point to the principal
+	## point is `up * (f * u.z / h)` with `h = sqrt(u.x^2 + u.y^2)` — an offset
+	## along `up`, which is `(sin roll, -cos roll)` and therefore ROLLS.
+	##
+	## The old code placed it at `centre + Vector2(0, drop)`: a pure screen-Y
+	## offset, which happens to equal the right answer at roll 0 and is wrong
+	## everywhere else. Upright, `up` is (0, -1) and the two agree. Inverted, `up`
+	## is (0, +1) and the correct offset is the NEGATIVE of what was drawn — the
+	## line ran away from the horizon at twice the rate the pilot pitched, which is
+	## precisely what they reported. At 90 degrees of roll it was worse and
+	## invisible: the line is vertical there, so offsetting it vertically slid it
+	## along ITSELF and changed nothing at all, pinning the horizon to the screen
+	## centre at every pitch angle.
+	static func horizon_offset(pitch: float, roll: float, focal: float) -> Vector2:
+		return world_up_screen(roll) * -horizon_drop(pitch, focal)
+
+
+	## Half the screen's reach in the direction `up`, for a viewport of this size.
+	## Exact for a rectangle, and it has to be exact rather than "half the height":
+	## rolled onto its side the horizon runs vertically and the screen is WIDER
+	## than it is tall, so a height-only test would call a visible line gone.
+	static func screen_extent(viewport: Vector2, up: Vector2) -> float:
+		return absf(up.x) * viewport.x * 0.5 + absf(up.y) * viewport.y * 0.5
+
+
 	## THE HORIZON HAS LEFT THE SCREEN — say which way, without drawing anything
 	## that could be read as the horizon itself.
 	##
@@ -859,16 +895,14 @@ class HorizonLine:
 	## a reason found by screenshotting the plate: the AIRFRAME plate owns the
 	## bottom middle of the screen, so a centre marker at the bottom edge lands on
 	## top of it. At 55% of the horizon's own reach these sit far outside it.
-	func _horizon_gone(below: bool, along: Vector2, reach: float,
-			tint: Color) -> void:
-		var edge: float = size.y - EDGE_MARGIN if below else EDGE_MARGIN
-		var toward := Vector2(0.0, 1.0 if below else -1.0)
+	func _horizon_gone(toward: Vector2, along: Vector2, reach: float,
+			extent: float, tint: Color) -> void:
 		for side: float in [-1.0, 1.0]:
-			# A FIXED offset, NOT one scaled by `along.x`. Rolling the marker's
-			# POSITION with the aircraft looks tidy and collapses both markers onto
-			# the screen centre at 90 degrees of roll — which is exactly where the
-			# AIRFRAME plate lives. Only the arrowheads roll.
-			var root := Vector2(size.x * 0.5 + reach * 0.55 * side, edge)
+			# Out to the edge in the direction the horizon lies, then spread along
+			# the line's own axis so the pair straddles the AIRFRAME plate instead
+			# of landing on it.
+			var root: Vector2 = size * 0.5 + toward * (extent - EDGE_MARGIN) \
+					+ along * reach * 0.55 * side
 			_chevrons(root, along, toward, 8.0, tint)
 
 
@@ -930,9 +964,7 @@ class HorizonLine:
 		#
 		# The airframe BRACKET still pegs, and that is not the same thing: it is a
 		# fixed mark reading "your level is here", not a claim about the world.
-		var horizon_off_screen: bool = absf(drop) > size.y * 0.5 - EDGE_MARGIN
 		var reach: float = size.x * REACH_FRACTION
-		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
 		# WORLD UP, PROJECTED, AND THE SIGN IS DERIVED RATHER THAN EYEBALLED.
 		# World up is (0,1,0); in camera space that is
 		# `basis.transposed() * up = (basis.x.y, basis.y.y, basis.z.y)`, and screen
@@ -942,6 +974,11 @@ class HorizonLine:
 		# under roll; level flight looked perfect, which is exactly how it survived.
 		var up: Vector2 = world_up_screen(roll)
 		var along := Vector2(cos(roll), sin(roll))
+		# ALONG `up`, NOT DOWN THE SCREEN — see `horizon_offset`. This one line is
+		# the whole of the inverted-flight fix.
+		var at: Vector2 = size * 0.5 + horizon_offset(pitch, roll, f)
+		var extent: float = screen_extent(size, up)
+		var horizon_off_screen: bool = absf(drop) > extent - EDGE_MARGIN
 		# BRIGHTER THAN IT WAS, because this is the line that FOLLOWS THE HORIZON
 		# and therefore the one the pilot actually flies by. It was a 0.32-alpha
 		# hairline while a long white line sat below it pretending to be the
@@ -959,7 +996,9 @@ class HorizonLine:
 			var end: Vector2 = at + along * reach * side
 			draw_line(end, end + up * 7.0, tint, 1.5)
 		if horizon_off_screen:
-			_horizon_gone(drop > 0.0, along, reach, tint)
+			# The direction the horizon actually lies in, which rolls with the
+			# aircraft: inverted, "the horizon is below you" points UP the screen.
+			_horizon_gone(-up * signf(drop), along, reach, extent, tint)
 		if ladder:
 			_draw_ladder(at, along, up, f, reach)
 		# LAST, so nothing is drawn over the one line the pilot flies by. At level
@@ -1074,14 +1113,19 @@ class HorizonLine:
 		# So it clamps to the edge and SAYS SO with outward chevrons. A pegged
 		# line is honest — "your level is further that way than the screen goes" —
 		# where silently vanishing was not.
-		var limit: float = size.y * 0.5 - PEG_MARGIN
-		var pegged: bool = absf(drop) > limit
-		drop = clampf(drop, -limit, limit)
 		var tilt: float = tilt_degrees(thrust_axis)
 		var tint: Color = tilt_tint(tilt)
 		var along := Vector2(cos(pr.y), sin(pr.y))
 		var up: Vector2 = world_up_screen(pr.y)
-		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
+		# ALONG `up` like the horizon, and pegged along the same axis. In FPV this
+		# changes nothing — the lens is bolted to the frame, so this mark's roll is
+		# always zero and `up` is always (0, -1) — but the chase camera is not
+		# frame-fixed, and a screen-Y offset is wrong there for the same reason it
+		# was wrong for the inverted horizon.
+		var limit: float = screen_extent(size, up) - PEG_MARGIN
+		var pegged: bool = absf(drop) > limit
+		drop = clampf(drop, -limit, limit)
+		var at: Vector2 = size * 0.5 + up * -drop
 		# SHORTER THAN THE WORLD HORIZON, SOLID where that one is dashed, and
 		# THICKER — it has to survive sitting exactly on top of the horizon, which
 		# is where it lives whenever the aircraft is level.
@@ -1115,7 +1159,7 @@ class HorizonLine:
 			# reading can never be mistaken for a true one. The bracket is pegged
 			# in essentially every attitude (see PEG_MARGIN), so this is on screen
 			# almost always and it is worth it being an arrow rather than a dash.
-			var toward := Vector2(0.0, signf(tan(pr.x)))
+			var toward: Vector2 = -up * signf(drop)
 			_chevrons(at + toward * 15.0, along, toward, 6.0, tint)
 		# SIGNED: negative nose-down, positive nose-up. The colour still ramps on
 		# the MAGNITUDE, because lift lost does not care which way you lean.
@@ -1356,22 +1400,17 @@ func set_heat(fraction: float, overheated: bool) -> void:
 ## The two magazines. A weapon passing -1 has no magazine at all and is left
 ## off the readout entirely — the ABSENCE of a number is information: it says
 ## that weapon never runs out, which is exactly the blaster's contract.
+##
+## THE RINGS ARE THE WHOLE READOUT NOW. There used to be a second copy of the
+## same two numbers as an upper-case line above the plate — "FLAK 24   MSL 6" —
+## from before the counts moved onto rings at the aiming point. It was argued for
+## at the time as answering a different question, and flying it settled that: the
+## rings already carry the label AND the count where you are looking, so the line
+## above the plate was two stale duplicates competing for the same glance.
 func set_ammo(flak: int, missile: int, flak_max: int = 0,
 		missile_max: int = 0) -> void:
 	_magazine(_flak_gauge, flak, flak_max)
 	_magazine(_missile_gauge, missile, missile_max)
-	# The text stays as well as the rings, and deliberately: a ring answers "how
-	# much is left" at a glance while you are aiming, and the exact count is a
-	# number you spend deliberately. They are two different questions.
-	var parts: PackedStringArray = []
-	if flak >= 0:
-		parts.append("FLAK %d" % flak)
-	if missile >= 0:
-		parts.append("MSL %d" % missile)
-	_ammo_label.text = "   ".join(parts)
-	# Dry is a state you must notice mid-fight, not one you read.
-	var dry: bool = (flak == 0) or (missile == 0)
-	_ammo_label.modulate = Color(1.0, 0.35, 0.25) if dry else Color(0.85, 0.85, 0.9)
 
 
 ## A magazine on a ring. `rounds` of -1 means the weapon has no magazine at all,
