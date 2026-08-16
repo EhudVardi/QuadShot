@@ -7,8 +7,13 @@ end a session mid-task with no warning. The fix is not cleverness about tokens �
 it is making the work **resumable**: every task is small enough to finish and
 commit on its own, and this file records exactly where the run got to.
 
-Delete this file when the run is over and its findings are folded into
-`HANDOFF-NEXT.md`.
+**THIS IS THE LIVING RECORD NOW.** `HANDOFF-NEXT.md` was deleted on 2026-08-16
+on the human's call — it had gone substantially stale (24 checks, Iteration 17
+described as unfinished, nothing from tasks 5 to 10 or any of the eight HUD
+rounds) and a fresh session reading it would have started from a wrong picture.
+Their reasoning: *"delete it. no problems. we always have the history to recall
+in the git repo."* So do not recreate it, and do not fold this file into it.
+A fresh session reads **CLAUDE.md**, then this file, then TESTING.md.
 
 ## THE PROTOCOL — follow it exactly
 
@@ -297,12 +302,14 @@ E8 again: *"`lethality_check` must be extended to plant shots at NAMED LOCATIONS
 rather than into an undifferentiated pool, or Layer 1's new arithmetic has no
 witness."*
 
-### 11. Board, benches, handoff
+### 11. Board and benches
 
-- The 25-check board, all green.
+- The 27-check board, all green.
 - `swarm_bench`, `city_load_bench`, `tunnel_check` PASS.
 - `--headless --import` clean; boot every scene touched. Warnings are errors.
-- Fold every finding into `HANDOFF-NEXT.md` and delete this file.
+- **No handoff fold.** That step said "fold every finding into `HANDOFF-NEXT.md`
+  and delete this file"; the handoff is the file that got deleted instead
+  (2026-08-16), so this table IS the record and it stays.
 
 **`board.sh` COULD NOT READ `lethality`'S VERDICT AND NOBODY NOTICED.** Its grep
 was anchored (`PASS$`) and that check signs off with *"PASS - calculator matches

@@ -30,7 +30,8 @@ READ IN THIS ORDER:
      NOT change). Then the two entries after Iteration 17, `E steering —
      ANSWERED` and `E steering round 2 — ANSWERED`, which correct the draft.
   5. TESTING.md's check-suite section.
-  6. HANDOFF-NEXT.md for how we got here.
+  6. (HANDOFF-NEXT.md is GONE, deleted 2026-08-16 as stale. WORK-LEDGER.md is
+     the living record of how we got here; git history has the rest.)
 
 YOUR TASK IS 9 — THE `Lethality` LAYER 1 REWORK. Tasks 1 to 8 are DONE.
 Task 10 is its WITNESS and should follow immediately if the session has room:
