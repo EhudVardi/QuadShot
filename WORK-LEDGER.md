@@ -253,6 +253,25 @@ The proposal, from E8:
   which component goes first, and after how many hits. *"That is the number a
   pilot experiences, and nothing in the instrument reports it today."*
 
+**PREDICTION, WRITTEN BEFORE THE ARITHMETIC EXISTS** (task 8's discipline, reused
+because it costs one paragraph and makes the result falsifiable). Under sustained
+raider fire — damage 8.0, shipped `severity` 0.6, shipped plating — held on the
+airframe's worst bearing:
+
+| frame | first failure | hits to it | hits to DEATH |
+|---|---|---|---|
+| kestrel | rotor, the one on the bearing | 27 | 13 |
+| atlas | rotor | 57 | 38 |
+| condor | rotor | 28 | 13 |
+| roc | rotor | 42 | 13 |
+| hexa | rotor | 41 | 13 |
+
+**The claim with teeth is the last column: no frame loses a rotor before it
+dies.** If that holds, "expected first failure" is a finding about `severity`
+rather than about geometry, and E7's whole skill surface is unreachable at the
+shipped dial. Rotors are named on every frame because they are the only `routed`
+row in `AirframeComponents.TABLE` today.
+
 ### 10. `lethality_check` at named locations
 
 E8 again: *"`lethality_check` must be extended to plant shots at NAMED LOCATIONS
