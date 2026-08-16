@@ -16,6 +16,30 @@ extends SceneTree
 ## pipeline change landed without its arithmetic (fix the model — and reread
 ## BALANCE.md first).
 ##
+## LOCATED CELLS (GAMEPLAY-DESIGN Iteration 17 / E8, 2026-08-16). E8's own words
+## are that *"`lethality_check` must be extended to plant shots at NAMED LOCATIONS
+## rather than into an undifferentiated pool, or Layer 1's new arithmetic has no
+## witness"*, and `_verify_located` below is that witness. It is the only phase in
+## this file that needs a real AIRFRAME rather than a real `Health`: the thing
+## under test is where a round lands on a machine, so the machine has to be there.
+##
+## **THE TRAP THIS PHASE HAD TO AVOID IS THE SAME ONE `separation_check` NAMES,
+## ONE LAYER UP.** An assertion that "the calculator predicts some number of hits
+## and the drone takes some number of hits" passes just as happily on a model that
+## pooled every round and divided by four. The claim that cannot be satisfied that
+## way is a COMPARISON ACROSS FRAME SIZES with plating off (claim 2), because a
+## single pool has no geometry in it at all and returns one number for a 0.28 m
+## airframe and a 3.0 m one.
+##
+## WOULD IT STILL PASS IF THE FEATURE WERE DELETED? No, and the mutations are on
+## record in the commit: collapse `hit_shares` to single-nearest (claim 1 fails on
+## every frame whose rotors share a round, claim 2 collapses to one number),
+## delete the `- parts[i].armor` term (claim 1 fails on all three plated frames),
+## feed `enemy.damage` instead of the post-armour figure (claim 1 fails on the
+## Atlas alone, which is why the Atlas is in the table), and drop the sweep's
+## half-offset (claim 3 fails, and that mutation is not hypothetical — it is the
+## bug the claim was written after finding).
+##
 ## Run: <godot> --headless -s scripts/tests/lethality_check.gd --path .
 
 const ENEMIES: Array[String] = [
@@ -86,6 +110,42 @@ const KILL_MARGIN_SECONDS: float = 10.0
 ## from the calculator's continuous credit by one tick either side.
 const TTK_TOLERANCE_TICKS: int = 2
 
+## THE NAMED LOCATIONS (E8). Bearings a pilot could describe, rather than an
+## arbitrary sweep — the point of the phrase "named locations" is that a wound
+## has an address, which is the whole of E7's *"if in two different runs i get the
+## same engine hit — thats a lession to be learned"*.
+##
+## 0 is the nose and it runs clockwise, matching `MotorModel._ring` and
+## `Lethality.bearing_vector`. The front-right arm is in the list on purpose: it
+## is the one bearing that lands SQUARELY on a quad's rotor, which is task 1's
+## *"keep single-rotor behaviour reachable"* and the case a footprint model could
+## most easily smear away.
+const LOCATED_BEARINGS: Array[Dictionary] = [
+	{"name": "nose", "deg": 0.0},
+	{"name": "front-right arm", "deg": 45.0},
+	{"name": "starboard beam", "deg": 90.0},
+	{"name": "tail", "deg": 180.0},
+	{"name": "port quarter", "deg": 225.0},
+]
+## The type whose rounds the located phase plants. The roster's standard small
+## arm, which is what makes the numbers comparable to everything else on the
+## board — and E4.2's plating is denominated in its bolts.
+const LOCATED_ENEMY: String = "res://resources/default_enemy_raider.tres"
+## Hits planted before a cell gives up on a component ever failing. Well past the
+## roster's worst (the plated Atlas needs 57), and cheap: `apply_hit_to_motors`
+## is synchronous, so a whole cell resolves inside one physics frame.
+const LOCATED_HIT_CAP: int = 400
+## Frames walked for claim 2. QUADS ONLY, so the comparison is SIZE alone — the
+## hexa differs in rotor COUNT, which is a different axis and is reported beside
+## them rather than folded in. Same list, same reason, as `separation_check`.
+const LOCATED_LADDER: Array[String] = ["kestrel", "condor", "roc"]
+## Claim 3's slack, in hits. One, and it buys exactly one thing: the hexa's
+## diffuse figure lands on an EXACT integer (6 rotors / 0.048 per hit = 125.0),
+## where a float wobble of 1e-16 either side of a `ceil` is the difference between
+## 125 and 126. Asserting to the integer there would make the claim a coin toss.
+## The artefact it exists to catch was 5 hits wide, so a slack of 1 costs nothing.
+const LOCATED_SPREAD_SLACK: int = 1
+
 var _combat: CombatConfig
 var _cells: Array[Dictionary] = []
 var _cell_i: int = 0
@@ -103,6 +163,15 @@ var _ticks_cap: int = 0
 var _burst_shots: int = 0
 var _burst_pause_ticks: int = 0
 var _next_hit_tick: int = 0
+
+## The located phase (E8). Real airframes, so it cannot run in `_initialize`:
+## `add_child` there defers `_ready`, and a drone whose `MotorModel` is still Nil
+## reports engine errors rather than measurements. It runs once, on the first
+## physics frame, and frees its drones immediately — this is the slowest check on
+## the board and five frozen rigid bodies riding along for eight minutes is a cost
+## with nothing behind it.
+var _drones: Dictionary = {}
+var _located_done: bool = false
 
 
 func _initialize() -> void:
@@ -135,6 +204,13 @@ func _initialize() -> void:
 				"" if int(p["shots"]) == 1 else "s", p["ttk"]]
 		print("[lethality]   %-29s %s" % [_cell_name(cell), verdict])
 	_print_combos()
+	for frame_id: String in Frames.ROSTER:
+		var drone: FlightController = Frames.build(frame_id)
+		root.add_child(drone)
+		# Frozen: the only thing under test is where a round lands on the airframe,
+		# and a falling drone would add a collision to the measurement.
+		drone.freeze = true
+		_drones[frame_id] = drone
 	_start_cell()
 	physics_frame.connect(_on_physics_frame)
 
@@ -417,6 +493,240 @@ func _verify_contact() -> void:
 					"KILLS" if died else "survivable"])
 
 
+## ---------- E8's witness: shots planted at NAMED LOCATIONS ----------
+
+func _verify_located() -> void:
+	var enemy: EnemyConfig = load(LOCATED_ENEMY) as EnemyConfig
+	print("")
+	print("[lethality] LOCATED CELLS (E8) — %s rounds (%.0f dmg) planted at named"
+			% [enemy.type_id, enemy.damage])
+	print("[lethality] bearings on a real airframe, footprint %.2f m, severity %.2f."
+			% [_damage_config().hit_footprint_m, _damage_config().severity])
+	_located_plumbing(enemy)
+	_located_mirror(enemy)
+	_located_bare(enemy)
+	_located_finding(enemy)
+	for frame_id: String in Frames.ROSTER:
+		(_drones[frame_id] as Node).queue_free()
+	_drones.clear()
+
+
+## Every frame shares one `DamageConfig` — the drone loads it, and Layer 1 must be
+## handed that same instance rather than a second `load()`, or the two halves of
+## this phase could be measuring different severities and agreeing anyway.
+func _damage_config() -> DamageConfig:
+	return (_drones[Frames.KESTREL] as FlightController).damage_config
+
+
+## CLAIM 4 — THE BENCH'S OWN PLUMBING ASSUMPTION, VERIFIED RATHER THAN ASSUMED.
+##
+## `main._on_player_damaged` is connected to `Health.damaged`, and that signal
+## carries what actually reached the hull — `amount` AFTER `FrameConfig.armor`. So
+## the located model is fed a post-armour figure in the game, and every number in
+## this phase plants a post-armour figure to match.
+##
+## **If that wiring ever changes, nothing else on the board would notice.** Layer 1
+## would go on pricing the Atlas's rotors against 8-point rounds where the airframe
+## sees 5, this file would plant the same wrong number, and the two would agree
+## forever. The Atlas is the roster's only frame with hull plating, which makes it
+## the one controlled test of the assumption.
+func _located_plumbing(enemy: EnemyConfig) -> void:
+	var frame: FrameConfig = Frames.config(Frames.ATLAS)
+	var health := Health.new()
+	health.max_health = frame.hull
+	root.add_child(health)
+	health.armor = frame.armor
+	# `_ready` has not run — the same lifecycle note `_verify_contact` carries.
+	health.current = frame.hull
+	health.alive = true
+	# An ARRAY rather than a float, and that is the workaround for the closure
+	# rule this file already learned once: GDScript captures locals by value, so a
+	# float assigned inside the lambda never reaches this scope. An Array is a
+	# reference, so appending to it does.
+	var emitted: Array[float] = []
+	health.damaged.connect(func(amount: float, _remaining: float) -> void:
+			emitted.append(amount))
+	health.take(enemy.damage)
+	health.queue_free()
+	var cell: Dictionary = Lethality.located_incoming(enemy, frame,
+			_damage_config())
+	var used: float = float(cell["hull_damage"])
+	if emitted.is_empty():
+		_failures.append("a %.0f-point %s round on the %s emitted no `damaged` signal at all, so the located model has no input to mirror"
+				% [enemy.damage, enemy.type_id, Frames.ATLAS])
+		return
+	if not is_equal_approx(emitted[0], used):
+		_failures.append("Health.damaged emitted %.2f on the %s while Layer 1's located half priced %.2f — the located model is fed what REACHED the hull (main._on_player_damaged is wired to that signal), and a mismatch here mis-prices every armoured frame's components with nothing else on the board noticing"
+				% [emitted[0], Frames.ATLAS, used])
+		return
+	print("[lethality]   CLAIM 4 — plumbing: a %.0f-point round on the %s (armor %.0f) reaches the hull as %.0f,"
+			% [enemy.damage, Frames.ATLAS, frame.armor, emitted[0]])
+	print("[lethality]              and that is the figure the located model prices components against.")
+
+
+## CLAIM 1 — THE MIRROR. For every frame and every named bearing, plant real
+## rounds into a real airframe until a rotor actually fails, and require the
+## calculator to have named the same component after the same number of hits.
+##
+## This is the E8 sentence being paid off: the arithmetic added in task 9 replays
+## `_apply_located` from two resources, and nothing but this loop can say whether
+## the replay is faithful.
+func _located_mirror(enemy: EnemyConfig) -> void:
+	var damage: DamageConfig = _damage_config()
+	print("")
+	print("[lethality]   CLAIM 1 — PLANTED SHOTS AT NAMED LOCATIONS MATCH THE CALCULATOR.")
+	print("[lethality]   %8s %17s %9s %9s %10s %9s"
+			% ["frame", "bearing", "predicted", "planted", "component", "share"])
+	for frame_id: String in Frames.ROSTER:
+		var drone: FlightController = _drones[frame_id]
+		var frame: FrameConfig = drone.frame
+		var hull_damage: float = maxf(enemy.damage - frame.armor, 0.0)
+		for bearing: Dictionary in LOCATED_BEARINGS:
+			var degrees: float = float(bearing["deg"])
+			var predicted: Dictionary = Lethality.first_failure_at(frame, damage,
+					hull_damage, Lethality.bearing_vector(degrees))
+			var planted: Dictionary = _plant_located(drone, degrees, hull_damage)
+			print("[lethality]   %8s %17s %9d %9d %10s %9.4f"
+					% [frame_id, bearing["name"], int(predicted["hits"]),
+					int(planted["hits"]), planted["id"], predicted["share"]])
+			if int(planted["hits"]) != int(predicted["hits"]):
+				_failures.append("%s hit on the %s: Layer 1 predicts the first component fails after %d rounds, the airframe took %d — the located arithmetic no longer mirrors FlightController._apply_located"
+						% [bearing["name"], frame_id, int(predicted["hits"]),
+						int(planted["hits"])])
+				continue
+			if int(planted["hits"]) == Lethality.NEVER:
+				continue
+			# NAMED, not merely counted. A model that gets the count right and the
+			# address wrong is the one E7 cares about most: a lesson you cannot
+			# attribute to a place is not a lesson.
+			if String(planted["id"]) != String(predicted["component"]):
+				_failures.append("%s hit on the %s failed %s, but Layer 1 named %s — the count agreeing while the ADDRESS does not is exactly the failure E7's 'the same engine hit is a lession' cannot survive"
+						% [bearing["name"], frame_id, planted["id"],
+						predicted["component"]])
+
+
+## CLAIMS 2 AND 3, both measured with PLATING OFF, and that is a statement rather
+## than a convenience — the same one `separation_check` makes. Separation decides
+## WHERE a round lands; plating decides how much of it survives. Claim 2 is about
+## the first and claim 3 is a conservation test, which armour is a deliberate leak
+## in. Left mixed, the roster's own plating inverts claim 2's ordering outright.
+func _located_bare(enemy: EnemyConfig) -> void:
+	var damage: DamageConfig = _damage_config()
+	# `Frames.config` goes through `load`, which caches, so each drone's `frame`
+	# IS this instance — one mutation reaches both halves. Snapshotted and put
+	# back before anything else reads it.
+	var shipped: Dictionary = {}
+	for frame_id: String in Frames.ROSTER:
+		var frame: FrameConfig = Frames.config(frame_id)
+		shipped[frame_id] = (frame.component_armor as Dictionary).duplicate()
+		frame.component_armor = {}
+
+	print("")
+	print("[lethality]   CLAIM 2 — E4.3's LADDER, AND NO SINGLE-POOL MODEL CAN PRODUCE IT.")
+	print("[lethality]   Plating off. The same round on a BIGGER airframe fails a rotor SOONER,")
+	print("[lethality]   because it is not divided — concentration falls with size (E4.3).")
+	print("[lethality]   %8s %8s %9s %9s %10s"
+			% ["frame", "body m", "bearing", "hits", "top share"])
+	var rows: Array[Dictionary] = []
+	for frame_id: String in LOCATED_LADDER:
+		var drone: FlightController = _drones[frame_id]
+		var hull_damage: float = maxf(enemy.damage - drone.frame.armor, 0.0)
+		# The frame's OWN worst bearing, found by the calculator and then planted,
+		# so the ladder is a claim about the shipped code and not only about the
+		# model that predicts it.
+		var expected: Dictionary = Lethality.expected_first_failure(drone.frame,
+				damage, hull_damage)
+		var degrees: float = float(expected["soonest_bearing_deg"])
+		var planted: Dictionary = _plant_located(drone, degrees, hull_damage)
+		print("[lethality]   %8s %8.2f %8.0f° %9d %10.4f"
+				% [frame_id, drone.config.body_m, degrees, int(planted["hits"]),
+				float(expected["share"])])
+		rows.append({"frame": frame_id, "body": drone.config.body_m,
+				"hits": int(planted["hits"])})
+	for i: int in range(1, rows.size()):
+		if int(rows[i]["hits"]) > int(rows[i - 1]["hits"]):
+			_failures.append("the %s (%.2f m) survived %d rounds before losing a rotor while the SMALLER %s (%.2f m) survived only %d — a bigger airframe takes each round more CONCENTRATED, so it must fail a component sooner, and this reading is E4.3 backwards"
+					% [rows[i]["frame"], float(rows[i]["body"]), int(rows[i]["hits"]),
+					rows[i - 1]["frame"], float(rows[i - 1]["body"]),
+					int(rows[i - 1]["hits"])])
+	var smallest: int = int(rows[0]["hits"])
+	var largest: int = int(rows[rows.size() - 1]["hits"])
+	if smallest <= largest:
+		_failures.append("the smallest frame lost a rotor after %d rounds and the largest after %d — they must DIFFER, and a model that pooled the hit returns the same number for a 0.28 m airframe and a 3.0 m one, which is the single-pool answer this claim exists to refuse"
+				% [smallest, largest])
+
+	print("")
+	print("[lethality]   CLAIM 3 — THE DIFFUSE LIMIT IS EXACTLY CONSERVATION.")
+	print("[lethality]   Fire from every bearing at once: no component concentrates anything,")
+	print("[lethality]   so an unplated frame must read rotor_count / per-hit — and the same")
+	print("[lethality]   number on every airframe of the same rotor count, whatever its size.")
+	print("[lethality]   %8s %8s %9s %9s %9s"
+			% ["frame", "rotors", "per hit", "spread", "expected"])
+	for frame_id: String in Frames.ROSTER:
+		var drone: FlightController = _drones[frame_id]
+		var motors: MotorModel = drone.get_node("MotorModel") as MotorModel
+		var hull_damage: float = maxf(enemy.damage - drone.frame.armor, 0.0)
+		var amount: float = Lethality.located_amount(hull_damage, damage)
+		var expected: int = int(ceil(float(motors.rotor_count) / maxf(amount, 0.000001)))
+		var got: int = int(Lethality.expected_first_failure(drone.frame, damage,
+				hull_damage)["spread_hits"])
+		print("[lethality]   %8s %8d %9.4f %9d %9d"
+				% [frame_id, motors.rotor_count, amount, got, expected])
+		if absi(got - expected) > LOCATED_SPREAD_SLACK:
+			_failures.append("the %s's diffuse figure reads %d hits where conservation says %d — a round that is spread is not a round that is spent twice, and a sweep that lands on the airframe's own symmetry axes reports this wrong while every per-bearing number stays correct"
+					% [frame_id, got, expected])
+
+	for frame_id: String in Frames.ROSTER:
+		Frames.config(frame_id).component_armor = shipped[frame_id]
+
+
+## THE FINDING, REPORTED AND DELIBERATELY NOT ASSERTED.
+##
+## Whether a pilot ever SEES a component fail is a consequence of `severity`, and
+## `severity` is a shipped design decision that is expected to move — E.q8 names
+## 1.0 as the model's design target while 0.6 is what ships. An assertion here
+## would turn a legitimate dial change into a red board, which is BALANCE.md's own
+## rule about a predicted-versus-validated gap applied one layer up: this is the
+## instrument's OUTPUT, not a number to hold still.
+func _located_finding(enemy: EnemyConfig) -> void:
+	print("")
+	print("[lethality]   FINDING (not asserted) — does a rotor EVER fail before you die?")
+	print("[lethality]   %8s %9s %12s %10s %8s"
+			% ["frame", "die in", "first failure", "soonest", "verdict"])
+	for frame_id: String in Frames.ROSTER:
+		var frame: FrameConfig = Frames.config(frame_id)
+		var cell: Dictionary = Lethality.located_incoming(enemy, frame,
+				_damage_config())
+		var failure: Dictionary = cell["first_failure"]
+		print("[lethality]   %8s %9d %12.1f %10d %8s"
+				% [frame_id, int(cell["expected_shots"]), float(failure["hits"]),
+				int(failure["soonest_hits"]),
+				"ROTOR" if bool(cell["fails_before_death"]) else "you die"])
+
+
+## Plant rounds on one bearing until a component actually fails. Returns the hit
+## count and which rotor went, or NEVER if the cap is reached.
+func _plant_located(drone: FlightController, bearing_deg: float,
+		hull_damage: float) -> Dictionary:
+	drone.repair_motors()
+	var motors: MotorModel = drone.get_node("MotorModel") as MotorModel
+	# `last_hit_direction` is a WORLD-space bearing — `apply_hit_to_motors` takes
+	# it into the body frame itself — so it is set exactly the way the game sets
+	# it rather than by handing the body-space vector straight over.
+	var from_world: Vector3 = drone.global_basis \
+			* Lethality.bearing_vector(bearing_deg)
+	for hit: int in LOCATED_HIT_CAP:
+		drone.last_hit_direction = from_world
+		# The POST-ARMOUR figure (claim 4). Planting the raw round here would make
+		# this bench agree with a model that is wrong in the game.
+		drone.apply_hit_to_motors(hull_damage)
+		for i: int in motors.rotor_count:
+			if drone.motor_health(i) <= 0.0:
+				return {"hits": hit + 1, "index": i,
+						"id": StringName("rotor%d" % i)}
+	return {"hits": Lethality.NEVER, "index": -1, "id": &"none"}
+
+
 ## Outgoing cells read "weapon x target"; incoming cells already carry their
 ## own "frame <- enemy" shape, and doubling it up reads as a typo.
 func _cell_name(cell: Dictionary) -> String:
@@ -457,6 +767,9 @@ func _start_cell() -> void:
 
 
 func _on_physics_frame() -> void:
+	if not _located_done:
+		_located_done = true
+		_verify_located()
 	if _health.alive and _ticks >= _next_hit_tick:
 		_health.take(_damage)
 		_hits_planted += 1

@@ -552,10 +552,15 @@ static func _failure_from_shares(parts: Array[AirframeComponents.Part],
 ##   `spread_hits`  — the diffuse floor: fire from everywhere at once, where no
 ##                    component concentrates anything. This is the degenerate case
 ##                    described above, reported ON PURPOSE as the datum the held
-##                    aspects are worth against — on an unplated frame it is the
-##                    same number for every airframe in the roster, and that
-##                    identity is the clearest possible statement that E4.3's
-##                    content is concentration and nothing else.
+##                    aspects are worth against — unplated, it is `rotor_count`
+##                    divided by the per-hit amount and NOTHING ELSE, so three
+##                    airframes spanning 0.28 m to 3.0 m report the identical 84
+##                    while their held aspects read 27, 21 and 21. That identity
+##                    is the clearest possible statement that E4.3's content is
+##                    concentration and nothing else.
+##                    (It moves with the ROUND, not with the airframe: the Atlas
+##                    reads 134 on the same sweep because its hull plating thins
+##                    every round to 5 points before the components ever see it.)
 ##
 ## `hits` is a FLOAT here and an int in `first_failure_at` — an expectation over
 ## aspects is not a hit count and rounding it would hide exactly the differences

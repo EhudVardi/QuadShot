@@ -605,6 +605,63 @@ arguing; what it guards is the mechanism. Two more mutations on record: delete
 the `- part.armor` in `_damage_component` (all three plated frames report they
 stopped nothing) and flip its sign (all three report letting more through).
 
+**`lethality_check` gained a LOCATED phase on 2026-08-16** (E8), and it is the
+witness for Layer 1's component arithmetic — E8's own words are that without shots
+planted *"at NAMED LOCATIONS rather than into an undifferentiated pool"*, that
+arithmetic has none. It is the only phase in the file that needs a real
+**airframe** rather than a real `Health`: what is under test is where a round
+lands on a machine.
+
+It plants raider rounds on five **named bearings** — nose, front-right arm,
+starboard beam, tail, port quarter — into every roster frame, counting rounds
+until a rotor actually fails, and requires the calculator to have named the same
+component after the same number of hits. 25 cells, and the *front-right arm* is in
+the list on purpose: it is the one bearing that lands squarely on a quad's rotor,
+which is the single-rotor case a footprint model could most easily smear away.
+
+Four claims, and the second is the one with teeth:
+
+- **The mirror.** Predicted hits and planted hits agree, and so does the
+  component's ADDRESS. A model that gets the count right and the address wrong is
+  the failure E7's *"the same engine hit is a lession"* cannot survive.
+- **E4.3's ladder, and no single-pool model can produce it.** With plating off, a
+  round on a bigger airframe fails a rotor **sooner**, because it is not divided:
+  kestrel **27** rounds, condor **21**, roc **21**. The same trap
+  `separation_check` names, one layer up — "the calculator predicts a number and
+  the drone takes a number" passes just as happily on a model that pooled every
+  round and divided by four.
+- **The diffuse limit is exactly conservation.** Fire from every bearing at once
+  and no component concentrates anything, so an unplated frame must read
+  `rotor_count / per-hit` and nothing else — **84** on the Kestrel, the Condor and
+  the Roc alike, three airframes spanning 0.28 m to 3.0 m whose *held* numbers are
+  27, 21 and 21; **125** on the hexa, which differs only in rotor count. (The
+  Atlas reads 134 on the same sweep, and that is the figure moving with the ROUND
+  rather than the airframe — its hull plating thins every raider bolt to 5 points
+  before the components ever see it.) This claim was written after it caught a bug
+  in the sweep that produced it (below).
+- **The plumbing, verified rather than assumed.** `main._on_player_damaged` is
+  wired to `Health.damaged`, which carries what reached the hull AFTER
+  `FrameConfig.armor` — so the Atlas's 8-point round arrives as 5. If that wiring
+  changed, Layer 1 and this bench would both go on using the wrong figure and
+  agree with each other forever. The Atlas is the roster's only hull-plated frame,
+  which makes it the one controlled test of it.
+
+**Running it found a bug in the instrument itself.** The bearing sweep started at
+0, which lands exactly on a quad's four arms *and* on the four bearings where two
+rotors are equidistant — so the tie-break decided a twentieth of the samples, and
+the Roc's diffuse figure read 79 hits where conservation says 84 while the Kestrel
+read the correct 84. That looked like a real difference between two frames and was
+an artefact of where the ruler's marks fell. The sweep is half-offset now, and
+claim 3 exists to keep it that way.
+
+**And it reports one finding it deliberately does NOT assert:** at the shipped
+`severity` of 0.6, no frame on the roster loses a rotor before it dies — 13 rounds
+to death against 27 to the first failure on a Kestrel, 13 against 42 on a Roc, 38
+against 57 on an Atlas. Whether a pilot ever *sees* a component fail is a
+consequence of the severity dial, and E.q8 names 1.0 as the model's design target
+while 0.6 is what ships. Asserting it would turn a legitimate dial change into a
+red board.
+
 `drill_check` (2026-08-15) guards the **pilot-in-the-loop instrument** — the
 drills the human flies and the predictions they are graded against (§5). What it
 guards is not "does the drill fly", it is **whether the argument can be rigged**.
