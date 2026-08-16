@@ -262,6 +262,63 @@ static func of(drone: FlightController, video_damage: float = 0.0,
 	return parts
 
 
+## THE ROUTED LAYOUT OF A FRAME THAT DOES NOT EXIST YET (E8, task 9).
+##
+## `of()` above needs a live `FlightController`, which is correct for the hit path
+## and fatal for Layer 1 of the balance instrument: BALANCE.md's whole definition
+## of that layer is *"no flying, no simulation, no pilot anywhere in it"*, and a
+## function that has to build a drone to answer cannot be in it. So this is the
+## same walk over the same `TABLE` against the two RESOURCES instead of against a
+## node — what a factory-fresh airframe of this frame would carry.
+##
+## **IT BORROWS `MotorModel` RATHER THAN RE-DERIVING THE ARM GEOMETRY**, and that
+## is the point of doing it here instead of inside `lethality.gd`. There is ONE
+## arm geometry in this project; a second copy of the ring formula living in the
+## balance module is the size-ladder scar waiting for its seventh instance. The
+## instance is created, read and freed — nothing about `MotorModel` moves.
+##
+## Health is 1.0 on every row by construction: Layer 1 always prices an UNDAMAGED
+## target, exactly as `target_from_frame` does for the hull. `lethality_check` is
+## what stops this drifting from `of()` — it builds a real drone and compares.
+static func routed_layout(frame: FrameConfig, config: FlightConfig) -> Array[Part]:
+	var parts: Array[Part] = []
+	if frame == null or config == null:
+		return parts
+	var motors := MotorModel.new()
+	motors.configure(MotorModel.layout_from_id(config.rotor_layout))
+	for row: Dictionary in TABLE:
+		if not bool(row["routed"]) or not bool(row["built"]):
+			continue
+		var kind: StringName = row["kind"]
+		var armor: float = float(frame.component_armor.get(kind, 0.0))
+		var count: int = motors.rotor_count if int(row["count"]) < 0 \
+				else int(row["count"])
+		for i: int in count:
+			var part := Part.new()
+			part.kind = kind
+			part.index = i if int(row["count"]) < 0 else -1
+			part.id = StringName("%s%d" % [kind, i]) if int(row["count"]) < 0 else kind
+			# Mirrors `of()`'s mount rules exactly. The rotor and transmitter cases
+			# are spelled out because neither reads from `MOUNTS`, and a kind that
+			# joins the routed set later must not silently price at the origin.
+			match kind:
+				&"rotor":
+					part.position = motors.motor_position(i, config)
+				&"vtx":
+					part.position = config.fpv_offset
+				_:
+					part.position = (MOUNTS[kind] as Vector3) * config.body_m
+			part.built = true
+			part.routed = true
+			part.cost = row["cost"]
+			part.armor = armor
+			parts.append(part)
+	# A Node, so refcounting will not collect it. Freed here rather than queued:
+	# nothing owns it and there is no tree to defer into.
+	motors.free()
+	return parts
+
+
 ## The components a LOCATED hit can be assigned to (E.q2, answered `derived`).
 ##
 ## Today this is exactly the rotors, so `apply_hit_to_motors` selects over the

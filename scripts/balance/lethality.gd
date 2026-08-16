@@ -361,6 +361,343 @@ static func vent_seconds(combat: CombatConfig) -> float:
 	return combat.heat_vent_delay + shed / combat.heat_cool_rate
 
 
+## ---------- Layer 1 LOCATED: the component model arrives (E8) ----------
+
+## E8 states the bill against this file directly: *"a component model breaks the
+## assumption underneath [Layer 1] — 'hits to kill' stops being one number and
+## becomes a distribution over where the hits land."*
+##
+## WHAT IS MIRRORED, and it is mirrored rather than shared on purpose.
+## `FlightController._apply_located` takes the round's bearing out to the hull's
+## edge and splits it across every ROUTED component inside
+## `DamageConfig.hit_footprint_m`, weighted by closeness and normalised so damage
+## is conserved. That footprint is in METRES and does not scale with the airframe,
+## which is the whole of E4.3: a 0.28 m Kestrel has one round straddle three
+## rotors while a 3.0 m Roc has the same round take exactly one. The functions
+## below re-derive that split from the two resources alone — no drone, no tree, no
+## physics, exactly like the rest of Layer 1 — and `lethality_check` plants real
+## shots at named bearings to prove the two agree. The calculator is allowed to be
+## a copy precisely because a bench compares it against the shipped code; that is
+## the same discipline the shield exchange has run under since v1.23.
+##
+## **THE INPUT IS POST-ARMOUR HULL DAMAGE, AND GETTING THAT WRONG WOULD BE
+## INVISIBLE.** `main._on_player_damaged` is wired to `Health.damaged`, which emits
+## what actually reached the hull *after* `FrameConfig.armor` — so the Atlas's
+## 3.0 of plating shields its rotors as well as its structure, and a model fed the
+## enemy's raw `damage` would price its motors 60% too fragile. Every entry point
+## here names the parameter `hull_damage` for that reason, and `located_incoming`
+## takes it from `incoming()`'s own `per_hit` rather than from a config.
+
+## Bearings walked for every figure below that is an EXPECTATION rather than an
+## answer at one aspect. 72 is every 5 degrees, which resolves a quad's 90-degree
+## symmetry and a hexa's 60-degree one while landing on neither's rotors alone —
+## a coarser sweep that sampled only the arms would report a frame as uniform when
+## it is not, which is the one sampling artefact that would flatter this model.
+##
+## Bearing 0 is the NOSE and it runs clockwise, matching `MotorModel._ring`'s own
+## convention (`x = sin`, `z = -cos`, front is body -Z) so that a bearing quoted by
+## this file and one quoted by the airframe mean the same thing.
+const BEARING_SAMPLES: int = 72
+
+
+## Body-space direction a round arriving on `bearing_deg` came FROM.
+static func bearing_vector(bearing_deg: float) -> Vector3:
+	var radians: float = deg_to_rad(bearing_deg)
+	return Vector3(sin(radians), 0.0, -cos(radians))
+
+
+## WHERE ONE ROUND LANDS: each routed component's share of a single hit, in
+## `parts` order, summing to 1. The mirror of `_apply_located`'s weighting.
+##
+## Returns empty for a DIRECTIONLESS hit, which is not an oversight but E5's
+## distinction: a crash has no bearing, loads the whole airframe through
+## `_apply_crash`, and is not a located event at all.
+static func hit_shares(parts: Array[AirframeComponents.Part], body_m: float,
+		footprint: float, from_body: Vector3) -> PackedFloat32Array:
+	var shares := PackedFloat32Array()
+	if parts.is_empty():
+		return shares
+	var bearing := Vector3(from_body.x, 0.0, from_body.z)
+	if bearing.length_squared() < 0.000001:
+		return shares
+	# The impact point is that bearing taken out to the hull's own edge, exactly
+	# as the live path computes it. Half of `body_m`, never of `arm_length`: the
+	# round meets the airframe, not the motor ring.
+	var impact: Vector3 = bearing.normalized() * (body_m * 0.5)
+	var weights: Array[float] = []
+	var total: float = 0.0
+	var nearest: int = 0
+	var nearest_distance: float = INF
+	for i: int in parts.size():
+		var pos := Vector3(parts[i].position.x, 0.0, parts[i].position.z)
+		var distance: float = pos.distance_to(impact)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = i
+		var weight: float = 0.0
+		if footprint > 0.0:
+			weight = maxf(1.0 - distance / footprint, 0.0)
+		weights.append(weight)
+		total += weight
+	shares.resize(parts.size())
+	if total <= 0.0:
+		# The large airframe's ordinary case: nothing falls inside the footprint,
+		# so the nearest component takes the whole round. A separate branch in the
+		# live code too, and the one that makes a Roc's hits singular.
+		shares[nearest] = 1.0
+		return shares
+	for i: int in parts.size():
+		shares[i] = weights[i] / total
+	return shares
+
+
+## Motor capability one hit strips BEFORE it is divided among components —
+## `apply_hit_to_motors`' own three lines, severity dial included. 0 when the
+## dial is off, which is what makes severity 0 a genuine arcade floor rather than
+## a scaling of one.
+static func located_amount(hull_damage: float, damage: DamageConfig) -> float:
+	if damage == null or damage.severity <= 0.0 or hull_damage <= 0.0:
+		return 0.0
+	return minf(hull_damage * damage.motor_damage_scale,
+			damage.motor_damage_max) * damage.severity
+
+
+## E8'S SECOND OUTPUT, AT ONE ASPECT: which component fails first under repeated
+## hits arriving on `from_body`, and after how many.
+##
+## A component's health is a 0-to-1 capability and plating is flat against it
+## (`_damage_component`), so a hit costs a component
+## `max(share x amount - armor, 0)` and the count is that divided into 1. Flat
+## plating is why this cannot be read off the share alone: a round split three
+## ways can have every one of its small shares eaten whole, which is exactly the
+## interaction task 4 measured.
+##
+## The HELD aspect is the honest case for E7's *"if in two different runs i get
+## the same engine hit — thats a lession to be learned"*: a pursuer sits in one
+## part of your sky and keeps putting rounds into the same corner.
+static func first_failure_at(frame: FrameConfig, damage: DamageConfig,
+		hull_damage: float, from_body: Vector3) -> Dictionary:
+	var config: FlightConfig = frame.flight_config if frame != null else null
+	var parts: Array[AirframeComponents.Part] = \
+			AirframeComponents.routed_layout(frame, config)
+	var amount: float = located_amount(hull_damage, damage)
+	if parts.is_empty():
+		return _no_failure("this airframe routes no located damage to anything")
+	if amount <= 0.0:
+		return _no_failure("no located damage: %.1f hull damage at severity %.2f"
+				% [hull_damage, damage.severity if damage != null else 0.0])
+	var shares: PackedFloat32Array = hit_shares(parts, config.body_m,
+			damage.hit_footprint_m, from_body)
+	if shares.is_empty():
+		return _no_failure("a directionless hit is a crash, not a located round (E5)")
+	return _failure_from_shares(parts, shares, amount, hull_damage)
+
+
+## The per-component arithmetic, over shares that have already been computed.
+## Shared by the single-aspect entry point and the sweep so the two can never
+## drift — the same reason `_exchange` is one loop serving both directions of the
+## model.
+static func _failure_from_shares(parts: Array[AirframeComponents.Part],
+		shares: PackedFloat32Array, amount: float,
+		hull_damage: float) -> Dictionary:
+	var soonest: int = -1
+	var soonest_hits: int = MAX_HITS + 1
+	var soonest_through: float = 0.0
+	for i: int in parts.size():
+		var through: float = maxf(shares[i] * amount - parts[i].armor, 0.0)
+		if through <= 0.0:
+			continue
+		var hits: int = int(ceil(1.0 / through))
+		# Ties keep the LOWEST index rather than the last one seen. A quad-X is
+		# symmetric about its own diagonals, so exact ties are ordinary here and a
+		# picker that drifted with iteration order would make this file's answers
+		# depend on `TABLE`'s row order.
+		if hits < soonest_hits:
+			soonest_hits = hits
+			soonest = i
+			soonest_through = through
+	if soonest < 0 or soonest_hits > MAX_HITS:
+		return _no_failure(
+				"plating turns away every share of a %.1f-point hit on this bearing"
+				% hull_damage)
+	var part: AirframeComponents.Part = parts[soonest]
+	return {
+		"component": part.id,
+		"kind": part.kind,
+		"index": part.index,
+		"hits": soonest_hits,
+		"per_hit": soonest_through,
+		"share": shares[soonest],
+		"why": "",
+	}
+
+
+## E8'S SECOND OUTPUT AS AN EXPECTATION: the same question, taken over the
+## hit-location distribution instead of at one stated aspect.
+##
+## **THE DISTRIBUTION IS OVER WHICH ASPECT THE FIRE HOLDS, NOT OVER EACH ROUND'S
+## BEARING, AND THAT CHOICE IS THE WHOLE MEANING OF THE NUMBER.** Averaging
+## per-ROUND would be the wrong model and quietly the degenerate one: separation
+## conserves damage, so under bearings drawn fresh for every round each rotor
+## accrues exactly `amount / rotor_count` per hit on every airframe in the roster,
+## and the frame ladder collapses to a single number. Concentration lives in the
+## VARIANCE, and a mean over rounds is precisely what destroys it. So each sample
+## here is a whole engagement fought from one bearing, and the expectation is over
+## where the shooter was.
+##
+## Both ends are reported beside the mean, because BALANCE.md's own grammar for a
+## graded thing is to state the two ends and let the fight live between them:
+##   `soonest_hits` — the aspect that costs a component fastest (the pilot's worst)
+##   `latest_hits`  — the aspect that costs one slowest
+##   `spread_hits`  — the diffuse floor: fire from everywhere at once, where no
+##                    component concentrates anything. This is the degenerate case
+##                    described above, reported ON PURPOSE as the datum the held
+##                    aspects are worth against — on an unplated frame it is the
+##                    same number for every airframe in the roster, and that
+##                    identity is the clearest possible statement that E4.3's
+##                    content is concentration and nothing else.
+##
+## `hits` is a FLOAT here and an int in `first_failure_at` — an expectation over
+## aspects is not a hit count and rounding it would hide exactly the differences
+## between frames this exists to report. Read `soonest_hits` when an integer is
+## wanted; it is the aspect that actually happens to somebody.
+static func expected_first_failure(frame: FrameConfig, damage: DamageConfig,
+		hull_damage: float) -> Dictionary:
+	var config: FlightConfig = frame.flight_config if frame != null else null
+	var parts: Array[AirframeComponents.Part] = \
+			AirframeComponents.routed_layout(frame, config)
+	var amount: float = located_amount(hull_damage, damage)
+	if parts.is_empty() or amount <= 0.0:
+		var blank: Dictionary = first_failure_at(frame, damage, hull_damage,
+				bearing_vector(0.0))
+		blank["soonest_hits"] = NEVER
+		blank["soonest_bearing_deg"] = 0.0
+		blank["latest_hits"] = NEVER
+		blank["spread_hits"] = NEVER
+		blank["bearings"] = 0
+		return blank
+	var total_hits: float = 0.0
+	var total_share: float = 0.0
+	var counted: int = 0
+	var soonest: Dictionary = {}
+	var soonest_bearing: float = 0.0
+	var latest_hits: int = NEVER
+	# Per-component accrual summed across the sweep — the diffuse end.
+	var accrued: PackedFloat32Array = PackedFloat32Array()
+	accrued.resize(parts.size())
+	for sample: int in BEARING_SAMPLES:
+		# HALF-OFFSET, and it is a correctness fix rather than a nicety. A sweep
+		# starting at 0 lands exactly on a quad's four arms AND exactly on the four
+		# bearings where two rotors are equidistant, so the tie-break — which
+		# exists for determinism — decides a twentieth of the samples and skews
+		# `spread_hits` by 6%. Measured: the Roc read 79 hits where conservation
+		# says 84, while the Kestrel read the correct 84, which looked like a real
+		# difference between two frames and was an artefact of where the ruler's
+		# marks fell. Sampling a symmetric object on its own symmetry axes is the
+		# oldest way to measure the instrument instead of the thing.
+		var bearing_deg: float = 360.0 * (float(sample) + 0.5) \
+				/ float(BEARING_SAMPLES)
+		var from_body: Vector3 = bearing_vector(bearing_deg)
+		# The layout is built ONCE for the whole sweep and the shares once per
+		# bearing. Going back through `first_failure_at` per sample would rebuild
+		# both 72 times over, and Layer 1's contract is that it is instant.
+		var shares: PackedFloat32Array = hit_shares(parts, config.body_m,
+				damage.hit_footprint_m, from_body)
+		var cell: Dictionary = _failure_from_shares(parts, shares, amount,
+				hull_damage)
+		for i: int in parts.size():
+			accrued[i] += maxf(shares[i] * amount - parts[i].armor, 0.0)
+		if int(cell["hits"]) == NEVER:
+			continue
+		var hits: int = int(cell["hits"])
+		total_hits += float(hits)
+		total_share += float(cell["share"])
+		counted += 1
+		if soonest.is_empty() or hits < int(soonest["hits"]):
+			soonest = cell
+			soonest_bearing = bearing_deg
+		if latest_hits == NEVER or hits > latest_hits:
+			latest_hits = hits
+	if counted <= 0:
+		var none: Dictionary = _no_failure(
+				"no bearing on this airframe can fail a component with %.1f-point hits"
+				% hull_damage)
+		none["soonest_hits"] = NEVER
+		none["soonest_bearing_deg"] = 0.0
+		none["latest_hits"] = NEVER
+		none["spread_hits"] = NEVER
+		none["bearings"] = BEARING_SAMPLES
+		return none
+	var best_accrual: float = 0.0
+	for i: int in parts.size():
+		best_accrual = maxf(best_accrual, accrued[i] / float(BEARING_SAMPLES))
+	var spread: int = NEVER
+	if best_accrual > 0.0 and 1.0 / best_accrual <= float(MAX_HITS):
+		spread = int(ceil(1.0 / best_accrual))
+	var result: Dictionary = soonest.duplicate()
+	# The scalar E8 asks for: hits to the first failure, expected over aspect.
+	result["hits"] = total_hits / float(counted)
+	result["share"] = total_share / float(counted)
+	result["soonest_hits"] = int(soonest["hits"])
+	result["soonest_bearing_deg"] = soonest_bearing
+	result["latest_hits"] = latest_hits
+	result["spread_hits"] = spread
+	result["bearings"] = counted
+	return result
+
+
+## E8'S FIRST OUTPUT, AND THE HONEST ANSWER IS NOT THE ONE E8 EXPECTED.
+##
+## E8 asks Layer 1 to keep *"a scalar expected hits-to-kill, computed under the
+## hit-location distribution"*, on the reasoning that a component model turns one
+## number into a distribution. **In the model that actually shipped it does not,
+## and this file mirrors what shipped.** Two facts decide it, and both are E5's
+## and E.q3's rather than this file's:
+##
+##  - **Nothing routed is lethal.** The only components a located hit can reach
+##    are the rotors, and a rotor at zero still makes `motor_min_thrust` of its
+##    share — every frame on the roster hovers with all four dead. Losing them all
+##    is a flight problem, never a death.
+##  - **What kills you is the structure pool**, which E5 keeps *undifferentiated
+##    on purpose* — it is the whole airframe, so it has no location for a
+##    distribution to be over.
+##
+## So `expected_shots` equals the structural number, and the instrument says so
+## out loud instead of dressing an unchanged figure in a new word. **The condition
+## that would change it is written down rather than built**: E.q6's detonating
+## magazine is the one proposed component whose loss is instantly fatal, and it is
+## PINNED, not shipped. Building the machinery for it now would be a failure mode
+## E9 and E10 step 2 both forbid.
+##
+## `fails_before_death` is where the pair earns its keep, and it is the number a
+## pilot actually experiences: does any aspect cost you a rotor while you are
+## still alive to fly it?
+static func located_incoming(enemy: EnemyConfig, frame: FrameConfig,
+		damage: DamageConfig) -> Dictionary:
+	var structural: Dictionary = incoming(enemy, frame)
+	# Post-armour, taken from the structural cell rather than from `enemy.damage`,
+	# so the three arrival modes (ranged / contact / none) each hand over the hit
+	# THEY define and this function never has to know which one it got.
+	var hull_damage: float = float(structural.get("per_hit", 0.0))
+	var failure: Dictionary = expected_first_failure(frame, damage, hull_damage)
+	var shots: int = int(structural["shots"])
+	var soonest: int = int(failure["soonest_hits"])
+	return {
+		"mode": structural["mode"],
+		"hull_damage": hull_damage,
+		"expected_shots": shots,
+		"located_lethal": false,
+		"why_expected": "no routed component's loss is fatal, so hits-to-kill is the structure pool's (E5); E.q6's magazine is the pinned exception",
+		"first_failure": failure,
+		"fails_before_death": soonest != NEVER and shots != NEVER and soonest < shots,
+	}
+
+
+static func _no_failure(why: String) -> Dictionary:
+	return {"component": &"", "kind": &"", "index": -1, "hits": NEVER,
+			"per_hit": 0.0, "share": 0.0, "why": why}
+
+
 static func _fire(weapon: String, combat: CombatConfig, enemy: EnemyConfig,
 		damage_mult: float, stop_at_shield_down: bool) -> Dictionary:
 	match weapon:
