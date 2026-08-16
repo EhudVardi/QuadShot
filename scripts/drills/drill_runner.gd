@@ -203,6 +203,7 @@ func _process(_ignored: float) -> void:
 	_hud.set_thrust_axis(_drone.global_basis.y, -_drone.global_basis.z)
 	if _drill_id != "rotor_out":
 		_hud.set_components(AirframeComponents.of(_drone))
+		_hud.set_motor_drive(_drone.motor_drive(), _drone.motor_spins())
 
 
 # --- the two drills -------------------------------------------------------

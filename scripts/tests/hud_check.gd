@@ -382,6 +382,89 @@ func _check_attitude() -> void:
 			_failures.append("looking straight %s produced %s rather than a finite offset"
 					% ["up" if pitch_deg > 0.0 else "down", polar])
 
+	# CLAIM 11 — THE DRIVE RINGS TURN THE WAY THE ROTORS ACTUALLY TURN.
+	#
+	# The human's ask: each rotor's drive drawn as a ring that fills the way that
+	# rotor spins — *"each diagonal pair of rotors share the same angular rotation
+	# direction, so for example, FR & BL share the same direction and FL & BR share
+	# the other."* That rule is true and it is already written down in
+	# `MotorModel.spins`, which is exactly why the HUD must READ it.
+	#
+	# **THE CLAIM IS ACROSS THE WHOLE ROSTER, AND THAT IS THE POINT.** A widget
+	# with a hand-written four-entry direction table passes every quad and draws
+	# the hexa wrong — which is scar six, the motor pip block, verbatim. So the
+	# sweep is checked against `motor_spin(i)` for every rotor of every frame,
+	# including the six-rotor one.
+	print("")
+	print("[hud] CLAIM 11 — DRIVE RINGS FILL THE WAY THE ROTOR SPINS.")
+	print("[hud] %10s %8s %30s" % ["frame", "rotors", "sweep signs (mixer order)"])
+	var CS := GameHud.ComponentStatus
+	for frame_id: String in Frames.ROSTER:
+		var drone: FlightController = _drones[frame_id]
+		var rotor_spins: PackedFloat32Array = drone.motor_spins()
+		var count: int = rotor_spins.size()
+		# A DIFFERENT DRIVE ON EVERY ROTOR, so the claim also catches a widget that
+		# reads the right array at the wrong index — every rotor showing rotor 0's
+		# throttle is a plausible bug that a uniform test cannot see.
+		var outputs: PackedFloat32Array = PackedFloat32Array()
+		for i: int in count:
+			outputs.append(float(i + 1) / float(count))
+		var signs: PackedStringArray = []
+		for i: int in count:
+			# Through the INDEXED entry point, which is the one the drawing uses.
+			var sweep: float = CS.rotor_sweep(i, outputs, rotor_spins)
+			signs.append("+" if sweep > 0.0 else "-")
+			if signf(sweep) != signf(rotor_spins[i]):
+				_failures.append("%s rotor %d spins %+.0f and its ring sweeps %+.2f rad — the ring must turn the way the rotor does, and a direction table written into the widget is scar six waiting to happen"
+						% [frame_id, i, rotor_spins[i], sweep])
+			var want: float = outputs[i] * TAU
+			if absf(absf(sweep) - want) > 0.001:
+				_failures.append("%s rotor %d at %.0f%% drive swept %.3f rad, expected %.3f — either the ring is not the drive fraction of a turn, or it is reading another rotor's throttle"
+						% [frame_id, i, outputs[i] * 100.0, absf(sweep), want])
+		print("[hud] %10s %8d %30s" % [frame_id, count, "".join(signs)])
+	# A rotor the arrays do not reach draws nothing rather than guessing. This is
+	# the state every scene is in before its first frame, and on the tick a frame
+	# swap changes the rotor count.
+	if CS.rotor_sweep(3, PackedFloat32Array(), PackedFloat32Array()) != 0.0:
+		_failures.append("a rotor with no drive fed yet swept a ring anyway — an unfed readout must draw nothing, not a number it invented")
+	# The endpoints, and the one that matters is that a DEAD stick draws nothing.
+	# An idle rotor showing a stub would read as thrust that is not there.
+	if CS.ring_sweep(0.0, 1.0) != 0.0:
+		_failures.append("an idle rotor swept %.4f rad — zero drive must draw no arc at all"
+				% CS.ring_sweep(0.0, 1.0))
+	if absf(absf(CS.ring_sweep(1.0, -1.0)) - TAU) > 0.001:
+		_failures.append("full drive swept %.3f rad, expected a whole turn (%.3f)"
+				% [absf(CS.ring_sweep(1.0, -1.0)), TAU])
+	# REVERSE THRUST TURNS THE PROP THE OTHER WAY. It is reachable in 3D throttle
+	# mode, which is the shipped default, so the ring has to say so rather than
+	# drawing a reversed rotor as ordinary forward drive.
+	if signf(CS.ring_sweep(-0.5, 1.0)) == signf(CS.ring_sweep(0.5, 1.0)):
+		_failures.append("a rotor at -50%% swept the same way as one at +50%% — reverse thrust turns the prop the other way and the ring must follow")
+	# The quad's own diagonal rule, stated by the human and asserted against the
+	# model rather than against a copy of it.
+	var quad: FlightController = _drones["kestrel"]
+	var half_drive := PackedFloat32Array([0.5, 0.5, 0.5, 0.5])
+	var quad_spins: PackedFloat32Array = quad.motor_spins()
+	var fl: float = signf(CS.rotor_sweep(0, half_drive, quad_spins))
+	var fr: float = signf(CS.rotor_sweep(1, half_drive, quad_spins))
+	var bl: float = signf(CS.rotor_sweep(2, half_drive, quad_spins))
+	var br: float = signf(CS.rotor_sweep(3, half_drive, quad_spins))
+	print("[hud] quad-X diagonals: FL %+.0f BR %+.0f  |  FR %+.0f BL %+.0f"
+			% [fl, br, fr, bl])
+	if fl != br or fr != bl or fl == fr:
+		_failures.append("the quad's diagonals do not pair: FL %+.0f BR %+.0f against FR %+.0f BL %+.0f — counter-rotation is what cancels reaction torque in the hover"
+				% [fl, br, fr, bl])
+	# And the ring must clear the plating ring and its neighbours. The HEXA is the
+	# tight case: six rotors on a 46 px ring sit 46 px apart.
+	print("[hud] drive ring %.1f px against a plating ring at %.1f px; hexa rotors sit %.1f px apart"
+			% [CS.DRIVE_R, CS.ROTOR_R + 3.0, CS.RING * 2.0 * sin(PI / 6.0)])
+	if CS.DRIVE_R <= CS.ROTOR_R + 3.0:
+		_failures.append("the drive ring at %.1f px is inside the plating ring at %.1f px, so armour and thrust draw on top of each other"
+				% [CS.DRIVE_R, CS.ROTOR_R + 3.0])
+	if CS.DRIVE_R * 2.0 > CS.RING * 2.0 * sin(PI / 6.0):
+		_failures.append("two %.1f px drive rings overlap on the hexa, whose rotors are %.1f px apart"
+				% [CS.DRIVE_R, CS.RING * 2.0 * sin(PI / 6.0)])
+
 	# CLAIM 9f — THE HORIZON ROLLS WITH THE AIRCRAFT, INCLUDING UPSIDE DOWN.
 	#
 	# The whole of round 6 passed with this broken, and it took a human rolling

@@ -117,6 +117,8 @@ var _previous_velocity: Vector3 = Vector3.ZERO
 ## Without it, a bench that sets `linear_velocity` before the drone ever ticks
 ## would have its whole launch speed read as a collision on tick one.
 var _previous_velocity_valid: bool = false
+## Reused by `motor_drive()`, which the HUD reads once per rendered frame.
+var _drive_scratch: PackedFloat32Array = PackedFloat32Array()
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -700,6 +702,33 @@ func _handle_buttons() -> void:
 		else:
 			flight_mode = FlightMode.ACRO
 		print("[drone] flight mode: %s" % FlightMode.keys()[flight_mode])
+
+
+## PER-ROTOR DRIVE, in mixer order, for a readout that wants all of them at once.
+##
+## Reuses one array rather than building a new one, because the HUD reads this
+## EVERY FRAME and a fresh PackedFloat32Array per frame is garbage for nothing.
+## Values are the post-lag outputs, so this is what the motors are actually
+## doing rather than what they were just asked for; in 3D throttle mode they can
+## be NEGATIVE, which is a reversed prop and not a bug.
+func motor_drive() -> PackedFloat32Array:
+	if _drive_scratch.size() != _motors.rotor_count:
+		_drive_scratch.resize(_motors.rotor_count)
+	for i: int in _motors.rotor_count:
+		_drive_scratch[i] = _motors.output(i)
+	return _drive_scratch
+
+
+## Which way each rotor turns, +1 or -1, straight off the layout. Read rather
+## than re-authored: on a quad the diagonals share a direction, on the hexa six
+## alternate around the ring, and any second copy of that table is scar six
+## waiting to happen.
+func motor_spins() -> PackedFloat32Array:
+	return _motors.spins
+
+
+func motor_spin(index: int) -> float:
+	return _motors.spins[index]
 
 
 func motor_output(index: int) -> float:

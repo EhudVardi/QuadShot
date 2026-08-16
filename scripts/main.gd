@@ -141,6 +141,7 @@ func _process(delta: float) -> void:
 	# Body +Y is the thrust axis, body -Z is the nose. The nose is fed only so the
 	# tilt readout can be signed: negative nose-down, positive nose-up.
 	_hud.set_thrust_axis(_drone.global_basis.y, -_drone.global_basis.z)
+	_hud.set_motor_drive(_drone.motor_drive(), _drone.motor_spins())
 	_update_signal_leash(delta)
 	_update_damage_feedback(delta)
 

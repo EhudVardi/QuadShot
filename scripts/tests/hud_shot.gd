@@ -42,6 +42,14 @@ const SHOTS: Array = [
 	["inverted_pitch15", 180.0, -15.0],
 	["knife_edge", 90.0, -15.0],
 ]
+## Per-rotor throttles to pose the drive rings at. Deliberately all different
+## and deliberately including 0 and 1, so an empty ring, a full one and two
+## partials are all in the same picture.
+## FL and BR turn one way, FR and BL the other, so this deliberately puts a
+## PARTIAL arc on both sides of that pair: at 0/0.35/0.75/1.0 the only two arcs
+## whose direction was visible were the two that share a direction, and the
+## picture could not have shown the rule it exists to check.
+const DRIVES: Array[float] = [0.25, 0.6, 0.85, 1.0]
 const SETTLE_FRAMES: int = 45
 const HOLD_FRAMES: int = 6
 
@@ -86,6 +94,17 @@ func _on_frame() -> void:
 			# Frozen so physics does not fight the pose. The HUD reads
 			# `global_basis.y`, so a held attitude is a held reading.
 			(_drone as RigidBody3D).freeze = true
+			# FOUR DIFFERENT THROTTLES, so the drive rings can be JUDGED. Frozen
+			# and disarmed every rotor sits at zero, which draws four identical
+			# empty tracks and would have made this rig say nothing at all about
+			# the readout it was added to look at.
+			# Physics off FIRST, or the flight controller's own tick writes the
+			# disarmed zeros straight back over the pose on the very next frame.
+			_drone.set_physics_process(false)
+			var motors: MotorModel = _drone.get_node("MotorModel") as MotorModel
+			for i: int in motors.rotor_count:
+				motors.set_command(i, DRIVES[i % DRIVES.size()])
+			motors.step(1.0, (_drone as FlightController).config)
 			_phase = POSE
 			_frames = 0
 		POSE:

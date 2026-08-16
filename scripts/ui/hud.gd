@@ -71,6 +71,11 @@ class ComponentStatus:
 	## registry would have left the menu tower, the aim drill and the duel
 	## harness with no hull readout the moment the old bar was retired.
 	var hull: float = 1.0
+	## Per-rotor drive and spin direction, in mixer order, fed every frame.
+	## Empty is the honest default: a scene that never feeds them draws bare
+	## tracks rather than inventing a reading.
+	var drive: PackedFloat32Array = PackedFloat32Array()
+	var spins: PackedFloat32Array = PackedFloat32Array()
 
 	## Sharp green->yellow->red ramp: a motor at 0.6 must read as clearly hurt,
 	## not near-green (the old lerp's flaw).
@@ -86,6 +91,14 @@ class ComponentStatus:
 	## placed by the same scale, so the picture keeps its proportions.
 	const RING: float = 46.0
 	const ROTOR_R: float = 15.0
+	## The drive ring sits outside the disc AND outside the plating ring at
+	## ROTOR_R + 3, with room to read as its own thing. Rotors are 65 px apart on
+	## a quad-X and 46 px apart on the hexa ring, so two 20.5 px rings clear each
+	## other on both — the hexa is the tight one and it is the one to check.
+	const DRIVE_R: float = 20.5
+	## Twelve o'clock. Every ring starts from the same place, so two rotors at the
+	## same drive differ only by which way their arcs ran.
+	const DRIVE_START: float = -PI * 0.5
 	const PLATE := Vector2(168.0, 150.0)
 	## The hull silhouette's half-extent, and the clearance every other component
 	## keeps from it.
@@ -276,7 +289,77 @@ class ComponentStatus:
 		draw_circle(at, maxf(ROTOR_R * h, 2.0), Color(tint.r, tint.g, tint.b, 0.5))
 		draw_arc(at, ROTOR_R, 0.0, TAU, 28, tint, 2.0)
 		_plating(at, ROTOR_R + 3.0, part)
+		_drive_ring(at, part)
 		_value(at, h)
+
+
+	## HOW HARD THIS ROTOR IS BEING DRIVEN, as a ring around it that fills the way
+	## the rotor actually turns (the human's ask, 2026-08-16).
+	##
+	## THE DIRECTION IS READ FROM THE LAYOUT, NEVER RE-AUTHORED HERE. On a quad the
+	## diagonals share a direction — FL with BR, FR with BL — and on the hexa six
+	## alternate around the ring, and `MotorModel.spins` is where that already
+	## lives. A second copy of the table in a widget is exactly scar six, which is
+	## the motor pip block drawing four gauges for a six-rotor frame.
+	##
+	## Drive is a separate channel from health and drawn in a separate colour on
+	## purpose: an empty ring means "this motor is idle", an empty DISC means "this
+	## motor is dead", and a pilot must never have to work out which one they are
+	## looking at.
+	func _drive_ring(at: Vector2, part: AirframeComponents.Part) -> void:
+		# The unlit track, so an idle rotor reads as EMPTY rather than as missing.
+		draw_arc(at, DRIVE_R, 0.0, TAU, 28, Color(0.5, 0.6, 0.7, 0.28), 1.5)
+		if part.index < 0 or part.index >= drive.size():
+			return
+		var output: float = drive[part.index]
+		var sweep: float = rotor_sweep(part.index, drive, spins)
+		if absf(sweep) < 0.001:
+			return
+		# Reverse thrust is a real state in 3D throttle mode, and it turns the prop
+		# the other way — so the ring runs backwards and changes colour rather than
+		# quietly reading as forward drive.
+		var tint := Color(0.55, 0.9, 1.0, 0.95) if output >= 0.0 \
+				else Color(1.0, 0.65, 0.35, 0.95)
+		var segments: int = maxi(4, int(absf(sweep) / TAU * 32.0))
+		draw_arc(at, DRIVE_R, DRIVE_START, DRIVE_START + sweep, segments, tint, 2.5)
+		# A tick at the LEADING end. Two rotors at the same 50% differ only by
+		# which way the arc grew, and a static half-ring cannot say that on its
+		# own — the tick is what makes the direction readable without moving.
+		var lead: float = DRIVE_START + sweep
+		var out_dir := Vector2(cos(lead), sin(lead))
+		draw_line(at + out_dir * (DRIVE_R - 3.0), at + out_dir * (DRIVE_R + 4.0),
+				tint, 2.0)
+
+
+	## The signed arc a rotor's drive ring sweeps, in radians: magnitude is how
+	## hard it is driven, sign is which way it turns.
+	##
+	## Godot's 2D angles increase CLOCKWISE on screen, because screen Y grows
+	## downward — so a positive sweep is a clockwise ring. Pure and static so
+	## `hud_check` can hold it against the real layout of every frame in the
+	## roster without drawing anything.
+	## ONE ROTOR'S RING, LOOKED UP BY INDEX — and the lookup is in here rather than
+	## at the draw site deliberately.
+	##
+	## `ring_sweep` alone is not enough to guard this. A widget that computed the
+	## sweep correctly and then took its direction from a hand-written four-entry
+	## table would pass every test of the arithmetic and still draw the hexa wrong
+	## — which is scar six exactly. So the INDEXING is what the check exercises:
+	## feed it a real six-entry spin array and a wrong table cannot survive.
+	static func rotor_sweep(index: int, outputs: PackedFloat32Array,
+			rotor_spins: PackedFloat32Array) -> float:
+		if index < 0 or index >= outputs.size():
+			return 0.0
+		var spin: float = rotor_spins[index] if index < rotor_spins.size() else 1.0
+		return ring_sweep(outputs[index], spin)
+
+
+	static func ring_sweep(output: float, spin: float) -> float:
+		var fill: float = clampf(absf(output), 0.0, 1.0)
+		# A reversed prop turns the other way; `signf(0)` is 0, so an idle rotor
+		# keeps its nominal direction and sweeps nothing anyway.
+		var turning: float = spin * (signf(output) if output != 0.0 else 1.0)
+		return signf(turning) * fill * TAU
 
 	## The transmitter, as a thing that BROADCASTS: a hub with two arcs opening
 	## forward. Hue is its state like everything else, so a failing feed reads the
@@ -1436,6 +1519,19 @@ func set_components(parts: Array[AirframeComponents.Part]) -> void:
 
 
 ## Video-breakup intensity [0, 1]; 0 hides the overlay entirely (no cost).
+## HOW HARD EACH ROTOR IS BEING DRIVEN, and which way it turns — a ring around
+## each rotor on the plate. Fed EVERY FRAME, unlike the component list, because
+## drive changes on every physics tick while damage changes on an event.
+##
+## Both arrays come straight off `MotorModel` (`FlightController.motor_drive` and
+## `motor_spins`), so the widget never holds a second copy of the rotor layout.
+func set_motor_drive(outputs: PackedFloat32Array,
+		rotor_spins: PackedFloat32Array) -> void:
+	_motor_status.drive = outputs
+	_motor_status.spins = rotor_spins
+	_motor_status.queue_redraw()
+
+
 ## THE AIRFRAME PLATE, HIDDEN — for the one caller that needs the pilot NOT to
 ## have it. `rotor_out` asks how much of a rotor a human loses before they feel
 ## it, and a gauge that draws the rotor emptying answers a different question

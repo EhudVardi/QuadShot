@@ -750,6 +750,29 @@ Mutation on record: normalise on the whole airframe instead of the rotor span an
 the ring becomes frame-dependent (1.7% today, because the Condor's and Roc's
 lenses sit just past the rotor diagonal).
 
+**Claim 11 — the drive rings turn the way the rotors actually turn** (2026-08-16).
+Each rotor's throttle is drawn as a ring around it: empty at 0, half a ring at
+50%, a full ring at 100%, sweeping in the direction that rotor spins. The human's
+rule is right and already written down — *"each diagonal pair of rotors share the
+same angular rotation direction, so for example, FR & BL share the same
+direction and FL & BR share the other"* — which is exactly why the HUD **reads**
+`MotorModel.spins` instead of restating it.
+
+The claim runs across the **whole roster**, and that is the point. A widget with
+a hand-written four-entry direction table passes every quad and draws the hexa
+wrong, which is scar six (the motor pip block) verbatim. Two mutations on record:
+hard-code `[1, -1, -1, 1]` and only the **hexa** fails, on rotors 2 and 3; read
+`outputs[0]` instead of `outputs[index]` and every rotor but the first fails on
+sweep length. That second one is why the check gives every rotor a *different*
+throttle — a uniform test cannot see a widget reading one rotor's number four
+times.
+
+It also holds that reverse thrust (reachable, since `three_d` is the shipped
+throttle curve) sweeps the *other* way, that an unfed readout draws nothing
+rather than inventing a value, and that the ring clears both the plating ring at
+`ROTOR_R + 3` and its neighbours on the **hexa**, whose six rotors sit 46 px
+apart against a 41 px ring pair.
+
 It also guards the **attitude instruments**, and two of those claims came out of
 a human flying the thing (2026-08-16).
 

@@ -135,6 +135,7 @@ func _process(_delta: float) -> void:
 	_hud.update_sticks(sticks[0], sticks[1])
 	# Body +Y IS the thrust axis on a multirotor.
 	_hud.set_thrust_axis(_drone.global_basis.y, -_drone.global_basis.z)
+	_hud.set_motor_drive(_drone.motor_drive(), _drone.motor_spins())
 	_update_signal_leash(_delta)
 	_update_video_feed(_delta)
 
