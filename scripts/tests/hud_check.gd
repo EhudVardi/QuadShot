@@ -310,16 +310,15 @@ func _check_attitude() -> void:
 	if H.reference_pitch_roll(Basis.IDENTITY, Vector3.ZERO) != Vector2.ZERO:
 		_failures.append("an unset thrust axis must produce no line rather than a NaN")
 
-	# CLAIM 9c — ONE PEG MARGIN, AND IT CLEARS THE AIRFRAME PLATE. Both of these
-	# were bugs found by SCREENSHOTTING the HUD rather than by reasoning about it.
+	# CLAIM 9c — THE BRACKET'S PEG MARGIN CLEARS THE AIRFRAME PLATE. Found by
+	# SCREENSHOTTING the HUD rather than by reasoning about it.
 	#
-	# `fpv_uptilt_deg` is 48 on a 94-degree lens, which puts level flight 19 px
-	# BELOW the bottom edge of a 1080 screen — so both lines clamp in ordinary
-	# flight, and what they clamp to matters. Given two different margins they
-	# drew 95 px apart at LEVEL and claimed a tilt that did not exist, because the
-	# gap between them is the entire instrument.
+	# `fpv_uptilt_deg` is 48 on a 94-degree lens, which puts the airframe's own
+	# level plane 559 px below the boresight — off the bottom of a 1080 screen in
+	# EVERY attitude, because in FPV the lens is bolted to the frame. So the
+	# bracket is always pegged and where it pegs to matters.
 	print("")
-	print("[hud] CLAIM 9c — ONE PEG MARGIN, CLEARING THE AIRFRAME PLATE.")
+	print("[hud] CLAIM 9c — THE BRACKET'S PEG CLEARS THE AIRFRAME PLATE.")
 	var margin: float = H.PEG_MARGIN
 	var plate_top: float = GameHud.ComponentStatus.PLATE.y + 26.0
 	print("[hud] peg margin %.0f px; the plate's top edge is %.0f px up."
@@ -331,6 +330,93 @@ func _check_attitude() -> void:
 	if margin > 1080.0 * 0.5 * 0.75:
 		_failures.append("the peg margin %.0f px pulls a clamped line most of the way to screen centre, where it reads as a true horizon rather than as a clamped one"
 				% margin)
+
+	# CLAIM 9d — THE WORLD HORIZON IS NEVER MOVED, AND THIS IS THE CLAIM THAT
+	# REFUSES A CLAMP. The human flew the clamped version and reported both of its
+	# failures: *"the entire horizon indicator first disconnects from the horizon
+	# line... and if i pitch even more then the entire horizon indicator lines
+	# disappear."*
+	#
+	# Asserting "the drawn offset equals tan(pitch) * f" would compare the function
+	# to itself, which is the tautology round 4 wrote and caught. What cannot be
+	# faked is BEHAVIOUR PAST THE EDGE: a clamp flattens, and a true projection
+	# keeps growing however far off screen it goes. So the sweep runs well beyond
+	# any screen and demands strict growth at every step.
+	print("")
+	print("[hud] CLAIM 9d — THE HORIZON IS NEVER CLAMPED.")
+	var focal: float = H.focal_px(1080.0, 94.0)
+	var half_screen: float = 540.0
+	print("[hud] %10s %14s %14s %10s" % ["cam pitch", "drop px", "vs half-screen",
+			"grew"])
+	var previous_drop: float = -1.0
+	var beyond: int = 0
+	for pitch_deg: float in [0.0, 10.0, 30.0, 48.0, 60.0, 75.0, 85.0]:
+		var got: float = H.horizon_drop(deg_to_rad(pitch_deg), focal)
+		var grew: bool = got > previous_drop
+		print("[hud] %10.0f %14.1f %14s %10s" % [pitch_deg, got,
+				"off screen" if got > half_screen else "on screen",
+				"yes" if grew else "NO"])
+		if not grew:
+			_failures.append("the horizon offset did not grow between the step below %.0f degrees and %.0f degrees (%.1f then %.1f) — it is being clamped, and a clamped horizon is a line drawn where the horizon is not"
+					% [pitch_deg, pitch_deg, previous_drop, got])
+		if got > half_screen:
+			beyond += 1
+		previous_drop = got
+	if beyond < 3:
+		_failures.append("only %d of the swept pitches put the horizon past the screen edge, so this claim never exercises the case it exists for"
+				% beyond)
+	# The zero-degree rung IS the horizon, and they are computed by different
+	# expressions in different functions. If they ever disagree the ladder is
+	# hanging off a line that is somewhere else.
+	for pitch_deg: float in [12.0, 37.0]:
+		var line: float = H.horizon_drop(deg_to_rad(pitch_deg), focal)
+		var rung: float = H.rung_offset(pitch_deg, focal)
+		if absf(line - rung) > 0.01:
+			_failures.append("at %.0f degrees the horizon draws at %.2f px and the ladder places the same angle at %.2f px — the ladder must hang off the line it is drawn from"
+					% [pitch_deg, line, rung])
+	# NaN hygiene: `tan` runs away at the poles and an infinity would poison every
+	# rung position downstream of it.
+	for pitch_deg: float in [-90.0, 90.0]:
+		var polar: float = H.horizon_drop(deg_to_rad(pitch_deg), focal)
+		if not is_finite(polar):
+			_failures.append("looking straight %s produced %s rather than a finite offset"
+					% ["up" if pitch_deg > 0.0 else "down", polar])
+
+	# CLAIM 9e — THE TILT READOUT IS SIGNED, AND THE SIGN IS FORE/AFT ONLY.
+	# The human's ask: *"if i pitch up (go backwards), the angle should be positive
+	# and when i pitch down (go forward), it should be negative."*
+	print("")
+	print("[hud] CLAIM 9e — NOSE-DOWN READS NEGATIVE, NOSE-UP POSITIVE.")
+	print("[hud] %16s %12s %12s" % ["attitude", "magnitude", "printed"])
+	for pitch_deg: float in [-30.0, -10.0, 10.0, 30.0, 60.0]:
+		# Nose DOWN is a negative rotation about body X in this convention, and
+		# the nose is body -Z.
+		var airframe := Basis(Vector3.RIGHT, deg_to_rad(pitch_deg))
+		var axis: Vector3 = airframe.y
+		var nose: Vector3 = -airframe.z
+		var magnitude: float = H.tilt_degrees(axis)
+		var printed: float = H.signed_tilt_degrees(axis, nose)
+		var nose_down: bool = nose.y < 0.0
+		print("[hud] %16s %12.1f %12.1f" % ["nose down" if nose_down else "nose up",
+				magnitude, printed])
+		if absf(absf(printed) - magnitude) > 0.001:
+			_failures.append("the signed readout %.2f is not the magnitude %.2f with a sign on it — the number is a lift budget and signing it must not change what it measures"
+					% [printed, magnitude])
+		if nose_down and printed > 0.0:
+			_failures.append("a nose-DOWN attitude printed %+.1f — the pilot asked for negative going forward"
+					% printed)
+		if not nose_down and printed < 0.0:
+			_failures.append("a nose-UP attitude printed %+.1f — the pilot asked for positive going backwards"
+					% printed)
+	# Rolled level: the sign has nothing fore/aft to say, and must not invent one.
+	var knife_edge := Basis(Vector3.FORWARD, deg_to_rad(90.0))
+	var rolled_printed: float = H.signed_tilt_degrees(knife_edge.y, -knife_edge.z)
+	print("[hud] rolled 90 degrees with a level nose reads %+.1f" % rolled_printed)
+	if rolled_printed < 0.0:
+		_failures.append("a wings-vertical aircraft with its nose ON the horizon printed %+.1f — there is no fore/aft lean to be negative about"
+				% rolled_printed)
+	if H.signed_tilt_degrees(Vector3.UP, Vector3.ZERO) != 0.0:
+		_failures.append("a level aircraft with no nose vector must read 0")
 
 	# CLAIM 9b — THE COLOUR IS A RAMP, NOT A SWITCH. It was a single threshold at
 	# 60 degrees and the human flew it and never saw it change: a switch fires

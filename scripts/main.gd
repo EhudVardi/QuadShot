@@ -138,7 +138,9 @@ func _process(delta: float) -> void:
 	_hud.update_sticks(sticks[0], sticks[1])
 	# Body +Y IS the thrust axis on a multirotor, so this is literally which way
 	# the rotors are pushing.
-	_hud.set_thrust_axis(_drone.global_basis.y)
+	# Body +Y is the thrust axis, body -Z is the nose. The nose is fed only so the
+	# tilt readout can be signed: negative nose-down, positive nose-up.
+	_hud.set_thrust_axis(_drone.global_basis.y, -_drone.global_basis.z)
 	_update_signal_leash(delta)
 	_update_damage_feedback(delta)
 

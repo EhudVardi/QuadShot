@@ -26,11 +26,16 @@ extends SceneTree
 
 const DEFAULT_SCENE: String = "res://scenes/dev_map.tscn"
 ## Attitudes to capture: name, then roll and pitch in degrees.
+## Negative pitch is NOSE DOWN, which is the direction that brings the world
+## horizon up into view on a 48-degree uptilt lens. `pitchup30` is here because
+## nose-UP is where the horizon runs off the BOTTOM of the screen, and that is
+## the attitude the human reported the whole instrument vanishing in.
 const SHOTS: Array = [
 	["level", 0.0, 0.0],
 	["pitch15", 0.0, -15.0],
 	["pitch30", 0.0, -30.0],
 	["pitch45", 0.0, -45.0],
+	["pitchup30", 0.0, 30.0],
 	["roll35_pitch15", 35.0, -15.0],
 ]
 const SETTLE_FRAMES: int = 45

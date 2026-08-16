@@ -43,7 +43,7 @@ const MAX_BAND_FRACTION: float = 0.4
 
 const DRILLS: Dictionary = {
 	"hold_tilt": {
-		"title": "HOLD THE TILT",
+		"title": "PITCH DOWN 30 AND HOLD IT",
 		"question": "Can a pilot hold a stated attitude on the HUD's tilt readout, in acro, with no attitude hold?",
 		"situation": [
 			"A launch pad floating 250 m over open ground. No enemies, no weapons.",
@@ -55,11 +55,13 @@ const DRILLS: Dictionary = {
 			"Squeeze the FIRE trigger to MARK the start. It refuses unless you are",
 			"  level (under 12 deg), steady (under 8 m/s) and 5 m clear of the pad,",
 			"  so every attempt starts from one place.",
-			"Then pitch the nose DOWN to 30 degrees of tilt and hold it there.",
-			"Fly the number printed beside the airframe's level bracket.",
+			"THEN PITCH THE NOSE DOWN AND FLY FORWARD. The readout beside the",
+			"  airframe bracket must reach -30 and stay there. Sitting level at 0",
+			"  is NOT the task and scores nothing.",
+			"The top of the screen turns green and counts while you are in the band.",
 			"The window is 20 seconds. R resets you to the pad for another attempt.",
 		],
-		"success": "10 unbroken seconds within 5 degrees of 30 degrees of tilt.",
+		"success": "10 unbroken seconds with the readout between -25 and -35.",
 		"window_s": 20.0,
 		"target_tilt_deg": 30.0,
 		"tolerance_deg": 5.0,

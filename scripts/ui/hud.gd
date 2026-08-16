@@ -294,9 +294,16 @@ class ComponentStatus:
 			draw_arc(at, radius, PI * 1.15, PI * 1.85, 14, tint,
 					maxf(2.0 * h, 0.6))
 		_plating(at, 15.0, part)
-		draw_string(get_theme_default_font(), at + Vector2(9.0, 4.0),
-				"%s %d" % [label_for(part.kind), roundi(h * 100.0)],
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, tint)
+		# ABOVE THE SYMBOL, CENTRED, not beside it — the human's report: *"the vtx
+		# text and number is to the right of its symbol and it overlaps the right
+		# front rotor indication."* They are exactly right and the geometry says
+		# why: the lens mounts forward of centre, which on a nose-up plate puts the
+		# transmitter about 22 px above the hub, while the front rotors sit at
+		# +/-32 px across with a 15 px radius — so a label running RIGHT from the
+		# symbol drives straight into the front-right rotor disc. Straight up it
+		# clears both, because the two front rotors leave a gap on the centreline.
+		_label_above(at, 20.0, "%s %d" % [label_for(part.kind), roundi(h * 100.0)],
+				tint)
 
 	## Any other BUILT component: a small block at its mount with its label and
 	## reading beside it. Nothing reaches this today, and it is what a new failure
@@ -323,6 +330,17 @@ class ComponentStatus:
 		if part.armor <= 0.0:
 			return
 		draw_arc(at, radius, 0.0, TAU, 24, Color(0.62, 0.78, 1.0, 0.75), 2.0)
+
+	## A component's label and reading, centred ABOVE its symbol. Centring is done
+	## from the measured string width rather than by eye, so a longer label than
+	## "VTX 100" still sits on the centreline instead of drifting into a rotor.
+	func _label_above(at: Vector2, gap: float, text: String, tint: Color) -> void:
+		var font: Font = get_theme_default_font()
+		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
+				-1, 10).x
+		draw_string(font, at + Vector2(-width * 0.5, -gap), text,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 10, tint)
+
 
 	## The reading, as characters, centred in the shape it belongs to.
 	func _value(at: Vector2, health: float) -> void:
@@ -636,18 +654,25 @@ class HorizonLine:
 	const RUNG_STEP: int = 10
 	const RUNG_MAX: int = 60
 	const RUNG_FRACTION: float = 0.34
-	## How far past the screen edge the WORLD horizon is still drawn before it is
-	## dropped. The airframe's own line is never dropped — it pegs to the edge.
-	const OVERSHOOT: float = 1.6
-	## HOW FAR IN FROM THE SCREEN EDGE A PEGGED LINE SITS — ONE CONSTANT FOR BOTH,
-	## and it must stay that way.
+	## A FINITE CAP ON THE HORIZON'S OFFSET, in pixels — not a clamp anyone can
+	## read as a horizon. `tan` runs away near +/-90 degrees and would hand the
+	## renderer an infinity; 40000 px is roughly forty screens away, so the line
+	## is honestly gone while the arithmetic stays finite.
+	const FAR: float = 40000.0
+	## How close to the screen edge the world horizon may sit before the OFF-SCREEN
+	## marker appears beside it. Small on purpose: the line itself is never moved.
+	const EDGE_MARGIN: float = 14.0
+	## HOW FAR IN FROM THE SCREEN EDGE THE AIRFRAME BRACKET PEGS.
 	##
-	## The horizon and the airframe mark were briefly given different margins, and
-	## it broke the only invariant this instrument has: at level the two lines
-	## carry the SAME true offset, so pegging them to different limits drew them
-	## 95 px apart and claimed a tilt that did not exist. If both are clamped they
-	## must clamp to the same place, or the gap stops being the tilt. `hud_check`
-	## holds it.
+	## ONLY THE BRACKET PEGS NOW. It used to clamp the world horizon too, and the
+	## two had to share this constant or the gap between them stopped being the
+	## tilt — but the horizon is no longer moved at all, so the invariant is now
+	## satisfied by construction rather than by a shared number. The bracket keeps
+	## pegging because it is not a claim about the world: in FPV the lens is bolted
+	## to the frame, so the airframe's own level plane sits at `tan(fpv_uptilt_deg)`
+	## below the boresight FOREVER — 559 px on a 94-degree lens, which is off the
+	## bottom of a 1080 screen in every attitude. Unpegged it would never be
+	## visible at all, and the NUMBER riding it is the primary reading.
 	##
 	## 210 rather than something smaller because of what it must clear at the
 	## BOTTOM: the AIRFRAME plate is 150 px tall sitting 26 px off the edge, so its
@@ -668,6 +693,10 @@ class HorizonLine:
 	## aircraft and several scenes fly one. Zero hides the arrow, which is what a
 	## scene that never sets it gets.
 	var thrust_axis: Vector3 = Vector3.ZERO
+	## The airframe's NOSE in world space, and the only reason it is here is to
+	## give the tilt readout a sign. Optional: a scene that never feeds it gets
+	## the unsigned magnitude, exactly as before.
+	var nose_axis: Vector3 = Vector3.ZERO
 	## The pitch ladder, on the human's call — *"we can always add and set a
 	## toggle. i want realism."* Bound to `hud_ladder_toggle`, default on.
 	var ladder: bool = true
@@ -774,6 +803,93 @@ class HorizonLine:
 		return rad_to_deg(acos(clampf(axis.normalized().y, -1.0, 1.0)))
 
 
+	## THE SAME TILT, SIGNED THE WAY A PILOT THINKS ABOUT IT — negative nose-down
+	## (going forward), positive nose-up (going backwards). The human's ask, and
+	## it is a design choice rather than a convention: this readout is not a
+	## real-HUD element at all, it is ours, so nothing outside says what its sign
+	## should be.
+	##
+	## THE MAGNITUDE IS THE PHYSICS AND THE SIGN IS THE DIRECTION. `tilt_degrees`
+	## is an `acos` and can never be negative: it answers "how much of your thrust
+	## has stopped fighting gravity", which is `cos(tilt)` and is the same whether
+	## you lean forward or back. So the sign has to come from somewhere else, and
+	## the only honest source is which way the airframe is leaning — the thrust
+	## axis tipping TOWARD the nose is nose-down.
+	##
+	## **It is a fore/aft sign on a quantity that is not purely fore/aft**, and
+	## that is worth knowing rather than hiding: a wings-level aircraft rolled 90
+	## degrees is 90 degrees off vertical with its nose on the horizon, and this
+	## reports +90 because it is not leaning forward. That is the honest reading —
+	## the number is a lift budget, and the sign only ever claims to say fore or
+	## aft.
+	##
+	## Without a nose vector it returns the magnitude, which is what every caller
+	## got before this existed.
+	static func signed_tilt_degrees(axis: Vector3, nose: Vector3) -> float:
+		var magnitude: float = tilt_degrees(axis)
+		if magnitude <= 0.0 or nose.length_squared() < 0.000001:
+			return magnitude
+		var forward := Vector2(nose.x, nose.z)
+		var lean := Vector2(axis.x, axis.z)
+		if forward.length_squared() < 0.000001 or lean.length_squared() < 0.000001:
+			return magnitude
+		return -magnitude if lean.dot(forward.normalized()) > 0.0 else magnitude
+
+
+	## WHERE THE WORLD HORIZON SITS, in pixels below screen centre. Pitch UP pushes
+	## the horizon DOWN the screen and screen Y grows downward, so the sign works
+	## out with no negation.
+	##
+	## THE ONLY CAP IS `FAR`, AND THAT IS ARITHMETIC HYGIENE RATHER THAN A CLAMP:
+	## `tan` runs away at +/-90 degrees and would hand the renderer an infinity.
+	## Forty screens away is gone by any measure, so nothing that survives this can
+	## be mistaken for a horizon. It is a separate function so `hud_check` can
+	## sweep it and refuse any clamp that creeps back in.
+	static func horizon_drop(pitch: float, focal: float) -> float:
+		var raw: float = tan(pitch) * focal
+		if not is_finite(raw):
+			return signf(pitch) * FAR
+		return clampf(raw, -FAR, FAR)
+
+
+	## THE HORIZON HAS LEFT THE SCREEN — say which way, without drawing anything
+	## that could be read as the horizon itself.
+	##
+	## Two small chevron stacks out at the ends rather than one at the centre, for
+	## a reason found by screenshotting the plate: the AIRFRAME plate owns the
+	## bottom middle of the screen, so a centre marker at the bottom edge lands on
+	## top of it. At 55% of the horizon's own reach these sit far outside it.
+	func _horizon_gone(below: bool, along: Vector2, reach: float,
+			tint: Color) -> void:
+		var edge: float = size.y - EDGE_MARGIN if below else EDGE_MARGIN
+		var toward := Vector2(0.0, 1.0 if below else -1.0)
+		for side: float in [-1.0, 1.0]:
+			# A FIXED offset, NOT one scaled by `along.x`. Rolling the marker's
+			# POSITION with the aircraft looks tidy and collapses both markers onto
+			# the screen centre at 90 degrees of roll — which is exactly where the
+			# AIRFRAME plate lives. Only the arrowheads roll.
+			var root := Vector2(size.x * 0.5 + reach * 0.55 * side, edge)
+			_chevrons(root, along, toward, 8.0, tint)
+
+
+	## A stack of three arrowheads pointing `toward`, tips leading. Shared by the
+	## horizon's off-screen marker and the bracket's peg mark.
+	##
+	## IT EXISTS BECAUSE BOTH OF THEM WERE DRAWING FLAT DASHES. The old code ran
+	## `draw_line(tip - along * 8, tip)` and `draw_line(tip + along * 8, tip)`,
+	## which are COLLINEAR whenever the aircraft is level — the two arms lay in the
+	## same straight line and the arrowhead was a 16 px dash. Three of them stacked
+	## read as an equals sign, which is what a screenshot showed and what no amount
+	## of reading the code had. The arms now step BACK from the tip, so it is an
+	## arrowhead at every roll angle.
+	func _chevrons(root: Vector2, along: Vector2, toward: Vector2, spread: float,
+			tint: Color) -> void:
+		for step: int in 3:
+			var tip: Vector2 = root - toward * float(step) * 9.0
+			draw_line(tip, tip - along * spread - toward * 7.0, tint, 2.0)
+			draw_line(tip, tip + along * spread - toward * 7.0, tint, 2.0)
+
+
 	func _draw() -> void:
 		var camera: Camera3D = get_viewport().get_camera_3d()
 		if camera == null:
@@ -789,27 +905,32 @@ class HorizonLine:
 		var pitch: float = pr.x
 		var roll: float = pr.y
 		var f: float = focal_px(size.y, camera.fov)
-		# Pitch UP pushes the horizon DOWN the screen, and screen Y grows
-		# downward, so the sign works out with no negation.
-		var drop: float = tan(pitch) * f
+		var drop: float = horizon_drop(pitch, f)
 		# THE AIRFRAME'S LINE IS DRAWN LAST, ON TOP OF EVERYTHING — see the call at
 		# the end of this function. It used to be drawn FIRST, so the horizon and
 		# every ladder rung painted straight over it, which is half of why the
 		# human could not find it: *"im not sure i see the green line."*
-		if absf(drop) > size.y * OVERSHOOT:
-			# Looking near-vertically: the world horizon is far enough off screen
-			# that pinning it to the edge would be a lie about where it is.
-			_draw_frame_level(basis, f)
-			return
-		# THE HORIZON PEGS TO THE EDGE RATHER THAN LEAVING THE SCREEN, because it
-		# is the line the pilot flies by and 48 degrees of lens uptilt puts it
-		# BELOW the bottom edge in level flight — 19 px on a 1080 screen at this
-		# frame's 94 degree lens. An attitude reference that disappears in level
-		# flight is not a reference, and it was the one the human went looking for
-		# and could not find.
-		var horizon_limit: float = size.y * 0.5 - PEG_MARGIN
-		var horizon_pegged: bool = absf(drop) > horizon_limit
-		drop = clampf(drop, -horizon_limit, horizon_limit)
+		#
+		# THE WORLD HORIZON IS NEVER MOVED. It is drawn exactly where the horizon
+		# projects, and when that is past the edge it simply leaves the screen with
+		# a marker at the edge saying which way it went.
+		#
+		# It used to be CLAMPED 210 px inside the edge and then DROPPED entirely
+		# past a threshold, and the human flew both and reported both: *"the entire
+		# horizon indicator first disconnects from the horizon line... and if i
+		# pitch even more then the entire horizon indicator lines disappear. i dont
+		# feel this is the correct way its suppose to operate."* They were right on
+		# both counts and the arithmetic says how badly. On a 94-degree lens the
+		# focal length is about 503 px, so a 210 px clamp detached the line at 33
+		# degrees of camera pitch — about 15 degrees of nose-down — and the drop
+		# threshold fired at 78.7 degrees of camera pitch, which with 48 degrees of
+		# lens uptilt is only 31 degrees NOSE UP. Both were reachable in ordinary
+		# flight, and a reference that lies about where the horizon is is worse than
+		# one that admits it has gone.
+		#
+		# The airframe BRACKET still pegs, and that is not the same thing: it is a
+		# fixed mark reading "your level is here", not a claim about the world.
+		var horizon_off_screen: bool = absf(drop) > size.y * 0.5 - EDGE_MARGIN
 		var reach: float = size.x * REACH_FRACTION
 		var at := Vector2(size.x * 0.5, size.y * 0.5 + drop)
 		# WORLD UP, PROJECTED, AND THE SIGN IS DERIVED RATHER THAN EYEBALLED.
@@ -832,18 +953,13 @@ class HorizonLine:
 		# letting the world through.
 		_dashes(at - along * reach, at - along * GAP, tint, 2.0)
 		_dashes(at + along * GAP, at + along * reach, tint, 2.0)
-		if horizon_pegged:
-			# Say so, rather than letting a clamped horizon read as a true one.
-			var out_dir: float = signf(tan(pitch))
-			for step: int in 3:
-				var tip: Vector2 = at + Vector2(0.0, out_dir * (10.0 + float(step) * 7.0))
-				draw_line(tip - along * 8.0, tip, tint, 2.0)
-				draw_line(tip + along * 8.0, tip, tint, 2.0)
 		# Wing marks at the ends, turned toward the sky, so the line reads as an
 		# attitude instrument rather than as a stray scratch.
 		for side: float in [-1.0, 1.0]:
 			var end: Vector2 = at + along * reach * side
 			draw_line(end, end + up * 7.0, tint, 1.5)
+		if horizon_off_screen:
+			_horizon_gone(drop > 0.0, along, reach, tint)
 		if ladder:
 			_draw_ladder(at, along, up, f, reach)
 		# LAST, so nothing is drawn over the one line the pilot flies by. At level
@@ -995,16 +1111,18 @@ class HorizonLine:
 				draw_line(inner, outer, col, width)
 				draw_line(outer, outer + up * 8.0, col, width)
 		if pegged:
-			# Chevrons along the direction the mark really lies, so a clamped
-			# reading can never be mistaken for a true one.
-			var out_dir: float = signf(tan(pr.x))
-			for step: int in 3:
-				var tip: Vector2 = at + Vector2(0.0, out_dir * (9.0 + float(step) * 6.0))
-				draw_line(tip - along * 6.0, tip, tint, 2.0)
-				draw_line(tip + along * 6.0, tip, tint, 2.0)
+			# Arrowheads pointing the way the mark really lies, so a clamped
+			# reading can never be mistaken for a true one. The bracket is pegged
+			# in essentially every attitude (see PEG_MARGIN), so this is on screen
+			# almost always and it is worth it being an arrow rather than a dash.
+			var toward := Vector2(0.0, signf(tan(pr.x)))
+			_chevrons(at + toward * 15.0, along, toward, 6.0, tint)
+		# SIGNED: negative nose-down, positive nose-up. The colour still ramps on
+		# the MAGNITUDE, because lift lost does not care which way you lean.
 		draw_string(get_theme_default_font(),
 				at + along * (GAP + BRACKET) + Vector2(8.0, -6.0),
-				"%d°" % roundi(tilt), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
+				"%d°" % roundi(signed_tilt_degrees(thrust_axis, nose_axis)),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
 
 
 ## Raw gamepad stick positions: two boxes flanking the health bar, a dot per
@@ -1164,8 +1282,10 @@ func announce_gate(sortie: int) -> void:
 ##
 ## Fed rather than looked up: the HUD does not know which node is the aircraft,
 ## and four scenes fly one.
-func set_thrust_axis(world_up_of_airframe: Vector3) -> void:
+func set_thrust_axis(world_up_of_airframe: Vector3,
+		nose: Vector3 = Vector3.ZERO) -> void:
 	_horizon.thrust_axis = world_up_of_airframe
+	_horizon.nose_axis = nose
 	_horizon.queue_redraw()
 
 

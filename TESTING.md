@@ -750,6 +750,36 @@ Mutation on record: normalise on the whole airframe instead of the rotor span an
 the ring becomes frame-dependent (1.7% today, because the Condor's and Roc's
 lenses sit just past the rotor diagonal).
 
+It also guards the **attitude instruments**, and two of those claims came out of
+a human flying the thing (2026-08-16).
+
+**Claim 9d — the world horizon is never clamped.** It used to be pulled 210 px
+inside the screen edge and then dropped entirely past a threshold, and the pilot
+hit both: *"the entire horizon indicator first disconnects from the horizon
+line... and if i pitch even more then the entire horizon indicator lines
+disappear."* The arithmetic says how reachable those were. On a 94-degree lens
+the focal length is about 503 px, so the clamp detached the line at 33 degrees of
+camera pitch — roughly **15 degrees nose-down** — and the drop fired at 78.7
+degrees of camera pitch, which with 48 degrees of lens uptilt is only **31
+degrees NOSE UP**. The horizon is now drawn where the horizon actually is and
+simply leaves the screen, with arrows at the edge saying which way it went.
+
+Asserting "the drawn offset equals `tan(pitch) * f`" would compare the function
+to itself, which is the tautology round 4 wrote and caught. What a clamp cannot
+fake is **behaviour past the edge**: a clamp flattens and a true projection keeps
+growing, so the sweep runs to 85 degrees and demands strict growth at every step.
+
+**Claim 9e — the tilt readout is signed**, negative nose-down, on the pilot's
+ask. The claim holds three things: the signed figure is the magnitude with a sign
+on it and never a different number (it is a lift budget — `cos(tilt)` — and
+signing it must not change what it measures); nose-down is negative and nose-up
+positive; and a wings-vertical aircraft with its nose ON the horizon reads
+**+90**, because there is no fore/aft lean for the sign to be negative about.
+
+The pitch ladder deliberately keeps **unsigned** rung labels with dashed rungs
+below the horizon. That is the real-HUD convention, and the human's own rule was
+to defer to it where it exists.
+
 ### The graze bench — why a building strike can register nothing
 
 ```
@@ -1200,15 +1230,37 @@ how much sky the map had.
 squeeze cannot put a bolt, a heat needle or recoil into the reading. The mark
 is refused out loud unless the drill's stated entry condition is met.
 
-- **`hold_tilt`** — hold 30 degrees of tilt for 10 unbroken seconds, flying the
-  number printed beside the airframe's level bracket. It is the first test of
-  the attitude instruments that landed in the HUD rounds, which were built and
-  never judged by hands.
+- **`hold_tilt`** — pitch the nose down until the readout beside the airframe
+  bracket reads **-30**, and hold it for 10 unbroken seconds. It is the first
+  test of the attitude instruments that landed in the HUD rounds.
+
+  **ITS FIRST FLIGHT PRODUCED NO READING AND THAT WAS THE DRILL'S FAULT.** Eleven
+  attempts across two sessions never once entered the band, because the drill was
+  called "HOLD THE TILT" and that reads as *keep the tilt where it is* — so the
+  pilot held LEVEL, which is a task they can pass by lifting off gently and never
+  touching pitch or roll. The title now names the manoeuvre, the task line says
+  in as many words that sitting at 0 scores nothing, and the top of the screen
+  turns green and counts while you are inside the band. **Twenty seconds of
+  silent failure, ten times over, is an instrument defect and not a pilot
+  result.**
+
+  A second flaw is known and NOT fixed: in acro a centred stick commands zero
+  rate, so once the attitude is captured the rate loop holds it. Past capture
+  this drill measures the rate loop's retention rather than the pilot. Fixing it
+  means a target that MOVES during the window, which is a different drill and
+  needs its own committed prediction.
 - **`rotor_out`** — one rotor fails in 5% steps every 2 seconds (about one raider
   bolt at severity 0.6) and you squeeze FIRE the instant you feel it. **The
   airframe plate is hidden on purpose**: the question is whether a located
   failure can be FELT, and a gauge drawing the rotor emptying answers a
   different question perfectly.
+
+  **Flown 2026-08-16, and it falsified the agent's prediction outright: 0.05 on
+  all seven attempts** against a predicted 0.45 to 0.70. The pilot calls a single
+  raider bolt of rotor loss, every time, in under two seconds, while the airframe
+  drifts 0.04 m. The prediction reasoned about the steady state an integrator
+  settles into; the cue is the **step transient** on the way there, and a hand on
+  the sticks reads it long before the aircraft has moved anywhere.
 
 **The drill flies the REPO's flight numbers, not your saved tuning** — the
 override switch goes off in `_enter_tree`, before the drone's `_ready`. Your

@@ -60,6 +60,10 @@ var _loss: float = 0.0
 var _next_step_at: float = 0.0
 var _call_t: float = -1.0
 var _mark_pressed: bool = false
+## Live in-band time for the status cue only. The RECORDED hold comes from
+## `DrillMeasures`, which is the instrument's only arithmetic — this is a
+## display, and it must never become the number.
+var _band_s: float = 0.0
 
 var _brief_root: Control
 var _brief_label: Label
@@ -181,7 +185,7 @@ func _physics_process(delta: float) -> void:
 	_tick += 1
 	if _tick % SAMPLE_EVERY == 0:
 		_take_sample()
-	_running_state(pressed)
+	_running_state(pressed, delta)
 
 
 func _take_sample() -> void:
@@ -196,7 +200,7 @@ func _take_sample() -> void:
 func _process(_ignored: float) -> void:
 	var sticks: Array[Vector2] = _drone.stick_positions()
 	_hud.update_sticks(sticks[0], sticks[1])
-	_hud.set_thrust_axis(_drone.global_basis.y)
+	_hud.set_thrust_axis(_drone.global_basis.y, -_drone.global_basis.z)
 	if _drill_id != "rotor_out":
 		_hud.set_components(AirframeComponents.of(_drone))
 
@@ -272,12 +276,29 @@ func _step_failure() -> void:
 	_next_step_at += float(_drill["step_period_s"])
 
 
-func _running_state(pressed: bool) -> void:
+func _running_state(pressed: bool, delta: float) -> void:
 	match _drill_id:
 		"hold_tilt":
+			# THE PILOT MUST BE ABLE TO SEE WHETHER THEY ARE SCORING. Ten attempts
+			# were flown at level, all reading zero, and nothing on screen ever
+			# said so — the instrument watched a pilot fail twenty seconds at a
+			# time in silence. An in-band cue costs nothing and the information
+			# was already on the HUD; what was missing was the THRESHOLD.
 			var tilt: float = GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y)
-			_status_label.text = "HOLD %.0f deg — tilt %5.1f — %4.1f s left" % [
-					float(_drill["target_tilt_deg"]), tilt,
+			var target: float = float(_drill["target_tilt_deg"])
+			var inside: bool = absf(tilt - target) <= float(_drill["tolerance_deg"])
+			if inside:
+				_band_s += delta
+			else:
+				_band_s = 0.0
+			_status_label.modulate = Color(0.5, 1.0, 0.6) if inside \
+					else Color(1.0, 0.72, 0.4)
+			# The SIGNED figure, so the status line and the HUD readout beside the
+			# bracket are the same number rather than two that differ by a minus.
+			_status_label.text = "NOSE DOWN to -%.0f  —  now %+.0f  —  %s  —  %4.1f s left" % [
+					target, GameHud.HorizonLine.signed_tilt_degrees(
+							_drone.global_basis.y, -_drone.global_basis.z),
+					"IN BAND %4.1f s" % _band_s if inside else "OUT",
 					maxf(0.0, float(_drill["window_s"]) - _clock)]
 			if _clock >= float(_drill["window_s"]):
 				_finish_attempt("window closed")
@@ -365,6 +386,8 @@ func _reset_for_next() -> void:
 	_drone.repair_motors()
 	_loss = 0.0
 	_call_t = -1.0
+	_band_s = 0.0
+	_status_label.modulate = Color.WHITE
 	_samples.clear()
 	_state = READY
 
