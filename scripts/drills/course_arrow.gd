@@ -48,8 +48,30 @@ const SPACING_M: float = 4.5
 ##
 ## `ARM` is one bar's (thickness, thickness, length); `ARM_DEG` is how far each
 ## is swung off the travel axis.
-const ARM := Vector3(0.62, 0.62, 2.6)
 const ARM_DEG: float = 34.0
+## HOW WIDE A CHEVRON IS ALLOWED TO BE, as a fraction of the gate's own opening.
+##
+## Sized in absolute metres it spanned 2.9 m against a 3.3 m gate — 88% of the
+## hole — and the human flew it and said so: *"they are way too large for the
+## gate."* Tying it to the opening also means a course with tighter gates gets
+## proportionally smaller marks for free, which is the whole point of the gate
+## size being data.
+const SPAN_FRACTION: float = 0.42
+## Arm thickness as a fraction of its length, so a smaller chevron stays a
+## chevron rather than becoming a wire.
+const ARM_THICKNESS: float = 0.24
+## Opacity at full range, and the floor it fades to as the pilot arrives. It is
+## translucent at its brightest on the human's call — *"we can make it less
+## opaque"* — because a marker you cannot see the gate through is worse than one
+## you have to look for.
+const ALPHA_FAR: float = 0.52
+const ALPHA_NEAR: float = 0.06
+## The fade band, in metres to the gate the chain stands at. Their design:
+## *"let the arrows fade away the closer i get to them, so they wont take up
+## screen space too much and too opaque while im close to them."* The marker has
+## done its whole job by then — you are committed to the gate and flying it.
+const FADE_NEAR_M: float = 7.0
+const FADE_FAR_M: float = 30.0
 ## Seconds for one pulse to travel the whole chain.
 const PULSE_S: float = 0.9
 ## How far a wedge slides forward at the peak of the pulse. Small: the slide is
@@ -59,6 +81,8 @@ const SLIDE_M: float = 0.5
 var _wedges: Array[Node3D] = []
 var _materials: Array[StandardMaterial3D] = []
 var _clock: float = 0.0
+## How visible the chain currently is, 0 at the gate to 1 at range.
+var _fade: float = 1.0
 
 
 ## Where wedge `index` sits along the arrow's own forward axis, in metres.
@@ -79,9 +103,29 @@ static func pulse(t: float, index: int) -> float:
 	return 0.5 + 0.5 * cos(TAU * (phase - floorf(phase)))
 
 
-func _ready() -> void:
+## One arm's length for a gate of this half-width, so the chevron always spans
+## `SPAN_FRACTION` of the opening. Static so the check can hold the relationship
+## across gate sizes without building anything.
+static func arm_length(gate_half_width: float) -> float:
+	return gate_half_width * 2.0 * SPAN_FRACTION / (2.0 * sin(deg_to_rad(ARM_DEG)))
+
+
+## How visible the chain is from `metres` away: full at range, nearly gone by the
+## time the pilot arrives. Returns 0 to 1.
+static func nearness_fade(metres: float) -> float:
+	if metres >= FADE_FAR_M:
+		return 1.0
+	if metres <= FADE_NEAR_M:
+		return 0.0
+	return (metres - FADE_NEAR_M) / (FADE_FAR_M - FADE_NEAR_M)
+
+
+## Build the chain for a gate of this opening. Called once by the runner, so the
+## marks are sized to the course they are marking.
+func build_for(gate_half: Vector2) -> void:
+	var length: float = arm_length(gate_half.x)
 	var mesh := BoxMesh.new()
-	mesh.size = ARM
+	mesh.size = Vector3(length * ARM_THICKNESS, length * ARM_THICKNESS, length)
 	for i: int in CHEVRONS:
 		var wedge := Node3D.new()
 		var material := StandardMaterial3D.new()
@@ -92,9 +136,10 @@ func _ready() -> void:
 		# emission is unshaded, so a surface that is mostly glow has no light and
 		# dark sides and therefore no readable shape at all. The sun does the
 		# modelling now and the pulse rides on top of it.
-		material.albedo_color = Color(0.16, 0.52, 0.72)
+		material.albedo_color = Color(0.16, 0.52, 0.72, ALPHA_FAR)
 		material.emission_enabled = true
 		material.emission = Color(0.25, 0.75, 1.0)
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		# FOUR ARMS MEETING AT A FORWARD POINT — two swung sideways, two swung up
 		# and down. Two arms alone make a flat V, and a flat V lies in the
 		# horizontal plane, which is edge-on to a pilot approaching level from
@@ -109,13 +154,13 @@ func _ready() -> void:
 			sideways.rotation.y = swing
 			# A BoxMesh runs along its own Z, so after the turn the arm's axis is
 			# (sin, 0, cos) — outward and BACKWARD from the apex at the origin.
-			sideways.position = Vector3(sin(swing), 0.0, cos(swing)) * (ARM.z * 0.5)
+			sideways.position = Vector3(sin(swing), 0.0, cos(swing)) * (length * 0.5)
 			wedge.add_child(sideways)
 			var upright := MeshInstance3D.new()
 			upright.mesh = mesh
 			upright.material_override = material
 			upright.rotation.x = swing
-			upright.position = Vector3(0.0, -sin(swing), cos(swing)) * (ARM.z * 0.5)
+			upright.position = Vector3(0.0, -sin(swing), cos(swing)) * (length * 0.5)
 			wedge.add_child(upright)
 		_materials.append(material)
 		_wedges.append(wedge)
@@ -129,18 +174,24 @@ func _process(delta: float) -> void:
 		var lit: float = pulse(_clock, i)
 		_wedges[i].position = Vector3(0.0, 0.0,
 				-(wedge_offset(i) + lit * SLIDE_M))
-		# Emission carries the pulse rather than opacity, so a dim wedge is still
-		# a solid object catching the sun and never a ghost.
-		_materials[i].emission_energy_multiplier = 0.15 + lit * 1.45
+		# The pulse rides on BOTH channels now. Emission alone was enough while
+		# the chain was opaque; once it fades toward the gate, a wedge whose glow
+		# is pulsing but whose body is barely there reads as a flicker, so the
+		# body follows the same wave and the mark stays one object.
+		_materials[i].emission_energy_multiplier = (0.15 + lit * 1.45) * _fade
+		var albedo: Color = _materials[i].albedo_color
+		albedo.a = lerpf(ALPHA_NEAR, ALPHA_FAR, _fade)
+		_materials[i].albedo_color = albedo
 
 
-## Stand the chain at `at`, pointing along `direction`. A zero or vertical
-## direction hides it rather than guessing an orientation.
-func aim(at: Vector3, direction: Vector3) -> void:
+## Stand the chain at `at`, pointing along `direction`, seen from `pilot`.
+## A zero or vertical direction hides it rather than guessing an orientation.
+func aim(at: Vector3, direction: Vector3, pilot: Vector3) -> void:
 	if direction.length_squared() < 0.000001:
 		visible = false
 		return
 	visible = true
+	_fade = nearness_fade(at.distance_to(pilot))
 	global_position = at
 	var forward: Vector3 = direction.normalized()
 	# `looking_at` fails when the direction is parallel to the up vector, which a

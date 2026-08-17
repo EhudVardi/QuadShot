@@ -1365,6 +1365,30 @@ is refused out loud unless the drill's stated entry condition is met.
     arms — two swung sideways, two up and down — converging like a pyramid
     corner. There is a V to read from any angle you can arrive at.
 
+  The chain is sized to **the gate's own opening** (42% of it) rather than in
+  metres, so a tighter course gets smaller marks without anyone editing the
+  marker, and it **fades as the pilot closes** — translucent at range, almost
+  gone inside 7 m. Both on the human's report: *"they are way too large for the
+  gate... let the arrows fade away the closer i get to them, so they wont take up
+  screen space too much."* By 7 m the marker has done its whole job.
+
+  **CONTACT IS LATCHED BETWEEN SAMPLES, NOT READ AT SAMPLE TIME**, and that is a
+  bug the human found by remembering something the instrument had not recorded.
+  They reported a collision on their third lap; the artifact said **zero
+  touches**. The lap itself was obviously disrupted — 19.45 s against ~14.7, path
+  ratio 1.21 against 1.02 — so the flying was real and the measure was wrong. The
+  240 Hz flight recorder settled it in one query: the contact episode ran
+  `t=83.179` to `t=83.183`, which is **0.004 s — one physics tick**. Drill
+  sampling is 60 Hz off a 240 Hz tick, so a single-tick touch has three chances
+  in four of landing between two samples.
+
+  **This is the second time the same shape of bug has landed** (the first was
+  `detect_loss`, caught by the smoke test), so it is worth stating as a rule: an
+  event sampled at 60 Hz off a 240 Hz tick *will* be missed, and anything
+  event-like must be latched across the gap rather than read when the sample
+  happens to fire. The honest resolution limit is now 16.7 ms — two touches
+  inside one sample window still merge into one.
+
   The pulse travels **outward**, and claim 6b holds that: subtract the index from
   the phase and the wave runs away down the course, add it and the wave runs at
   the pilot and the marker means the opposite. Mutation on record — flip that one

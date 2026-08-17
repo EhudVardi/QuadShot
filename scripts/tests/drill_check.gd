@@ -293,6 +293,19 @@ func _claim_6b_course_gates() -> void:
 	if int(scrape_score["contacts"]) != 1:
 		_failures.append("one unbroken 30-sample scrape counted as %d touches, expected 1"
 				% int(scrape_score["contacts"]))
+	# AND A SINGLE-SAMPLE BLIP MUST COUNT. This is the other half of a real bug:
+	# the human reported a collision that the artifact scored as ZERO touches, and
+	# the 240 Hz flight recorder showed the contact lasted 0.004 s — one physics
+	# tick, which fell between two 60 Hz samples. The runner now peak-holds
+	# between samples so the blip reaches the reduction; this claim is the half
+	# that makes sure the reduction does not then throw it away by demanding two
+	# consecutive samples before it believes a touch.
+	var blipped: Array = _fly_course(gates, speed, -1, 0.0)
+	(blipped[55] as Dictionary)["contacts"] = 2
+	var blip_score: Dictionary = DrillMeasures.compute("course", blipped)
+	if int(blip_score["contacts"]) != 1:
+		_failures.append("a contact present in exactly ONE sample counted as %d touches, expected 1 — a real collision lasted a single 240 Hz tick and this is the last place it can be dropped"
+				% int(blip_score["contacts"]))
 	print("[drill] claim 6b: a skipped gate scores the sentinel, and a 30-sample scrape is 1 touch")
 	# 6. THE MARKER POINTS AT THE NEXT GATE. The human's design is one mark doing
 	#    two jobs — it sits on the gate you must fly and points where the course

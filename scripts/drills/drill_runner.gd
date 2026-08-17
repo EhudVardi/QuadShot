@@ -66,6 +66,8 @@ var _mark_pressed: bool = false
 var _band_s: float = 0.0
 ## When the course clock started, for the live readout only. -1 before gate 1.
 var _gate_one_at: float = -1.0
+## Highest contact count seen since the last sample. See `_physics_process`.
+var _contact_peak: int = 0
 
 var _arrow: CourseArrow
 var _brief_root: Control
@@ -188,6 +190,17 @@ func _physics_process(delta: float) -> void:
 	_clock += delta
 	if _drill_id == "rotor_out":
 		_step_failure()
+	# PEAK-HELD EVERY TICK, NOT READ AT SAMPLE TIME. Contact is instantaneous and
+	# sampling is 60 Hz off a 240 Hz tick, so a brief touch has three chances in
+	# four of falling between two samples and never being seen at all.
+	#
+	# THAT IS NOT HYPOTHETICAL. The human reported a collision on their third lap
+	# and the artifact recorded ZERO touches; the 240 Hz flight recorder settled
+	# it in one query — the contact episode ran t=83.179 to t=83.183, which is
+	# 0.004 s, a SINGLE tick. Holding the peak between samples means no tick can
+	# be missed. Two distinct touches inside one 16.7 ms window still merge, and
+	# that is this measure's honest resolution limit.
+	_contact_peak = maxi(_contact_peak, _drone.get_contact_count())
 	_tick += 1
 	if _tick % SAMPLE_EVERY == 0:
 		_take_sample()
@@ -218,8 +231,11 @@ func _take_sample() -> void:
 		"tilt_deg": GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y),
 		"pos": _drone.global_position,
 		"loss": _loss,
-		"contacts": _drone.get_contact_count(),
+		"contacts": _contact_peak,
 	})
+	# Consumed, so the next sample reports its OWN window rather than everything
+	# that ever happened.
+	_contact_peak = 0
 
 
 func _process(_ignored: float) -> void:
@@ -543,7 +559,7 @@ func _aim_course_arrow() -> void:
 	var gates: Array = _drill.get("gates", []) as Array
 	var reached: int = _gates_passed()
 	if reached >= gates.size():
-		_arrow.aim(Vector3.ZERO, Vector3.ZERO)
+		_arrow.aim(Vector3.ZERO, Vector3.ZERO, _drone.global_position)
 		return
 	var onward: Vector3 = DrillBook.leg_direction(_drill_id, reached)
 	if onward == Vector3.ZERO and reached > 0:
@@ -551,7 +567,7 @@ func _aim_course_arrow() -> void:
 		# it: "straight on through and you are done". Pointing it anywhere else
 		# would be inventing a waypoint past the finish.
 		onward = ((gates[reached] as Vector3) - (gates[reached - 1] as Vector3)).normalized()
-	_arrow.aim(gates[reached], onward)
+	_arrow.aim(gates[reached], onward, _drone.global_position)
 
 ## BUILT FROM `DrillBook`, NOT FROM THE SCENE FILE. The gate list is the same one
 ## `DrillMeasures` scores against, so a gate cannot move in the world without the
@@ -587,6 +603,9 @@ func _build_course() -> void:
 	shape.height = height
 	_arrow = CourseArrow.new()
 	add_child(_arrow)
+	# Sized to the gate it marks, so a course with tighter gates gets smaller
+	# marks without anybody editing the marker.
+	_arrow.build_for(_drill["gate_half"])
 	for pair: Array in _drill["pylons"]:
 		for side: float in [-1.0, 1.0]:
 			var body := StaticBody3D.new()
