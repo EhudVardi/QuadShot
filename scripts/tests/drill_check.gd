@@ -311,8 +311,44 @@ func _claim_6b_course_gates() -> void:
 		if leg.distance_to(want) > 0.001:
 			_failures.append("gate %d's marker heads %s where the next gate is %s"
 					% [index + 1, str(leg), str(want)])
-	# And the arrowhead itself: on the heading, straddling it, and refusing to
-	# draw at all when there is no direction to show.
+	# 7. THE PULSE TRAVELS OUTWARD, and its direction is the whole cue. A static
+	#    wedge seen from behind is ambiguous — pointing away and pointing back
+	#    differ only by shading — so the animation is what makes the marker
+	#    unreadable backwards. Add the index to the phase instead of subtracting
+	#    it and the wave runs at the pilot, meaning the exact opposite; nothing
+	#    but this claim would notice.
+	var previous_peak: float = -1.0
+	for i: int in CourseArrow.CHEVRONS:
+		if CourseArrow.wedge_offset(i) <= previous_peak:
+			_failures.append("wedge %d sits at %.2f m, no further out than the one before it"
+					% [i, CourseArrow.wedge_offset(i)])
+		previous_peak = CourseArrow.wedge_offset(i)
+		var lit: float = CourseArrow.pulse(0.0, i)
+		if lit < -0.001 or lit > 1.001:
+			_failures.append("wedge %d burns at %.3f, outside 0 to 1" % [i, lit])
+	# The nearest wedge peaks FIRST. Sample the moment each one is brightest and
+	# demand the peaks arrive in order, outward.
+	var peak_times: Array[float] = []
+	for i: int in CourseArrow.CHEVRONS:
+		var best_t: float = 0.0
+		var best: float = -1.0
+		var steps: int = 200
+		for step: int in steps:
+			var t: float = float(step) / float(steps) * CourseArrow.PULSE_S
+			var lit: float = CourseArrow.pulse(t, i)
+			if lit > best:
+				best = lit
+				best_t = t
+		peak_times.append(best_t)
+	print("[drill] claim 6b: wedge peaks at %s s — the wave must run OUTWARD"
+			% str(peak_times))
+	for i: int in range(1, peak_times.size()):
+		if peak_times[i] <= peak_times[i - 1]:
+			_failures.append("wedge %d peaks at %.3f s, no later than wedge %d at %.3f — the pulse is running back toward the pilot, which means the opposite of what the marker says"
+					% [i, peak_times[i], i - 1, peak_times[i - 1]])
+	# The flat HUD arrow is KEPT, because the sortie's EXIT and any future combat
+	# target still want a box and a screen-space pointer; it is only the COURSE
+	# that stopped asking for one.
 	var arrow: PackedVector2Array = GameHud.GateMarker.arrow_points(
 			Vector2.ZERO, Vector2(10.0, 0.0), 30.0)
 	if arrow.is_empty():
@@ -321,8 +357,8 @@ func _claim_6b_course_gates() -> void:
 		_failures.append("the arrow tip landed at %s for a 30 px arrow along +x, expected (30, 0)"
 				% str(arrow[1]))
 	if not GameHud.GateMarker.arrow_points(Vector2.ZERO, Vector2.ZERO, 30.0).is_empty():
-		_failures.append("a marker with NO heading still drew an arrow — the last gate and the sortie's exit have no next waypoint and must show the plain box")
-	print("[drill] claim 6b: every gate heads at the next one, the last heads nowhere, and the arrow lands on its heading")
+		_failures.append("a marker with NO heading still drew an arrow — the sortie's exit has no next waypoint and must show the plain box")
+	print("[drill] claim 6b: every gate heads at the next one, the last heads nowhere, and the chain runs outward")
 
 
 ## A synthetic flight: straight legs between gate centres at a fixed speed.

@@ -62,6 +62,8 @@ var _drone: Node3D
 var _scene: String = DEFAULT_SCENE
 var _lift: float = 0.0
 var _spawn_y: float = 0.0
+var _place: Vector3 = Vector3.ZERO
+var _placed: bool = false
 var _out: String = ""
 var _index: int = 0
 var _frames: int = 0
@@ -85,6 +87,15 @@ func _initialize() -> void:
 	at = args.find("--lift")
 	if at >= 0 and at + 1 < args.size():
 		_lift = float(args[at + 1])
+	# `--at x,y,z` puts the airframe anywhere in the world. Without it the rig can
+	# only ever photograph whatever happens to be visible from the spawn, which is
+	# no way to inspect a thing 50 m down a course.
+	at = args.find("--at")
+	if at >= 0 and at + 1 < args.size():
+		var parts: PackedStringArray = args[at + 1].split(",")
+		if parts.size() == 3:
+			_place = Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+			_placed = true
 	DirAccess.make_dir_recursive_absolute(_out)
 	_root_node = (load(_scene) as PackedScene).instantiate() as Node3D
 	root.add_child(_root_node)
@@ -151,8 +162,9 @@ func _pose() -> void:
 			* Basis(Vector3.RIGHT, deg_to_rad(float(shot[2])))
 	# The lift is applied from the SPAWN height every pose, not accumulated, so
 	# every shot in a run is taken from the same place.
-	var at: Vector3 = _drone.global_position
-	at.y = _spawn_y + _lift
+	var at: Vector3 = _place if _placed else _drone.global_position
+	if not _placed:
+		at.y = _spawn_y + _lift
 	_drone.global_transform = Transform3D(basis, at)
 
 

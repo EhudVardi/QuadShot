@@ -67,6 +67,7 @@ var _band_s: float = 0.0
 ## When the course clock started, for the live readout only. -1 before gate 1.
 var _gate_one_at: float = -1.0
 
+var _arrow: CourseArrow
 var _brief_root: Control
 var _brief_label: Label
 var _status_label: Label
@@ -229,7 +230,7 @@ func _process(_ignored: float) -> void:
 		_hud.set_components(AirframeComponents.of(_drone))
 		_hud.set_motor_drive(_drone.motor_drive(), _drone.motor_spins())
 	if _drill_id == "course":
-		_mark_next_gate()
+		_aim_course_arrow()
 
 
 # --- the two drills -------------------------------------------------------
@@ -526,34 +527,31 @@ func _place_pad() -> void:
 
 # --- the course -----------------------------------------------------------
 
-## POINT AT THE GATE THAT IS NEXT, with the HUD marker the exit gate already
-## uses. Not decoration: SEARCHING for the next gate is not the skill this drill
-## measures, and six gates at different heights and offsets are genuinely easy to
-## lose against a sky. Time spent hunting would land in `time_s` and read as slow
-## flying, which is a confound rather than a result.
-func _mark_next_gate() -> void:
+## STAND THE ARROW AT THE GATE THAT IS NEXT. Not decoration: SEARCHING for the
+## next gate is not the skill this drill measures, and six gates at different
+## heights and offsets are genuinely easy to lose against a sky. Time spent
+## hunting would land in `time_s` and read as slow flying, which is a confound
+## rather than a result.
+##
+## THE HUD BOX IS GONE FROM THIS DRILL and the widget is untouched. The human
+## flew the pair and called it: *"the square indicator that was previously there
+## is now redundant. we can keep it for future targeting systems for combat, but
+## an arrow is way better to indicate a course path."* So `GateMarker` keeps its
+## box and its flat arrow for the sortie's EXIT and for whatever targets a combat
+## system marks later; a course just stops asking for one.
+func _aim_course_arrow() -> void:
 	var gates: Array = _drill.get("gates", []) as Array
 	var reached: int = _gates_passed()
-	var camera: Camera3D = get_viewport().get_camera_3d()
-	if reached >= gates.size() or camera == null \
-			or camera.is_position_behind(gates[reached]):
-		_hud.update_gate_marker(false)
+	if reached >= gates.size():
+		_arrow.aim(Vector3.ZERO, Vector3.ZERO)
 		return
-	var at: Vector2 = camera.unproject_position(gates[reached])
-	# THE HEADING IS PROJECTED, NOT DRAWN AT A FIXED SCREEN ANGLE. Taking a point
-	# a fixed distance along the real leg and unprojecting THAT means the arrow
-	# foreshortens honestly: a gate you carry straight on through shows a stub,
-	# and a hard turn shows a long arrow across the screen. A screen-space angle
-	# would claim the same turn whatever the geometry.
 	var onward: Vector3 = DrillBook.leg_direction(_drill_id, reached)
-	var heading := Vector2.ZERO
-	if onward != Vector3.ZERO:
-		var ahead: Vector3 = gates[reached] + onward * 20.0
-		if not camera.is_position_behind(ahead):
-			heading = camera.unproject_position(ahead) - at
-	_hud.update_gate_marker(true, at,
-			"GATE %d" % (reached + 1) if onward != Vector3.ZERO else "FINISH",
-			heading)
+	if onward == Vector3.ZERO and reached > 0:
+		# THE LAST GATE HAS NO NEXT LEG, so it borrows the one that arrives at
+		# it: "straight on through and you are done". Pointing it anywhere else
+		# would be inventing a waypoint past the finish.
+		onward = ((gates[reached] as Vector3) - (gates[reached - 1] as Vector3)).normalized()
+	_arrow.aim(gates[reached], onward)
 
 ## BUILT FROM `DrillBook`, NOT FROM THE SCENE FILE. The gate list is the same one
 ## `DrillMeasures` scores against, so a gate cannot move in the world without the
@@ -587,6 +585,8 @@ func _build_course() -> void:
 	var shape := CylinderShape3D.new()
 	shape.radius = radius
 	shape.height = height
+	_arrow = CourseArrow.new()
+	add_child(_arrow)
 	for pair: Array in _drill["pylons"]:
 		for side: float in [-1.0, 1.0]:
 			var body := StaticBody3D.new()

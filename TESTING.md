@@ -1346,6 +1346,33 @@ is refused out loud unless the drill's stated entry condition is met.
   now runs the grid at 5 m cells with a 100 m major, the pad carries its own
   green grid at 1.5 m, and `pad_altitude` is per drill.
 
+  **The next gate is marked by a chain of 3D chevrons standing in the world**
+  (`CourseArrow`), not by a HUD box. The human flew the flat version and called
+  it: *"the square indicator... is now redundant... the arrow is 2D, i was
+  looking for something more 3D... and it should be animated in some way, so the
+  motion itself would help to recognize the direction."* Three things came out of
+  building it, and all three were found by **looking at screenshots**:
+
+  - **Emission destroys form.** The first wedges ran their emission up to 3.6 and
+    photographed as white blobs — emission is unshaded, so a surface that is
+    mostly glow has no light and dark sides and therefore no readable shape.
+    Albedo carries the form now and the pulse only marks it.
+  - **A solid arrowhead is useless from behind**, which is the only angle a pilot
+    ever sees it from. Any convex solid seen down its own axis shows a
+    cross-section — a block. Two arms meeting at a forward point show a **V** from
+    exactly that angle, which is why tunnels and runways mark direction this way.
+  - **A flat V is edge-on to a level approach**, so each chevron carries four
+    arms — two swung sideways, two up and down — converging like a pyramid
+    corner. There is a V to read from any angle you can arrive at.
+
+  The pulse travels **outward**, and claim 6b holds that: subtract the index from
+  the phase and the wave runs away down the course, add it and the wave runs at
+  the pilot and the marker means the opposite. Mutation on record — flip that one
+  sign and two wedges report peaking out of order.
+
+  `GateMarker` keeps its box and its flat arrow, untouched, for the sortie's EXIT
+  and for whatever a combat targeting system marks later.
+
   **The course is DATA in `DrillBook`**, and both halves read the one copy:
   `DrillRunner` builds the gates from it, `DrillMeasures` scores against it. A
   course laid out by hand in a `.tscn` drifts from its scoring the first time
