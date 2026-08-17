@@ -1,0 +1,22 @@
+{
+	"drill": "course_wide",
+	"by": "agent (Claude Opus 5), 2026-08-17, before any human flight of this drill",
+	"reasoning": "The easy rung: four 4.4 m gates over 267 m, against six 3.0 m gates over 350 m on the medium course. On the medium one this pilot flew 13.92 to 16.08 s at a path ratio of 1.02 to 1.04, never touching anything. Here the gates are 47% wider and there are two fewer of them, so there is less reason to bleed speed on approach and the legs are longer, which favours a straighter line. I AM DELIBERATELY NARROWING THESE BANDS. The last two predictions both landed inside and both were weak hits - every measure sat on the floor of its band and the path_ratio band was ten times the observed spread, which is barely a claim. So these are sized to the spread I have actually measured from this pilot rather than to my own comfort, and I would rather miss narrowly than hit wide. The one I am least sure of is time, because I have never watched this pilot fly a course where the gates are not a reason to slow down, and 'commitment to the throttle' is a temperament I have no measurement of.",
+	"bands": {
+		"time_s": {
+			"low": 9.5,
+			"high": 12.5,
+			"why": "267 m at a 21 to 28 m/s average - faster than the medium course's 22 to 25 because two fewer gates means two fewer decelerations, and a 4.4 m hole does not demand a setup"
+		},
+		"contacts": {
+			"low": 0.0,
+			"high": 0.0,
+			"why": "scored on the WORST lap, and I am still saying zero: a 4.4 m opening is fifteen Kestrel spans, and a pilot who has never touched anything through a 3.0 m gate will not start here"
+		},
+		"path_ratio": {
+			"low": 1.01,
+			"high": 1.07,
+			"why": "straighter than the medium course's 1.02 to 1.04 because the legs are 80 m rather than 60 m, so each direction change is a smaller fraction of the distance flown"
+		}
+	}
+}

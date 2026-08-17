@@ -1,0 +1,22 @@
+{
+	"drill": "course_tight",
+	"by": "agent (Claude Opus 5), 2026-08-17, before any human flight of this drill",
+	"reasoning": "The hard rung: nine 1.6 m gates over 435 m with a direction change on every leg and three 7 m pylon gaps. Against the medium course that is a hole 47% as wide, half again as many gates and a quarter more distance. 1.6 m is under six Kestrel spans, which is where a gate stops being a checkpoint and starts being a thing you have to aim at. THIS IS THE FIRST DRILL WHERE CONTACTS CAN SAY ANYTHING, because it is scored on the WORST lap rather than the best: across ten medium laps, including one with a real collision in it, best-of reported zero every single time and the measure discriminated nothing. I expect the honest cost of tight gates to land in time and in path_ratio, not mainly in contacts - a pilot slows down and widens their line to stay clean rather than accepting hits, which is why I am predicting only a small number of touches on the worst lap and a big jump in time. If contacts on the worst lap comes back at zero, then 1.6 m is still not tight for this pilot and the ladder needs a fourth rung, which is a useful thing to learn.",
+	"bands": {
+		"time_s": {
+			"low": 21.0,
+			"high": 27.0,
+			"why": "435 m at a 16 to 21 m/s average, against 22 to 25 m/s on the medium course: nine aiming problems instead of six, each one paid for by slowing on approach and re-accelerating out"
+		},
+		"contacts": {
+			"low": 1.0,
+			"high": 4.0,
+			"why": "on the WORST lap, not the best. Nine 1.6 m gates plus three pylon gaps is over a hundred metres of committed aim per lap, and I do not believe a handful of laps all come through untouched - but I expect the pilot to buy cleanliness with time rather than accept a scrappy run"
+		},
+		"path_ratio": {
+			"low": 1.06,
+			"high": 1.16,
+			"why": "above the medium course's 1.02 to 1.04 because eight direction changes over 45 m legs give a quad far less room to arc, so overshoot and correction accumulate where longer legs absorbed them"
+		}
+	}
+}
