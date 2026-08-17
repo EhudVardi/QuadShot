@@ -70,6 +70,10 @@ const DRILLS: Dictionary = {
 		## "level and steady", and a gate that only checked attitude would let an
 		## attempt begin in a 60 m/s dive off the end of the last one — which is a
 		## different task wearing the same name.
+		## High, and it is arithmetic: a quad tilted 30 degrees on hover collective
+		## keeps only cos(30) of its lift, which is 262 m of descent across the
+		## 20-second window.
+		"pad_altitude": 250.0,
 		"level_gate_deg": 12.0,
 		"mark_speed_max": 8.0,
 		"mark_clearance_m": 5.0,
@@ -88,6 +92,95 @@ const DRILLS: Dictionary = {
 				"label": "RMS tilt error from first capture to window end",
 				"unit": "deg", "better": "low",
 				"plausible": [0.0, 25.0], "sentinel": 25.0,
+			},
+		},
+	},
+	"course": {
+		"title": "FLY THE COURSE",
+		"question": "How fast, how clean and how tight a line can a pilot fly through a fixed gate course?",
+		"situation": [
+			"Six gates in a fixed order over the pad, 350 m of course, climbing",
+			"  then descending. Kestrel, ACRO, the repo's flight numbers.",
+			"The gates are SOLID — clipping a bar costs you, it is not a curtain.",
+			"Two pairs of pylons flank the line between gates. They do not block",
+			"  the straight line; they punish a wide one.",
+		],
+		"task": [
+			"Arm, lift off the pad, and settle behind the start gate.",
+			"Squeeze FIRE to MARK, then fly gate 1 through gate 6 IN ORDER.",
+			"The clock runs from the moment you cross gate 1 to the moment you",
+			"  cross gate 6, so lining up beforehand costs you nothing.",
+			"Miss a gate and it stays next — you have to come back for it.",
+			"R resets you to the pad for another attempt.",
+		],
+		"success": "All six gates in order, without touching anything.",
+		## The cap, not the task: an attempt that has not finished by here is over.
+		"window_s": 120.0,
+		## THE COURSE IS DATA, and both halves of the instrument read this one copy
+		## — `DrillRunner` builds the gates from it and `DrillMeasures` scores the
+		## line against it. A course built in the scene and a length written into
+		## the reduction would drift the first time a gate moved.
+		##
+		## Every gate faces down -Z (the drone's own nose direction at spawn), so
+		## the whole course is a slalom flown "north": weave left and right, climb,
+		## then come back down. One heading keeps two runs comparable, which is the
+		## entire reason this drill is a fixed course rather than an open field.
+		## LOW, and that is a motion-feel decision rather than a layout one. The
+		## other two drills need a pad 250 m up (hold_tilt spends 262 m of descent
+		## in its window), and the human flew this course up there and could not
+		## read their own speed: *"there are no grid lines so im having a very
+		## difficult time feeling the motion."* Part of that was the ground shader
+		## fading its grid out by 130 m, but the deeper half is that at 250 m there
+		## is no near-field parallax at all. Down here the ground is 12 to 32 m
+		## under the gates and the pylons are rooted in it, so the world moves.
+		"gates": [
+			Vector3(0.0, 15.0, -50.0),
+			Vector3(25.0, 15.0, -110.0),
+			Vector3(-25.0, 22.0, -170.0),
+			Vector3(0.0, 32.0, -230.0),
+			Vector3(35.0, 20.0, -290.0),
+			Vector3(0.0, 12.0, -350.0),
+		],
+		## On the deck for this drill. Per-drill, because 250 m is what hold_tilt
+		## needs and what a course cannot use.
+		"pad_altitude": 0.5,
+		## Half the gate opening, in metres, from `environment/gate.tscn`: the bars
+		## are 3.6 x 3.0 outside with 0.3 thick members, so the hole is 3.3 x 2.7.
+		"gate_half": Vector2(1.5, 1.2),
+		## Pylon pairs, as (centre of the pair, half the gap). They straddle the
+		## line rather than sitting on it — a tight line goes through untouched and
+		## a wide one meets one, which is what makes them punish sloppiness instead
+		## of forcing a detour and inflating everyone's path ratio equally.
+		## Rooted in the ground rather than floating: `pylon_height * 0.5` puts the
+		## base at y = 0, so they read as things standing in the world and give the
+		## near-field parallax a course at altitude cannot.
+		"pylons": [
+			[Vector3(0.0, 20.0, -140.0), 9.0],
+			[Vector3(17.0, 20.0, -260.0), 9.0],
+		],
+		## Tall enough that going OVER is a real climb rather than a free dodge,
+		## short enough that the pair reads as pylons and not as a wall. At 70 m
+		## they filled the sky from the pad and dominated the shot.
+		"pylon_height": 40.0,
+		"pylon_radius": 1.2,
+		## MARK from behind the start gate and near the pad, so every run begins in
+		## the same place.
+		"mark_radius_max": 60.0,
+		"measures": {
+			"time_s": {
+				"label": "seconds from gate 1 to gate 6",
+				"unit": "s", "better": "low",
+				"plausible": [0.0, 120.0], "sentinel": 120.0,
+			},
+			"contacts": {
+				"label": "separate touches of gate or pylon during the run",
+				"unit": "touches", "better": "low",
+				"plausible": [0.0, 30.0], "sentinel": 30.0,
+			},
+			"path_ratio": {
+				"label": "distance flown over the straight gate-to-gate length",
+				"unit": "x", "better": "low",
+				"plausible": [1.0, 3.0], "sentinel": 3.0,
 			},
 		},
 	},
@@ -111,6 +204,7 @@ const DRILLS: Dictionary = {
 			"A call during the wait voids the attempt — settle and MARK again.",
 		],
 		"success": "A call placed after the failure starts. Earlier is better.",
+		"pad_altitude": 250.0,
 		"wait_min_s": 3.0,
 		"wait_max_s": 8.0,
 		"step_loss": 0.05,
@@ -175,6 +269,30 @@ static func measure(drill_id: String, name: String) -> Dictionary:
 
 static func prediction_path(drill_id: String) -> String:
 	return "%s/%s.json" % [PREDICTION_DIR, drill_id]
+
+
+## WHICH WAY THE COURSE GOES AFTER GATE `index`, as a unit vector in world
+## space, or ZERO at the last gate because nothing follows it.
+##
+## Here rather than in the runner so it can be checked: the runner only projects
+## this onto the screen, and a marker that pointed at the wrong gate would be
+## invisible to every test that never drew a frame.
+static func leg_direction(drill_id: String, index: int) -> Vector3:
+	var gates: Array = drill(drill_id).get("gates", []) as Array
+	if index < 0 or index + 1 >= gates.size():
+		return Vector3.ZERO
+	return ((gates[index + 1] as Vector3) - (gates[index] as Vector3)).normalized()
+
+
+## The straight-line length of a gate course, gate centre to gate centre. The
+## denominator of `path_ratio`, and derived from the same list the runner builds
+## from so the two can never disagree about how long the course is.
+static func course_length(drill_id: String) -> float:
+	var gates: Array = drill(drill_id).get("gates", []) as Array
+	var total: float = 0.0
+	for i: int in range(1, gates.size()):
+		total += (gates[i] as Vector3).distance_to(gates[i - 1] as Vector3)
+	return total
 
 
 ## The brief, as the lines the pilot reads before arming. Built here rather than

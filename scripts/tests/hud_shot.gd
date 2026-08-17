@@ -36,6 +36,10 @@ const SHOTS: Array = [
 	["pitch30", 0.0, -30.0],
 	["pitch45", 0.0, -45.0],
 	["pitchup30", 0.0, 30.0],
+	# Steep enough to look DOWN. With 48 degrees of lens uptilt nothing shallower
+	# than this points at the ground at all, so it is the only pose that can check
+	# a surface the pilot flies over rather than toward.
+	["pitch70", 0.0, -70.0],
 	["roll35_pitch15", 35.0, -15.0],
 	# INVERTED, and it is here because a whole round of this instrument shipped
 	# with the horizon running BACKWARDS upside down and every claim green.
@@ -56,6 +60,8 @@ const HOLD_FRAMES: int = 6
 var _root_node: Node3D
 var _drone: Node3D
 var _scene: String = DEFAULT_SCENE
+var _lift: float = 0.0
+var _spawn_y: float = 0.0
 var _out: String = ""
 var _index: int = 0
 var _frames: int = 0
@@ -73,6 +79,12 @@ func _initialize() -> void:
 	at = args.find("--scene")
 	if at >= 0 and at + 1 < args.size():
 		_scene = args[at + 1]
+	# Metres to lift the airframe before posing it. Sitting on a pad the camera
+	# is centimetres off the surface, and a surface seen from 6 cm at a grazing
+	# angle tells you nothing about what it looks like to fly over.
+	at = args.find("--lift")
+	if at >= 0 and at + 1 < args.size():
+		_lift = float(args[at + 1])
 	DirAccess.make_dir_recursive_absolute(_out)
 	_root_node = (load(_scene) as PackedScene).instantiate() as Node3D
 	root.add_child(_root_node)
@@ -94,10 +106,17 @@ func _on_frame() -> void:
 			# Frozen so physics does not fight the pose. The HUD reads
 			# `global_basis.y`, so a held attitude is a held reading.
 			(_drone as RigidBody3D).freeze = true
+			_spawn_y = _drone.global_position.y
 			# FOUR DIFFERENT THROTTLES, so the drive rings can be JUDGED. Frozen
 			# and disarmed every rotor sits at zero, which draws four identical
 			# empty tracks and would have made this rig say nothing at all about
 			# the readout it was added to look at.
+			# ARMED, so the world is visible. A disarmed drone leaves the title
+			# card up in the game scenes and the whole briefing panel up in the
+			# drill, and a screenshot rig that can only photograph a menu cannot
+			# check an instrument drawn over the world. Frozen and with physics
+			# off it goes nowhere; `armed` is only a flag.
+			(_drone as FlightController).arm()
 			# Physics off FIRST, or the flight controller's own tick writes the
 			# disarmed zeros straight back over the pose on the very next frame.
 			_drone.set_physics_process(false)
@@ -130,7 +149,11 @@ func _pose() -> void:
 	var shot: Array = SHOTS[_index]
 	var basis := Basis(Vector3.FORWARD, deg_to_rad(float(shot[1]))) \
 			* Basis(Vector3.RIGHT, deg_to_rad(float(shot[2])))
-	_drone.global_transform = Transform3D(basis, _drone.global_position)
+	# The lift is applied from the SPAWN height every pose, not accumulated, so
+	# every shot in a run is taken from the same place.
+	var at: Vector3 = _drone.global_position
+	at.y = _spawn_y + _lift
+	_drone.global_transform = Transform3D(basis, at)
 
 
 func _capture() -> void:

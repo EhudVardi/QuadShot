@@ -64,6 +64,8 @@ var _mark_pressed: bool = false
 ## `DrillMeasures`, which is the instrument's only arithmetic — this is a
 ## display, and it must never become the number.
 var _band_s: float = 0.0
+## When the course clock started, for the live readout only. -1 before gate 1.
+var _gate_one_at: float = -1.0
 
 var _brief_root: Control
 var _brief_label: Label
@@ -116,6 +118,9 @@ func _ready() -> void:
 	for weapon: Node in [$Drone/FpvCamera/Weapon, $Drone/FpvCamera/MissileSystem,
 			$Drone/FpvCamera/FlakPod]:
 		weapon.set_physics_process(false)
+	_place_pad()
+	if _drill_id == "course":
+		_build_course()
 	_build_overlay()
 	_hud.hide_title()
 	_hud.set_pitch_ladder(true)
@@ -188,12 +193,31 @@ func _physics_process(delta: float) -> void:
 	_running_state(pressed, delta)
 
 
+## How many gates the flown line has been through, in order — read back out of
+## the samples with the SAME function that scores the attempt, so the live
+## readout and the recorded result cannot disagree.
+func _gates_passed() -> int:
+	var gates: Array = _drill.get("gates", []) as Array
+	var half: Vector2 = _drill.get("gate_half", Vector2.ONE)
+	var reached: int = 0
+	for i: int in range(1, _samples.size()):
+		if reached >= gates.size():
+			break
+		if DrillMeasures.crossed_gate(gates[reached], half,
+				_samples[i - 1]["pos"], _samples[i]["pos"]):
+			if reached == 0:
+				_gate_one_at = float(_samples[i]["t"])
+			reached += 1
+	return reached
+
+
 func _take_sample() -> void:
 	_samples.append({
 		"t": _clock,
 		"tilt_deg": GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y),
 		"pos": _drone.global_position,
 		"loss": _loss,
+		"contacts": _drone.get_contact_count(),
 	})
 
 
@@ -204,6 +228,8 @@ func _process(_ignored: float) -> void:
 	if _drill_id != "rotor_out":
 		_hud.set_components(AirframeComponents.of(_drone))
 		_hud.set_motor_drive(_drone.motor_drive(), _drone.motor_spins())
+	if _drill_id == "course":
+		_mark_next_gate()
 
 
 # --- the two drills -------------------------------------------------------
@@ -228,6 +254,7 @@ func _ready_state(pressed: bool) -> void:
 	_tick = 0
 	_loss = 0.0
 	_call_t = -1.0
+	_gate_one_at = -1.0
 	_drone.repair_motors()
 	if _drill_id == "rotor_out":
 		_wait_s = randf_range(float(_drill["wait_min_s"]), float(_drill["wait_max_s"]))
@@ -251,6 +278,17 @@ func _mark_refusal() -> String:
 			if clearance < float(_drill["mark_clearance_m"]):
 				return "get off the pad — %.1f m clear, need %.1f" % [clearance,
 						float(_drill["mark_clearance_m"])]
+		"course":
+			var gates: Array = _drill["gates"]
+			# BEHIND THE START LINE. Marking from past gate 1 would leave the clock
+			# waiting for a gate the pilot has already flown through.
+			if _drone.global_position.z < (gates[0] as Vector3).z:
+				return "get back behind gate 1 before you mark"
+			var from_pad: Vector3 = _drone.global_position - $Pad.global_position
+			var out_m: float = Vector2(from_pad.x, from_pad.z).length()
+			if out_m > float(_drill["mark_radius_max"]):
+				return "closer to the pad — %.0f m, need under %.0f" % [out_m,
+						float(_drill["mark_radius_max"])]
 		"rotor_out":
 			var speed: float = _drone.linear_velocity.length()
 			if speed > float(_drill["mark_speed_max"]):
@@ -305,6 +343,24 @@ func _running_state(pressed: bool, delta: float) -> void:
 				_finish_attempt("window closed")
 			elif _drone.global_position.y < FLOOR_M:
 				_finish_attempt("ground")
+		"course":
+			# The gate count is re-derived from the samples every tick rather than
+			# tracked as scene state, so what the pilot is told and what the
+			# artifact records can never be two different numbers.
+			var gates: Array = _drill["gates"]
+			var reached: int = _gates_passed()
+			if reached >= gates.size():
+				_finish_attempt("course complete")
+				return
+			_status_label.modulate = Color(0.5, 1.0, 0.6) if reached > 0 \
+					else Color.WHITE
+			var target: Vector3 = gates[reached]
+			_status_label.text = "GATE %d of %d — %3.0f m — %s" % [reached + 1,
+					gates.size(), _drone.global_position.distance_to(target),
+					"%5.2f s" % (_clock - _gate_one_at) if _gate_one_at >= 0.0
+							else "clock starts at gate 1"]
+			if _clock >= float(_drill["window_s"]):
+				_finish_attempt("ran out of time")
 		"rotor_out":
 			_status_label.text = "HOLD STATION — squeeze FIRE the instant you feel it   (%4.1f s)" % _clock
 			if pressed:
@@ -388,6 +444,7 @@ func _reset_for_next() -> void:
 	_loss = 0.0
 	_call_t = -1.0
 	_band_s = 0.0
+	_gate_one_at = -1.0
 	_status_label.modulate = Color.WHITE
 	_samples.clear()
 	_state = READY
@@ -447,6 +504,100 @@ func _stamp() -> String:
 	var now: Dictionary = Time.get_datetime_dict_from_system(false)
 	return "%04d%02d%02d_%02d%02d%02d" % [now["year"], now["month"], now["day"],
 			now["hour"], now["minute"], now["second"]]
+
+
+# --- the world ------------------------------------------------------------
+
+## THE PAD'S ALTITUDE IS THE DRILL'S, not the scene's. `hold_tilt` needs 250 m
+## because a quad tilted 30 degrees spends 262 m of it; a COURSE needs the
+## opposite — the ground close enough to read your own speed against.
+##
+## `place_at` rather than setting the transform, because it also moves the point
+## R sends you back to. Without that the reset key would put the pilot at
+## whatever altitude the .tscn happened to author, which for the course is 250 m
+## of empty sky above the start gate.
+func _place_pad() -> void:
+	var altitude: float = float(_drill.get("pad_altitude", 250.0))
+	var pad: Node3D = $Pad
+	pad.position.y = altitude
+	_drone.place_at(Transform3D(Basis.IDENTITY,
+			Vector3(0.0, altitude + 0.6, 0.0)))
+
+
+# --- the course -----------------------------------------------------------
+
+## POINT AT THE GATE THAT IS NEXT, with the HUD marker the exit gate already
+## uses. Not decoration: SEARCHING for the next gate is not the skill this drill
+## measures, and six gates at different heights and offsets are genuinely easy to
+## lose against a sky. Time spent hunting would land in `time_s` and read as slow
+## flying, which is a confound rather than a result.
+func _mark_next_gate() -> void:
+	var gates: Array = _drill.get("gates", []) as Array
+	var reached: int = _gates_passed()
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if reached >= gates.size() or camera == null \
+			or camera.is_position_behind(gates[reached]):
+		_hud.update_gate_marker(false)
+		return
+	var at: Vector2 = camera.unproject_position(gates[reached])
+	# THE HEADING IS PROJECTED, NOT DRAWN AT A FIXED SCREEN ANGLE. Taking a point
+	# a fixed distance along the real leg and unprojecting THAT means the arrow
+	# foreshortens honestly: a gate you carry straight on through shows a stub,
+	# and a hard turn shows a long arrow across the screen. A screen-space angle
+	# would claim the same turn whatever the geometry.
+	var onward: Vector3 = DrillBook.leg_direction(_drill_id, reached)
+	var heading := Vector2.ZERO
+	if onward != Vector3.ZERO:
+		var ahead: Vector3 = gates[reached] + onward * 20.0
+		if not camera.is_position_behind(ahead):
+			heading = camera.unproject_position(ahead) - at
+	_hud.update_gate_marker(true, at,
+			"GATE %d" % (reached + 1) if onward != Vector3.ZERO else "FINISH",
+			heading)
+
+## BUILT FROM `DrillBook`, NOT FROM THE SCENE FILE. The gate list is the same one
+## `DrillMeasures` scores against, so a gate cannot move in the world without the
+## scoring moving with it — which is the failure a course laid out by hand in a
+## .tscn invites the first time someone nudges one.
+##
+## The gates are the shipped `environment/gate.tscn`, solid on purpose: a curtain
+## you fly through is a checkpoint, and a frame that costs you if you clip it is
+## a gate. The pylons only ever FLANK the line, so a tight run threads them
+## untouched and the ideal path stays the straight one — otherwise every pilot's
+## path ratio would carry the same forced detour and the measure would say less.
+func _build_course() -> void:
+	var gate_scene: PackedScene = load("res://scenes/environment/gate.tscn")
+	for centre: Vector3 in _drill["gates"]:
+		var gate: Node3D = gate_scene.instantiate() as Node3D
+		gate.position = centre
+		add_child(gate)
+	var height: float = float(_drill["pylon_height"])
+	var radius: float = float(_drill["pylon_radius"])
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = height
+	var material := StandardMaterial3D.new()
+	# Amber, because the palette says amber is course pylons (CLAUDE.md).
+	material.albedo_color = Color(0.5, 0.32, 0.06)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.62, 0.15)
+	material.emission_energy_multiplier = 1.8
+	mesh.material = material
+	var shape := CylinderShape3D.new()
+	shape.radius = radius
+	shape.height = height
+	for pair: Array in _drill["pylons"]:
+		for side: float in [-1.0, 1.0]:
+			var body := StaticBody3D.new()
+			body.position = (pair[0] as Vector3) + Vector3(float(pair[1]) * side, 0.0, 0.0)
+			var view := MeshInstance3D.new()
+			view.mesh = mesh
+			body.add_child(view)
+			var collider := CollisionShape3D.new()
+			collider.shape = shape
+			body.add_child(collider)
+			add_child(body)
 
 
 # --- the brief ------------------------------------------------------------

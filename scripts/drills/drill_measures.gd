@@ -39,7 +39,84 @@ static func compute(drill_id: String, samples: Array,
 			return _hold_tilt(samples)
 		"rotor_out":
 			return _rotor_out(samples, float(context.get("call_t", -1.0)))
+		"course":
+			return _course(samples)
 	return sentinels(drill_id)
+
+
+## DID THIS STEP OF THE FLIGHT GO THROUGH THAT GATE — the whole of the course
+## drill's gate logic, and it lives here rather than on an Area3D in the scene on
+## purpose.
+##
+## An Area3D would work and would be untestable: the only way to ask whether a
+## line was flown correctly would be to fly it. As arithmetic over two positions
+## it takes a SYNTHETIC path, so `drill_check` can fly a perfect run, a run that
+## misses one gate, and a run that goes through backwards, without a controller.
+##
+## The gate faces -Z, so crossing it means going from the +Z side to the -Z side.
+## The direction matters: flying back through a gate the wrong way must NOT count
+## it, or a pilot who overshoots and returns collects it twice.
+static func crossed_gate(centre: Vector3, half: Vector2, from: Vector3,
+		to: Vector3) -> bool:
+	# Signed distance along the gate's facing. Positive is still short of it.
+	var before: float = from.z - centre.z
+	var after: float = to.z - centre.z
+	if before <= 0.0 or after > 0.0:
+		return false
+	var span: float = before - after
+	if span <= 0.0:
+		return false
+	var at: Vector3 = from.lerp(to, before / span)
+	return absf(at.x - centre.x) <= half.x and absf(at.y - centre.y) <= half.y
+
+
+## THE COURSE. Three numbers off one flown line, and they are deliberately three
+## different questions: how fast (`time_s`), how clean (`contacts`) and how tight
+## (`path_ratio`). A pilot can be quick and sloppy or precise and slow, and a
+## single score would hide exactly that trade.
+##
+## Everything is measured BETWEEN the first and last gate, never from the mark:
+## lining up before the start line is not part of the course, so time spent there
+## must not be charged and distance flown there must not inflate the ratio.
+static func _course(samples: Array) -> Dictionary:
+	var out: Dictionary = sentinels("course")
+	if samples.size() < 2:
+		return out
+	var gates: Array = DrillBook.drill("course")["gates"]
+	var half: Vector2 = DrillBook.drill("course")["gate_half"]
+	var next_gate: int = 0
+	var start: int = -1
+	var finish: int = -1
+	var touches: int = 0
+	var was_touching: bool = true  # Sitting on the pad is a contact; ignore it.
+	var flown: float = 0.0
+	for i: int in range(1, samples.size()):
+		var from: Vector3 = samples[i - 1]["pos"]
+		var to: Vector3 = samples[i]["pos"]
+		if start >= 0 and finish < 0:
+			flown += from.distance_to(to)
+			# A TOUCH IS AN EDGE, NOT A TICK. Contact is sampled every frame, so
+			# counting samples would price one scrape as fifty.
+			var touching: bool = int(samples[i]["contacts"]) > 0
+			if touching and not was_touching:
+				touches += 1
+			was_touching = touching
+		if next_gate < gates.size() \
+				and crossed_gate(gates[next_gate], half, from, to):
+			if next_gate == 0:
+				start = i
+				was_touching = int(samples[i]["contacts"]) > 0
+			next_gate += 1
+			if next_gate >= gates.size():
+				finish = i
+				break
+	if start < 0 or finish < 0:
+		return out
+	out["time_s"] = float(samples[finish]["t"]) - float(samples[start]["t"])
+	out["contacts"] = float(touches)
+	var ideal: float = DrillBook.course_length("course")
+	out["path_ratio"] = flown / ideal if ideal > 0.0 else 3.0
+	return out
 
 
 ## THE ATTITUDE HOLD. Three numbers off one channel:

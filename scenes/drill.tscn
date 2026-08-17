@@ -27,8 +27,31 @@
 [ext_resource type="Resource" path="res://resources/default_audio_config.tres" id="9_acfg"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="10_hud"]
 
+; THE GRID HAS TO SURVIVE THE DISTANCE IT IS READ FROM, and shipped defaults did
+; not. `checker_ground.gdshader` fades its fine grid to nothing by 130 m and
+; leaves the coarse grid OFF, so a pilot 250 m up over this plane saw a flat
+; green sheet with no lines in it at all - reported from the cockpit as *"there
+; are no grid lines so im having a very difficult time feeling the motion... the
+; ground level is also w/o grid lines so its very confusing."*
+;
+; So: 10 m cells with a 100 m major every ten of them (the scale yard's ruler),
+; the fine grid surviving to 600 m and the coarse one to 3 km. Two grids are a
+; RULER rather than a texture - the eye counts ten small cells into one big one
+; and reads a distance off the ground without a HUD.
 [sub_resource type="ShaderMaterial" id="mat_ground"]
 shader = ExtResource("3_checker")
+; 5 m cells with a 100 m major every twenty of them. The first attempt used 10 m
+; cells and looked right from the air and wrong on the deck: at 1 m altitude a
+; 10 m cell puts only one or two lines in the whole lower screen, so the ground
+; went black between them and the motion cue was gone again at exactly the height
+; the course is flown at. Five metres is dense enough to read speed from a metre
+; up and still fades before it can moire.
+shader_parameter/cell_size = 5.0
+shader_parameter/grid_energy = 2.0
+shader_parameter/fade_distance = 350.0
+shader_parameter/major_every = 20.0
+shader_parameter/major_energy = 3.0
+shader_parameter/major_fade_distance = 3000.0
 
 ; 4 km of it. The ground's own edge must never be visible, because a drill about
 ; reading the horizon cannot have a false one in the picture.
@@ -38,11 +61,24 @@ size = Vector2(4000, 4000)
 
 [sub_resource type="WorldBoundaryShape3D" id="shape_ground"]
 
-[sub_resource type="StandardMaterial3D" id="mat_pad"]
-albedo_color = Color(0.1, 0.3, 0.16, 1)
-emission_enabled = true
-emission = Color(0.2, 1, 0.45, 1)
-emission_energy_multiplier = 1.6
+; THE PAD GETS THE SAME GRID, tinted green so it still reads as a pad. It was a
+; smooth emissive slab, and the human's report is the whole argument: *"the pad
+; also is smooth green, i can never feel i move over it."* A surface with no
+; texture gives no optical flow, so hovering over it and sliding across it look
+; identical. 2.5 m cells with a 10 m major, because this is the surface you are
+; closest to and the one you judge a hover against.
+[sub_resource type="ShaderMaterial" id="mat_pad"]
+shader = ExtResource("3_checker")
+shader_parameter/cell_size = 1.5
+shader_parameter/color_a = Color(0.07, 0.16, 0.09, 1)
+shader_parameter/color_b = Color(0.11, 0.24, 0.14, 1)
+shader_parameter/grid_color = Color(0.25, 1.0, 0.5, 1)
+shader_parameter/grid_energy = 2.2
+shader_parameter/fade_distance = 400.0
+shader_parameter/major_every = 4.0
+shader_parameter/major_color = Color(0.55, 1.0, 0.7, 1)
+shader_parameter/major_energy = 3.0
+shader_parameter/major_fade_distance = 1200.0
 
 [sub_resource type="BoxMesh" id="mesh_pad"]
 material = SubResource("mat_pad")

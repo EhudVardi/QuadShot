@@ -63,6 +63,7 @@ func _initialize() -> void:
 	_claim_4_verdicts()
 	_claim_5_hold_is_unbroken()
 	_claim_6_rotor_measures_from_the_failure()
+	_claim_6b_course_gates()
 	_claim_7_best_of_follows_direction()
 	_claim_8_every_measure_is_computed()
 	_claim_9_refusals()
@@ -233,6 +234,122 @@ func _claim_6_rotor_measures_from_the_failure() -> void:
 	if not is_equal_approx(float(uncalled["detect_loss"]), 1.0):
 		_failures.append("a run with no call read detect_loss %.2f, expected the 1.00 sentinel"
 				% uncalled["detect_loss"])
+
+
+## THE COURSE, FLOWN SYNTHETICALLY. Gate detection lives in `DrillMeasures`
+## rather than on an Area3D precisely so this is possible: a perfect run, a run
+## that skips a gate, and a run that goes back through one all get scored here
+## without a scene, a controller or a pilot.
+func _claim_6b_course_gates() -> void:
+	var gates: Array = DrillBook.drill("course")["gates"]
+	var half: Vector2 = DrillBook.drill("course")["gate_half"]
+	# 1. THE DIRECTION MATTERS. A gate flown the wrong way must not count, or a
+	#    pilot who overshoots and comes back collects it twice.
+	var centre: Vector3 = gates[0]
+	if not DrillMeasures.crossed_gate(centre, half, centre + Vector3(0, 0, 3),
+			centre - Vector3(0, 0, 3)):
+		_failures.append("a straight pass through the middle of gate 1 was not counted")
+	if DrillMeasures.crossed_gate(centre, half, centre - Vector3(0, 0, 3),
+			centre + Vector3(0, 0, 3)):
+		_failures.append("flying BACKWARDS through a gate counted it — an overshoot and return would collect the same gate twice")
+	# 2. THE OPENING IS THE OPENING. Passing the gate's plane outside the frame is
+	#    a miss, and a check that only ever flies the centre would never say so.
+	var wide: Vector3 = centre + Vector3(half.x + 1.0, 0.0, 0.0)
+	if DrillMeasures.crossed_gate(centre, half, wide + Vector3(0, 0, 3),
+			wide - Vector3(0, 0, 3)):
+		_failures.append("crossing the gate PLANE %.1f m outside the frame counted as flying the gate"
+				% (half.x + 1.0))
+	# 3. A PERFECT RUN: straight from gate to gate, so the ratio is 1.00 and the
+	#    time is the length over the speed.
+	var speed: float = 20.0
+	var clean: Array = _fly_course(gates, speed, -1, 0.0)
+	var scored: Dictionary = DrillMeasures.compute("course", clean)
+	var length: float = DrillBook.course_length("course")
+	print("[drill] claim 6b: %.0f m of course; a clean %d m/s run reads %.2f s, %d touches, ratio %.3f"
+			% [length, int(speed), scored["time_s"], int(scored["contacts"]),
+			scored["path_ratio"]])
+	if absf(float(scored["path_ratio"]) - 1.0) > 0.02:
+		_failures.append("a run flown exactly down the gate centres read a path ratio of %.3f — the straight line IS the denominator, so it has to read 1.00"
+				% scored["path_ratio"])
+	if absf(float(scored["time_s"]) - length / speed) > 0.3:
+		_failures.append("a %d m/s run over %.0f m read %.2f s, expected %.2f"
+				% [int(speed), length, scored["time_s"], length / speed])
+	if int(scored["contacts"]) != 0:
+		_failures.append("a clean run recorded %d touches" % int(scored["contacts"]))
+	# 4. SKIP A GATE AND THE COURSE IS NOT FLOWN. Sentinels, not a fast time —
+	#    this is the claim that stops the drill rewarding a pilot for cutting the
+	#    corner that a naive "did you reach the end" test would pass.
+	var cheated: Array = _fly_course(gates, speed, 3, 0.0)
+	var cheat_score: Dictionary = DrillMeasures.compute("course", cheated)
+	if not is_equal_approx(float(cheat_score["time_s"]), 120.0):
+		_failures.append("a run that flew PAST gate 4 instead of through it still scored a time of %.2f s — the gates are an ORDER, and skipping one must not finish the course"
+				% cheat_score["time_s"])
+	# 5. TOUCHES ARE EDGES, NOT TICKS. The same scrape sampled sixty times a
+	#    second is one touch, and counting samples would price it as fifty.
+	var scraped: Array = _fly_course(gates, speed, -1, 0.0)
+	for i: int in range(40, 70):
+		(scraped[i] as Dictionary)["contacts"] = 3
+	var scrape_score: Dictionary = DrillMeasures.compute("course", scraped)
+	if int(scrape_score["contacts"]) != 1:
+		_failures.append("one unbroken 30-sample scrape counted as %d touches, expected 1"
+				% int(scrape_score["contacts"]))
+	print("[drill] claim 6b: a skipped gate scores the sentinel, and a 30-sample scrape is 1 touch")
+	# 6. THE MARKER POINTS AT THE NEXT GATE. The human's design is one mark doing
+	#    two jobs — it sits on the gate you must fly and points where the course
+	#    goes after it — so the direction has to be the REAL leg and not a guess.
+	#    The runner only projects this onto the screen, so a marker aimed at the
+	#    wrong gate would be invisible to any test that never drew a frame.
+	for index: int in gates.size():
+		var leg: Vector3 = DrillBook.leg_direction("course", index)
+		if index + 1 >= gates.size():
+			if leg != Vector3.ZERO:
+				_failures.append("the LAST gate claims a heading of %s — nothing follows it, and an arrow there would point the pilot at a gate that does not exist"
+						% str(leg))
+			continue
+		var want: Vector3 = ((gates[index + 1] as Vector3)
+				- (gates[index] as Vector3)).normalized()
+		if leg.distance_to(want) > 0.001:
+			_failures.append("gate %d's marker heads %s where the next gate is %s"
+					% [index + 1, str(leg), str(want)])
+	# And the arrowhead itself: on the heading, straddling it, and refusing to
+	# draw at all when there is no direction to show.
+	var arrow: PackedVector2Array = GameHud.GateMarker.arrow_points(
+			Vector2.ZERO, Vector2(10.0, 0.0), 30.0)
+	if arrow.is_empty():
+		_failures.append("a marker with a heading drew no arrow")
+	elif arrow[1] != Vector2(30.0, 0.0):
+		_failures.append("the arrow tip landed at %s for a 30 px arrow along +x, expected (30, 0)"
+				% str(arrow[1]))
+	if not GameHud.GateMarker.arrow_points(Vector2.ZERO, Vector2.ZERO, 30.0).is_empty():
+		_failures.append("a marker with NO heading still drew an arrow — the last gate and the sortie's exit have no next waypoint and must show the plain box")
+	print("[drill] claim 6b: every gate heads at the next one, the last heads nowhere, and the arrow lands on its heading")
+
+
+## A synthetic flight: straight legs between gate centres at a fixed speed.
+## `skip` names a gate to fly PAST (offset sideways so the plane is crossed
+## outside the frame), which is how the order claim gets something to refuse.
+func _fly_course(gates: Array, speed: float, skip: int, wander: float) -> Array:
+	var samples: Array = []
+	var step: float = 1.0 / 60.0
+	var t: float = 0.0
+	var at: Vector3 = (gates[0] as Vector3) + Vector3(0.0, 0.0, 12.0)
+	for index: int in gates.size():
+		var target: Vector3 = gates[index]
+		if index == skip:
+			target += Vector3(9.0, 0.0, 0.0)
+		while at.distance_to(target) > speed * step:
+			at = at.move_toward(target, speed * step)
+			samples.append({"t": t, "tilt_deg": 0.0, "pos": at,
+					"loss": 0.0, "contacts": 0})
+			t += step
+	# Run on past the last gate, so its crossing is a real step and not the
+	# array simply ending on top of it.
+	for i: int in 30:
+		at += Vector3(0.0, 0.0, -speed * step)
+		samples.append({"t": t, "tilt_deg": 0.0, "pos": at,
+				"loss": 0.0, "contacts": 0})
+		t += step
+	return samples
 
 
 func _claim_7_best_of_follows_direction() -> void:

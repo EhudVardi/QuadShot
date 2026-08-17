@@ -684,6 +684,20 @@ Ten claims. Four of them are the instrument's spine:
   printed tilt closes a loop that eyeballing a horizon does not", so a rewritten
   argument must invalidate the same way a moved band does.
 
+**Claim 6b — the course, flown synthetically.** Gate detection is arithmetic in
+`DrillMeasures` rather than an Area3D in the scene, and that is the whole reason
+this claim can exist: an Area3D works and is untestable, because the only way to
+ask whether a line was flown correctly would be to fly it. As a function over two
+positions it takes a synthetic path, so the check flies a perfect run, a run that
+goes through a gate backwards, a pass that crosses the gate *plane* outside the
+frame, and a run that skips gate 4 — no scene, no controller, no pilot.
+
+The one with teeth is the skipped gate: it must score the **sentinel**, not a
+fast time. A naive "did you reach the last gate" test passes a pilot who cut the
+corner, and cutting corners is exactly what a timed course invites. A second
+holds that a touch is an **edge, not a tick** — contact is sampled 60 times a
+second, so one unbroken 30-sample scrape is 1 touch and never 30.
+
 Two more have teeth because they refuse the obvious implementation. `hold_s` is
 the longest **unbroken** run in the band, so a synthetic flight with runs of 5 s
 and 4 s must read 5.00 and never 9.00. And `rotor_out` measures drift and sag
@@ -1302,6 +1316,40 @@ is refused out loud unless the drill's stated entry condition is met.
   this drill measures the rate loop's retention rather than the pilot. Fixing it
   means a target that MOVES during the window, which is a different drill and
   needs its own committed prediction.
+- **`course`** — six solid gates in a fixed order, 349 m, climbing then
+  descending, with two pairs of pylons flanking the line. The clock runs from
+  gate 1 to gate 6, so lining up costs nothing. Three measures, deliberately
+  three different questions: **`time_s`** (how fast), **`contacts`** (how clean)
+  and **`path_ratio`** — distance flown over the straight gate-to-gate length,
+  so 1.00 is a perfect line.
+
+  **It exists because `hold_tilt` measures the rate loop as much as the pilot.**
+  In acro a centred stick commands zero rate, so past capture the aircraft holds
+  the attitude for you — 0.83 degrees of RMS over eighteen seconds is the loop,
+  not the hand. A course cannot be flown by not touching the sticks.
+
+  The gates are **solid**, on the same reasoning `ResupplyGate` uses: a curtain
+  you fly through is a checkpoint, a frame that costs you if you clip it is a
+  gate. The pylons only ever **flank** the line — they punish a wide lap rather
+  than forcing a detour, which keeps the straight line the ideal one and stops
+  every pilot's `path_ratio` carrying the same forced excursion.
+
+  **It is flown ON THE DECK, 12 to 32 m up, and that is a motion-feel decision.**
+  The other two drills need a pad 250 m high; the human flew the course up there
+  and could not read their own speed — *"there are no grid lines so im having a
+  very difficult time feeling the motion... the pad also is smooth green, i can
+  never feel i move over it."* Two separate causes, both real:
+  `checker_ground.gdshader` fades its fine grid to nothing by **130 m** and ships
+  with the coarse grid **off**, so from 250 m there were no lines to see at all;
+  and the pad was a smooth emissive slab with no texture, which gives no optical
+  flow, so hovering over it and sliding across it look identical. The drill world
+  now runs the grid at 5 m cells with a 100 m major, the pad carries its own
+  green grid at 1.5 m, and `pad_altitude` is per drill.
+
+  **The course is DATA in `DrillBook`**, and both halves read the one copy:
+  `DrillRunner` builds the gates from it, `DrillMeasures` scores against it. A
+  course laid out by hand in a `.tscn` drifts from its scoring the first time
+  someone nudges a gate.
 - **`rotor_out`** — one rotor fails in 5% steps every 2 seconds (about one raider
   bolt at severity 0.6) and you squeeze FIRE the instant you feel it. **The
   airframe plate is hidden on purpose**: the question is whether a located

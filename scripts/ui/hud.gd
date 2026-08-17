@@ -1286,6 +1286,36 @@ class GateMarker:
 
 	var marker_visible: bool = false
 	var marker_position: Vector2 = Vector2.ZERO
+	## What the box is pointing AT. It was the literal "EXIT", which is the only
+	## thing that had ever used this widget; the course drill points it at gate 3
+	## of 6, and a box labelled EXIT over a gate you have to come back through is
+	## worse than no label.
+	var label: String = "EXIT"
+	## WHICH WAY THE COURSE GOES AFTER THIS ONE, in screen space, or ZERO for a
+	## waypoint with nothing after it. The human's design, and it is one marker
+	## doing two jobs: *"an arrow that is located at the gate's center, and points
+	## to the direction of the next gate. this way we still retain the marking of
+	## the gate to fly through AND we have a general idea of the direction we
+	## should take when we pass it, so we'll be aligned at the next gate."*
+	##
+	## Zero keeps the plain box, which is what the sortie's EXIT gate has always
+	## drawn and still wants: there is no next waypoint after the way out.
+	var heading: Vector2 = Vector2.ZERO
+
+	## The arrow, as points, from a marker centre and a screen heading. Static and
+	## pure so `hud_check` can hold its shape without drawing: the head must sit
+	## on the heading, the barbs must straddle it, and it must survive a heading
+	## of any length including a degenerate one.
+	static func arrow_points(at: Vector2, direction: Vector2,
+			length: float) -> PackedVector2Array:
+		if direction.length_squared() < 0.0001:
+			return PackedVector2Array()
+		var forward: Vector2 = direction.normalized()
+		var side := Vector2(-forward.y, forward.x)
+		var tip: Vector2 = at + forward * length
+		var base: Vector2 = at + forward * (length * 0.55)
+		return PackedVector2Array([at, tip, tip, base + side * length * 0.22,
+				tip, base - side * length * 0.22])
 
 	func _draw() -> void:
 		if not marker_visible:
@@ -1294,8 +1324,19 @@ class GateMarker:
 		var color := Color(0.3, 0.7, 1.0, 0.9)
 		draw_rect(Rect2(marker_position - Vector2(half, half),
 				Vector2(half, half) * 2.0), color, false, 2.0)
-		draw_string(get_theme_default_font(),
-				marker_position + Vector2(-18.0, half + 18.0), "EXIT",
+		# The arrow starts OUTSIDE the box, so the two read as one mark rather
+		# than as a scratch through the middle of the gate you are aiming at.
+		var arrow: PackedVector2Array = arrow_points(
+				marker_position + marker_position.direction_to(
+						marker_position + heading) * (half + 4.0),
+				heading, 34.0)
+		for i: int in range(0, arrow.size(), 2):
+			draw_line(arrow[i], arrow[i + 1], color, 2.5)
+		var font: Font = get_theme_default_font()
+		var width: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT,
+				-1, 14).x
+		draw_string(font,
+				marker_position + Vector2(-width * 0.5, half + 18.0), label,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, color)
 
 
@@ -1610,9 +1651,13 @@ func clear_reticle() -> void:
 
 
 func update_gate_marker(marker_visible: bool,
-		screen_position: Vector2 = Vector2.ZERO) -> void:
+		screen_position: Vector2 = Vector2.ZERO,
+		label: String = "EXIT",
+		heading: Vector2 = Vector2.ZERO) -> void:
 	_gate_marker.marker_visible = marker_visible
 	_gate_marker.marker_position = screen_position
+	_gate_marker.label = label
+	_gate_marker.heading = heading
 	_gate_marker.queue_redraw()
 
 
