@@ -122,7 +122,7 @@ func _ready() -> void:
 			$Drone/FpvCamera/FlakPod]:
 		weapon.set_physics_process(false)
 	_place_pad()
-	if _drill_id == "course":
+	if DrillBook.is_course(_drill_id):
 		_build_course()
 	_build_overlay()
 	_hud.hide_title()
@@ -245,7 +245,7 @@ func _process(_ignored: float) -> void:
 	if _drill_id != "rotor_out":
 		_hud.set_components(AirframeComponents.of(_drone))
 		_hud.set_motor_drive(_drone.motor_drive(), _drone.motor_spins())
-	if _drill_id == "course":
+	if DrillBook.is_course(_drill_id):
 		_aim_course_arrow()
 
 
@@ -280,7 +280,22 @@ func _ready_state(pressed: bool) -> void:
 	_hud.add_kill_feed("MARK — attempt %d" % (_attempts.size() + 1))
 
 
+## A COURSE IS ASKED FOR BY ITS DATA, not by its name. Matching on `"course"`
+## worked while there was exactly one, and the moment there were three it would
+## have left two rungs of the ladder with no mark gate at all.
 func _mark_refusal() -> String:
+	if DrillBook.is_course(_drill_id):
+		var gates: Array = _drill["gates"]
+		# BEHIND THE START LINE. Marking from past gate 1 would leave the clock
+		# waiting for a gate the pilot has already flown through.
+		if _drone.global_position.z < (gates[0] as Vector3).z:
+			return "get back behind gate 1 before you mark"
+		var from_pad: Vector3 = _drone.global_position - $Pad.global_position
+		var out_m: float = Vector2(from_pad.x, from_pad.z).length()
+		if out_m > float(_drill["mark_radius_max"]):
+			return "closer to the pad — %.0f m, need under %.0f" % [out_m,
+					float(_drill["mark_radius_max"])]
+		return ""
 	match _drill_id:
 		"hold_tilt":
 			var tilt: float = GameHud.HorizonLine.tilt_degrees(_drone.global_basis.y)
@@ -295,17 +310,6 @@ func _mark_refusal() -> String:
 			if clearance < float(_drill["mark_clearance_m"]):
 				return "get off the pad — %.1f m clear, need %.1f" % [clearance,
 						float(_drill["mark_clearance_m"])]
-		"course":
-			var gates: Array = _drill["gates"]
-			# BEHIND THE START LINE. Marking from past gate 1 would leave the clock
-			# waiting for a gate the pilot has already flown through.
-			if _drone.global_position.z < (gates[0] as Vector3).z:
-				return "get back behind gate 1 before you mark"
-			var from_pad: Vector3 = _drone.global_position - $Pad.global_position
-			var out_m: float = Vector2(from_pad.x, from_pad.z).length()
-			if out_m > float(_drill["mark_radius_max"]):
-				return "closer to the pad — %.0f m, need under %.0f" % [out_m,
-						float(_drill["mark_radius_max"])]
 		"rotor_out":
 			var speed: float = _drone.linear_velocity.length()
 			if speed > float(_drill["mark_speed_max"]):
@@ -333,6 +337,9 @@ func _step_failure() -> void:
 
 
 func _running_state(pressed: bool, delta: float) -> void:
+	if DrillBook.is_course(_drill_id):
+		_course_state()
+		return
 	match _drill_id:
 		"hold_tilt":
 			# THE PILOT MUST BE ABLE TO SEE WHETHER THEY ARE SCORING. Ten attempts
@@ -360,24 +367,6 @@ func _running_state(pressed: bool, delta: float) -> void:
 				_finish_attempt("window closed")
 			elif _drone.global_position.y < FLOOR_M:
 				_finish_attempt("ground")
-		"course":
-			# The gate count is re-derived from the samples every tick rather than
-			# tracked as scene state, so what the pilot is told and what the
-			# artifact records can never be two different numbers.
-			var gates: Array = _drill["gates"]
-			var reached: int = _gates_passed()
-			if reached >= gates.size():
-				_finish_attempt("course complete")
-				return
-			_status_label.modulate = Color(0.5, 1.0, 0.6) if reached > 0 \
-					else Color.WHITE
-			var target: Vector3 = gates[reached]
-			_status_label.text = "GATE %d of %d — %3.0f m — %s" % [reached + 1,
-					gates.size(), _drone.global_position.distance_to(target),
-					"%5.2f s" % (_clock - _gate_one_at) if _gate_one_at >= 0.0
-							else "clock starts at gate 1"]
-			if _clock >= float(_drill["window_s"]):
-				_finish_attempt("ran out of time")
 		"rotor_out":
 			_status_label.text = "HOLD STATION — squeeze FIRE the instant you feel it   (%4.1f s)" % _clock
 			if pressed:
@@ -523,6 +512,25 @@ func _stamp() -> String:
 			now["hour"], now["minute"], now["second"]]
 
 
+## ANY course, told by its gate list. The gate count is re-derived from the
+## samples every tick rather than tracked as scene state, so what the pilot is
+## told and what the artifact records can never be two different numbers.
+func _course_state() -> void:
+	var gates: Array = _drill["gates"]
+	var reached: int = _gates_passed()
+	if reached >= gates.size():
+		_finish_attempt("course complete")
+		return
+	_status_label.modulate = Color(0.5, 1.0, 0.6) if reached > 0 else Color.WHITE
+	var target: Vector3 = gates[reached]
+	_status_label.text = "GATE %d of %d — %3.0f m — %s" % [reached + 1,
+			gates.size(), _drone.global_position.distance_to(target),
+			"%5.2f s" % (_clock - _gate_one_at) if _gate_one_at >= 0.0
+					else "clock starts at gate 1"]
+	if _clock >= float(_drill["window_s"]):
+		_finish_attempt("ran out of time")
+
+
 # --- the world ------------------------------------------------------------
 
 ## THE PAD'S ALTITUDE IS THE DRILL'S, not the scene's. `hold_tilt` needs 250 m
@@ -581,9 +589,17 @@ func _aim_course_arrow() -> void:
 ## path ratio would carry the same forced detour and the measure would say less.
 func _build_course() -> void:
 	var gate_scene: PackedScene = load("res://scenes/environment/gate.tscn")
+	# THE SHIPPED GATE IS ONE SIZE, so a course states the opening it wants and
+	# the frame is scaled to it. `environment/gate.tscn` has a 3.0 m hole, which
+	# is a `gate_half.x` of 1.5, so that is the divisor — and uniformly, because a
+	# non-uniform scale on a collision shape is a Godot warning and a lie about
+	# the hole the pilot is aiming at.
+	var half: Vector2 = _drill["gate_half"]
+	var gate_scale: float = half.x / 1.5
 	for centre: Vector3 in _drill["gates"]:
 		var gate: Node3D = gate_scene.instantiate() as Node3D
 		gate.position = centre
+		gate.scale = Vector3.ONE * gate_scale
 		add_child(gate)
 	var height: float = float(_drill["pylon_height"])
 	var radius: float = float(_drill["pylon_radius"])

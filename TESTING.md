@@ -1401,6 +1401,33 @@ is refused out loud unless the drill's stated entry condition is met.
   `DrillRunner` builds the gates from it, `DrillMeasures` scores against it. A
   course laid out by hand in a `.tscn` drifts from its scoring the first time
   someone nudges a gate.
+- **`course_wide` / `course_tight`** — the same course machinery at two more
+  difficulties, the human's own shape for the ladder: *"the tight course should
+  have more gates and the wide course should have less."*
+
+  | drill | gates | opening | length |
+  |---|---|---|---|
+  | `course_wide` | 4 | 4.4 m | 267 m |
+  | `course` | 6 | 3.0 m | 350 m |
+  | `course_tight` | 9 | 1.6 m | 435 m |
+
+  Difficulty moves three dials at once and that is deliberate — this is a ladder
+  for a pilot to climb, not an experiment isolating gate size.
+
+  **`contacts` is scored on the WORST lap on the new rungs**, and that is the fix
+  for a measure that had been saying nothing at all. Best-of takes the minimum,
+  so across ten real medium laps — one of which contained an actual collision —
+  it reported zero every single time. Worst-of asks how *reliably* clean a pilot
+  is, which is a question a ladder can answer. A measure opts in with
+  `"score": "worst"`; everything else keeps best-of, and `drill_check` holds that
+  opting one measure in does not drag the others with it.
+
+  Adding a rung is a `DrillBook` row and a prediction file. **The runner stopped
+  keying on the drill id to make that true** — `DrillBook.is_course` asks the
+  data, because `_drill_id == "course"` scattered through a runner is exactly how
+  a ladder ends up with one working rung. When that landed, `drill_check`'s
+  reachability claim was *corrected to match the code* rather than the code being
+  bent to satisfy a stale claim.
 - **`rotor_out`** — one rotor fails in 5% steps every 2 seconds (about one raider
   bolt at severity 0.6) and you squeeze FIRE the instant you feel it. **The
   airframe plate is hidden on purpose**: the question is whether a located

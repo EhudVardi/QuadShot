@@ -39,8 +39,9 @@ static func compute(drill_id: String, samples: Array,
 			return _hold_tilt(samples)
 		"rotor_out":
 			return _rotor_out(samples, float(context.get("call_t", -1.0)))
-		"course":
-			return _course(samples)
+		_:
+			if DrillBook.is_course(drill_id):
+				return _course(drill_id, samples)
 	return sentinels(drill_id)
 
 
@@ -78,12 +79,12 @@ static func crossed_gate(centre: Vector3, half: Vector2, from: Vector3,
 ## Everything is measured BETWEEN the first and last gate, never from the mark:
 ## lining up before the start line is not part of the course, so time spent there
 ## must not be charged and distance flown there must not inflate the ratio.
-static func _course(samples: Array) -> Dictionary:
-	var out: Dictionary = sentinels("course")
+static func _course(drill_id: String, samples: Array) -> Dictionary:
+	var out: Dictionary = sentinels(drill_id)
 	if samples.size() < 2:
 		return out
-	var gates: Array = DrillBook.drill("course")["gates"]
-	var half: Vector2 = DrillBook.drill("course")["gate_half"]
+	var gates: Array = DrillBook.drill(drill_id)["gates"]
+	var half: Vector2 = DrillBook.drill(drill_id)["gate_half"]
 	var next_gate: int = 0
 	var start: int = -1
 	var finish: int = -1
@@ -114,7 +115,7 @@ static func _course(samples: Array) -> Dictionary:
 		return out
 	out["time_s"] = float(samples[finish]["t"]) - float(samples[start]["t"])
 	out["contacts"] = float(touches)
-	var ideal: float = DrillBook.course_length("course")
+	var ideal: float = DrillBook.course_length(drill_id)
 	out["path_ratio"] = flown / ideal if ideal > 0.0 else 3.0
 	return out
 
@@ -207,12 +208,30 @@ static func _rotor_out(samples: Array, call_t: float) -> Dictionary:
 ## which is why the artifact keeps every attempt and the report prints the
 ## attempt count and the spread beside the number — a pilot who needed nine
 ## tries to hit the band once has told us something the best figure hides.
+## SOME MEASURES ARE SCORED BY THE WORST ATTEMPT INSTEAD, and `contacts` is the
+## reason the option exists.
+##
+## Best-of asks "what can this pilot do", which is the right question for speed
+## and for line. It is the WRONG question for cleanliness: best-of takes the
+## minimum, so one clean lap out of five reads zero touches however tight the
+## gates are, and the measure discriminates nothing. Measured, exactly that
+## happened — five laps through 3.0 m gates and five through the same course
+## again, contacts 0 every time, including a session with a real collision in it.
+##
+## Scored by the WORST lap it becomes "how reliably clean is this pilot", which
+## is a question a difficulty ladder can actually answer. A measure declares
+## `"score": "worst"` to opt in; everything else keeps best-of.
 static func best_of(drill_id: String, attempts: Array) -> Dictionary:
 	if attempts.is_empty():
 		return sentinels(drill_id)
 	var out: Dictionary = {}
 	for name: String in DrillBook.measure_names(drill_id):
-		var better_high: bool = String(DrillBook.measure(drill_id, name)["better"]) == "high"
+		var spec: Dictionary = DrillBook.measure(drill_id, name)
+		var better_high: bool = String(spec["better"]) == "high"
+		# Take the worst by that measure's own direction, which is the maximum
+		# when low is better and the minimum when high is.
+		if String(spec.get("score", "best")) == "worst":
+			better_high = not better_high
 		var best: float = -INF if better_high else INF
 		for attempt: Dictionary in attempts:
 			var measured: Dictionary = attempt.get("measures", {}) as Dictionary
@@ -220,8 +239,7 @@ static func best_of(drill_id: String, attempts: Array) -> Dictionary:
 				continue
 			var value: float = float(measured[name])
 			best = maxf(best, value) if better_high else minf(best, value)
-		out[name] = best if is_finite(best) \
-				else float(DrillBook.measure(drill_id, name)["sentinel"])
+		out[name] = best if is_finite(best) else float(spec["sentinel"])
 	return out
 
 

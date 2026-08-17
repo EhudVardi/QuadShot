@@ -184,6 +184,117 @@ const DRILLS: Dictionary = {
 			},
 		},
 	},
+	## THE EASY RUNG. Fewer gates, wider gates, longer legs — the human's own
+	## shape for the ladder: *"the tight course should have more gates and the
+	## wide course should have less."* Difficulty here is not one dial but three
+	## moving together, which is deliberate: this is a LADDER for a pilot to climb,
+	## not a controlled experiment isolating gate size.
+	"course_wide": {
+		"title": "FLY THE WIDE COURSE",
+		"question": "With room to spare, how fast can a pilot commit through a course?",
+		"situation": [
+			"Four gates, 4.4 m wide, over 267 m of open deck. One pair of pylons.",
+			"Kestrel, ACRO, the repo's flight numbers. The easy rung of three.",
+			"The gates are SOLID, but at 4.4 m they are not the constraint —",
+			"  your own commitment to the throttle is.",
+		],
+		"task": [
+			"Arm, lift off the pad, settle behind the start gate.",
+			"Squeeze FIRE to MARK, then fly gate 1 through gate 4 IN ORDER.",
+			"The clock runs from gate 1 to gate 4, so lining up costs nothing.",
+			"R resets you to the pad for another attempt.",
+		],
+		"success": "All four gates in order, without touching anything.",
+		"window_s": 120.0,
+		"gates": [
+			Vector3(0.0, 15.0, -60.0),
+			Vector3(30.0, 18.0, -140.0),
+			Vector3(-25.0, 22.0, -220.0),
+			Vector3(0.0, 14.0, -300.0),
+		],
+		"gate_half": Vector2(2.2, 1.76),
+		"pylons": [[Vector3(6.0, 20.0, -180.0), 11.0]],
+		"pylon_height": 40.0,
+		"pylon_radius": 1.2,
+		"pad_altitude": 0.5,
+		"mark_radius_max": 60.0,
+		"measures": {
+			"time_s": {
+				"label": "seconds from the first gate to the last",
+				"unit": "s", "better": "low",
+				"plausible": [0.0, 120.0], "sentinel": 120.0,
+			},
+			"contacts": {
+				"label": "touches on the WORST lap flown",
+				"unit": "touches", "better": "low", "score": "worst",
+				"plausible": [0.0, 30.0], "sentinel": 30.0,
+			},
+			"path_ratio": {
+				"label": "distance flown over the straight gate-to-gate length",
+				"unit": "x", "better": "low",
+				"plausible": [1.0, 3.0], "sentinel": 3.0,
+			},
+		},
+	},
+	## THE HARD RUNG. Nine gates at 1.6 m over 435 m, with a direction change on
+	## every leg and three pylon gates to thread.
+	"course_tight": {
+		"title": "FLY THE TIGHT COURSE",
+		"question": "How much does a pilot give up in speed and cleanliness when the gates stop being generous?",
+		"situation": [
+			"Nine gates, 1.6 m wide, over 435 m — under six Kestrel spans of hole,",
+			"  against fourteen on the wide course.",
+			"Three pylon pairs with a 7 m gap. Kestrel, ACRO, repo numbers.",
+			"CONTACTS IS SCORED ON YOUR WORST LAP HERE, not your best. Best-of",
+			"  rewards one clean run; this asks how reliably clean you are.",
+		],
+		"task": [
+			"Arm, lift off the pad, settle behind the start gate.",
+			"Squeeze FIRE to MARK, then fly gate 1 through gate 9 IN ORDER.",
+			"Miss a gate and it stays next — you have to come back for it.",
+			"R resets you to the pad for another attempt.",
+		],
+		"success": "All nine gates in order. Clean on every lap, not just one.",
+		"window_s": 150.0,
+		"gates": [
+			Vector3(0.0, 15.0, -40.0),
+			Vector3(18.0, 15.0, -85.0),
+			Vector3(-18.0, 20.0, -130.0),
+			Vector3(14.0, 26.0, -175.0),
+			Vector3(-14.0, 20.0, -220.0),
+			Vector3(20.0, 14.0, -265.0),
+			Vector3(-20.0, 18.0, -310.0),
+			Vector3(12.0, 24.0, -355.0),
+			Vector3(0.0, 14.0, -400.0),
+		],
+		"gate_half": Vector2(0.8, 0.64),
+		"pylons": [
+			[Vector3(0.0, 20.0, -107.0), 7.0],
+			[Vector3(3.0, 20.0, -242.0), 7.0],
+			[Vector3(-4.0, 20.0, -332.0), 7.0],
+		],
+		"pylon_height": 40.0,
+		"pylon_radius": 1.2,
+		"pad_altitude": 0.5,
+		"mark_radius_max": 60.0,
+		"measures": {
+			"time_s": {
+				"label": "seconds from the first gate to the last",
+				"unit": "s", "better": "low",
+				"plausible": [0.0, 150.0], "sentinel": 150.0,
+			},
+			"contacts": {
+				"label": "touches on the WORST lap flown",
+				"unit": "touches", "better": "low", "score": "worst",
+				"plausible": [0.0, 40.0], "sentinel": 40.0,
+			},
+			"path_ratio": {
+				"label": "distance flown over the straight gate-to-gate length",
+				"unit": "x", "better": "low",
+				"plausible": [1.0, 3.0], "sentinel": 3.0,
+			},
+		},
+	},
 	"rotor_out": {
 		"title": "CALL THE ROTOR",
 		"question": "How much of one rotor does a pilot lose before they FEEL it, with the airframe plate hidden?",
@@ -265,6 +376,26 @@ static func measure_names(drill_id: String) -> Array:
 
 static func measure(drill_id: String, name: String) -> Dictionary:
 	return measures(drill_id).get(name, {}) as Dictionary
+
+
+## A drill is a COURSE if it names gates. Asking the data rather than matching
+## the id is what lets a third or fourth course be a table entry and nothing
+## else — `_drill_id == "course"` scattered through the runner is how a ladder
+## ends up with one rung that works.
+static func is_course(drill_id: String) -> bool:
+	return not (drill(drill_id).get("gates", []) as Array).is_empty()
+
+
+## The ids of every course, in ladder order (easiest first by gate width).
+static func courses() -> Array:
+	var out: Array = []
+	for id: String in ids():
+		if is_course(id):
+			out.append(id)
+	out.sort_custom(func(a: String, b: String) -> bool:
+			return float((drill(a)["gate_half"] as Vector2).x) \
+					> float((drill(b)["gate_half"] as Vector2).x))
+	return out
 
 
 static func prediction_path(drill_id: String) -> String:

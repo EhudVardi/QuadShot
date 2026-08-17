@@ -94,8 +94,13 @@ func _claim_1_drills_are_stated() -> void:
 				_failures.append("%s: the brief has no %s section" % [id, heading])
 		if DrillBook.measure_names(id).is_empty():
 			_failures.append("%s: declares no measures" % id)
-		if not source.contains('"%s"' % id):
-			_failures.append("%s: no branch in drill_runner.gd — the book declares a drill nothing can fly"
+		# A drill is flyable if the runner names it OR if it is a COURSE, which
+		# the runner handles generically off `DrillBook.is_course`. That second
+		# clause was added when the ladder landed: matching on `"course"` worked
+		# while there was one and would have left two rungs unflyable, so the
+		# runner stopped keying on ids and this claim had to stop demanding one.
+		if not DrillBook.is_course(id) and not source.contains('"%s"' % id):
+			_failures.append("%s: no branch in drill_runner.gd and no gates — the book declares a drill nothing can fly"
 					% id)
 	print("[drill] claim 1: %d drills, all stated and all reachable from the runner"
 			% DrillBook.ids().size())
@@ -241,6 +246,26 @@ func _claim_6_rotor_measures_from_the_failure() -> void:
 ## that skips a gate, and a run that goes back through one all get scored here
 ## without a scene, a controller or a pilot.
 func _claim_6b_course_gates() -> void:
+	# THE LADDER MUST ACTUALLY BE A LADDER. Three courses that all turned out to
+	# be the same difficulty would be three copies, and nothing else in this file
+	# compares one drill against another.
+	var ladder: Array = DrillBook.courses()
+	print("[drill] claim 6b: %d courses, easiest first" % ladder.size())
+	var previous_width: float = INF
+	var previous_gates: int = 0
+	for id: String in ladder:
+		var opening: float = (DrillBook.drill(id)["gate_half"] as Vector2).x * 2.0
+		var count: int = (DrillBook.drill(id)["gates"] as Array).size()
+		print("[drill]   %-14s %5.1f m gates x %d over %5.0f m"
+				% [id, opening, count, DrillBook.course_length(id)])
+		if opening >= previous_width:
+			_failures.append("%s has a %.1f m opening, no tighter than the rung before it — a ladder whose rungs are the same height is one rung"
+					% [id, opening])
+		if previous_gates > 0 and count <= previous_gates:
+			_failures.append("%s has %d gates against %d on the easier rung — the human's ladder widens the gates AND drops the gate count as it gets easier"
+					% [id, count, previous_gates])
+		previous_width = opening
+		previous_gates = count
 	var gates: Array = DrillBook.drill("course")["gates"]
 	var half: Vector2 = DrillBook.drill("course")["gate_half"]
 	# 1. THE DIRECTION MATTERS. A gate flown the wrong way must not count, or a
@@ -419,6 +444,25 @@ func _claim_7_best_of_follows_direction() -> void:
 		_failures.append("spread of hold_s read %.2f across 3, 7 and 12, expected 9.00"
 				% DrillMeasures.spread("hold_tilt", attempts, "hold_s"))
 	print("[drill] claim 7: best-of took 1.50 / 12.00 / 2.00 from three attempts, spread 9.00 on hold_s")
+	# WORST-OF, FOR THE MEASURE BEST-OF CANNOT ANSWER. `contacts` scored by the
+	# best lap reads zero whenever ONE lap is clean, which is what it did across
+	# ten real laps including a session with a collision in it — the measure
+	# discriminated nothing. Scored by the worst lap it asks how RELIABLY clean a
+	# pilot is, which is a question a difficulty ladder can answer.
+	var laps: Array = [
+		{"measures": {"time_s": 20.0, "contacts": 0.0, "path_ratio": 1.10}},
+		{"measures": {"time_s": 24.0, "contacts": 3.0, "path_ratio": 1.20}},
+		{"measures": {"time_s": 22.0, "contacts": 1.0, "path_ratio": 1.15}},
+	]
+	var scored: Dictionary = DrillMeasures.best_of("course_tight", laps)
+	print("[drill] claim 7: worst-scored contacts %.0f from laps 0/3/1; time still best at %.1f"
+			% [scored["contacts"], scored["time_s"]])
+	if not is_equal_approx(float(scored["contacts"]), 3.0):
+		_failures.append("contacts scored %.1f across laps of 0, 3 and 1 — it declares score \"worst\", so it must report the WORST lap (3) and not the cleanest (0), or one tidy run hides every scrappy one"
+				% scored["contacts"])
+	if not is_equal_approx(float(scored["time_s"]), 20.0):
+		_failures.append("time_s scored %.1f, expected the best lap's 20.0 — opting ONE measure into worst-of must not drag the others with it"
+				% scored["time_s"])
 
 
 ## A measure declared in the book and never wired into the reduction would show

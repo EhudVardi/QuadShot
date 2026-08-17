@@ -106,8 +106,18 @@ static func pulse(t: float, index: int) -> float:
 ## One arm's length for a gate of this half-width, so the chevron always spans
 ## `SPAN_FRACTION` of the opening. Static so the check can hold the relationship
 ## across gate sizes without building anything.
+## A FLOOR, because proportional alone breaks at the hard end of the ladder. The
+## tight course's 1.6 m gates give a 0.67 m span, which is 8 px at 40 m — and a
+## marker the pilot has to hunt for puts SEARCHING into `time_s`, which is a
+## confound rather than difficulty. Sitting 4 m past the gate it still reads
+## smaller than the opening it marks, so the floor does not undo the point of
+## scaling. The exact value is a guess and is on the flight list.
+const MIN_SPAN_M: float = 1.1
+
+
 static func arm_length(gate_half_width: float) -> float:
-	return gate_half_width * 2.0 * SPAN_FRACTION / (2.0 * sin(deg_to_rad(ARM_DEG)))
+	var span: float = maxf(gate_half_width * 2.0 * SPAN_FRACTION, MIN_SPAN_M)
+	return span / (2.0 * sin(deg_to_rad(ARM_DEG)))
 
 
 ## How visible the chain is from `metres` away: full at range, nearly gone by the
