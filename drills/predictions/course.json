@@ -1,0 +1,22 @@
+{
+	"drill": "course",
+	"by": "agent (Claude Opus 5), 2026-08-16, before any human flight of this drill",
+	"reasoning": "350 m of course through six 3.3 x 2.7 m gates, flown low over the deck between 12 and 32 m, with two lateral swings of about 50 m and a climb-then-descend. Unlike hold_tilt this cannot be flown by capturing an attitude and leaving the sticks alone - every leg needs a direction change, so the rate loop cannot fly it for the pilot and the number is about their hands. I am updating on evidence rather than guessing: this pilot has already beaten me twice on the same day, holding 30 degrees to 0.83 degrees RMS over eighteen seconds, so I am shading everything toward the competent end rather than the average one. The measure I trust least is path_ratio, and not because of the flying: best-of takes the LOWEST ratio across attempts, and the tightest lap is likely to be a slow careful one rather than the fast one, so the number I am predicting probably comes from a different attempt than the time does. Worth saying plainly that contacts is the weakest of the three as scored - best-of across several attempts makes a clean run cheap to produce - which is why I have banded it at exactly zero rather than giving myself a range to hide in.",
+	"bands": {
+		"time_s": {
+			"low": 13.0,
+			"high": 22.0,
+			"why": "349 m at a 16 to 27 m/s average; a practiced pass has to slow for each gate and re-accelerate, and the two 50 m lateral swings are what stops this being a straight-line sprint"
+		},
+		"contacts": {
+			"low": 0.0,
+			"high": 0.0,
+			"why": "at least one attempt will be completely clean - a 3.3 m opening is eleven times the Kestrel's 0.28 m span, and a pilot who holds an attitude to under a degree is not going to clip every single lap"
+		},
+		"path_ratio": {
+			"low": 1.02,
+			"high": 1.22,
+			"why": "above 1.0 because a quad arcs and overshoots at every direction change, but not far above it because the gates can be cut inside by up to 1.5 m each, which claws length back; under 1.0 would mean the line was tighter than the gate-centre polyline itself"
+		}
+	}
+}
