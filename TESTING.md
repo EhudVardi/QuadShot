@@ -666,7 +666,7 @@ red board.
 drills the human flies and the predictions they are graded against (§5). What it
 guards is not "does the drill fly", it is **whether the argument can be rigged**.
 
-Ten claims. Four of them are the instrument's spine:
+Eleven claims. Four of them are the instrument's spine:
 
 - **A predicted band may not exceed 40% of what could physically have
   happened.** Every measure declares a `plausible` range, and a band hedged wide
@@ -705,11 +705,32 @@ from **the failure's own start**, so the synthetic pilot flies 40 m and climbs
 12 m *before* the rotor is touched — a window-start implementation reads 46 and
 -9 where this reads 6 and 3.
 
-Six mutations on record, each failing a different claim: widen `hold_s`'s band to
-the full range (claim 2), make `verdict` always return HIT (4), count total
+**Claim 11 — a results file must resolve to the drill that WROTE it**, added
+2026-08-18 after the report was caught reading the wrong file. `drill_report`
+found a drill's newest results by matching the file name against the prefix
+`<id>_`, and **`course_` is also the start of `course_tight_` and
+`course_wide_`** — so the medium course resolved to the wide course's artifact,
+was reported twice under two names, and its own ten laps were unreadable through
+the instrument. The naming convention had two owners (the runner composed the
+name, the report guessed it back); it now lives once in
+`DrillBook.artifact_name` / `artifact_drill_id`, which are each other's inverse.
+
+The trap is that the obvious test passes on the broken code:
+`hold_tilt_<stamp>.json` reads back as `hold_tilt` under a prefix match too,
+because nothing else starts with those letters. **The claim with teeth is the
+pair where one id is a prefix of another**, which is a shape a *ladder* creates
+and a single drill never does — the same lesson as `separation_check`'s
+comparison across frame sizes. The claim prints the pairs it is holding, so a
+rename that leaves it with nothing to discriminate says `NONE — this claim has no
+teeth` instead of passing quietly.
+
+Seven mutations on record, each failing a different claim: widen `hold_s`'s band
+to the full range (claim 2), make `verdict` always return HIT (4), count total
 in-band time instead of the longest run (5), measure rotor drift from
-`samples[0]` (6), drop the fingerprint test in `refusal` (9), and fingerprint the
-numbers without the reasons (10).
+`samples[0]` (6), drop the fingerprint test in `refusal` (9), fingerprint the
+numbers without the reasons (10), and resolve an artifact's drill by
+`begins_with` — the real bug, which fails claim 11 on two of the three courses
+and on every non-artifact file name (11).
 
 ### The plating bench — what an armour value is actually worth
 
@@ -1422,6 +1443,38 @@ is refused out loud unless the drill's stated entry condition is met.
   `"score": "worst"`; everything else keeps best-of, and `drill_check` holds that
   opting one measure in does not drag the others with it.
 
+  **THE LADDER, FLOWN 2026-08-17 and 2026-08-18 — the instrument's first
+  comparative reading**, and the finding is not in the pace column:
+
+  | rung | opening | best lap | average speed | lap-to-lap spread |
+  |---|---|---|---|---|
+  | `course_wide` | 4.4 m | 9.48 s | 28.2 m/s | **5.8%** |
+  | `course` | 3.0 m | 13.92 s | 25.1 m/s | **15.5%** |
+  | `course_tight` | 1.6 m | 24.07 s | 18.1 m/s | **31.2%** |
+
+  Spread is the slowest lap minus the fastest, over the fastest. Climbing the
+  ladder costs this pilot **36% of their speed and 440% of their consistency**,
+  and the spread roughly DOUBLES per rung where the pace curve does not. **The
+  honest measure of difficulty for a human pilot is variance, not lap time** — a
+  bot would show almost none of this, which is exactly why the instrument exists.
+
+  `contacts` finally discriminated: four of eight tight laps carried a touch, so
+  1.6 m is genuinely tight for this pilot and **the ladder does not need a fourth
+  rung**. On that rung the three measures also stop being three questions — a
+  touched lap costs about **3.7 s (15%) and 0.12 of path ratio**, so contact,
+  time and line are one disruption seen three ways.
+
+  Between the two sittings the pilot's touch rate fell about 70% while their best
+  time improved 3%: **they got reliable, not faster.**
+
+  Verdicts were 2 of 3 on both new rungs, and both misses were UNDER by 0.02 s
+  and 0.01 x — the band's edge landing on the number. The direction is the real
+  finding: of the six measures the agent has now been wrong about across five
+  drills, **five are "the pilot was better than the model allowed"** (the sixth,
+  `sag_m`, cannot be read because that measure is scored the wrong way round).
+  Six one-directional misses is a biased centre, not a band-width problem, and
+  the correction belongs in the NEXT prediction where it can be judged.
+
   Adding a rung is a `DrillBook` row and a prediction file. **The runner stopped
   keying on the drill id to make that true** — `DrillBook.is_course` asks the
   data, because `_drill_id == "course"` scattered through a runner is exactly how
@@ -1445,6 +1498,22 @@ is refused out loud unless the drill's stated entry condition is met.
 override switch goes off in `_enter_tree`, before the drone's `_ready`. Your
 input bindings are the single exception, re-enabled around that one call, because
 without your radio mapping there is no flight to measure.
+
+**THE REPORT READS ONE SITTING PER DRILL — THE NEWEST — AND THAT IS A CHOICE,
+not an accident.** A sitting is a coherent unit: same tuning, same warm-up, same
+hands. It matters most for `contacts`, which is scored worst-of, so the file
+picked *is* the answer to "how reliably clean": within one artifact it means
+"that afternoon", across all of them it would mean "ever". Older sittings stay on
+disk and are read with `--file <path>`.
+
+That cuts with the human's standing rule, which is worth stating here because it
+governs every reading in this file: **the code changes continuously, so re-fly
+and re-measure rather than reasoning from an old artifact.** Their words, as a
+senior developer: *"the correct thing is to repeat tests and data collection
+instead of relying on old data that may be outdated, which may lead to wrong
+conclusions and break the development path."* If a reading matters and the thing
+it measured has moved, ask them for a fresh set — they have said outright to do
+so.
 
 Results land in `user://blackbox/drills/<drill>_<stamp>.json`, rewritten after
 every completed attempt. **They are H5 deviation data like the aim drill's** and

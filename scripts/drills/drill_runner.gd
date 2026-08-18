@@ -137,7 +137,8 @@ func _ready() -> void:
 	_drone.airframe_reset.connect(_on_reset)
 	_drone_health.died.connect(_on_died)
 	_flown_unix = int(Time.get_unix_time_from_system())
-	_artifact_path = "%s/%s_%s.json" % [_artifact_dir, _drill_id, _stamp()]
+	_artifact_path = "%s/%s" % [_artifact_dir,
+			DrillBook.artifact_name(_drill_id, _stamp())]
 	for line: String in DrillBook.brief_lines(_drill_id):
 		print("[drill] %s" % line)
 	print("[drill] artifact -> %s" % _artifact_path)

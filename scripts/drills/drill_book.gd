@@ -402,6 +402,38 @@ static func prediction_path(drill_id: String) -> String:
 	return "%s/%s.json" % [PREDICTION_DIR, drill_id]
 
 
+## THE ARTIFACT NAMING CONVENTION, AND IT LIVES HERE BECAUSE IT HAD TWO OWNERS.
+## The runner composed `<id>_<stamp>.json` and the report guessed the convention
+## back with a PREFIX test — which also matches every id the prefix starts, so
+## `course` resolved to `course_wide`'s file, the medium course's own results
+## were unreadable, and the wide course was reported twice. **A drill id that is
+## a prefix of another drill id is not an exotic case; it is what a ladder looks
+## like.** Both sides now call these two functions, which are each other's
+## inverse and are checked as such.
+static func artifact_name(drill_id: String, stamp: String) -> String:
+	return "%s_%s.json" % [drill_id, stamp]
+
+
+## Which drill wrote `file_name`, or "" if it is not a drill artifact at all.
+##
+## The id is taken by splitting the STAMP off the right and asking the book
+## whether what remains is a drill, rather than by testing ids against the left
+## of the name: an id containing an underscore cannot then be split down the
+## middle, and no id can shadow another.
+static func artifact_drill_id(file_name: String) -> String:
+	if not file_name.ends_with(".json"):
+		return ""
+	var parts: PackedStringArray = file_name.get_basename().rsplit("_", true, 2)
+	if parts.size() != 3:
+		return ""
+	# YYYYMMDD_HHMMSS, so a file that merely contains underscores is refused.
+	if parts[1].length() != 8 or not parts[1].is_valid_int():
+		return ""
+	if parts[2].length() != 6 or not parts[2].is_valid_int():
+		return ""
+	return parts[0] if has(parts[0]) else ""
+
+
 ## WHICH WAY THE COURSE GOES AFTER GATE `index`, as a unit vector in world
 ## space, or ZERO at the last gate because nothing follows it.
 ##

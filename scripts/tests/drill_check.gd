@@ -37,6 +37,9 @@ extends SceneTree
 ## 10. The fingerprint covers the REASONS, not only the numbers. Rewriting an
 ##     argument while leaving a band alone is a different prediction and must
 ##     invalidate the same way.
+## 11. A results file resolves to the drill that WROTE it. Written after the
+##     report was caught grading one course twice and another never, because
+##     `course` is a prefix of `course_tight`.
 ##
 ## MUTATIONS ON RECORD (each fails a different claim):
 ##   widen hold_tilt's `hold_s` band to 0..20        -> claim 2
@@ -45,6 +48,7 @@ extends SceneTree
 ##   measure rotor drift from samples[0]             -> claim 6
 ##   drop the fingerprint test in `refusal`          -> claim 9
 ##   fingerprint the numbers without the reasons     -> claim 10
+##   resolve the id by `begins_with` (the real bug)  -> claim 11, 2 of 3 courses
 ##
 ## Run: <godot> --headless -s scripts/tests/drill_check.gd --path .
 
@@ -68,6 +72,7 @@ func _initialize() -> void:
 	_claim_8_every_measure_is_computed()
 	_claim_9_refusals()
 	_claim_10_fingerprint_covers_reasons()
+	_claim_11_artifact_names_resolve()
 	if _failures.is_empty():
 		print("")
 		print("[drill] PASS")
@@ -550,3 +555,51 @@ func _claim_10_fingerprint_covers_reasons() -> void:
 		_failures.append("widening a band left the fingerprint at %s" % before)
 	print("[drill] claim 10: fingerprint %s moves on a reworded reason and on a widened band"
 			% before)
+
+
+## A RESULTS FILE MUST RESOLVE TO THE DRILL THAT WROTE IT, and the trap is that
+## the obvious test passes on the broken code: `hold_tilt_<stamp>.json` reads
+## back as `hold_tilt` whether the lookup is exact or a prefix match, because no
+## other drill starts with those letters. **The claim with teeth is the pair
+## where one id is a PREFIX of another** — `course` against `course_tight` — and
+## the ladder is what created it. This was a live bug: the report printed the
+## wide course twice and the medium course, whose file it could never reach,
+## never once.
+func _claim_11_artifact_names_resolve() -> void:
+	var stamp: String = "20260818_153651"
+	for id: String in DrillBook.ids():
+		var name: String = DrillBook.artifact_name(id, stamp)
+		var back: String = DrillBook.artifact_drill_id(name)
+		if back != id:
+			_failures.append("%s wrote '%s' and it reads back as '%s' — the writer and the reader disagree about the name"
+					% [id, name, back])
+	# The discriminating pairs, named out loud: if a rename ever leaves this list
+	# empty the claim still passes and has stopped testing anything, so it prints
+	# what it is actually holding rather than only that it held.
+	var pairs: PackedStringArray = []
+	for outer: String in DrillBook.ids():
+		for inner: String in DrillBook.ids():
+			if outer == inner or not inner.begins_with("%s_" % outer):
+				continue
+			pairs.append("%s < %s" % [outer, inner])
+			var name: String = DrillBook.artifact_name(inner, stamp)
+			if DrillBook.artifact_drill_id(name) == outer:
+				_failures.append("'%s' was written by %s and resolves to %s — an id that is a prefix of another shadows it"
+						% [name, inner, outer])
+	# Not a drill artifact at all. The stamp test is what refuses these, and
+	# without it any JSON dropped in the directory would be graded as a flight.
+	for junk: String in ["course.json", "course_notes.json", "course_2026_08.json",
+			"nosuchdrill_20260818_153651.json", "course_20260818_153651.txt"]:
+		if not DrillBook.artifact_drill_id(junk).is_empty():
+			_failures.append("'%s' is not a drill artifact and resolved to '%s'"
+					% [junk, DrillBook.artifact_drill_id(junk)])
+	# The report picks the newest by sorting names, so the stamp must order the
+	# same way time does.
+	var older: String = DrillBook.artifact_name("course", "20260817_213227")
+	var newer: String = DrillBook.artifact_name("course", "20260818_153417")
+	if not (older < newer):
+		_failures.append("'%s' does not sort before '%s' — the report picks the newest run by NAME"
+				% [older, newer])
+	print("[drill] claim 11: %d artifact names round-trip; shadowing pairs held: %s"
+			% [DrillBook.ids().size(),
+			", ".join(pairs) if not pairs.is_empty() else "NONE — this claim has no teeth"])

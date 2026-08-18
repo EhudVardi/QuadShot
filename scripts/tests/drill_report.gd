@@ -113,9 +113,13 @@ func _artifacts() -> PackedStringArray:
 	return out
 
 
+## The newest artifact THIS drill wrote. It asks `DrillBook` which drill a file
+## name belongs to rather than testing the name against a prefix: `course_` is
+## also the start of `course_tight_...` and `course_wide_...`, so the prefix
+## version reported the wide course twice and the medium course never.
 func _newest(files: PackedStringArray, drill_id: String) -> String:
 	var newest: String = ""
 	for path: String in files:
-		if path.get_file().begins_with("%s_" % drill_id):
+		if DrillBook.artifact_drill_id(path.get_file()) == drill_id:
 			newest = path
 	return newest
