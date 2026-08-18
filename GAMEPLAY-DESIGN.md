@@ -14643,3 +14643,244 @@ implementing one.
   four pips for a six-rotor frame. A sixth turned up in the same run: the motor
   audio's beat-spread guard assumed the widest detuned pair was three steps
   apart, which is true of four rotors and not of six.
+
+---
+
+## Iteration 18 — G: The Two Registers (PROPOSED, 2026-08-18 — user-initiated)
+
+> **PAPER ONLY.** Nothing here is built and nothing should be built until it is
+> steered. Sections are **G0–G6**, open questions **G.q1–G.q8**. React by ID.
+>
+> **This iteration exists because the user reversed a decision, deliberately and
+> with an argument.** Nine days ago the agent recommended keeping the small-scale
+> game and building the real-scale one separately; that was rejected in favour of
+> converting one world. On 2026-08-18 the user reversed it themselves. **The
+> reversal is not a change of mind about a feature, it is a change of mind about
+> what the project IS**, and they said so first:
+>
+> > *"I've underestimated how well you can help me put this thing up so i had low
+> > expectations and i've treated the game as an experiment. now that i see what
+> > you can do with the right direction and conversation, I feel this project
+> > deserves to be well defined and be called a game."*
+
+### G0 — The one-line summary, before the detail
+
+**QuadShot stops being one game at one scale and becomes one game with two
+registers**: a **toy register** (the existing small-form world, developed into a
+hobbyist playground) and a **real register** (true human scale, and the home of
+the war). They do not share a roster, they do not share modes, and the value of
+the product is that it offers both.
+
+### G1 — THE TOY GAME IS NOT WIPED, and that is the founding decision here
+
+The user's words, and the reasoning is theirs entirely:
+
+> *"the toy game we already have now (small form aircrafts and units) is very
+> cool and there's no reason why we should wipe it clean. So now i think the game
+> can and should have a few modes that well define how they play and why."*
+>
+> *"I think that the existing toy games can be further developed to be some sort
+> of a 'hobbiest playground' where we can play around with our small toy drones
+> and fight with other toys, as some sort of a side game. I feel that maintaining
+> this in some level, in addition to the more serious war game with real world
+> scale, would only give the game more character and identity, giving the player
+> the feeling that the game offers a vast range of gameplay types and moods with
+> lots of different levels and gameplay types. if in a serious drone fighting
+> game i can leave the war for some time and have some leasure with flying toys
+> and some racing/freestyle/freeroam, it would greatly increase the VALUE of the
+> game, what it can offer."*
+
+**The argument is about VALUE, not about sunk cost**, and that distinction is
+what makes it a design decision rather than an attachment to existing work. The
+claim is that a player who can step out of a war and go fly toys has a *bigger*
+game, not a diluted one — the two registers are a range of moods, and range is
+the identity.
+
+**It also retires a premise nobody had questioned:** that the scale work was a
+*conversion*. It is not. Nothing has to be thrown away for the real register to
+exist, which removes the largest cost item the scale plan ever carried.
+
+### G2 — TWO ROSTERS, and the argument that decided it
+
+The question was put months ago and left open: scale the existing roster up (one
+roster, two sizes) or build a second roster for the real register (two rosters).
+**The user has answered: two rosters.** Their reasoning, in full, because the
+middle sentence is the load-bearing one:
+
+> *"This one is tough because we've put so much work on balancing, I feel that it
+> may break the existing balancing, even though we are far from perfect, it may
+> still break something. However, i think that in ANY CASE, once we scale the
+> existing roster, i think that it would have to be rebalanced again, and we even
+> might need to build a completely different balancing method. I think that the
+> balancing tasks would appear in any case, so its irrelevant."*
+>
+> *"so this means that we might be better building a new roster, that while it
+> might be similar in the attributes we give each unit to the existing toy
+> roster, it would allow us to eventually diverge and isolate the 'serious
+> gamplay' from the 'hobby gameplay' realms, giving us full flexibility."*
+
+**THE DECIDING MOVE IS A COST CANCELLATION, AND IT IS CORRECT.** The strongest
+argument for one roster was always "two rosters means rebalancing everything".
+The user noticed that scaling a roster forces a rebalance *too* — the balance
+tables are keyed to sizes, speeds and exposure that all move — so the rebalance
+cost appears on both sides of the ledger and therefore cannot decide between
+them. **Once a cost is common to both options it is not a reason to choose
+either**, and what remains is flexibility, which points one way.
+
+**What "diverge" buys, stated concretely:** a change to the Raider's damage for
+the sake of an arena run cannot then wreck a war node, and a real-scale SAM does
+not have to be expressible as a scaled turret. The two realms can be tuned by
+different people, at different times, against different instruments, without a
+shared config making every edit a two-sided negotiation.
+
+### G3 — THE WAR BELONGS TO THE REAL REGISTER ONLY
+
+> *"for simplicity, I feel that the WAR aspect of the game should now only be
+> relevant and available to the REAL WORLD GAMEPLAY. we can either remove the toy
+> version of the war gameplay, and adopt different gameplay styles that is
+> dedicated for it and might suit it way better."*
+>
+> *"the rouge-like gameplay we already have in a good working skeleton for, can
+> be a gameplay style that is more relevant to the toy gameplay, because its more
+> arcade-like, enemies simply poping into the arena, upgrades, rounds, all of
+> these give a character of a fun game, rather than a WAR to be fought."*
+
+**This is a matching of tone to mechanism, and it is the sharpest observation in
+the message.** The roguelike's defining behaviours — enemies appearing from
+nowhere, a draft between rounds, a run that resets — are *arcade grammar*. They
+were always slightly at odds with a persistent theater where garrisons are
+attrited and nodes change hands. Splitting them across the two registers means
+each mode gets to be wholehearted: the arena is unashamedly a game, the war is
+unashamedly a campaign, and neither has to apologise to the other.
+
+**The war's SYSTEMS are not affected by this and must not be rebuilt.**
+`WarSim`, `TheaterGenerator`, `WarManifest`, `SortieComposer`, `WarView` and the
+war room are arithmetic over abstract strength; they have no opinion about how
+big an aircraft is. What changes is which roster `WarManifest` projects into. The
+one thing that moves is the *content* the war dresses itself in.
+
+### G4 — What crosses the line: the design guide and the ARCHETYPES, never the units
+
+The user was explicit that a new roster is not a blank page:
+
+> *"we can rely on the existing roster design guide (no enemy can be without at
+> least one answer (a weapone), etc), and we can draw some of the characteristics
+> of the toy roster different enemies, as each hold characteristics that are not
+> exclusive to it. for example, we should always have something like the raiders,
+> a small/medium enemy that is an adversary in multiple units, and in general an
+> enemy that makes you busy, we can have some type of real scaled screamer that
+> jams you and is hard to detect, we can have big serious turrets of various
+> kinds and sizes that shoot different ammunitions, a fast hornet like the falx
+> that comes out of nowhere shoots you and fly away fast, and so on and so
+> fourth."*
+
+**So an ARCHETYPE is portable and a UNIT is not**, which is a distinction the
+bestiary has always implied and never stated. P4.8's roster is really a list of
+*jobs*: the one that occupies you in numbers, the one that denies your senses,
+the one that punishes a static pilot, the one you bait rather than chase, the
+emplaced one that owns ground. Each job is answered by at least one weapon —
+that is the design guide, and it is scale-free.
+
+The real register inherits the jobs and invents its own answers to them. A
+real-scale "raider" need not be a small quad; it needs to be *numerous and
+occupying*. A real-scale screamer need not be a cloaked drone; it needs to *deny
+detection and be hard to find*.
+
+### G5 — The agent's reading, kept separate so it can be refused
+
+Everything above is the user's. The following is derived and should be treated as
+a proposal, not a record:
+
+1. **The two registers give the game two different meanings for DEATH.** In the
+   toy register the pilot is on the ground and loses an airframe. In the real
+   register, if V1 holds, the pilot is *inside* and a loss is a life. That single
+   asymmetry justifies the two tones better than any content difference, and it
+   resolves the standing contradiction that P5.4 already costs a **pilot** when a
+   remotely-flown drone dies. See **G.q2**.
+2. **The signal leash stops being a compromise and becomes characterisation.** A
+   video link that breaks up at range is *authentic* to a hobby FPV quad and
+   merely annoying on a manned aircraft. V4 decided the leash goes; under two
+   registers the honest answer may be that it stays in the toy world and is
+   replaced by fuel or endurance in the real one. See **G.q3**.
+3. **The course ladder is most of a racing mode already.** `DrillBook`'s three
+   courses are gates, order, timing, contact scoring and a 3D marker chain. The
+   toy register's cheapest new mode is banked and half-built, which matters for
+   ordering. See **G.q7**.
+4. **`ReferencePilot` is Kestrel-tuned and cannot measure the real register.**
+   Whatever is decided about balance method, a second pilot version is required,
+   and `PILOT_VERSION` already exists to keep the two rulers from mixing. This is
+   not an argument for two instruments; it is an argument that one instrument
+   needs two calibrations. See **G.q5**.
+5. **`FrameConfig`/`FlightConfig`/`EnemyConfig` are already multi-instance and
+   derive their paths from an id.** A second roster is therefore mostly authoring
+   rather than engineering — which is the strongest practical support for G2's
+   decision, and it was not part of the user's argument.
+
+### G6 — What this costs, stated before anything is agreed
+
+**It is not free and the honest number is "a second game's worth of content".**
+Two rosters means two bestiaries, two balance calibrations, two sets of feel
+work. The mitigation is that the *systems* are shared and already built — the
+war, the composer, the damage model, the HUD, the audio, the drill instrument all
+work off configs and ids rather than off constants.
+
+**The real risk is neither register getting finished.** A single scale with one
+roster is a smaller product that can be completed; two registers can become two
+half-games. The ordering question (**G.q7**) is therefore not a scheduling
+detail, it is the mitigation.
+
+### G steering — OPEN QUESTIONS
+
+**G.q1 — Where does the line between the registers fall on the existing size
+ladder?** Today it is Kestrel 0.28 m / Condor 1.2 m / Roc 3.0 m. (a) toy = Kestrel
+class only, real = Condor and up; (b) toy = Kestrel + Condor, real = Roc and up;
+(c) the registers share no frame at all — the real one gets new airframes and
+Condor/Roc stay as large toys; (d) other. *Agent's pick: (a), with the Condor
+flagged as genuinely ambiguous — at 1.2 m and 32 kg it is not a hobby aircraft
+and not a manned one.*
+
+**G.q2 — Is the real-register pilot INSIDE the aircraft?** V1 decided yes for the
+whole game; two registers may split it. (a) toy = remote FPV, real = manned;
+(b) both remote, the real register being large UAVs from a ground station;
+(c) per-airframe. *Agent's pick: (a) — it gives each register its own meaning for
+death and fixes the P5.4 contradiction.*
+
+**G.q3 — What limits how far you can go, in each register?** V4 decided the
+signal leash goes. (a) leash stays in the toy register only, real register
+unbounded; (b) gone everywhere as decided; (c) toy keeps signal range, real gets
+fuel/endurance as its own natural limit. *Agent's pick: (c) — a limit that comes
+from the aircraft rather than from the map edge is the one that survives a vast
+world.*
+
+**G.q4 — What are the modes, and which register hosts each?** Proposed:
+war campaign (real), arena roguelike run (toy), racing (toy), freestyle (toy),
+free roam (both). (a) as proposed; (b) free roam and racing exist in BOTH with
+different content; (c) other. *Agent's pick: (b) — the vast real world is exactly
+where free roam pays off, and a real-scale race through a city is the "extreme
+flyby" already asked for.*
+
+**G.q5 — One balance instrument or two?** (a) one instrument, two data sets, keyed
+by register; (b) two instruments; (c) the real register gets a new method and the
+toy register's is frozen as-is. *Agent's pick: (a) — Layers 1–3 are arithmetic
+over configs and do not know what a metre is; what must double is the
+calibration, not the method.*
+
+**G.q6 — What are the two registers CALLED**, permanently, in code and in front of
+the player? (a) `toy` / `real` in code, "the Playground" / "the War" to the
+player; (b) one name used everywhere; (c) other. *Agent's pick: (a) — code wants
+a flat id, a player wants a place.*
+
+**G.q7 — Is the toy register frozen or developed, and which register gets built
+first?** The message says both *"leave the existing toy scaled game as is"* and
+*"can be further developed"*. (a) toy frozen now, real register built to a
+vertical slice, toy developed after; (b) both in parallel; (c) toy first, because
+the course ladder is most of a racing mode already and it is a cheap complete
+win. *Agent's pick: (a), noting that (c) is genuinely tempting and that the
+banked racing mode does not spoil.*
+
+**G.q8 — Where does the real roster START — the player or the enemy?** (a) one
+real-scale player airframe that flies well, then enemies against it; (b) one
+enemy archetype first, flown against the existing Roc; (c) the whole roster on
+paper, then build. *Agent's pick: (a) — the flight model is the product, and
+every enemy number is measured against how the player's aircraft actually
+flies.*
